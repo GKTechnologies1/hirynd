@@ -80,11 +80,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
     if (!newRoleTitle.trim()) return;
     setAddingRole(true);
 
-    const { error } = await supabase.from("role_suggestions").insert({
-      candidate_id: candidateId,
-      role_title: newRoleTitle.trim(),
-      description: newRoleDescription.trim(),
-      suggested_by: user!.id,
+    const { error } = await supabase.rpc("add_role_suggestion", {
+      _candidate_id: candidateId,
+      _role_title: newRoleTitle.trim(),
+      _description: newRoleDescription.trim(),
     });
 
     if (error) {
