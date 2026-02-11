@@ -76,47 +76,15 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
     if (!allDecided || !canConfirm) return;
     setSubmitting(true);
 
-    // Update each role
-    for (const role of roles) {
-      await supabase
-        .from("role_suggestions")
-        .update({
-          candidate_confirmed: decisions[role.id],
-          confirmed_at: new Date().toISOString(),
-        })
-        .eq("id", role.id);
-    }
-
-    // Update candidate status
-    await supabase
-      .from("candidates")
-      .update({ status: "roles_confirmed" as any })
-      .eq("id", candidate.id);
-
-    // Audit log
-    await supabase.from("audit_logs").insert({
-      actor_id: user!.id,
-      action: "roles_confirmed",
-      entity_type: "role_suggestions",
-      entity_id: candidate.id,
-      new_value: decisions,
+    const { error } = await supabase.rpc("confirm_role_selections", {
+      _candidate_id: candidate.id,
+      _decisions: decisions,
     });
 
-    // Notify admins via secure RPC function
-    const { data: adminRoles } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "admin" as any);
-
-    if (adminRoles) {
-      for (const ar of adminRoles) {
-        await supabase.rpc("create_system_notification", {
-          _user_id: ar.user_id,
-          _title: "Roles Confirmed",
-          _message: "Candidate has confirmed their role selections. Awaiting payment.",
-          _link: "/admin-dashboard/candidates",
-        });
-      }
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setSubmitting(false);
+      return;
     }
 
     toast({ title: "Roles confirmed!", description: "Your selections have been saved. Next step: complete payment." });

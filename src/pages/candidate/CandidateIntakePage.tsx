@@ -93,52 +93,15 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     if (!canSubmit) return;
     setSubmitting(true);
 
-    // Upsert intake sheet
-    const { error } = await supabase
-      .from("client_intake_sheets")
-      .upsert({
-        candidate_id: candidate.id,
-        data: formData,
-        is_locked: true,
-        submitted_at: new Date().toISOString(),
-      }, { onConflict: "candidate_id" });
+    const { error } = await supabase.rpc("submit_intake_form", {
+      _candidate_id: candidate.id,
+      _form_data: formData,
+    });
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       setSubmitting(false);
       return;
-    }
-
-    // Update candidate status
-    await supabase
-      .from("candidates")
-      .update({ status: "intake_submitted" as any })
-      .eq("id", candidate.id);
-
-    // Audit log
-    await supabase.from("audit_logs").insert({
-      actor_id: user!.id,
-      action: "intake_submitted",
-      entity_type: "client_intake_sheet",
-      entity_id: candidate.id,
-      new_value: formData,
-    });
-
-    // Notify admins via secure RPC function
-    const { data: adminRoles } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "admin" as any);
-
-    if (adminRoles) {
-      for (const ar of adminRoles) {
-        await supabase.rpc("create_system_notification", {
-          _user_id: ar.user_id,
-          _title: "Intake Form Submitted",
-          _message: "Candidate has submitted their client intake form and is awaiting role suggestions.",
-          _link: "/admin-dashboard/candidates",
-        });
-      }
     }
 
     toast({ title: "Intake form submitted!", description: "Your form has been locked and submitted for review." });

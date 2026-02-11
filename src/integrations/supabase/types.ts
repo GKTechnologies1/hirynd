@@ -688,6 +688,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_role_suggestion: {
+        Args: {
+          _candidate_id: string
+          _description?: string
+          _role_title: string
+        }
+        Returns: string
+      }
+      confirm_role_selections: {
+        Args: { _candidate_id: string; _decisions: Json }
+        Returns: undefined
+      }
       create_system_notification: {
         Args: {
           _link?: string
@@ -703,6 +715,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      submit_intake_form: {
+        Args: { _candidate_id: string; _form_data: Json }
+        Returns: undefined
       }
     }
     Enums: {
