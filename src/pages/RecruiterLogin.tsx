@@ -35,7 +35,7 @@ const RecruiterLogin = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { error } = await signUp(regEmail, regPassword, regName, "recruiter");
+    const { error } = await signUp(regEmail, regPassword, regName);
     setSubmitting(false);
     if (error) {
       toast({ title: "Registration failed", description: error.message, variant: "destructive" });

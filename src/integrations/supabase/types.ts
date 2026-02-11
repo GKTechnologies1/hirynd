@@ -526,11 +526,38 @@ export type Database = {
         }
         Relationships: []
       }
+      recruiter_bank_details: {
+        Row: {
+          bank_account_last4: string | null
+          bank_name: string | null
+          bank_routing_last4: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank_account_last4?: string | null
+          bank_name?: string | null
+          bank_routing_last4?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank_account_last4?: string | null
+          bank_name?: string | null
+          bank_routing_last4?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       recruiter_profiles: {
         Row: {
-          bank_account_number: string | null
-          bank_name: string | null
-          bank_routing_number: string | null
           created_at: string
           documents_url: string | null
           id: string
@@ -539,9 +566,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          bank_account_number?: string | null
-          bank_name?: string | null
-          bank_routing_number?: string | null
           created_at?: string
           documents_url?: string | null
           id?: string
@@ -550,9 +574,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          bank_account_number?: string | null
-          bank_name?: string | null
-          bank_routing_number?: string | null
           created_at?: string
           documents_url?: string | null
           id?: string
@@ -667,6 +688,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_system_notification: {
+        Args: {
+          _link?: string
+          _message: string
+          _title: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

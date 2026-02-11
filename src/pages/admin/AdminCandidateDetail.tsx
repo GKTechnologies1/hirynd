@@ -119,13 +119,13 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
       new_value: { roles_count: roles.length },
     });
 
-    // Notify candidate
+    // Notify candidate via secure RPC function
     if (candidate) {
-      await supabase.from("notifications").insert({
-        user_id: candidate.user_id,
-        title: "Roles Suggested",
-        message: "Your team has suggested roles for your profile. Please review and confirm.",
-        link: "/candidate-dashboard/roles",
+      await supabase.rpc("create_system_notification", {
+        _user_id: candidate.user_id,
+        _title: "Roles Suggested",
+        _message: "Your team has suggested roles for your profile. Please review and confirm.",
+        _link: "/candidate-dashboard/roles",
       });
     }
 
