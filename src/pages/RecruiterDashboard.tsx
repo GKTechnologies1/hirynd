@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import RecruiterCandidateDetail from "@/pages/recruiter/RecruiterCandidateDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LayoutDashboard, Users, ClipboardList, User, Plus, FileText } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Users, ClipboardList, User, Eye } from "lucide-react";
 
 const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
@@ -20,6 +18,8 @@ const navItems = [
 
 const RecruiterDashboard = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,6 +59,13 @@ const RecruiterDashboard = () => {
     fetchCandidates();
   }, [user]);
 
+  // Sub-routing for candidate detail
+  const subPath = location.pathname.replace("/recruiter-dashboard", "").replace(/^\//, "");
+  if (subPath.startsWith("candidates/")) {
+    const candidateId = subPath.replace("candidates/", "");
+    return <RecruiterCandidateDetail candidateId={candidateId} />;
+  }
+
   return (
     <DashboardLayout title="Recruiter Dashboard" navItems={navItems}>
       <Card>
@@ -77,7 +84,8 @@ const RecruiterDashboard = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Your Role</TableHead>
+                  <TableHead>Designation</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -86,7 +94,12 @@ const RecruiterDashboard = () => {
                     <TableCell className="font-medium">{c.profile?.full_name || "—"}</TableCell>
                     <TableCell>{c.profile?.email || "—"}</TableCell>
                     <TableCell><StatusBadge status={c.status} /></TableCell>
-                    <TableCell className="capitalize">{c.assignment?.role_type?.replace("_", " ")}</TableCell>
+                    <TableCell className="capitalize">{c.assignment?.role_type?.replace(/_/g, " ")}</TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/recruiter-dashboard/candidates/${c.id}`)}>
+                        <Eye className="mr-1 h-4 w-4" /> View
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

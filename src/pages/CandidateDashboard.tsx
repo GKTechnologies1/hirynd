@@ -9,6 +9,7 @@ import CandidateIntakePage from "@/pages/candidate/CandidateIntakePage";
 import CandidateRolesPage from "@/pages/candidate/CandidateRolesPage";
 import CandidateCredentialsPage from "@/pages/candidate/CandidateCredentialsPage";
 import CandidatePaymentsPage from "@/pages/candidate/CandidatePaymentsPage";
+import CandidateApplicationsPage from "@/pages/candidate/CandidateApplicationsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, FileText, Briefcase, Users, Calendar, UserPlus, ClipboardList, Bell, DollarSign, KeyRound } from "lucide-react";
@@ -100,6 +101,9 @@ const CandidateDashboard = () => {
   if (subPath === "payments") {
     return <CandidatePaymentsPage candidate={candidate} />;
   }
+  if (subPath === "applications") {
+    return <CandidateApplicationsPage candidate={candidate} />;
+  }
 
   const status = candidate?.status || "lead";
 
@@ -111,7 +115,7 @@ const CandidateDashboard = () => {
       case "roles_suggested": return "Review and confirm your suggested roles.";
       case "roles_confirmed": return "Complete your payment to begin marketing.";
       case "paid": return "Submit your credential intake sheet.";
-      case "credential_completed": return "Your profile is being assigned to a recruiter.";
+      case "credential_completed": return team.length === 0 ? "Your credentials are submitted. Waiting for recruiter assignment." : "Your profile is being assigned to a recruiter.";
       case "active_marketing": return "Your profile is being actively marketed!";
       case "placed": return "Congratulations! You've been placed.";
       default: return "Contact support for assistance.";

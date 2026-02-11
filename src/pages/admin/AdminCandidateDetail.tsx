@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History } from "lucide-react";
+import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -190,6 +191,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="assignments">Assignments</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -382,6 +384,15 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        {/* Assignments Tab */}
+        <TabsContent value="assignments">
+          <AdminAssignmentsTab
+            candidateId={candidateId}
+            candidateStatus={status}
+            hasCredentials={credentials.length > 0}
+            onRefresh={fetchAll}
+          />
         </TabsContent>
       </Tabs>
     </DashboardLayout>

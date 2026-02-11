@@ -696,6 +696,14 @@ export type Database = {
         }
         Returns: string
       }
+      admin_assign_recruiter: {
+        Args: {
+          _candidate_id: string
+          _recruiter_id: string
+          _role_type: string
+        }
+        Returns: string
+      }
       admin_record_payment: {
         Args: {
           _amount: number
@@ -705,6 +713,14 @@ export type Database = {
           _status?: string
         }
         Returns: string
+      }
+      admin_start_marketing: {
+        Args: { _candidate_id: string }
+        Returns: undefined
+      }
+      admin_unassign_recruiter: {
+        Args: { _assignment_id: string }
+        Returns: undefined
       }
       admin_update_candidate_status: {
         Args: { _candidate_id: string; _new_status: string; _reason?: string }
