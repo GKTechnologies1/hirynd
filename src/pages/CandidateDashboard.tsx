@@ -36,8 +36,9 @@ const TrainingButton = ({ candidate, type, label }: { candidate: any; type: stri
       interview_training: "cal_interview_training",
       operations_call: "cal_operations_call",
     };
-    supabase.from("admin_config").select("config_value").eq("config_key", keyMap[type]).maybeSingle()
-      .then(({ data }) => { if (data?.config_value) setUrl(data.config_value); });
+    const configKey = keyMap[type];
+    supabase.rpc("get_public_config", { _keys: [configKey] })
+      .then(({ data }) => { if (data && data[configKey]) setUrl(data[configKey]); });
   }, [type]);
 
   const handleClick = async () => {
