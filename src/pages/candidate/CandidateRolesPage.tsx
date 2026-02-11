@@ -102,7 +102,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
       new_value: decisions,
     });
 
-    // Notify admins
+    // Notify admins via secure RPC function
     const { data: adminRoles } = await supabase
       .from("user_roles")
       .select("user_id")
@@ -110,11 +110,11 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
 
     if (adminRoles) {
       for (const ar of adminRoles) {
-        await supabase.from("notifications").insert({
-          user_id: ar.user_id,
-          title: "Roles Confirmed",
-          message: `Candidate has confirmed their role selections. Awaiting payment.`,
-          link: "/admin-dashboard/candidates",
+        await supabase.rpc("create_system_notification", {
+          _user_id: ar.user_id,
+          _title: "Roles Confirmed",
+          _message: "Candidate has confirmed their role selections. Awaiting payment.",
+          _link: "/admin-dashboard/candidates",
         });
       }
     }

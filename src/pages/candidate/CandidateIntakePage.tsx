@@ -124,23 +124,20 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
       new_value: formData,
     });
 
-    // Notify admins (insert notification for all admin users)
-    // We use a simple approach: get admin role users
+    // Notify admins via secure RPC function
     const { data: adminRoles } = await supabase
       .from("user_roles")
       .select("user_id")
       .eq("role", "admin" as any);
 
     if (adminRoles) {
-      const notifications = adminRoles.map((ar: any) => ({
-        user_id: ar.user_id,
-        title: "Intake Form Submitted",
-        message: `Candidate has submitted their client intake form and is awaiting role suggestions.`,
-        link: "/admin-dashboard/candidates",
-      }));
-      // Admin can insert notifications
-      for (const n of notifications) {
-        await supabase.from("notifications").insert(n);
+      for (const ar of adminRoles) {
+        await supabase.rpc("create_system_notification", {
+          _user_id: ar.user_id,
+          _title: "Intake Form Submitted",
+          _message: "Candidate has submitted their client intake form and is awaiting role suggestions.",
+          _link: "/admin-dashboard/candidates",
+        });
       }
     }
 
