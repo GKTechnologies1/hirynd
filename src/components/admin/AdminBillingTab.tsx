@@ -8,263 +8,338 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban } from "lucide-react";
 
 interface AdminBillingTabProps {
   candidateId: string;
   onRefresh: () => void;
 }
 
+const statusBadgeClass: Record<string, string> = {
+  active: "bg-secondary/10 text-secondary",
+  trialing: "bg-primary/10 text-primary",
+  past_due: "bg-destructive/10 text-destructive",
+  grace_period: "bg-destructive/10 text-destructive",
+  paused: "bg-muted text-muted-foreground",
+  canceled: "bg-muted text-muted-foreground",
+  unpaid: "bg-destructive/10 text-destructive",
+};
+
+const invoiceStatusBadge: Record<string, string> = {
+  scheduled: "bg-primary/10 text-primary",
+  paid: "bg-secondary/10 text-secondary",
+  failed: "bg-destructive/10 text-destructive",
+  waived: "bg-muted text-muted-foreground",
+};
+
 const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const { toast } = useToast();
   const [subscription, setSubscription] = useState<any>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Create subscription form
-  const [createAmount, setCreateAmount] = useState("");
-  const [createStatus, setCreateStatus] = useState("active");
-  const [creating, setCreating] = useState(false);
+  // Create/update form
+  const [formAmount, setFormAmount] = useState("");
+  const [formNextDate, setFormNextDate] = useState("");
+  const [formGraceDays, setFormGraceDays] = useState("5");
+  const [formStatus, setFormStatus] = useState("active");
+  const [formPlanName, setFormPlanName] = useState("Monthly Marketing");
+  const [saving, setSaving] = useState(false);
 
-  // Record payment form
-  const [payAmount, setPayAmount] = useState("");
-  const [payMethod, setPayMethod] = useState("manual");
-  const [payStatus, setPayStatus] = useState("success");
-  const [recording, setRecording] = useState(false);
+  // Record payment
+  const [payRef, setPayRef] = useState("");
+  const [payInvoiceId, setPayInvoiceId] = useState("");
+  const [recordingPay, setRecordingPay] = useState(false);
 
-  // Status change
-  const [newStatus, setNewStatus] = useState("");
-  const [changingStatus, setChangingStatus] = useState(false);
+  // Mark failed
+  const [failInvoiceId, setFailInvoiceId] = useState("");
+  const [failReason, setFailReason] = useState("");
+  const [markingFailed, setMarkingFailed] = useState(false);
 
-  // Grace period
-  const [graceDays, setGraceDays] = useState("5");
-  const [extendingGrace, setExtendingGrace] = useState(false);
-
-  // Billing check
-  const [runningCheck, setRunningCheck] = useState(false);
+  // Pause/cancel/resume
+  const [actionLoading, setActionLoading] = useState("");
 
   const fetchBilling = async () => {
-    const [subRes, payRes] = await Promise.all([
+    const [subRes, invRes, payRes] = await Promise.all([
       supabase.from("candidate_subscriptions").select("*").eq("candidate_id", candidateId).maybeSingle(),
+      supabase.from("subscription_invoices").select("*").eq("candidate_id", candidateId).order("period_start", { ascending: false }),
       supabase.from("subscription_payments").select("*").eq("candidate_id", candidateId).order("created_at", { ascending: false }),
     ]);
     setSubscription(subRes.data);
+    setInvoices(invRes.data || []);
     setPayments(payRes.data || []);
-    if (subRes.data) setNewStatus(subRes.data.status);
+    if (subRes.data) {
+      setFormAmount(String(subRes.data.amount));
+      setFormStatus(subRes.data.status);
+      setFormGraceDays(String(subRes.data.grace_days || 5));
+      setFormPlanName(subRes.data.plan_name || "Monthly Marketing");
+      if (subRes.data.next_billing_at) {
+        setFormNextDate(new Date(subRes.data.next_billing_at).toISOString().split("T")[0]);
+      }
+    }
     setLoading(false);
   };
 
   useEffect(() => { fetchBilling(); }, [candidateId]);
 
-  const handleCreate = async () => {
-    if (!createAmount || Number(createAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
-    setCreating(true);
-    const { error } = await supabase.rpc("admin_create_subscription", {
-      _candidate_id: candidateId, _amount: Number(createAmount), _status: createStatus,
+  const handleCreateOrUpdate = async () => {
+    if (!formAmount || Number(formAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+    setSaving(true);
+    const { error } = await supabase.rpc("admin_create_or_update_subscription", {
+      _candidate_id: candidateId,
+      _amount: Number(formAmount),
+      _next_charge_date: formNextDate || undefined,
+      _grace_days: Number(formGraceDays),
+      _status: formStatus,
+      _plan_name: formPlanName,
     });
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Subscription created" }); setCreateAmount(""); fetchBilling(); onRefresh(); }
-    setCreating(false);
+    else { toast({ title: subscription ? "Subscription updated" : "Subscription created" }); fetchBilling(); onRefresh(); }
+    setSaving(false);
   };
 
   const handleRecordPayment = async () => {
-    if (!payAmount || Number(payAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
-    setRecording(true);
-    const { error } = await supabase.rpc("admin_record_subscription_payment", {
-      _candidate_id: candidateId, _amount: Number(payAmount), _payment_status: payStatus, _payment_method: payMethod,
+    if (!payInvoiceId) { toast({ title: "Select an invoice", variant: "destructive" }); return; }
+    setRecordingPay(true);
+    const { error } = await supabase.rpc("admin_record_invoice_payment", {
+      _invoice_id: payInvoiceId,
+      _payment_reference: payRef,
     });
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Payment recorded" }); setPayAmount(""); fetchBilling(); onRefresh(); }
-    setRecording(false);
+    else { toast({ title: "Payment recorded" }); setPayRef(""); setPayInvoiceId(""); fetchBilling(); onRefresh(); }
+    setRecordingPay(false);
   };
 
-  const handleStatusChange = async () => {
-    if (!newStatus || newStatus === subscription?.status) return;
-    setChangingStatus(true);
-    const { error } = await supabase.rpc("admin_update_subscription_status", {
-      _candidate_id: candidateId, _new_status: newStatus,
+  const handleMarkFailed = async () => {
+    if (!failInvoiceId) { toast({ title: "Select an invoice", variant: "destructive" }); return; }
+    setMarkingFailed(true);
+    const { error } = await supabase.rpc("admin_mark_invoice_failed", {
+      _invoice_id: failInvoiceId,
+      _reason: failReason || "Payment failed",
     });
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Status updated" }); fetchBilling(); onRefresh(); }
-    setChangingStatus(false);
+    else { toast({ title: "Invoice marked failed" }); setFailInvoiceId(""); setFailReason(""); fetchBilling(); onRefresh(); }
+    setMarkingFailed(false);
   };
 
-  const handleExtendGrace = async () => {
-    setExtendingGrace(true);
-    const { error } = await supabase.rpc("admin_extend_grace_period", {
-      _candidate_id: candidateId, _days: Number(graceDays),
+  const handleAction = async (action: "pause" | "cancel" | "resume") => {
+    if (!subscription) return;
+    setActionLoading(action);
+    const { error } = await supabase.rpc("admin_pause_or_cancel_subscription", {
+      _subscription_id: subscription.id,
+      _action: action,
     });
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Grace period extended" }); fetchBilling(); }
-    setExtendingGrace(false);
+    else { toast({ title: `Subscription ${action}d` }); fetchBilling(); onRefresh(); }
+    setActionLoading("");
   };
 
   const handleBillingCheck = async () => {
-    setRunningCheck(true);
-    const { data, error } = await supabase.rpc("run_billing_checks");
+    setActionLoading("check");
+    const { data, error } = await supabase.rpc("run_billing_checks", { _dry_run: false });
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
     else {
-      const result = data as any;
-      toast({ title: "Billing check complete", description: `Expired grace periods paused: ${result?.expired_grace || 0}` });
+      const r = data as any;
+      toast({ title: "Billing check complete", description: `Grace expired: ${r?.expired_grace_paused || 0}, Overdue invoices: ${r?.overdue_invoices_created || 0}, Reminders: ${r?.upcoming_reminders || 0}` });
       fetchBilling(); onRefresh();
     }
-    setRunningCheck(false);
+    setActionLoading("");
   };
 
   if (loading) return <p className="text-muted-foreground">Loading billing...</p>;
 
-  const statusBadgeClass: Record<string, string> = {
-    active: "bg-secondary/10 text-secondary",
-    trialing: "bg-primary/10 text-primary",
-    past_due: "bg-destructive/10 text-destructive",
-    canceled: "bg-muted text-muted-foreground",
-    unpaid: "bg-destructive/10 text-destructive",
-  };
+  const pendingInvoices = invoices.filter((i: any) => i.status === "scheduled");
 
   return (
     <div className="space-y-4">
       {/* Run Billing Checks */}
       <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={handleBillingCheck} disabled={runningCheck}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${runningCheck ? "animate-spin" : ""}`} />
-          {runningCheck ? "Running..." : "Run Billing Checks"}
+        <Button variant="outline" size="sm" onClick={handleBillingCheck} disabled={actionLoading === "check"}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${actionLoading === "check" ? "animate-spin" : ""}`} />
+          {actionLoading === "check" ? "Running..." : "Run Billing Checks"}
         </Button>
       </div>
 
-      {!subscription ? (
-        /* Create Subscription */
+      {/* Create / Update Subscription */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {subscription ? <CreditCard className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+            {subscription ? "Subscription" : "Create Subscription"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {subscription && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4 pb-4 border-b border-border">
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <Badge className={statusBadgeClass[subscription.status] || ""}>{subscription.status.replace(/_/g, " ").toUpperCase()}</Badge>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Amount</p>
+                <p className="font-bold text-card-foreground">${Number(subscription.amount).toLocaleString()}/mo</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Next Charge</p>
+                <p className="text-card-foreground">{subscription.next_billing_at ? new Date(subscription.next_billing_at).toLocaleDateString() : "—"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Failed Attempts</p>
+                <p className="text-card-foreground">{subscription.failed_attempts || 0}</p>
+              </div>
+              {subscription.grace_period_ends_at && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Grace Period Ends</p>
+                  <p className="text-destructive font-semibold">{new Date(subscription.grace_period_ends_at).toLocaleDateString()}</p>
+                </div>
+              )}
+              {subscription.last_payment_at && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Last Payment</p>
+                  <p className="text-card-foreground">{new Date(subscription.last_payment_at).toLocaleDateString()}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div><Label>Plan Name</Label><Input value={formPlanName} onChange={e => setFormPlanName(e.target.value)} /></div>
+            <div><Label>Monthly Amount ($) *</Label><Input type="number" min="1" value={formAmount} onChange={e => setFormAmount(e.target.value)} placeholder="499" /></div>
+            <div><Label>Next Charge Date</Label><Input type="date" value={formNextDate} onChange={e => setFormNextDate(e.target.value)} /></div>
+            <div><Label>Grace Days</Label><Input type="number" min="1" max="30" value={formGraceDays} onChange={e => setFormGraceDays(e.target.value)} /></div>
+            <div><Label>Status</Label>
+              <Select value={formStatus} onValueChange={setFormStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["active","trialing","past_due","grace_period","paused","canceled"].map(s => (
+                    <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="hero" onClick={handleCreateOrUpdate} disabled={saving}>
+              {saving ? "Saving..." : subscription ? "Update Subscription" : "Create Subscription"}
+            </Button>
+            {subscription && subscription.status === "active" && (
+              <Button variant="outline" onClick={() => handleAction("pause")} disabled={!!actionLoading}>
+                <Pause className="mr-2 h-4 w-4" /> Pause
+              </Button>
+            )}
+            {subscription && ["paused","past_due","grace_period"].includes(subscription.status) && (
+              <Button variant="outline" onClick={() => handleAction("resume")} disabled={!!actionLoading}>
+                <Play className="mr-2 h-4 w-4" /> Resume
+              </Button>
+            )}
+            {subscription && subscription.status !== "canceled" && (
+              <Button variant="destructive" onClick={() => handleAction("cancel")} disabled={!!actionLoading}>
+                <Ban className="mr-2 h-4 w-4" /> Cancel
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Record Invoice Payment */}
+      {subscription && pendingInvoices.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Create Subscription</CardTitle>
+            <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Invoice Payment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><Label>Monthly Amount ($) *</Label><Input type="number" min="1" value={createAmount} onChange={e => setCreateAmount(e.target.value)} placeholder="499" /></div>
-              <div><Label>Initial Status</Label>
-                <Select value={createStatus} onValueChange={setCreateStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+              <div>
+                <Label>Invoice *</Label>
+                <Select value={payInvoiceId} onValueChange={setPayInvoiceId}>
+                  <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="trialing">Trialing</SelectItem>
+                    {pendingInvoices.map((inv: any) => (
+                      <SelectItem key={inv.id} value={inv.id}>
+                        ${Number(inv.amount).toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} to {new Date(inv.period_end).toLocaleDateString()}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+              <div><Label>Payment Reference</Label><Input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="e.g. TXN-12345" /></div>
             </div>
-            <Button variant="hero" onClick={handleCreate} disabled={creating}>{creating ? "Creating..." : "Create Subscription"}</Button>
+            <Button variant="hero" onClick={handleRecordPayment} disabled={recordingPay || !payInvoiceId}>
+              {recordingPay ? "Recording..." : "Record Payment"}
+            </Button>
           </CardContent>
         </Card>
-      ) : (
-        <>
-          {/* Subscription Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" /> Subscription</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge className={statusBadgeClass[subscription.status] || ""}>{subscription.status.replace(/_/g, " ").toUpperCase()}</Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Amount</p>
-                  <p className="font-bold text-card-foreground">${Number(subscription.amount).toLocaleString()}/mo</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Next Billing</p>
-                  <p className="text-card-foreground">{subscription.next_billing_at ? new Date(subscription.next_billing_at).toLocaleDateString() : "—"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Last Payment</p>
-                  <p className="text-card-foreground">{subscription.last_payment_at ? new Date(subscription.last_payment_at).toLocaleDateString() : "—"}</p>
-                </div>
-                {subscription.grace_period_ends_at && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Grace Period Ends</p>
-                    <p className="text-destructive font-semibold">{new Date(subscription.grace_period_ends_at).toLocaleDateString()}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Status Change */}
-              <div className="flex items-end gap-3 border-t border-border pt-4">
-                <div className="flex-1">
-                  <Label>Change Status</Label>
-                  <Select value={newStatus} onValueChange={setNewStatus}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["trialing", "active", "past_due", "canceled", "unpaid"].map(s => (
-                        <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleStatusChange} disabled={changingStatus || newStatus === subscription.status}>
-                  {changingStatus ? "Updating..." : "Update Status"}
-                </Button>
-              </div>
-
-              {/* Extend Grace */}
-              {subscription.status === "past_due" && (
-                <div className="flex items-end gap-3 border-t border-border pt-4 mt-4">
-                  <div>
-                    <Label>Extend Grace (days)</Label>
-                    <Input type="number" min="1" max="30" value={graceDays} onChange={e => setGraceDays(e.target.value)} className="w-24" />
-                  </div>
-                  <Button variant="outline" onClick={handleExtendGrace} disabled={extendingGrace}>
-                    {extendingGrace ? "Extending..." : "Extend Grace Period"}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Record Payment */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Subscription Payment</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div><Label>Amount ($) *</Label><Input type="number" min="1" value={payAmount} onChange={e => setPayAmount(e.target.value)} /></div>
-                <div><Label>Status</Label>
-                  <Select value={payStatus} onValueChange={setPayStatus}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="success">Success</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                      <SelectItem value="refunded">Refunded</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Method</Label>
-                  <Select value={payMethod} onValueChange={setPayMethod}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="manual">Manual</SelectItem>
-                      <SelectItem value="razorpay">Razorpay</SelectItem>
-                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button variant="hero" onClick={handleRecordPayment} disabled={recording || !payAmount}>
-                {recording ? "Recording..." : "Record Payment"}
-              </Button>
-            </CardContent>
-          </Card>
-        </>
       )}
 
-      {/* Payment History */}
+      {/* Mark Invoice Failed */}
+      {subscription && pendingInvoices.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><XCircle className="h-5 w-5" /> Mark Invoice Failed</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>Invoice *</Label>
+                <Select value={failInvoiceId} onValueChange={setFailInvoiceId}>
+                  <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
+                  <SelectContent>
+                    {pendingInvoices.map((inv: any) => (
+                      <SelectItem key={inv.id} value={inv.id}>
+                        ${Number(inv.amount).toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} to {new Date(inv.period_end).toLocaleDateString()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Failure Reason</Label><Input value={failReason} onChange={e => setFailReason(e.target.value)} placeholder="e.g. Card declined" /></div>
+            </div>
+            <Button variant="destructive" onClick={handleMarkFailed} disabled={markingFailed || !failInvoiceId}>
+              {markingFailed ? "Marking..." : "Mark Failed"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Invoice History */}
       <Card>
-        <CardHeader>
-          <CardTitle>Subscription Payment History</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Invoice History</CardTitle></CardHeader>
         <CardContent>
-          {payments.length === 0 ? (
-            <p className="text-muted-foreground">No subscription payments recorded.</p>
+          {invoices.length === 0 ? (
+            <p className="text-muted-foreground">No invoices yet.</p>
           ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Paid At</TableHead>
+                  <TableHead>Reference</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoices.map((inv: any) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="text-sm">{new Date(inv.period_start).toLocaleDateString()} – {new Date(inv.period_end).toLocaleDateString()}</TableCell>
+                    <TableCell className="font-medium">${Number(inv.amount).toLocaleString()}</TableCell>
+                    <TableCell><Badge className={invoiceStatusBadge[inv.status] || ""}>{inv.status.toUpperCase()}</Badge></TableCell>
+                    <TableCell className="text-sm">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{inv.payment_reference || "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Payment History (legacy) */}
+      {payments.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Payment Records</CardTitle></CardHeader>
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -292,9 +367,9 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                 ))}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

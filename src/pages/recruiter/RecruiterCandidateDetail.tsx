@@ -198,7 +198,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           </CardContent>
         </Card>
       )}
-      {subscription && ["past_due", "canceled", "unpaid"].includes(subscription.status) && (
+      {subscription && ["past_due", "canceled", "unpaid", "grace_period", "paused"].includes(subscription.status) && (
         <Card className="mb-4 border-destructive/30 bg-destructive/5">
           <CardContent className="p-4 flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
@@ -278,7 +278,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
         {/* Credentials (editable via RPC) */}
         <TabsContent value="credentials" className="space-y-4">
-          {(candidate.status === "paid" || ["credential_completed", "active_marketing", "placed"].includes(candidate.status)) && !(subscription && ["past_due", "canceled", "unpaid"].includes(subscription?.status)) ? (
+          {(candidate.status === "paid" || ["credential_completed", "active_marketing", "placed"].includes(candidate.status)) && !(subscription && ["past_due", "canceled", "unpaid", "grace_period", "paused"].includes(subscription?.status)) ? (
             <>
               <Card>
                 <CardHeader>
@@ -333,7 +333,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
         {/* Daily Log */}
         <TabsContent value="daily-log" className="space-y-4">
-          {["placed", "paused", "cancelled"].includes(candidate.status) || (subscription && ["past_due", "canceled", "unpaid"].includes(subscription?.status)) ? (
+          {["placed", "paused", "cancelled"].includes(candidate.status) || (subscription && ["past_due", "canceled", "unpaid", "grace_period", "paused"].includes(subscription?.status)) ? (
             <Card><CardContent className="p-6"><p className="text-muted-foreground">Daily logs are disabled{subscription && ["past_due", "canceled", "unpaid"].includes(subscription?.status) ? " due to billing issue" : ` for ${candidate.status} candidates`}.</p></CardContent></Card>
           ) : (
           <>

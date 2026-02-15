@@ -123,13 +123,17 @@ export type Database = {
           candidate_id: string
           created_at: string
           currency: string
+          failed_attempts: number
+          grace_days: number
           grace_period_ends_at: string | null
           id: string
           last_payment_at: string | null
           next_billing_at: string | null
+          plan_name: string
           provider: Database["public"]["Enums"]["payment_provider"]
           provider_customer_id: string | null
           provider_subscription_id: string | null
+          start_date: string | null
           status: Database["public"]["Enums"]["subscription_status"]
           updated_at: string
         }
@@ -140,13 +144,17 @@ export type Database = {
           candidate_id: string
           created_at?: string
           currency?: string
+          failed_attempts?: number
+          grace_days?: number
           grace_period_ends_at?: string | null
           id?: string
           last_payment_at?: string | null
           next_billing_at?: string | null
+          plan_name?: string
           provider?: Database["public"]["Enums"]["payment_provider"]
           provider_customer_id?: string | null
           provider_subscription_id?: string | null
+          start_date?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           updated_at?: string
         }
@@ -157,13 +165,17 @@ export type Database = {
           candidate_id?: string
           created_at?: string
           currency?: string
+          failed_attempts?: number
+          grace_days?: number
           grace_period_ends_at?: string | null
           id?: string
           last_payment_at?: string | null
           next_billing_at?: string | null
+          plan_name?: string
           provider?: Database["public"]["Enums"]["payment_provider"]
           provider_customer_id?: string | null
           provider_subscription_id?: string | null
+          start_date?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           updated_at?: string
         }
@@ -518,6 +530,56 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_methods: {
+        Row: {
+          brand: string | null
+          candidate_id: string
+          created_at: string
+          exp_month: number | null
+          exp_year: number | null
+          id: string
+          is_active: boolean
+          last4: string | null
+          method_label: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          candidate_id: string
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          id?: string
+          is_active?: boolean
+          last4?: string | null
+          method_label?: string
+          provider?: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          candidate_id?: string
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          id?: string
+          is_active?: boolean
+          last4?: string | null
+          method_label?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -796,6 +858,69 @@ export type Database = {
           },
         ]
       }
+      subscription_invoices: {
+        Row: {
+          amount: number
+          attempted_at: string | null
+          candidate_id: string
+          created_at: string
+          currency: string
+          failure_reason: string | null
+          id: string
+          paid_at: string | null
+          payment_reference: string | null
+          period_end: string
+          period_start: string
+          status: string
+          subscription_id: string
+        }
+        Insert: {
+          amount: number
+          attempted_at?: string | null
+          candidate_id: string
+          created_at?: string
+          currency?: string
+          failure_reason?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_reference?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+          subscription_id: string
+        }
+        Update: {
+          amount?: number
+          attempted_at?: string | null
+          candidate_id?: string
+          created_at?: string
+          currency?: string
+          failure_reason?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_reference?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_invoices_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_invoices_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_payments: {
         Row: {
           amount: number
@@ -937,6 +1062,17 @@ export type Database = {
         }
         Returns: string
       }
+      admin_create_or_update_subscription: {
+        Args: {
+          _amount: number
+          _candidate_id: string
+          _grace_days?: number
+          _next_charge_date?: string
+          _plan_name?: string
+          _status?: string
+        }
+        Returns: string
+      }
       admin_create_subscription: {
         Args: {
           _amount: number
@@ -962,6 +1098,22 @@ export type Database = {
           roles: Database["public"]["Enums"]["app_role"][]
           user_id: string
         }[]
+      }
+      admin_mark_invoice_failed: {
+        Args: { _invoice_id: string; _reason?: string }
+        Returns: undefined
+      }
+      admin_pause_or_cancel_subscription: {
+        Args: { _action: string; _reason?: string; _subscription_id: string }
+        Returns: undefined
+      }
+      admin_record_invoice_payment: {
+        Args: {
+          _invoice_id: string
+          _paid_at?: string
+          _payment_reference?: string
+        }
+        Returns: undefined
       }
       admin_record_payment: {
         Args: {
@@ -1020,7 +1172,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      run_billing_checks: { Args: never; Returns: Json }
+      run_billing_checks:
+        | { Args: never; Returns: Json }
+        | { Args: { _dry_run?: boolean }; Returns: Json }
       submit_intake_form: {
         Args: { _candidate_id: string; _form_data: Json }
         Returns: undefined
@@ -1051,6 +1205,8 @@ export type Database = {
         | "past_due"
         | "canceled"
         | "unpaid"
+        | "grace_period"
+        | "paused"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1199,6 +1355,8 @@ export const Constants = {
         "past_due",
         "canceled",
         "unpaid",
+        "grace_period",
+        "paused",
       ],
     },
   },

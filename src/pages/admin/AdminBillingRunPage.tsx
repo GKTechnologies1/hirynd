@@ -1,0 +1,117 @@
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { RefreshCw, Play, Eye } from "lucide-react";
+
+const AdminBillingRunPage = () => {
+  const { toast } = useToast();
+  const [result, setResult] = useState<any>(null);
+  const [running, setRunning] = useState(false);
+
+  const runCheck = async (dryRun: boolean) => {
+    setRunning(true);
+    setResult(null);
+    const { data, error } = await supabase.rpc("run_billing_checks", { _dry_run: dryRun });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setResult(data);
+      toast({ title: dryRun ? "Dry run complete" : "Billing checks executed" });
+    }
+    setRunning(false);
+  };
+
+  const affected = result?.affected || [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Manual Billing Check</CardTitle>
+          <CardDescription>
+            Run billing checks to process expired grace periods, create overdue invoices, and send upcoming charge reminders.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" onClick={() => runCheck(true)} disabled={running}>
+              <Eye className="mr-2 h-4 w-4" />
+              {running ? "Running..." : "Dry Run (Preview Only)"}
+            </Button>
+            <Button variant="hero" onClick={() => runCheck(false)} disabled={running}>
+              <Play className="mr-2 h-4 w-4" />
+              {running ? "Running..." : "Execute Billing Checks"}
+            </Button>
+          </div>
+
+          {result && (
+            <div className="space-y-4 mt-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-card-foreground">{result.expired_grace_paused || 0}</p>
+                    <p className="text-sm text-muted-foreground">Grace Periods Expired → Paused</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-card-foreground">{result.overdue_invoices_created || 0}</p>
+                    <p className="text-sm text-muted-foreground">Overdue Invoices Created</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-card-foreground">{result.upcoming_reminders || 0}</p>
+                    <p className="text-sm text-muted-foreground">Upcoming Reminders Sent</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {result.dry_run && (
+                <Badge className="bg-primary/10 text-primary">DRY RUN — No changes were made</Badge>
+              )}
+
+              {affected.length > 0 && (
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Affected Candidates</CardTitle></CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Candidate ID</TableHead>
+                          <TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {affected.map((a: any, i: number) => (
+                          <TableRow key={i}>
+                            <TableCell className="text-sm font-mono">{a.candidate_id?.slice(0, 8)}...</TableCell>
+                            <TableCell>
+                              <Badge className={
+                                a.action === "pause_expired_grace" ? "bg-destructive/10 text-destructive" :
+                                a.action === "create_overdue_invoice" ? "bg-primary/10 text-primary" :
+                                "bg-secondary/10 text-secondary"
+                              }>
+                                {a.action.replace(/_/g, " ")}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default AdminBillingRunPage;

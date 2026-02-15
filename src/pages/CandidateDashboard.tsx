@@ -210,7 +210,7 @@ const CandidateDashboard = () => {
           )}
 
           {/* Billing Issue Banner */}
-          {subscription && ["past_due", "canceled", "unpaid"].includes(subscription.status) && (
+          {subscription && ["past_due", "canceled", "unpaid", "grace_period", "paused"].includes(subscription.status) && (
             <Card className="border-destructive/30 bg-destructive/5">
               <CardContent className="p-4 flex items-center gap-3">
                 <AlertTriangle className="h-6 w-6 text-destructive" />

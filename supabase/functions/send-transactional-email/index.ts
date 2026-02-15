@@ -25,12 +25,18 @@ type EmailType =
   | "interest_confirmation"
   | "interest_admin_notification"
   | "referral_email"
+  | "subscription_created"
+  | "subscription_upcoming_charge"
   | "subscription_payment_success"
   | "subscription_payment_failed"
   | "subscription_past_due_notice"
+  | "subscription_paused_due_to_nonpayment"
   | "subscription_canceled"
   | "subscription_reactivated"
+  | "subscription_resumed"
   | "subscription_payment_failed_admin"
+  | "subscription_paused_admin"
+  | "subscription_created_admin"
   | "subscription_canceled_admin";
 
 interface EmailRequest {
@@ -73,235 +79,252 @@ function buildEmail(type: EmailType, payload: Record<string, string>): { subject
       return {
         to: [email],
         subject: "Welcome to HYRIND — Registration Received",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1e3a5f;">Thank You for Registering!</h1>
-            <p>Hi ${name},</p>
-            <p>We've received your registration at HYRIND. Our team will review your application and get back to you within <strong>24–48 hours</strong>.</p>
-            <p>You'll receive an email once your account has been approved.</p>
-            <p>In the meantime, feel free to explore our website: <a href="https://hyrind.com">hyrind.com</a></p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Thank You for Registering!</h1>
+          <p>Hi ${name},</p>
+          <p>We've received your registration at HYRIND. Our team will review your application and get back to you within <strong>24–48 hours</strong>.</p>
+          <p>You'll receive an email once your account has been approved.</p>
+          <p>In the meantime, feel free to explore our website: <a href="https://hyrind.com">hyrind.com</a></p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "new_registration_request":
       return {
-        to: [], // will be replaced with admin emails
+        to: [],
         subject: `New Registration: ${name} (${payload.role || "candidate"})`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #1e3a5f;">New Registration Request</h2>
-            <table style="border-collapse: collapse; width: 100%;">
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Name</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${name}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Email</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${email}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Role</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${payload.role || "candidate"}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Registered At</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${payload.created_at || new Date().toISOString()}</td></tr>
-            </table>
-            <p style="margin-top: 16px;"><a href="https://hyrind.com/admin-dashboard/approvals" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">Review in Admin Dashboard</a></p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e3a5f;">New Registration Request</h2>
+          <table style="border-collapse: collapse; width: 100%;">
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Name</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${name}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Email</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${email}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Role</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${payload.role || "candidate"}</td></tr>
+          </table>
+          <p style="margin-top: 16px;"><a href="https://hyrind.com/admin-dashboard/approvals" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">Review in Admin Dashboard</a></p>
+        </div>`,
       };
 
     case "approval_granted":
       return {
         to: [email],
         subject: "Your HYRIND Account Has Been Approved!",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1e3a5f;">Account Approved!</h1>
-            <p>Hi ${name},</p>
-            <p>Great news! Your HYRIND account has been approved. You can now log in and access your dashboard.</p>
-            <p><a href="https://hyrind.com/candidate-login" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">Log In Now</a></p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Account Approved!</h1>
+          <p>Hi ${name},</p>
+          <p>Great news! Your HYRIND account has been approved. You can now log in and access your dashboard.</p>
+          <p><a href="https://hyrind.com/candidate-login" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">Log In Now</a></p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "approval_rejected":
       return {
         to: [email],
         subject: "HYRIND Account Update",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1e3a5f;">Account Update</h1>
-            <p>Hi ${name},</p>
-            <p>Thank you for your interest in HYRIND. After reviewing your application, we're unable to approve your account at this time.</p>
-            ${payload.reason ? `<p><em>Reason: ${payload.reason}</em></p>` : ""}
-            <p>If you believe this was made in error or have questions, please contact us at <a href="mailto:support@hyrind.com">support@hyrind.com</a>.</p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Account Update</h1>
+          <p>Hi ${name},</p>
+          <p>Thank you for your interest in HYRIND. After reviewing your application, we're unable to approve your account at this time.</p>
+          ${payload.reason ? `<p><em>Reason: ${payload.reason}</em></p>` : ""}
+          <p>If you have questions, please contact us at <a href="mailto:support@hyrind.com">support@hyrind.com</a>.</p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "interest_confirmation":
       return {
         to: [email],
         subject: "Thank you for your interest in HYRIND!",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1e3a5f;">Welcome to HYRIND!</h1>
-            <p>Hi ${name},</p>
-            <p>Thank you for expressing interest in HYRIND's profile marketing and career support services.</p>
-            <p>Our team will review your submission and reach out within <strong>24–48 hours</strong> to schedule a discovery call.</p>
-            <h3>What happens next?</h3>
-            <ol>
-              <li>A team member will contact you to learn more about your career goals</li>
-              <li>We'll assess your profile and recommend the best service plan</li>
-              <li>Once approved, you'll get access to your personal candidate portal</li>
-            </ol>
-            <p>In the meantime, feel free to explore our website: <a href="https://hyrind.com">hyrind.com</a></p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Welcome to HYRIND!</h1>
+          <p>Hi ${name},</p>
+          <p>Thank you for expressing interest. Our team will reach out within <strong>24–48 hours</strong>.</p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "interest_admin_notification":
       return {
-        to: [], // will be replaced with admin emails
+        to: [],
         subject: `New Interest Form: ${name}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #1e3a5f;">New Interest Form Submission</h2>
-            <table style="border-collapse: collapse; width: 100%;">
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Name</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${name}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Email</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${email}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Phone</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${payload.phone || "—"}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">University</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${payload.university || "—"}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Visa Status</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${payload.visa_status || "—"}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Referral Source</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${payload.referral_source || "—"}</td></tr>
-            </table>
-            <p style="margin-top: 16px;"><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e3a5f;">New Interest Form Submission</h2>
+          <table style="border-collapse: collapse; width: 100%;">
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Name</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${name}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Email</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${email}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Phone</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${payload.phone || "—"}</td></tr>
+          </table>
+          <p style="margin-top: 16px;"><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
+        </div>`,
       };
 
     case "referral_email":
       return {
         to: [email],
         subject: `${payload.referrer_name || "A friend"} thinks you'd be great for HYRIND!`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1e3a5f;">You've Been Referred to HYRIND!</h1>
-            <p>Hi ${payload.friend_name || "there"},</p>
-            <p><strong>${payload.referrer_name || "Someone you know"}</strong> thinks you'd benefit from HYRIND's career support services.</p>
-            ${payload.referral_note ? `<p><em>"${payload.referral_note}"</em></p>` : ""}
-            <h3>What is HYRIND?</h3>
-            <p>HYRIND is a recruiter-led profile marketing platform that helps job seekers land interviews and full-time roles through:</p>
-            <ul>
-              <li>Dedicated recruiter support</li>
-              <li>Daily job submissions on your behalf</li>
-              <li>Resume optimization and interview preparation</li>
-            </ul>
-            <p><a href="https://hyrind.com/contact" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">Learn More & Get Started</a></p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">You've Been Referred to HYRIND!</h1>
+          <p>Hi ${payload.friend_name || "there"},</p>
+          <p><strong>${payload.referrer_name || "Someone you know"}</strong> thinks you'd benefit from HYRIND's career support services.</p>
+          ${payload.referral_note ? `<p><em>"${payload.referral_note}"</em></p>` : ""}
+          <p><a href="https://hyrind.com/contact" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">Learn More & Get Started</a></p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
+      };
+
+    // ---- Subscription emails (candidate) ----
+    case "subscription_created":
+      return {
+        to: [email],
+        subject: "HYRIND — Subscription Created",
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Subscription Created</h1>
+          <p>Hi ${name},</p>
+          <p>A monthly subscription of <strong>$${payload.amount || "0"}</strong> has been set up for your account.</p>
+          <p>Your next charge date is: <strong>${payload.next_charge_date || "N/A"}</strong></p>
+          <p><a href="https://hyrind.com/candidate-dashboard/billing" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">View Billing</a></p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
+      };
+
+    case "subscription_upcoming_charge":
+      return {
+        to: [email],
+        subject: "HYRIND — Upcoming Subscription Charge",
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Upcoming Charge</h1>
+          <p>Hi ${name},</p>
+          <p>Your monthly subscription of <strong>$${payload.amount || "0"}</strong> will be charged on <strong>${payload.charge_date || "in 3 days"}</strong>.</p>
+          <p>Ensure your payment method is up to date.</p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "subscription_payment_success":
       return {
         to: [email],
         subject: "HYRIND — Subscription Payment Received",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1e3a5f;">Payment Received</h1>
-            <p>Hi ${name},</p>
-            <p>Your subscription payment of <strong>$${payload.amount || "0"}</strong> has been successfully processed.</p>
-            <p>Your marketing services will continue uninterrupted. Next billing date: <strong>${payload.next_billing_at || "N/A"}</strong></p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Payment Received</h1>
+          <p>Hi ${name},</p>
+          <p>Your subscription payment of <strong>$${payload.amount || "0"}</strong> has been successfully processed.</p>
+          <p>Next billing date: <strong>${payload.next_billing_at || "N/A"}</strong></p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "subscription_payment_failed":
       return {
         to: [email],
         subject: "HYRIND — Subscription Payment Failed",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #c0392b;">Payment Failed</h1>
-            <p>Hi ${name},</p>
-            <p>We were unable to process your subscription payment. Please update your payment method to avoid any disruption to your marketing services.</p>
-            <p>If you need assistance, contact us at <a href="mailto:support@hyrind.com">support@hyrind.com</a>.</p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #c0392b;">Payment Failed</h1>
+          <p>Hi ${name},</p>
+          <p>We were unable to process your subscription payment${payload.reason ? `: ${payload.reason}` : ""}.</p>
+          <p>Please update your payment method to avoid disruption to your marketing services.</p>
+          ${payload.grace_end ? `<p>Grace period ends: <strong>${payload.grace_end}</strong></p>` : ""}
+          <p><a href="https://hyrind.com/candidate-dashboard/billing" style="display: inline-block; padding: 12px 24px; background: #c0392b; color: white; text-decoration: none; border-radius: 6px;">Update Payment</a></p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "subscription_past_due_notice":
       return {
         to: [email],
         subject: "HYRIND — Subscription Past Due",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #c0392b;">Subscription Past Due</h1>
-            <p>Hi ${name},</p>
-            <p>Your subscription is past due. You have a grace period ending on <strong>${payload.grace_period_ends_at || "N/A"}</strong>.</p>
-            <p>After the grace period, your marketing services will be paused. Please update your payment method as soon as possible.</p>
-            <p><a href="https://hyrind.com/candidate-dashboard/billing" style="display: inline-block; padding: 12px 24px; background: #c0392b; color: white; text-decoration: none; border-radius: 6px;">Update Payment</a></p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #c0392b;">Subscription Past Due</h1>
+          <p>Hi ${name},</p>
+          <p>Your subscription is past due. Grace period ends on <strong>${payload.grace_period_ends_at || "N/A"}</strong>.</p>
+          <p>After the grace period, your marketing services will be paused.</p>
+          <p><a href="https://hyrind.com/candidate-dashboard/billing" style="display: inline-block; padding: 12px 24px; background: #c0392b; color: white; text-decoration: none; border-radius: 6px;">Update Payment</a></p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
+      };
+
+    case "subscription_paused_due_to_nonpayment":
+      return {
+        to: [email],
+        subject: "HYRIND — Marketing Services Paused",
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #c0392b;">Marketing Services Paused</h1>
+          <p>Hi ${name},</p>
+          <p>Your marketing services have been paused due to non-payment. Please update your payment method and contact support to resume.</p>
+          <p><a href="https://hyrind.com/candidate-dashboard/billing" style="display: inline-block; padding: 12px 24px; background: #c0392b; color: white; text-decoration: none; border-radius: 6px;">View Billing</a></p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "subscription_canceled":
       return {
         to: [email],
-        subject: "HYRIND — Subscription Canceled",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1e3a5f;">Subscription Canceled</h1>
-            <p>Hi ${name},</p>
-            <p>Your subscription has been canceled. Your marketing services have been paused.</p>
-            <p>If you'd like to reactivate, please contact us at <a href="mailto:support@hyrind.com">support@hyrind.com</a>.</p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        subject: "HYRIND — Subscription Cancelled",
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Subscription Cancelled</h1>
+          <p>Hi ${name},</p>
+          <p>Your subscription has been cancelled. Marketing services have been paused.</p>
+          <p>To reactivate, contact us at <a href="mailto:support@hyrind.com">support@hyrind.com</a>.</p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
     case "subscription_reactivated":
+    case "subscription_resumed":
       return {
         to: [email],
-        subject: "HYRIND — Subscription Reactivated!",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1e3a5f;">Subscription Reactivated</h1>
-            <p>Hi ${name},</p>
-            <p>Great news! Your subscription has been reactivated and your marketing services will resume.</p>
-            <p>Best regards,<br/>The HYRIND Team</p>
-          </div>
-        `,
+        subject: "HYRIND — Subscription Resumed!",
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1e3a5f;">Subscription Resumed</h1>
+          <p>Hi ${name},</p>
+          <p>Great news! Your subscription has been resumed and marketing services are active again.</p>
+          <p>Best regards,<br/>The HYRIND Team</p>
+        </div>`,
       };
 
+    // ---- Subscription emails (admin) ----
     case "subscription_payment_failed_admin":
       return {
         to: [],
         subject: `Subscription Payment Failed: ${name}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #c0392b;">Subscription Payment Failed</h2>
-            <table style="border-collapse: collapse; width: 100%;">
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Candidate</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${name}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Email</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${email}</td></tr>
-              <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Amount</td><td style="padding: 8px; border-bottom: 1px solid #eee;">$${payload.amount || "0"}</td></tr>
-            </table>
-            <p style="margin-top: 16px;"><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
-          </div>
-        `,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #c0392b;">Subscription Payment Failed</h2>
+          <p>Candidate <strong>${name}</strong> (${email}) — Amount: $${payload.amount || "0"}</p>
+          ${payload.reason ? `<p>Reason: ${payload.reason}</p>` : ""}
+          <p><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
+        </div>`,
+      };
+
+    case "subscription_paused_admin":
+      return {
+        to: [],
+        subject: `Subscription Paused: ${name}`,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #c0392b;">Subscription Paused</h2>
+          <p>Candidate <strong>${name}</strong> (${email}) has been paused due to non-payment.</p>
+          <p><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
+        </div>`,
+      };
+
+    case "subscription_created_admin":
+      return {
+        to: [],
+        subject: `New Subscription Created: ${name}`,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e3a5f;">New Subscription Created</h2>
+          <p>A subscription of <strong>$${payload.amount || "0"}/mo</strong> has been created for candidate <strong>${name}</strong> (${email}).</p>
+          <p><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
+        </div>`,
       };
 
     case "subscription_canceled_admin":
       return {
         to: [],
-        subject: `Subscription Canceled: ${name}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #1e3a5f;">Subscription Canceled</h2>
-            <p>Candidate <strong>${name}</strong> (${email}) has had their subscription canceled.</p>
-            <p style="margin-top: 16px;"><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
-          </div>
-        `,
+        subject: `Subscription Cancelled: ${name}`,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e3a5f;">Subscription Cancelled</h2>
+          <p>Candidate <strong>${name}</strong> (${email}) has had their subscription cancelled.</p>
+          <p><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
+        </div>`,
       };
 
     default:

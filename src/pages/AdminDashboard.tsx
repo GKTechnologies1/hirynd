@@ -10,11 +10,12 @@ import AdminConfigPage from "@/pages/admin/AdminConfigPage";
 import AdminReportsPage from "@/pages/admin/AdminReportsPage";
 import AdminGlobalAuditTab from "@/components/admin/AdminGlobalAuditTab";
 import AdminApprovalsPage from "@/pages/admin/AdminApprovalsPage";
+import AdminBillingRunPage from "@/pages/admin/AdminBillingRunPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
@@ -26,6 +27,7 @@ const navItems = [
   { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
+  { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Configuration", path: "/admin-dashboard/config", icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -87,6 +89,7 @@ const AdminDashboard = () => {
   if (subPath === "config") return <DashboardLayout title="Configuration" navItems={navItems}><AdminConfigPage /></DashboardLayout>;
   if (subPath === "reports") return <DashboardLayout title="Reports & Exports" navItems={navItems}><AdminReportsPage /></DashboardLayout>;
   if (subPath === "audit") return <DashboardLayout title="Audit Logs" navItems={navItems}><AdminGlobalAuditTab /></DashboardLayout>;
+  if (subPath === "billing-run") return <DashboardLayout title="Billing Run" navItems={navItems}><AdminBillingRunPage /></DashboardLayout>;
 
   const pipelineWidgets = [
     { key: "lead", label: "New Leads", icon: <Activity className="h-4 w-4" /> },

@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle, Clock, XCircle } from "lucide-react";
+import { DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle, Clock, XCircle, Info } from "lucide-react";
 
 const CANDIDATE_NAV = [
   { label: "Overview", path: "/candidate-dashboard", icon: <span className="h-4 w-4">📋</span> },
@@ -23,24 +24,46 @@ const statusColors: Record<string, string> = {
   active: "bg-secondary/10 text-secondary border-secondary/30",
   trialing: "bg-primary/10 text-primary border-primary/30",
   past_due: "bg-destructive/10 text-destructive border-destructive/30",
+  grace_period: "bg-destructive/10 text-destructive border-destructive/30",
+  paused: "bg-muted text-muted-foreground border-border",
   canceled: "bg-muted text-muted-foreground border-border",
   unpaid: "bg-destructive/10 text-destructive border-destructive/30",
 };
 
+const invoiceStatusBadge: Record<string, string> = {
+  scheduled: "bg-primary/10 text-primary",
+  paid: "bg-secondary/10 text-secondary",
+  failed: "bg-destructive/10 text-destructive",
+  waived: "bg-muted text-muted-foreground",
+};
+
+const statusHelperText: Record<string, string> = {
+  active: "Your subscription is active. Marketing services are running.",
+  trialing: "You are on a trial period. Your first charge will be on your next billing date.",
+  past_due: "Your payment is overdue. Please update your payment method to avoid service disruption.",
+  grace_period: "You are in a grace period. Payment must be received before the grace period ends.",
+  paused: "Your subscription is paused. Marketing services are on hold. Contact support to resume.",
+  canceled: "Your subscription has been cancelled. Contact support to reactivate.",
+  unpaid: "Your subscription has an unpaid balance. Please contact support.",
+};
+
 const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
   const [subscription, setSubscription] = useState<any>(null);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!candidate) return;
     const fetchBilling = async () => {
-      const [subRes, payRes] = await Promise.all([
+      const [subRes, invRes, pmRes] = await Promise.all([
         supabase.from("candidate_subscriptions").select("*").eq("candidate_id", candidate.id).maybeSingle(),
-        supabase.from("subscription_payments").select("*").eq("candidate_id", candidate.id).order("created_at", { ascending: false }),
+        supabase.from("subscription_invoices").select("*").eq("candidate_id", candidate.id).order("period_start", { ascending: false }),
+        supabase.from("payment_methods").select("*").eq("candidate_id", candidate.id).eq("is_active", true),
       ]);
       setSubscription(subRes.data);
-      setPayments(payRes.data || []);
+      setInvoices(invRes.data || []);
+      setPaymentMethods(pmRes.data || []);
       setLoading(false);
     };
     fetchBilling();
@@ -56,8 +79,8 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
 
   return (
     <DashboardLayout title="Billing & Subscription" navItems={CANDIDATE_NAV}>
-      {/* Past Due Banner */}
-      {subscription?.status === "past_due" && (
+      {/* Past Due / Grace Period Banner */}
+      {subscription && ["past_due", "grace_period"].includes(subscription.status) && (
         <Card className="mb-6 border-destructive/30 bg-destructive/5">
           <CardContent className="p-4 flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
@@ -72,13 +95,20 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
         </Card>
       )}
 
-      {subscription?.status === "canceled" && (
+      {/* Paused / Canceled Banner */}
+      {subscription && ["paused", "canceled"].includes(subscription.status) && (
         <Card className="mb-6 border-muted bg-muted/30">
           <CardContent className="p-4 flex items-center gap-3">
             <XCircle className="h-6 w-6 text-muted-foreground" />
             <div>
-              <p className="font-semibold text-card-foreground">Subscription Canceled</p>
-              <p className="text-sm text-muted-foreground">Your subscription has been canceled. Contact support to reactivate.</p>
+              <p className="font-semibold text-card-foreground">
+                {subscription.status === "paused" ? "Subscription Paused" : "Subscription Cancelled"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {subscription.status === "paused"
+                  ? "Your subscription is paused. Marketing services are on hold. Contact support to resume."
+                  : "Your subscription has been cancelled. Contact support to reactivate."}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -95,70 +125,104 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
           ) : !subscription ? (
             <p className="text-muted-foreground">No active subscription. Your admin team will set this up when your account is ready.</p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge className={statusColors[subscription.status] || ""}>
-                  {subscription.status.replace(/_/g, " ").toUpperCase()}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly Amount</p>
-                <p className="text-lg font-bold text-card-foreground">${Number(subscription.amount).toLocaleString()} {subscription.currency}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Next Billing</p>
-                <p className="text-card-foreground">{subscription.next_billing_at ? new Date(subscription.next_billing_at).toLocaleDateString() : "—"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Last Payment</p>
-                <p className="text-card-foreground">{subscription.last_payment_at ? new Date(subscription.last_payment_at).toLocaleDateString() : "—"}</p>
-              </div>
-              {subscription.status === "past_due" && subscription.grace_period_ends_at && (
-                <div className="sm:col-span-2">
-                  <p className="text-sm text-muted-foreground">Grace Period Ends</p>
-                  <p className="text-destructive font-semibold">
-                    {new Date(subscription.grace_period_ends_at).toLocaleDateString()} ({graceRemaining()})
-                  </p>
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge className={statusColors[subscription.status] || ""}>
+                    {subscription.status.replace(/_/g, " ").toUpperCase()}
+                  </Badge>
                 </div>
-              )}
+                <div>
+                  <p className="text-sm text-muted-foreground">Plan</p>
+                  <p className="font-medium text-card-foreground">{subscription.plan_name || "Monthly Marketing"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Monthly Amount</p>
+                  <p className="text-lg font-bold text-card-foreground">${Number(subscription.amount).toLocaleString()} {subscription.currency}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Next Charge Date</p>
+                  <p className="text-card-foreground">{subscription.next_billing_at ? new Date(subscription.next_billing_at).toLocaleDateString() : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Last Payment</p>
+                  <p className="text-card-foreground">{subscription.last_payment_at ? new Date(subscription.last_payment_at).toLocaleDateString() : "—"}</p>
+                </div>
+                {["past_due", "grace_period"].includes(subscription.status) && subscription.grace_period_ends_at && (
+                  <div className="sm:col-span-2">
+                    <p className="text-sm text-muted-foreground">Grace Period Ends</p>
+                    <p className="text-destructive font-semibold">
+                      {new Date(subscription.grace_period_ends_at).toLocaleDateString()} ({graceRemaining()})
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Helper text */}
+              <div className="flex items-start gap-2 rounded-lg bg-muted/30 p-3">
+                <Info className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">{statusHelperText[subscription.status] || ""}</p>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Payment History */}
-      <Card>
+      {/* Payment Method */}
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Billing History</CardTitle>
+          <CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" /> Payment Method</CardTitle>
         </CardHeader>
         <CardContent>
-          {payments.length === 0 ? (
-            <p className="text-muted-foreground">No billing records yet.</p>
+          {paymentMethods.length > 0 ? (
+            <div className="space-y-2">
+              {paymentMethods.map((pm: any) => (
+                <div key={pm.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                  <CreditCard className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-card-foreground">{pm.method_label}</p>
+                    {pm.last4 && <p className="text-sm text-muted-foreground">{pm.brand ? `${pm.brand} ` : ""}•••• {pm.last4}{pm.exp_month ? ` (${pm.exp_month}/${pm.exp_year})` : ""}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-muted-foreground">Payment is handled via secure Razorpay link provided by the admin team.</p>
+              <Button variant="outline" disabled>
+                Update Payment Method (Coming Soon)
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Invoice Timeline */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Invoice History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {invoices.length === 0 ? (
+            <p className="text-muted-foreground">No invoices yet.</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Period</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Method</TableHead>
+                  <TableHead>Paid Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="text-sm">{new Date(p.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell className="font-medium">${Number(p.amount).toLocaleString()} {p.currency}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        {p.payment_status === "success" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> :
-                         p.payment_status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> :
-                         <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <span className="capitalize text-sm">{p.payment_status}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm capitalize text-muted-foreground">{p.payment_method}</TableCell>
+                {invoices.map((inv: any) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="text-sm">{new Date(inv.period_start).toLocaleDateString()} – {new Date(inv.period_end).toLocaleDateString()}</TableCell>
+                    <TableCell className="font-medium">${Number(inv.amount).toLocaleString()} {inv.currency}</TableCell>
+                    <TableCell><Badge className={invoiceStatusBadge[inv.status] || ""}>{inv.status.toUpperCase()}</Badge></TableCell>
+                    <TableCell className="text-sm">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
