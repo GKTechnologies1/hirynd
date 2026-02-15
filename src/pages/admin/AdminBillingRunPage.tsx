@@ -2,15 +2,19 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, Play, Eye } from "lucide-react";
+import { Play, Eye, AlertTriangle } from "lucide-react";
 
 const AdminBillingRunPage = () => {
   const { toast } = useToast();
   const [result, setResult] = useState<any>(null);
   const [running, setRunning] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
 
   const runCheck = async (dryRun: boolean) => {
     setRunning(true);
@@ -23,6 +27,17 @@ const AdminBillingRunPage = () => {
       toast({ title: dryRun ? "Dry run complete" : "Billing checks executed" });
     }
     setRunning(false);
+  };
+
+  const handleExecuteClick = () => {
+    setConfirmText("");
+    setShowConfirm(true);
+  };
+
+  const handleConfirmExecute = () => {
+    setShowConfirm(false);
+    setConfirmText("");
+    runCheck(false);
   };
 
   const affected = result?.affected || [];
@@ -42,7 +57,7 @@ const AdminBillingRunPage = () => {
               <Eye className="mr-2 h-4 w-4" />
               {running ? "Running..." : "Dry Run (Preview Only)"}
             </Button>
-            <Button variant="hero" onClick={() => runCheck(false)} disabled={running}>
+            <Button variant="hero" onClick={handleExecuteClick} disabled={running}>
               <Play className="mr-2 h-4 w-4" />
               {running ? "Running..." : "Execute Billing Checks"}
             </Button>
@@ -110,6 +125,36 @@ const AdminBillingRunPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Confirmation Modal */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Confirm Billing Execution
+            </DialogTitle>
+            <DialogDescription>
+              This will process expired grace periods, create overdue invoices, and send notifications. These changes cannot be undone. Type <strong>RUN</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder='Type "RUN" to confirm'
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmExecute}
+              disabled={confirmText !== "RUN"}
+            >
+              Execute Billing Checks
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
