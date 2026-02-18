@@ -446,6 +446,7 @@ export type Database = {
       job_postings: {
         Row: {
           candidate_id: string
+          candidate_response_status: string | null
           company_name: string
           created_at: string
           id: string
@@ -459,6 +460,7 @@ export type Database = {
         }
         Insert: {
           candidate_id: string
+          candidate_response_status?: string | null
           company_name?: string
           created_at?: string
           id?: string
@@ -472,6 +474,7 @@ export type Database = {
         }
         Update: {
           candidate_id?: string
+          candidate_response_status?: string | null
           company_name?: string
           created_at?: string
           id?: string
@@ -496,6 +499,44 @@ export type Database = {
             columns: ["submission_log_id"]
             isOneToOne: false
             referencedRelation: "daily_submission_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_status_updates: {
+        Row: {
+          created_at: string
+          id: string
+          job_posting_id: string
+          notes: string | null
+          source_role: string
+          status: string
+          updated_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_posting_id: string
+          notes?: string | null
+          source_role: string
+          status: string
+          updated_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_posting_id?: string
+          notes?: string | null
+          source_role?: string
+          status?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_status_updates_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
             referencedColumns: ["id"]
           },
         ]
@@ -1027,6 +1068,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_job_status_update: {
+        Args: { _job_posting_id: string; _notes?: string; _status: string }
+        Returns: string
+      }
       add_role_suggestion: {
         Args: {
           _candidate_id: string

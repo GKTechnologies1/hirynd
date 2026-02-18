@@ -24,6 +24,8 @@ const AdminConfigPage = () => {
     { key: "default_grace_period_days", label: "Default Grace Period (days)" },
     { key: "subscription_amount_default", label: "Default Subscription Amount ($)" },
     { key: "allow_auto_resume_after_payment", label: "Auto Resume After Payment (true/false)" },
+    { key: "email_admin_on_daily_logs", label: "Email Admin on Daily Logs (true/false)" },
+    { key: "email_admin_on_interview_logs", label: "Email Admin on Interview Logs (true/false)" },
   ];
 
   const fetchData = async () => {

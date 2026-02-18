@@ -5,7 +5,11 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare } from "lucide-react";
 
 const navItems = [
   { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -17,14 +21,25 @@ const navItems = [
   { label: "Refer a Friend", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
 ];
 
+const CANDIDATE_STATUSES = [
+  { value: "screening", label: "Screening" },
+  { value: "interview", label: "Interview" },
+  { value: "rejected", label: "Rejected" },
+  { value: "offer", label: "Offer" },
+  { value: "no_response", label: "No Response" },
+];
+
 interface CandidateApplicationsPageProps {
   candidate: any;
 }
 
 const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps) => {
+  const { toast } = useToast();
   const [dailyLogs, setDailyLogs] = useState<any[]>([]);
   const [jobPostings, setJobPostings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingJob, setUpdatingJob] = useState<string | null>(null);
+  const [statusNotes, setStatusNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!candidate?.id) return;
@@ -49,6 +64,23 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     };
     fetchData();
   }, [candidate?.id]);
+
+  const handleStatusUpdate = async (jobId: string, newStatus: string) => {
+    setUpdatingJob(jobId);
+    const { error } = await supabase.rpc("add_job_status_update", {
+      _job_posting_id: jobId,
+      _status: newStatus,
+      _notes: statusNotes[jobId] || "",
+    });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Status updated" });
+      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, candidate_response_status: newStatus } : j));
+      setStatusNotes(prev => ({ ...prev, [jobId]: "" }));
+    }
+    setUpdatingJob(null);
+  };
 
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
@@ -109,8 +141,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                                 <TableRow>
                                   <TableHead>Company</TableHead>
                                   <TableHead>Role</TableHead>
-                                  <TableHead>Status</TableHead>
+                                  <TableHead>Recruiter Status</TableHead>
+                                  <TableHead>Your Update</TableHead>
                                   <TableHead>Link</TableHead>
+                                  <TableHead>Actions</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -120,11 +154,36 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                                     <TableCell>{j.role_title || "—"}</TableCell>
                                     <TableCell><StatusBadge status={j.status} /></TableCell>
                                     <TableCell>
+                                      {j.candidate_response_status ? (
+                                        <StatusBadge status={j.candidate_response_status} />
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">Not set</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
                                       {j.job_url ? (
                                         <a href={j.job_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
                                           View <ExternalLink className="h-3 w-3" />
                                         </a>
                                       ) : "—"}
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <Select
+                                          value={j.candidate_response_status || ""}
+                                          onValueChange={(val) => handleStatusUpdate(j.id, val)}
+                                          disabled={updatingJob === j.id}
+                                        >
+                                          <SelectTrigger className="w-32 h-8 text-xs">
+                                            <SelectValue placeholder="Update..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {CANDIDATE_STATUSES.map(s => (
+                                              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
                                     </TableCell>
                                   </TableRow>
                                 ))}

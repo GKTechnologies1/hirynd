@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
@@ -45,6 +45,11 @@ const AdminDashboard = () => {
   const [pipelineCounts, setPipelineCounts] = useState<Record<string, number>>({});
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [billingAlerts, setBillingAlerts] = useState(0);
+  const [trainingClicks7d, setTrainingClicks7d] = useState(0);
+  const [trainingClicks30d, setTrainingClicks30d] = useState(0);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const fetchData = async () => {
     const { data: cands } = await supabase.from("candidates").select("*");
@@ -58,6 +63,32 @@ const AdminDashboard = () => {
       cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
       setPipelineCounts(counts);
     }
+
+    // Pending approvals count
+    const { data: pending } = await supabase.rpc("admin_get_pending_approvals");
+    setPendingApprovals(pending?.length || 0);
+
+    // Billing alerts (past_due + grace_period subscriptions)
+    const { data: billingSubs } = await supabase
+      .from("candidate_subscriptions")
+      .select("id")
+      .in("status", ["past_due", "grace_period"]);
+    setBillingAlerts(billingSubs?.length || 0);
+
+    // Training clicks
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const { count: clicks7 } = await supabase
+      .from("training_clicks")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sevenDaysAgo);
+    const { count: clicks30 } = await supabase
+      .from("training_clicks")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", thirtyDaysAgo);
+    setTrainingClicks7d(clicks7 || 0);
+    setTrainingClicks30d(clicks30 || 0);
+
     if (user) {
       const { data: notifs } = await supabase.from("notifications").select("*").eq("user_id", user.id).eq("is_read", false).order("created_at", { ascending: false }).limit(10);
       setNotifications(notifs || []);
@@ -92,15 +123,23 @@ const AdminDashboard = () => {
   if (subPath === "billing-run") return <DashboardLayout title="Billing Run" navItems={navItems}><AdminBillingRunPage /></DashboardLayout>;
 
   const pipelineWidgets = [
-    { key: "lead", label: "New Leads", icon: <Activity className="h-4 w-4" /> },
-    { key: "approved", label: "Approved", icon: <Users className="h-4 w-4" /> },
-    { key: "intake_submitted", label: "Intake Pending", icon: <FileText className="h-4 w-4" /> },
-    { key: "roles_suggested", label: "Roles Suggested", icon: <ClipboardList className="h-4 w-4" /> },
-    { key: "roles_confirmed", label: "Roles Confirmed", icon: <ClipboardList className="h-4 w-4" /> },
-    { key: "paid", label: "Paid", icon: <DollarSign className="h-4 w-4" /> },
-    { key: "active_marketing", label: "Active Marketing", icon: <Activity className="h-4 w-4" /> },
-    { key: "placed", label: "Placed", icon: <Users className="h-4 w-4" /> },
+    { key: "pending_approvals", label: "Pending Approvals", count: pendingApprovals, icon: <Shield className="h-4 w-4" />, link: "/admin-dashboard/approvals", color: "bg-destructive/10 text-destructive" },
+    { key: "lead", label: "New Leads", count: pipelineCounts["lead"] || 0, icon: <Activity className="h-4 w-4" />, filter: "lead", color: "bg-muted" },
+    { key: "approved", label: "Approved", count: pipelineCounts["approved"] || 0, icon: <CheckCircle className="h-4 w-4" />, filter: "approved", color: "bg-secondary/10" },
+    { key: "intake_submitted", label: "Intake → Awaiting Roles", count: pipelineCounts["intake_submitted"] || 0, icon: <FileText className="h-4 w-4" />, filter: "intake_submitted", color: "bg-accent/10" },
+    { key: "roles_confirmed", label: "Roles → Awaiting Payment", count: pipelineCounts["roles_confirmed"] || 0, icon: <ClipboardList className="h-4 w-4" />, filter: "roles_confirmed", color: "bg-accent/20" },
+    { key: "paid", label: "Paid", count: pipelineCounts["paid"] || 0, icon: <DollarSign className="h-4 w-4" />, filter: "paid", color: "bg-secondary/20" },
+    { key: "credential_completed", label: "Credentials Ready", count: pipelineCounts["credential_completed"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "credential_completed", color: "bg-secondary/30" },
+    { key: "active_marketing", label: "Active Marketing", count: pipelineCounts["active_marketing"] || 0, icon: <Activity className="h-4 w-4" />, filter: "active_marketing", color: "bg-secondary/40" },
+    { key: "placed", label: "Placed", count: pipelineCounts["placed"] || 0, icon: <Users className="h-4 w-4" />, filter: "placed", color: "bg-secondary text-secondary-foreground" },
+    { key: "billing_alerts", label: "Billing Alerts", count: billingAlerts, icon: <AlertTriangle className="h-4 w-4" />, link: "/admin-dashboard/billing-run", color: billingAlerts > 0 ? "bg-destructive/10 text-destructive" : "bg-muted" },
+    { key: "paused", label: "Paused", count: pipelineCounts["paused"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "paused", color: "bg-accent/30" },
+    { key: "training_clicks", label: "Training Clicks (7d / 30d)", count: trainingClicks7d, icon: <MousePointer className="h-4 w-4" />, link: "/admin-dashboard/config", color: "bg-muted", subtitle: `${trainingClicks7d} / ${trainingClicks30d}` },
   ];
+
+  const filteredCandidates = activeFilter
+    ? candidates.filter(c => c.status === activeFilter)
+    : candidates;
 
   return (
     <DashboardLayout title="Admin Operations" navItems={navItems}>
@@ -124,22 +163,43 @@ const AdminDashboard = () => {
         </Card>
       )}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Pipeline Widgets */}
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
         {pipelineWidgets.map((w) => (
-          <Card key={w.key}>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">{w.icon}</div>
-              <div>
-                <p className="text-2xl font-bold text-card-foreground">{pipelineCounts[w.key] || 0}</p>
-                <p className="text-sm text-muted-foreground">{w.label}</p>
+          <Card
+            key={w.key}
+            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === (w as any).filter ? "ring-2 ring-primary" : ""}`}
+            onClick={() => {
+              if ((w as any).link) {
+                navigate((w as any).link);
+              } else if ((w as any).filter) {
+                setActiveFilter(prev => prev === (w as any).filter ? null : (w as any).filter);
+              }
+            }}
+          >
+            <CardContent className="flex items-center gap-3 p-3">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${w.color}`}>{w.icon}</div>
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-card-foreground leading-tight">
+                  {(w as any).subtitle || w.count}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{w.label}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
+      {activeFilter && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Filtered by:</span>
+          <StatusBadge status={activeFilter} />
+          <Button variant="ghost" size="sm" onClick={() => setActiveFilter(null)}>Clear</Button>
+        </div>
+      )}
+
       <Card>
-        <CardHeader><CardTitle>All Candidates</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{activeFilter ? `Candidates — ${activeFilter.replace(/_/g, " ")}` : "All Candidates"}</CardTitle></CardHeader>
         <CardContent>
           {loading ? <p className="text-muted-foreground">Loading...</p> : (
             <Table>
@@ -153,7 +213,7 @@ const AdminDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {candidates.map((c: any) => (
+                {filteredCandidates.map((c: any) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.profile?.full_name || "—"}</TableCell>
                     <TableCell>{c.profile?.email || "—"}</TableCell>

@@ -21,9 +21,12 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   interview: { label: "Interview", className: "bg-secondary/30 text-secondary" },
   offer: { label: "Offer", className: "bg-secondary text-secondary-foreground" },
   rejected: { label: "Rejected", className: "bg-destructive/20 text-destructive" },
+  no_response: { label: "No Response", className: "bg-muted text-muted-foreground" },
   new: { label: "New", className: "bg-muted text-muted-foreground" },
   contacted: { label: "Contacted", className: "bg-accent/20 text-accent-foreground" },
   onboarded: { label: "Onboarded", className: "bg-secondary text-secondary-foreground" },
+  past_due: { label: "Past Due", className: "bg-destructive/20 text-destructive" },
+  grace_period: { label: "Grace Period", className: "bg-accent/30 text-accent-foreground" },
 };
 
 interface StatusBadgeProps {
