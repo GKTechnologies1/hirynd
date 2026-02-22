@@ -1217,6 +1217,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_assigned_recruiter: {
+        Args: { _candidate_id: string }
+        Returns: boolean
+      }
+      is_candidate_owner: { Args: { _candidate_id: string }; Returns: boolean }
+      is_user_candidate: { Args: { _user_id: string }; Returns: boolean }
       run_billing_checks:
         | { Args: never; Returns: Json }
         | { Args: { _dry_run?: boolean }; Returns: Json }

@@ -26,20 +26,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [approvalStatus, setApprovalStatus] = useState<string | null>(null);
 
   const fetchRoles = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    setRoles((data || []).map((r: any) => r.role as AppRole));
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
+      if (error) console.error("Failed to fetch roles:", error.message);
+      setRoles((data || []).map((r: any) => r.role as AppRole));
+    } catch (e) {
+      console.error("Exception fetching roles:", e);
+      setRoles([]);
+    }
   };
 
-  const fetchApprovalStatus = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("approval_status")
-      .eq("user_id", userId)
-      .single();
-    setApprovalStatus(data?.approval_status || "pending_approval");
+  const fetchApprovalStatus = async (userId: string, retry = true) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("approval_status")
+        .eq("user_id", userId)
+        .single();
+      if (error) {
+        console.error("Failed to fetch approval status:", error.message);
+        // Retry once after a short delay
+        if (retry) {
+          await new Promise(r => setTimeout(r, 1000));
+          return fetchApprovalStatus(userId, false);
+        }
+      }
+      setApprovalStatus(data?.approval_status || "pending_approval");
+    } catch (e) {
+      console.error("Exception fetching approval status:", e);
+      setApprovalStatus("pending_approval");
+    }
   };
 
   useEffect(() => {
