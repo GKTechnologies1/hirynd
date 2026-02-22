@@ -16,11 +16,30 @@ const corsHeaders = {
 
 const FROM_ADDRESS = "HYRIND <noreply@hyrind.com>";
 const REPLY_TO = "support@hyrind.com";
+const DEFAULT_SITE_URL = "https://hyrnd.netlify.app";
 
 interface EmailRequest {
   type: "interest_confirmation" | "admin_notification" | "referral_email";
   to: string;
   data: Record<string, string>;
+}
+
+async function getSiteUrl(req?: Request): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from("admin_config")
+      .select("config_value")
+      .eq("config_key", "site_url")
+      .single();
+    if (data?.config_value) return data.config_value.replace(/\/+$/, "");
+  } catch (e) {
+    console.warn("Failed to read site_url from admin_config:", e);
+  }
+  if (req) {
+    const origin = req.headers.get("origin");
+    if (origin) return origin.replace(/\/+$/, "");
+  }
+  return DEFAULT_SITE_URL;
 }
 
 async function logEmail(email_type: string, recipient_email: string, status: string, error_message?: string) {
@@ -66,6 +85,8 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    const siteUrl = await getSiteUrl(req);
+
     let subject = "";
     let html = "";
     let recipients: string[] = [to];
@@ -85,7 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
               <li>We'll assess your profile and recommend the best service plan</li>
               <li>Once approved, you'll get access to your personal candidate portal</li>
             </ol>
-            <p>In the meantime, feel free to explore our website: <a href="https://hyrind.com">hyrind.com</a></p>
+            <p>In the meantime, feel free to explore our website: <a href="${siteUrl}">${siteUrl}</a></p>
             <p>Best regards,<br/>The HYRIND Team</p>
           </div>
         `;
@@ -93,7 +114,6 @@ const handler = async (req: Request): Promise<Response> => {
 
       case "admin_notification":
         subject = `New Interest Form: ${data.name || "Unknown"}`;
-        // Override recipient with admin emails from config
         recipients = await getAdminEmails();
         html = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -106,7 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
               <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Visa Status</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.visa_status || "—"}</td></tr>
               <tr><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Referral Source</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.referral_source || "—"}</td></tr>
             </table>
-            <p style="margin-top: 16px;"><a href="https://hyrind.com/admin-dashboard">View in Admin Dashboard</a></p>
+            <p style="margin-top: 16px;"><a href="${siteUrl}/admin-dashboard">View in Admin Dashboard</a></p>
           </div>
         `;
         break;
@@ -126,7 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
               <li>Daily job submissions on your behalf</li>
               <li>Resume optimization and interview preparation</li>
             </ul>
-            <p><a href="https://hyrind.com/contact" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">Learn More & Get Started</a></p>
+            <p><a href="${siteUrl}/contact" style="display: inline-block; padding: 12px 24px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 6px;">Learn More & Get Started</a></p>
             <p>Best regards,<br/>The HYRIND Team</p>
           </div>
         `;
@@ -157,7 +177,6 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error sending email:", error);
 
-    // Try to log the failure
     try {
       const body = await req.clone().json().catch(() => ({}));
       await logEmail(body.type || "unknown", body.to || "unknown", "failed", error.message);
