@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
 
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -144,18 +145,22 @@ const AdminDashboard = () => {
   return (
     <DashboardLayout title="Admin Operations" navItems={navItems}>
       {notifications.length > 0 && (
-        <Card className="mb-6">
-          <CardHeader><CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" /> Notifications ({notifications.length})</CardTitle></CardHeader>
+        <Card className="mb-6 border-secondary/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Bell className="h-4 w-4 text-secondary" /> Notifications ({notifications.length})
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2">
             {notifications.map((n: any) => (
-              <div key={n.id} className="flex items-start justify-between rounded-lg border border-border bg-accent/5 p-3">
-                <div className="flex-1">
+              <div key={n.id} className="flex items-start justify-between rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+                <div className="flex-1 min-w-0">
                   <p className="font-medium text-card-foreground text-sm">{n.title}</p>
-                  <p className="text-sm text-muted-foreground">{n.message}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {n.link && <Button variant="outline" size="sm" onClick={() => navigate(n.link)}>View</Button>}
-                  <Button variant="ghost" size="sm" onClick={() => markNotifRead(n.id)}>✓</Button>
+                <div className="flex items-center gap-1.5 ml-3">
+                  {n.link && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(n.link)}>View</Button>}
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => markNotifRead(n.id)}>✓</Button>
                 </div>
               </div>
             ))}
@@ -164,77 +169,91 @@ const AdminDashboard = () => {
       )}
 
       {/* Pipeline Widgets */}
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        {pipelineWidgets.map((w) => (
-          <Card
-            key={w.key}
-            className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === (w as any).filter ? "ring-2 ring-primary" : ""}`}
-            onClick={() => {
-              if ((w as any).link) {
-                navigate((w as any).link);
-              } else if ((w as any).filter) {
-                setActiveFilter(prev => prev === (w as any).filter ? null : (w as any).filter);
-              }
-            }}
-          >
-            <CardContent className="flex items-center gap-3 p-3">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${w.color}`}>{w.icon}</div>
-              <div className="min-w-0">
-                <p className="text-xl font-bold text-card-foreground leading-tight">
-                  {(w as any).subtitle || w.count}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">{w.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="dashboard-section">
+        <p className="dashboard-section-title">Pipeline Overview</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+          {pipelineWidgets.map((w, i) => (
+            <motion.div
+              key={w.key}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03, duration: 0.25 }}
+            >
+              <Card
+                className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+                  activeFilter === (w as any).filter ? "ring-2 ring-secondary shadow-md" : ""
+                }`}
+                onClick={() => {
+                  if ((w as any).link) navigate((w as any).link);
+                  else if ((w as any).filter) setActiveFilter(prev => prev === (w as any).filter ? null : (w as any).filter);
+                }}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${w.color} transition-transform group-hover:scale-105`}>
+                    {w.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {(w as any).subtitle || w.count}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{w.label}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
       </div>
 
       {activeFilter && (
         <div className="mb-4 flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Filtered by:</span>
+          <span className="text-xs text-muted-foreground">Filtered by:</span>
           <StatusBadge status={activeFilter} />
-          <Button variant="ghost" size="sm" onClick={() => setActiveFilter(null)}>Clear</Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setActiveFilter(null)}>Clear</Button>
         </div>
       )}
 
       <Card>
-        <CardHeader><CardTitle>{activeFilter ? `Candidates — ${activeFilter.replace(/_/g, " ")}` : "All Candidates"}</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">{activeFilter ? `Candidates — ${activeFilter.replace(/_/g, " ")}` : "All Candidates"}</CardTitle>
+        </CardHeader>
         <CardContent>
-          {loading ? <p className="text-muted-foreground">Loading...</p> : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Change Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCandidates.map((c: any) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.profile?.full_name || "—"}</TableCell>
-                    <TableCell>{c.profile?.email || "—"}</TableCell>
-                    <TableCell><StatusBadge status={c.status} /></TableCell>
-                    <TableCell>
-                      <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
-                        <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
-                        <Eye className="mr-1 h-4 w-4" /> View
-                      </Button>
-                    </TableCell>
+          {loading ? <p className="text-muted-foreground text-sm">Loading...</p> : (
+            <div className="rounded-xl border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="text-xs font-semibold">Name</TableHead>
+                    <TableHead className="text-xs font-semibold">Email</TableHead>
+                    <TableHead className="text-xs font-semibold">Status</TableHead>
+                    <TableHead className="text-xs font-semibold">Change Status</TableHead>
+                    <TableHead className="text-xs font-semibold">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredCandidates.map((c: any) => (
+                    <TableRow key={c.id} className="hover:bg-muted/20 transition-colors">
+                      <TableCell className="font-medium text-sm">{c.profile?.full_name || "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{c.profile?.email || "—"}</TableCell>
+                      <TableCell><StatusBadge status={c.status} /></TableCell>
+                      <TableCell>
+                        <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
+                          <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
+                          <Eye className="mr-1 h-3.5 w-3.5" /> View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

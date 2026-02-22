@@ -16,6 +16,7 @@ import CandidateReferralsPage from "@/pages/candidate/CandidateReferralsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, FileText, Briefcase, Users, Calendar, UserPlus, ClipboardList, Bell, DollarSign, KeyRound, Phone, Award, CreditCard, AlertTriangle } from "lucide-react";
+import { motion } from "framer-motion";
 
 const navItems = [
   { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -186,25 +187,29 @@ const CandidateDashboard = () => {
   return (
     <DashboardLayout title="Candidate Dashboard" navItems={navItems}>
       <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
+        <div className="md:col-span-2 space-y-5">
           {/* Placed Banner */}
           {status === "placed" && (
-            <Card className="border-secondary/50 bg-secondary/5">
-              <CardContent className="p-4 flex items-center gap-3">
-                <Award className="h-6 w-6 text-secondary" />
-                <div>
-                  <p className="font-semibold text-card-foreground">Case Closed — You've Been Placed! 🎉</p>
-                  <p className="text-sm text-muted-foreground">Your placement is complete. Thank you for trusting us.</p>
-                </div>
-              </CardContent>
-            </Card>
+            <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
+              <Card className="border-secondary/30 bg-secondary/5">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/15">
+                    <Award className="h-5 w-5 text-secondary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-card-foreground text-sm">Case Closed — You've Been Placed! 🎉</p>
+                    <p className="text-xs text-muted-foreground">Your placement is complete. Thank you for trusting us.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           )}
 
           {/* Paused/Cancelled Banner */}
           {["paused", "cancelled"].includes(status) && (
             <Card className="border-destructive/30 bg-destructive/5">
               <CardContent className="p-4">
-                <p className="font-semibold text-card-foreground capitalize">{status} — {getNextAction()}</p>
+                <p className="font-semibold text-card-foreground capitalize text-sm">{status} — {getNextAction()}</p>
               </CardContent>
             </Card>
           )}
@@ -213,25 +218,32 @@ const CandidateDashboard = () => {
           {subscription && ["past_due", "canceled", "unpaid", "grace_period", "paused"].includes(subscription.status) && (
             <Card className="border-destructive/30 bg-destructive/5">
               <CardContent className="p-4 flex items-center gap-3">
-                <AlertTriangle className="h-6 w-6 text-destructive" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                </div>
                 <div>
-                  <p className="font-semibold text-card-foreground">Billing Issue — {subscription.status === "past_due" ? "Payment Past Due" : subscription.status === "canceled" ? "Subscription Canceled" : "Payment Required"}</p>
-                  <p className="text-sm text-muted-foreground">Please visit your <a href="/candidate-dashboard/billing" className="underline text-primary">Billing page</a> to resolve this.</p>
+                  <p className="font-semibold text-card-foreground text-sm">Billing Issue — {subscription.status === "past_due" ? "Payment Past Due" : subscription.status === "canceled" ? "Subscription Canceled" : "Payment Required"}</p>
+                  <p className="text-xs text-muted-foreground">Please visit your <a href="/candidate-dashboard/billing" className="underline text-primary hover:text-primary/80">Billing page</a> to resolve this.</p>
                 </div>
               </CardContent>
             </Card>
           )}
+
           {notifications.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" /> Notifications</CardTitle></CardHeader>
+            <Card className="border-secondary/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Bell className="h-4 w-4 text-secondary" /> Notifications
+                </CardTitle>
+              </CardHeader>
               <CardContent className="space-y-2">
                 {notifications.map((n: any) => (
-                  <div key={n.id} className="flex items-start justify-between rounded-lg border border-border bg-secondary/5 p-3">
+                  <div key={n.id} className="flex items-start justify-between rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/50 transition-colors">
                     <div>
                       <p className="font-medium text-card-foreground text-sm">{n.title}</p>
-                      <p className="text-sm text-muted-foreground">{n.message}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => markNotifRead(n.id)}>✓</Button>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => markNotifRead(n.id)}>✓</Button>
                   </div>
                 ))}
               </CardContent>
@@ -239,14 +251,14 @@ const CandidateDashboard = () => {
           )}
 
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle>Welcome back</CardTitle>
+                <CardTitle className="text-sm font-semibold">Welcome back</CardTitle>
                 <StatusBadge status={status} />
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">{getNextAction()}</p>
+              <p className="text-sm text-muted-foreground">{getNextAction()}</p>
               {status === "approved" && (
                 <Button variant="hero" className="mt-4" onClick={() => window.location.href = "/candidate-dashboard/intake"}>
                   Complete Intake Form
@@ -277,16 +289,25 @@ const CandidateDashboard = () => {
 
           {team.length > 0 && (
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Your Team</CardTitle></CardHeader>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Users className="h-4 w-4 text-secondary" /> Your Team
+                </CardTitle>
+              </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {team.map((member: any) => (
-                    <div key={member.recruiter_id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                      <div>
-                        <p className="font-medium text-card-foreground">{member.profile?.full_name || "Recruiter"}</p>
-                        <p className="text-sm text-muted-foreground">{member.profile?.email}</p>
+                    <div key={member.recruiter_id} className="flex items-center justify-between rounded-xl border border-border p-3 hover:bg-muted/30 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/10 text-secondary">
+                          <Users className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-card-foreground text-sm">{member.profile?.full_name || "Recruiter"}</p>
+                          <p className="text-xs text-muted-foreground">{member.profile?.email}</p>
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground capitalize">{member.role_type?.replace("_", " ")}</span>
+                      <span className="text-[11px] text-muted-foreground capitalize bg-muted rounded-full px-2.5 py-0.5">{member.role_type?.replace("_", " ")}</span>
                     </div>
                   ))}
                 </div>
@@ -295,8 +316,10 @@ const CandidateDashboard = () => {
           )}
 
           <Card>
-            <CardHeader><CardTitle>Schedule Training</CardTitle></CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Schedule Training</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2.5 sm:grid-cols-2">
               <TrainingButton candidate={candidate} type="screening_practice" label="Screening Practice" />
               <TrainingButton candidate={candidate} type="interview_training" label="Interview Training" />
               <TrainingButton candidate={candidate} type="operations_call" label="Operations Call" />
