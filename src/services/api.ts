@@ -45,7 +45,7 @@ export default api;
 
 // ─── Auth ───
 export const authApi = {
-  register: (data: { email: string; password: string; full_name: string; phone?: string; role?: string }) =>
+  register: (data: Record<string, any>) =>
     api.post('/auth/register/', data),
   login: (email: string, password: string) =>
     api.post('/auth/login/', { email, password }),
@@ -55,6 +55,8 @@ export const authApi = {
   },
   me: () => api.get('/auth/me/'),
   updateProfile: (data: Record<string, any>) => api.patch('/auth/profile/', data),
+  changePassword: (data: { current_password: string; new_password: string; confirm_new_password: string }) =>
+    api.post('/auth/change-password/', data),
   pendingApprovals: () => api.get('/auth/pending-approvals/'),
   approveUser: (user_id: string, action: 'approved' | 'rejected') =>
     api.post('/auth/approve-user/', { user_id, action }),
@@ -69,36 +71,49 @@ export const candidatesApi = {
   getIntake: (id: string) => api.get(`/candidates/${id}/intake/`),
   submitIntake: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/intake/`, { data }),
   getRoles: (id: string) => api.get(`/candidates/${id}/roles/`),
-  addRole: (id: string, data: { role_title: string; description?: string }) => api.post(`/candidates/${id}/roles/add/`, data),
-  confirmRoles: (id: string, decisions: Record<string, boolean>) => api.post(`/candidates/${id}/roles/confirm/`, { decisions }),
+  addRole: (id: string, data: { role_title: string; description?: string; admin_note?: string }) =>
+    api.post(`/candidates/${id}/roles/add/`, data),
+  confirmRoles: (id: string, decisions: Record<string, any>) =>
+    api.post(`/candidates/${id}/roles/confirm/`, { decisions }),
   getCredentials: (id: string) => api.get(`/candidates/${id}/credentials/`),
-  upsertCredential: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/credentials/upsert/`, { data }),
+  upsertCredential: (id: string, data: Record<string, any>) =>
+    api.post(`/candidates/${id}/credentials/upsert/`, { data }),
   getReferrals: (id: string) => api.get(`/candidates/${id}/referrals/`),
-  submitReferral: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/referrals/`, data),
+  submitReferral: (id: string, data: Record<string, any>) =>
+    api.post(`/candidates/${id}/referrals/`, data),
   getInterviews: (id: string) => api.get(`/candidates/${id}/interviews/`),
-  submitInterview: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/interviews/`, data),
+  submitInterview: (id: string, data: Record<string, any>) =>
+    api.post(`/candidates/${id}/interviews/`, data),
   getPlacement: (id: string) => api.get(`/candidates/${id}/placement/`),
-  closePlacement: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/placement/`, data),
+  closePlacement: (id: string, data: Record<string, any>) =>
+    api.post(`/candidates/${id}/placement/`, data),
+  getPayments: (id: string) => api.get(`/candidates/${id}/payments/`),
 };
 
 // ─── Recruiters ───
 export const recruitersApi = {
   myCandidates: () => api.get('/recruiters/my-candidates/'),
   assignments: (candidateId: string) => api.get(`/recruiters/${candidateId}/assignments/`),
-  assign: (data: { candidate: string; recruiter: string; role_type: string }) => api.post('/recruiters/assign/', data),
+  assign: (data: { candidate: string; recruiter: string; role_type: string }) =>
+    api.post('/recruiters/assign/', data),
   unassign: (assignmentId: string) => api.post(`/recruiters/unassign/${assignmentId}/`),
   getDailyLogs: (candidateId: string) => api.get(`/recruiters/${candidateId}/daily-logs/`),
-  submitDailyLog: (candidateId: string, data: Record<string, any>) => api.post(`/recruiters/${candidateId}/daily-logs/`, data),
-  updateJobStatus: (jobId: string, status: string) => api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
+  submitDailyLog: (candidateId: string, data: Record<string, any>) =>
+    api.post(`/recruiters/${candidateId}/daily-logs/`, data),
+  updateJobStatus: (jobId: string, status: string) =>
+    api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
 };
 
 // ─── Billing ───
 export const billingApi = {
   subscription: (candidateId: string) => api.get(`/billing/${candidateId}/subscription/`),
-  createSubscription: (candidateId: string, data: Record<string, any>) => api.post(`/billing/${candidateId}/subscription/create/`, data),
-  updateSubscription: (candidateId: string, data: Record<string, any>) => api.patch(`/billing/${candidateId}/subscription/update/`, data),
+  createSubscription: (candidateId: string, data: Record<string, any>) =>
+    api.post(`/billing/${candidateId}/subscription/create/`, data),
+  updateSubscription: (candidateId: string, data: Record<string, any>) =>
+    api.patch(`/billing/${candidateId}/subscription/update/`, data),
   payments: (candidateId: string) => api.get(`/billing/${candidateId}/payments/`),
-  recordPayment: (candidateId: string, data: Record<string, any>) => api.post(`/billing/${candidateId}/payments/record/`, data),
+  recordPayment: (candidateId: string, data: Record<string, any>) =>
+    api.post(`/billing/${candidateId}/payments/record/`, data),
   invoices: (candidateId: string) => api.get(`/billing/${candidateId}/invoices/`),
 };
 
@@ -123,4 +138,12 @@ export const filesApi = {
     return api.post('/files/upload/', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
   getDownloadUrl: (fileId: string) => api.get(`/files/${fileId}/download/`),
+};
+
+// ─── Chat ───
+export const chatApi = {
+  myRooms: () => api.get('/chat/rooms/'),
+  roomMessages: (roomId: string) => api.get(`/chat/rooms/${roomId}/messages/`),
+  sendMessage: (roomId: string, message_text: string, attachment_url?: string) =>
+    api.post(`/chat/rooms/${roomId}/send/`, { message_text, attachment_url }),
 };

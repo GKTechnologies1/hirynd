@@ -6,7 +6,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 
 from .models import User
-from .serializers import RegisterSerializer, UserSerializer, ApproveUserSerializer, UserListSerializer
+from .serializers import (
+    RegisterSerializer, UserSerializer, ApproveUserSerializer,
+    UserListSerializer, ChangePasswordSerializer,
+)
 from .permissions import IsAdmin
 from audit.utils import log_action
 from notifications.utils import send_email
@@ -19,11 +22,27 @@ def register(request):
     serializer.is_valid(raise_exception=True)
     user = serializer.save()
 
-    # Notify admin
+    log_action(
+        actor=user, action='registration_created',
+        target_id=str(user.id), target_type='user',
+        details={'role': user.role},
+    )
+
+    # Email to candidate
+    name = user.profile.full_name if hasattr(user, 'profile') else user.email
+    send_email(
+        to=user.email,
+        subject='Registration Received – Hyrind',
+        html=f'<p>Hi {name},</p>'
+             f'<p>Thank you for registering with Hyrind. Your account is under review.</p>'
+             f'<p>Expected review time: 24–48 hours.</p>',
+    )
+
+    # Email to admin
     send_email(
         to=settings.ADMIN_NOTIFICATION_EMAIL,
-        subject=f'New {user.role} registration – {user.profile.full_name}',
-        html=f'<p><strong>{user.profile.full_name}</strong> ({user.email}) registered as <em>{user.role}</em>.</p>'
+        subject=f'New {user.role} registration – {name}',
+        html=f'<p><strong>{name}</strong> ({user.email}) registered as <em>{user.role}</em>.</p>'
              f'<p><a href="{settings.SITE_URL}/admin-dashboard/approvals">Review in Admin Dashboard</a></p>',
     )
 
@@ -33,7 +52,7 @@ def register(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
-    email = request.data.get('email', '')
+    email = request.data.get('email', '').lower()
     password = request.data.get('password', '')
     try:
         user = User.objects.get(email=email)
@@ -86,6 +105,23 @@ def update_profile(request):
     return Response(UserSerializer(request.user).data)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    serializer = ChangePasswordSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    user = request.user
+    if not user.check_password(serializer.validated_data['current_password']):
+        return Response({'error': 'Current password is incorrect'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(serializer.validated_data['new_password'])
+    user.save()
+
+    log_action(user, 'password_updated', str(user.id), 'user', {})
+    return Response({'message': 'Password updated successfully'})
+
+
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def pending_approvals(request):
@@ -109,27 +145,31 @@ def approve_user(request):
     user.approval_status = action
     user.save()
 
+    # Update candidate status if approved
+    if action == 'approved' and hasattr(user, 'candidate'):
+        user.candidate.status = 'approved'
+        user.candidate.save()
+
     log_action(
         actor=request.user,
-        action=f'approval_{action}',
+        action=f'registration_{action}',
         target_id=str(user.id),
         target_type='user',
         details={'old_status': old_status, 'new_status': action},
     )
 
-    # Send email
     name = user.profile.full_name if hasattr(user, 'profile') else user.email
     if action == 'approved':
         send_email(
             to=user.email,
-            subject='Your HYRIND account is approved',
-            html=f'<p>Hi {name},</p><p>Your account has been approved. You can now log in.</p>'
+            subject='Your Hyrind Profile Has Been Approved',
+            html=f'<p>Hi {name},</p><p>Your account has been approved. You can now log in to the portal.</p>'
                  f'<p><a href="{settings.SITE_URL}/{user.role}-login">Login here</a></p>',
         )
     else:
         send_email(
             to=user.email,
-            subject='HYRIND registration update',
+            subject='Update on Your Hyrind Registration',
             html=f'<p>Hi {name},</p><p>Your registration has been reviewed and was not approved at this time.</p>',
         )
 

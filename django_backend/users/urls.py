@@ -12,4 +12,5 @@ urlpatterns = [
     path('pending-approvals/', views.pending_approvals, name='pending_approvals'),
     path('approve-user/', views.approve_user, name='approve_user'),
     path('users/', views.all_users, name='all_users'),
+    path('change-password/', views.change_password, name='change_password'),
 ]
