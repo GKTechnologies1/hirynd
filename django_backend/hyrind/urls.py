@@ -11,4 +11,5 @@ urlpatterns = [
     path('api/notifications/', include('notifications.urls')),
     path('api/files/', include('files.urls')),
     path('api/chat/', include('chat.urls')),
+    path('api/admin/', include('audit.admin_urls')),
 ]

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,20 +22,16 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   const [showForm, setShowForm] = useState(false);
 
   const [form, setForm] = useState({
-    company_name: "",
-    role_title: "",
-    start_date: "",
-    salary: "",
-    hr_email: "",
-    offer_letter_url: "",
-    interviewer_email: "",
-    bgv_company_name: "",
-    notes: "",
+    company_name: "", role_title: "", start_date: "", salary: "",
+    hr_email: "", offer_letter_url: "", interviewer_email: "",
+    bgv_company_name: "", notes: "",
   });
 
   useEffect(() => {
-    supabase.from("placement_closures").select("*").eq("candidate_id", candidateId).maybeSingle()
-      .then(({ data }) => { setPlacement(data); setLoading(false); });
+    candidatesApi.getPlacement(candidateId)
+      .then(({ data }) => { setPlacement(data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [candidateId]);
 
   const handleSubmit = async () => {
@@ -44,30 +40,19 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.rpc("admin_close_placement", {
-      _candidate_id: candidateId,
-      _company_name: form.company_name.trim(),
-      _role_title: form.role_title.trim(),
-      _start_date: form.start_date,
-      _salary: form.salary.trim(),
-      _hr_email: form.hr_email.trim(),
-      _offer_letter_url: form.offer_letter_url,
-      _interviewer_email: form.interviewer_email,
-      _bgv_company_name: form.bgv_company_name,
-      _notes: form.notes,
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await candidatesApi.closePlacement(candidateId, form);
       toast({ title: "Case closed successfully!" });
       onRefresh();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
     }
     setSubmitting(false);
   };
 
   if (loading) return <p className="text-muted-foreground p-4">Loading...</p>;
 
-  if (placement) {
+  if (placement && placement.id) {
     return (
       <Card>
         <CardHeader>
@@ -119,7 +104,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
           <div><Label>Company Name *</Label><Input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} /></div>
           <div><Label>Role Title *</Label><Input value={form.role_title} onChange={e => setForm(p => ({ ...p, role_title: e.target.value }))} /></div>
           <div><Label>Start Date *</Label><Input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} /></div>
-          <div><Label>Salary *</Label><Input value={form.salary} onChange={e => setForm(p => ({ ...p, salary: e.target.value }))} placeholder="e.g. $85,000/year" /></div>
+          <div><Label>Salary *</Label><Input value={form.salary} onChange={e => setForm(p => ({ ...p, salary: e.target.value }))} placeholder="e.g. ₹85,000/year" /></div>
           <div><Label>HR Email *</Label><Input type="email" value={form.hr_email} onChange={e => setForm(p => ({ ...p, hr_email: e.target.value }))} /></div>
           <div><Label>Offer Letter URL</Label><Input value={form.offer_letter_url} onChange={e => setForm(p => ({ ...p, offer_letter_url: e.target.value }))} placeholder="https://..." /></div>
           <div><Label>Interviewer Email</Label><Input type="email" value={form.interviewer_email} onChange={e => setForm(p => ({ ...p, interviewer_email: e.target.value }))} /></div>

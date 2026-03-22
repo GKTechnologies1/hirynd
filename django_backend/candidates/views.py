@@ -213,3 +213,46 @@ def placement(request, candidate_id):
     Candidate.objects.filter(id=candidate_id).update(status='placed')
     log_action(request.user, 'placement_closed', str(candidate_id), 'candidate', data)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def candidate_payments(request, candidate_id):
+    from billing.models import Payment
+    from billing.serializers import PaymentSerializer
+    pays = Payment.objects.filter(candidate_id=candidate_id).order_by('-created_at')
+    return Response(PaymentSerializer(pays, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def qa_checklist(request, candidate_id):
+    try:
+        cand = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    status_order = ['lead', 'pending_approval', 'approved', 'intake_submitted', 'roles_suggested',
+                    'roles_confirmed', 'paid', 'credential_completed', 'active_marketing',
+                    'paused', 'cancelled', 'placed']
+    idx = status_order.index(cand.status) if cand.status in status_order else -1
+
+    cred_count = CredentialVersion.objects.filter(candidate=cand).count()
+    from recruiters.models import RecruiterAssignment, DailySubmissionLog
+    assign_count = RecruiterAssignment.objects.filter(candidate=cand, is_active=True).count()
+    log_count = DailySubmissionLog.objects.filter(candidate=cand).count()
+    interview_count = InterviewLog.objects.filter(candidate=cand).count()
+    placement_count = PlacementClosure.objects.filter(candidate=cand).count()
+
+    checks = [
+        {'label': 'Intake complete', 'done': idx >= 3},
+        {'label': 'Roles confirmed', 'done': idx >= 5},
+        {'label': 'Payment received', 'done': idx >= 6},
+        {'label': 'Credentials submitted', 'done': cred_count > 0},
+        {'label': 'Recruiter assigned', 'done': assign_count > 0},
+        {'label': 'Marketing started', 'done': idx >= 8 or cand.status == 'placed'},
+        {'label': 'Applications logged', 'done': log_count > 0},
+        {'label': 'Interviews logged', 'done': interview_count > 0},
+        {'label': 'Placement closed', 'done': placement_count > 0},
+    ]
+    return Response({'checks': checks})

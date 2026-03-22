@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { auditApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ interface AdminAuditTabProps {
 }
 
 const ACTION_TYPES = [
-  { value: "all", label: "All Actions" },
+  { value: "", label: "All Actions" },
   { value: "status_change", label: "Status Changes" },
   { value: "intake_submitted", label: "Intake" },
   { value: "roles_confirmed", label: "Roles" },
@@ -26,8 +26,7 @@ const ACTION_TYPES = [
 
 const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
   const [logs, setLogs] = useState<any[]>([]);
-  const [actorProfiles, setActorProfiles] = useState<Record<string, string>>({});
-  const [actionFilter, setActionFilter] = useState("all");
+  const [actionFilter, setActionFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
@@ -35,26 +34,14 @@ const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
   useEffect(() => {
     const fetchLogs = async () => {
       setLoading(true);
-      let query = supabase.from("audit_logs").select("*").eq("entity_id", candidateId).order("created_at", { ascending: false }).limit(100);
-
-      if (actionFilter !== "all") {
-        query = query.ilike("action", `%${actionFilter}%`);
-      }
-      if (dateFrom) query = query.gte("created_at", dateFrom);
-      if (dateTo) query = query.lte("created_at", dateTo + "T23:59:59");
-
-      const { data } = await query;
-      setLogs(data || []);
-
-      if (data && data.length > 0) {
-        const actorIds = [...new Set(data.map((l: any) => l.actor_id).filter(Boolean))];
-        if (actorIds.length > 0) {
-          const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", actorIds);
-          const map: Record<string, string> = {};
-          profiles?.forEach((p: any) => { map[p.user_id] = p.full_name; });
-          setActorProfiles(map);
-        }
-      }
+      try {
+        const params: Record<string, string> = {};
+        if (actionFilter) params.action = actionFilter;
+        if (dateFrom) params.from = dateFrom;
+        if (dateTo) params.to = dateTo;
+        const { data } = await auditApi.candidateLogs(candidateId, params);
+        setLogs(data || []);
+      } catch { setLogs([]); }
       setLoading(false);
     };
     fetchLogs();
@@ -71,9 +58,7 @@ const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
       });
     }
     if (parts.length > 0) return parts.join(", ");
-    if (newVal && typeof newVal === "object") {
-      return Object.entries(newVal).map(([k, v]) => `${k}: ${v}`).join(", ");
-    }
+    if (newVal && typeof newVal === "object") return Object.entries(newVal).map(([k, v]) => `${k}: ${v}`).join(", ");
     return JSON.stringify(newVal || oldVal);
   };
 
@@ -87,7 +72,7 @@ const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
           <div>
             <Label className="text-xs">Action Type</Label>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-40"><SelectValue placeholder="All Actions" /></SelectTrigger>
               <SelectContent>
                 {ACTION_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
               </SelectContent>
@@ -117,8 +102,8 @@ const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
               {logs.map((log: any) => (
                 <TableRow key={log.id}>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</TableCell>
-                  <TableCell className="text-sm">{actorProfiles[log.actor_id] || "System"}</TableCell>
-                  <TableCell className="text-sm font-medium capitalize">{log.action.replace(/_/g, " ")}</TableCell>
+                  <TableCell className="text-sm">{log.actor_name || "System"}</TableCell>
+                  <TableCell className="text-sm font-medium capitalize">{(log.action || "").replace(/_/g, " ")}</TableCell>
                   <TableCell className="text-xs text-muted-foreground max-w-xs truncate">{renderDiff(log.old_value, log.new_value)}</TableCell>
                 </TableRow>
               ))}

@@ -1,8 +1,14 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi, authApi, recruitersApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import AdminQAChecklist from "@/components/admin/AdminQAChecklist";
+import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
+import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
+import AdminAuditTab from "@/components/admin/AdminAuditTab";
+import AdminBillingTab from "@/components/admin/AdminBillingTab";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,21 +18,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard } from "lucide-react";
-import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
-import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
-import AdminAuditTab from "@/components/admin/AdminAuditTab";
-import AdminQAChecklist from "@/components/admin/AdminQAChecklist";
-import AdminBillingTab from "@/components/admin/AdminBillingTab";
+import {
+  LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus,
+  Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard,
+} from "lucide-react";
 
 const navItems = [
-  { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Users className="h-4 w-4" /> },
-  { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
-  { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
+  { label: "Dashboard", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { label: "Approvals", path: "/admin-dashboard/approvals", icon: <Shield className="h-4 w-4" /> },
+  { label: "Users", path: "/admin-dashboard/users", icon: <Users className="h-4 w-4" /> },
+  { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Briefcase className="h-4 w-4" /> },
   { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
-  { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
+  { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
+  { label: "Activity", path: "/admin-dashboard/activity", icon: <Shield className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
+  { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Configuration", path: "/admin-dashboard/config", icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -34,16 +40,18 @@ interface AdminCandidateDetailProps {
   candidateId: string;
 }
 
+const STATUSES = [
+  "pending_approval", "approved", "intake_submitted", "roles_suggested", "roles_confirmed",
+  "paid", "credential_completed", "active_marketing", "paused", "cancelled", "placed",
+];
+
 const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [candidate, setCandidate] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [intake, setIntake] = useState<any>(null);
   const [roles, setRoles] = useState<any[]>([]);
   const [credentials, setCredentials] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
-  const [editorProfiles, setEditorProfiles] = useState<Record<string, string>>({});
   const [interviewLogs, setInterviewLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,33 +66,25 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [addingPayment, setAddingPayment] = useState(false);
 
   const fetchAll = async () => {
-    const { data: cand } = await supabase.from("candidates").select("*").eq("id", candidateId).single();
-    setCandidate(cand);
-    if (cand) {
-      const [profRes, intakeRes, roleRes, credRes, payRes, interviewRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", cand.user_id).single(),
-        supabase.from("client_intake_sheets").select("*").eq("candidate_id", cand.id).maybeSingle(),
-        supabase.from("role_suggestions").select("*").eq("candidate_id", cand.id).order("created_at", { ascending: true }),
-        supabase.from("credential_intake_sheets").select("*").eq("candidate_id", cand.id).order("version", { ascending: false }),
-        supabase.from("payments").select("*").eq("candidate_id", cand.id).order("created_at", { ascending: false }),
-        supabase.from("interview_logs").select("*").eq("candidate_id", cand.id).order("interview_date", { ascending: false }),
+    try {
+      const { data: cand } = await candidatesApi.detail(candidateId);
+      setCandidate(cand);
+
+      const [intakeRes, roleRes, credRes, payRes, interviewRes] = await Promise.all([
+        candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
+        candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
+        candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
+        candidatesApi.getPayments(candidateId).catch(() => ({ data: [] })),
+        candidatesApi.getInterviews(candidateId).catch(() => ({ data: [] })),
       ]);
-      setProfile(profRes.data);
+
       setIntake(intakeRes.data);
       setRoles(roleRes.data || []);
       setCredentials(credRes.data || []);
       setPayments(payRes.data || []);
       setInterviewLogs(interviewRes.data || []);
-
-      if (credRes.data && credRes.data.length > 0) {
-        const editorIds = [...new Set(credRes.data.map((v: any) => v.edited_by).filter(Boolean))];
-        if (editorIds.length > 0) {
-          const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", editorIds);
-          const map: Record<string, string> = {};
-          profiles?.forEach((p: any) => { map[p.user_id] = p.full_name; });
-          setEditorProfiles(map);
-        }
-      }
+    } catch {
+      toast({ title: "Error loading candidate", variant: "destructive" });
     }
     setLoading(false);
   };
@@ -94,47 +94,62 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const handleAddRole = async () => {
     if (!newRoleTitle.trim()) return;
     setAddingRole(true);
-    const { error } = await supabase.rpc("add_role_suggestion", {
-      _candidate_id: candidateId, _role_title: newRoleTitle.trim(), _description: newRoleDescription.trim(),
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { setNewRoleTitle(""); setNewRoleDescription(""); toast({ title: "Role suggestion added" }); fetchAll(); }
+    try {
+      await candidatesApi.addRole(candidateId, {
+        role_title: newRoleTitle.trim(),
+        description: newRoleDescription.trim(),
+      });
+      setNewRoleTitle("");
+      setNewRoleDescription("");
+      toast({ title: "Role suggestion added" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
+    }
     setAddingRole(false);
   };
 
   const handleSuggestRoles = async () => {
     if (roles.length === 0) { toast({ title: "Add at least one role first", variant: "destructive" }); return; }
-    const { error } = await supabase.rpc("admin_update_candidate_status", {
-      _candidate_id: candidateId, _new_status: "roles_suggested", _reason: "Roles suggested by admin",
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else {
-      await supabase.rpc("create_system_notification", {
-        _user_id: candidate.user_id, _title: "Roles Suggested",
-        _message: "Your team has suggested roles for your profile. Please review and confirm.",
-        _link: "/candidate-dashboard/roles",
-      });
-      toast({ title: "Roles sent to candidate for confirmation" }); fetchAll();
+    try {
+      await candidatesApi.updateStatus(candidateId, "roles_suggested");
+      toast({ title: "Roles sent to candidate for confirmation" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
     }
   };
 
   const handleRecordPayment = async () => {
     if (!payAmount || Number(payAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
     setAddingPayment(true);
-    const { error } = await supabase.rpc("admin_record_payment", {
-      _candidate_id: candidateId, _amount: Number(payAmount), _payment_type: payType, _status: payStatus, _notes: payNotes,
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { setPayAmount(""); setPayNotes(""); toast({ title: "Payment recorded" }); fetchAll(); }
+    try {
+      await candidatesApi.getPayments(candidateId); // validate candidate exists
+      const { billingApi } = await import("@/services/api");
+      await billingApi.recordPayment(candidateId, {
+        amount: Number(payAmount),
+        payment_type: payType,
+        status: payStatus,
+        notes: payNotes,
+      });
+      setPayAmount("");
+      setPayNotes("");
+      toast({ title: "Payment recorded" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
+    }
     setAddingPayment(false);
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    const { error } = await supabase.rpc("admin_update_candidate_status", {
-      _candidate_id: candidateId, _new_status: newStatus, _reason: "",
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Status updated" }); fetchAll(); }
+    try {
+      await candidatesApi.updateStatus(candidateId, newStatus);
+      toast({ title: "Status updated" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
+    }
   };
 
   if (loading) return <DashboardLayout title="Candidate Detail" navItems={navItems}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
@@ -143,10 +158,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const intakeData = intake?.data as Record<string, string> | null;
   const status = candidate.status;
   const isPlaced = status === "placed";
-  const STATUSES = ["lead","approved","intake_submitted","roles_suggested","roles_confirmed","paid","credential_completed","active_marketing","paused","cancelled","placed"];
+  const profileName = candidate.full_name || candidate.profile?.full_name || "Unknown";
 
   return (
-    <DashboardLayout title={`Candidate: ${profile?.full_name || "Unknown"}`} navItems={navItems}>
+    <DashboardLayout title={`Candidate: ${profileName}`} navItems={navItems}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <StatusBadge status={status} />
         {!isPlaced && (
@@ -160,17 +175,15 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         <Button variant="outline" size="sm" onClick={() => window.history.back()}>← Back</Button>
       </div>
 
-      {/* QA Checklist */}
       <AdminQAChecklist candidateId={candidateId} candidateStatus={status} />
 
-      {/* Placed Banner */}
       {isPlaced && (
         <Card className="mb-6 border-secondary/50 bg-secondary/5">
           <CardContent className="p-4 flex items-center gap-3">
             <Award className="h-6 w-6 text-secondary" />
             <div>
               <p className="font-semibold text-card-foreground">Case Closed — Candidate Placed</p>
-              <p className="text-sm text-muted-foreground">This candidate has been successfully placed. Marketing and daily logs are locked.</p>
+              <p className="text-sm text-muted-foreground">This candidate has been successfully placed.</p>
             </div>
           </CardContent>
         </Card>
@@ -189,14 +202,13 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           <TabsTrigger value="audit">Audit</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
             <CardContent className="grid gap-2 sm:grid-cols-2 text-sm">
-              <div><span className="text-muted-foreground">Name:</span> {profile?.full_name}</div>
-              <div><span className="text-muted-foreground">Email:</span> {profile?.email}</div>
-              <div><span className="text-muted-foreground">Phone:</span> {profile?.phone || "—"}</div>
+              <div><span className="text-muted-foreground">Name:</span> {profileName}</div>
+              <div><span className="text-muted-foreground">Email:</span> {candidate.email || candidate.profile?.email || "—"}</div>
+              <div><span className="text-muted-foreground">Phone:</span> {candidate.phone || candidate.profile?.phone || "—"}</div>
               <div><span className="text-muted-foreground">Status:</span> {status.replace(/_/g, " ")}</div>
               <div><span className="text-muted-foreground">Registered:</span> {new Date(candidate.created_at).toLocaleDateString()}</div>
             </CardContent>
@@ -216,7 +228,6 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           )}
         </TabsContent>
 
-        {/* Intake Tab */}
         <TabsContent value="intake" className="space-y-4">
           <Card>
             <CardHeader>
@@ -235,7 +246,6 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           </Card>
         </TabsContent>
 
-        {/* Roles Tab */}
         <TabsContent value="roles" className="space-y-4">
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5" /> Role Suggestions</CardTitle></CardHeader>
@@ -270,7 +280,6 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           )}
         </TabsContent>
 
-        {/* Credentials Tab */}
         <TabsContent value="credentials" className="space-y-4">
           <Card>
             <CardHeader>
@@ -285,12 +294,12 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                       <AccordionTrigger>
                         <div className="flex items-center gap-3 text-left">
                           <span className="font-medium">v{v.version}</span>
-                          <span className="text-sm text-muted-foreground">{editorProfiles[v.edited_by] || "Unknown"} · {new Date(v.created_at).toLocaleString()}</span>
+                          <span className="text-sm text-muted-foreground">{v.edited_by_name || "Unknown"} · {new Date(v.created_at).toLocaleString()}</span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="grid gap-2 text-sm sm:grid-cols-2">
-                          {Object.entries(v.data as Record<string, string>).map(([key, value]) => value ? (
+                          {v.data && Object.entries(v.data as Record<string, string>).map(([key, value]) => value ? (
                             <div key={key}><span className="text-muted-foreground capitalize">{key.replace(/_/g, " ")}:</span> <span className="text-card-foreground">{value}</span></div>
                           ) : null)}
                         </div>
@@ -303,14 +312,13 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           </Card>
         </TabsContent>
 
-        {/* Payments Tab */}
         <TabsContent value="payments" className="space-y-4">
           {!isPlaced && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Payment</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div><Label>Amount ($) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
+                  <div><Label>Amount (₹) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
                   <div><Label>Type</Label><Select value={payType} onValueChange={setPayType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="initial">Initial</SelectItem><SelectItem value="subscription">Subscription</SelectItem><SelectItem value="refund">Refund</SelectItem><SelectItem value="adjustment">Adjustment</SelectItem></SelectContent></Select></div>
                   <div><Label>Status</Label><Select value={payStatus} onValueChange={setPayStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completed">Completed</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="refunded">Refunded</SelectItem></SelectContent></Select></div>
                 </div>
@@ -330,8 +338,8 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                         {p.status === "completed" ? <CheckCircle className="h-4 w-4 text-secondary" /> : p.status === "failed" ? <XCircle className="h-4 w-4 text-destructive" /> : <Clock className="h-4 w-4 text-muted-foreground" />}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center justify-between"><p className="font-semibold">${Number(p.amount).toLocaleString()} {p.currency}</p><span className="text-xs capitalize text-muted-foreground">{p.status}</span></div>
-                        <p className="text-sm text-muted-foreground capitalize">{p.payment_type.replace(/_/g, " ")}</p>
+                        <div className="flex items-center justify-between"><p className="font-semibold">₹{Number(p.amount).toLocaleString()} {p.currency}</p><span className="text-xs capitalize text-muted-foreground">{p.status}</span></div>
+                        <p className="text-sm text-muted-foreground capitalize">{(p.payment_type || "").replace(/_/g, " ")}</p>
                         {p.notes && <p className="mt-1 text-sm text-muted-foreground">{p.notes}</p>}
                         <p className="mt-1 text-xs text-muted-foreground">{new Date(p.payment_date || p.created_at).toLocaleDateString()}</p>
                       </div>
@@ -343,22 +351,18 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           </Card>
         </TabsContent>
 
-        {/* Assignments Tab */}
         <TabsContent value="assignments">
           <AdminAssignmentsTab candidateId={candidateId} candidateStatus={status} hasCredentials={credentials.length > 0} onRefresh={fetchAll} />
         </TabsContent>
 
-        {/* Billing Tab */}
         <TabsContent value="billing">
           <AdminBillingTab candidateId={candidateId} onRefresh={fetchAll} />
         </TabsContent>
 
-        {/* Placement Tab */}
         <TabsContent value="placement">
           <AdminPlacementTab candidateId={candidateId} candidateStatus={status} onRefresh={fetchAll} />
         </TabsContent>
 
-        {/* Audit Tab */}
         <TabsContent value="audit">
           <AdminAuditTab candidateId={candidateId} />
         </TabsContent>
