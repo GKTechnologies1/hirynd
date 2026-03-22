@@ -14,4 +14,6 @@ urlpatterns = [
     path('<uuid:candidate_id>/referrals/', views.referrals, name='referrals'),
     path('<uuid:candidate_id>/interviews/', views.interviews, name='interviews'),
     path('<uuid:candidate_id>/placement/', views.placement, name='placement'),
+    path('<uuid:candidate_id>/payments/', views.candidate_payments, name='candidate_payments'),
+    path('<uuid:candidate_id>/qa-checklist/', views.qa_checklist, name='qa_checklist'),
 ]
