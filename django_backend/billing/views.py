@@ -482,3 +482,40 @@ def create_subscription_manual(request, candidate_id):
     log_action(request.user, 'subscription_created', str(candidate_id), 'subscription', request.data)
     return Response(SubscriptionSerializer(sub).data, status=status.HTTP_201_CREATED)
 
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def billing_analytics(request):
+    """Revenue by month and subscription status breakdown for charts."""
+    from django.db.models import Count, Sum
+    from django.db.models.functions import TruncMonth
+    from django.utils import timezone
+    from datetime import timedelta
+
+    six_months_ago = timezone.now() - timedelta(days=180)
+
+    # Revenue per month
+    rev_qs = (
+        Payment.objects.filter(status='completed', created_at__gte=six_months_ago)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(total=Sum('amount'), count=Count('id'))
+        .order_by('month')
+    )
+    revenue_by_month = [
+        {'month': r['month'].strftime('%b %Y'), 'revenue': float(r['total'] or 0), 'count': r['count']}
+        for r in rev_qs
+    ]
+
+    # Subscription status breakdown
+    sub_status = list(Subscription.objects.values('status').annotate(count=Count('id')))
+
+    # Total collected
+    total_revenue = Payment.objects.filter(status='completed').aggregate(t=Sum('amount'))['t'] or 0
+
+    return Response({
+        'revenue_by_month': revenue_by_month,
+        'subscription_status': sub_status,
+        'total_revenue': float(total_revenue),
+        'total_payments': Payment.objects.filter(status='completed').count(),
+    })

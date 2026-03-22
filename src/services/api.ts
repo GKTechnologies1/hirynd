@@ -60,10 +60,12 @@ export const authApi = {
   pendingApprovals: () => api.get('/auth/pending-approvals/'),
   approveUser: (user_id: string, action: 'approved' | 'rejected') =>
     api.post('/auth/approve-user/', { user_id, action }),
-  allUsers: (role?: string) => api.get('/auth/users/', { params: role ? { role } : {} }),
+  allUsers: (params?: { role?: string; search?: string; page?: number; page_size?: number }) =>
+    api.get('/auth/users/', { params }),
   getUser: (userId: string) => api.get(`/auth/users/${userId}/`),
   updateUser: (userId: string, data: Record<string, any>) => api.patch(`/auth/users/${userId}/`, data),
   deleteUser: (userId: string) => api.delete(`/auth/users/${userId}/`),
+  analytics: () => api.get('/auth/analytics/'),
 };
 
 // ─── Candidates ───
@@ -129,6 +131,7 @@ export const billingApi = {
   allSubscriptions: (statusFilter?: string) =>
     api.get('/billing/subscriptions/', { params: statusFilter ? { status: statusFilter } : {} }),
   billingAlerts: () => api.get('/billing/alerts/'),
+  billingAnalytics: () => api.get('/billing/analytics/'),
 
   // Per-candidate subscription
   subscription: (candidateId: string) => api.get(`/billing/${candidateId}/subscription/`),
@@ -188,4 +191,25 @@ export const chatApi = {
   roomMessages: (roomId: string) => api.get(`/chat/rooms/${roomId}/messages/`),
   sendMessage: (roomId: string, message_text: string, attachment_url?: string) =>
     api.post(`/chat/rooms/${roomId}/send/`, { message_text, attachment_url }),
+};
+
+// ─── Jobs & Submissions ───
+export const jobsApi = {
+  list: (params?: { status?: string; employment_type?: string; search?: string; page?: number; page_size?: number }) =>
+    api.get('/jobs/', { params }),
+  create: (data: Record<string, any>) => api.post('/jobs/create/', data),
+  get: (jobId: string) => api.get(`/jobs/${jobId}/`),
+  update: (jobId: string, data: Record<string, any>) => api.patch(`/jobs/${jobId}/`, data),
+  delete: (jobId: string) => api.delete(`/jobs/${jobId}/`),
+  stats: () => api.get('/jobs/stats/'),
+
+  // Submissions
+  listSubmissions: (params?: { job?: string; candidate?: string; status?: string; search?: string; page?: number; page_size?: number }) =>
+    api.get('/jobs/submissions/', { params }),
+  createSubmission: (data: { job: string; candidate: string; notes?: string }) =>
+    api.post('/jobs/submissions/create/', data),
+  updateSubmission: (submissionId: string, data: Record<string, any>) =>
+    api.patch(`/jobs/submissions/${submissionId}/`, data),
+  deleteSubmission: (submissionId: string) =>
+    api.delete(`/jobs/submissions/${submissionId}/`),
 };

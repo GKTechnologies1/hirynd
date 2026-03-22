@@ -67,8 +67,10 @@ const AdminUsersPage = () => {
     setLoading(true);
     try {
       const { data } = await authApi.allUsers();
-      setUsers(data || []);
-      setFiltered(data || []);
+      // all_users now returns {total, results}
+      const list = data?.results ?? data ?? [];
+      setUsers(list);
+      setFiltered(list);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
@@ -140,6 +142,14 @@ const AdminUsersPage = () => {
     }
   };
 
+  const bulkApprovePending = async () => {
+    const pending = users.filter(u => u.approval_status === "pending");
+    if (!pending.length) { toast({ title: "No pending users" }); return; }
+    await Promise.all(pending.map(u => authApi.approveUser(u.id, "approved").catch(() => {})));
+    toast({ title: `Approved ${pending.length} user(s)` });
+    fetchUsers();
+  };
+
   const countByRole = (role: string) => users.filter(u => u.role === role).length;
 
   return (
@@ -152,6 +162,9 @@ const AdminUsersPage = () => {
         </div>
         <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />Refresh
+        </Button>
+        <Button variant="default" size="sm" onClick={bulkApprovePending}>
+          <ShieldCheck className="mr-2 h-4 w-4" />Approve All Pending
         </Button>
       </div>
 

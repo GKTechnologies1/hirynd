@@ -15,6 +15,7 @@ urlpatterns = [
     # Admin overview
     path('subscriptions/', views.all_subscriptions, name='all_subscriptions'),
     path('alerts/', views.billing_alerts, name='billing_alerts'),
+    path('analytics/', views.billing_analytics, name='billing_analytics'),
     path('invoices/<uuid:invoice_id>/update/', views.update_invoice, name='update_invoice'),
 
     # Per-candidate

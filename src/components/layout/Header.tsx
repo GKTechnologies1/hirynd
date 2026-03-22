@@ -24,6 +24,8 @@ const loginItems = [
   { label: "Recruiter Login / Register", path: "/recruiter-login" },
 ];
 
+const adminLoginItem = { label: "Admin Portal", path: "/admin-login" };
+
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -99,6 +101,13 @@ const Header = () => {
                     {item.label}
                   </Link>
                 ))}
+                <div className="my-1.5 border-t border-border" />
+                <Link
+                  to={adminLoginItem.path}
+                  className="block rounded-md px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  🔒 {adminLoginItem.label}
+                </Link>
               </div>
             )}
           </div>
@@ -154,6 +163,14 @@ const Header = () => {
                   {item.label}
                 </Link>
               ))}
+              <div className="my-1 border-t border-border" />
+              <Link
+                to={adminLoginItem.path}
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-muted"
+              >
+                🔒 {adminLoginItem.label}
+              </Link>
             </div>
           </nav>
         </div>

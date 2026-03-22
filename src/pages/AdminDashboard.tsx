@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi, authApi, billingApi, notificationsApi } from "@/services/api";
+import { candidatesApi, authApi, billingApi, notificationsApi, jobsApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import AdminCandidateDetail from "@/pages/admin/AdminCandidateDetail";
@@ -13,6 +13,7 @@ import AdminApprovalsPage from "@/pages/admin/AdminApprovalsPage";
 import AdminBillingRunPage from "@/pages/admin/AdminBillingRunPage";
 import AdminSubscriptionPlansPage from "@/pages/admin/AdminSubscriptionPlansPage";
 import AdminUsersPage from "@/pages/admin/AdminUsersPage";
+import AdminJobsPage from "@/pages/admin/AdminJobsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,6 +21,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import {
+  BarChart as ReBarChart, Bar, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from "recharts";
 
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -27,6 +32,7 @@ const navItems = [
   { label: "All Users", path: "/admin-dashboard/users", icon: <Users className="h-4 w-4" /> },
   { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Users className="h-4 w-4" /> },
   { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
+  { label: "Jobs", path: "/admin-dashboard/jobs", icon: <Briefcase className="h-4 w-4" /> },
   { label: "Subscriptions", path: "/admin-dashboard/subscriptions", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
@@ -53,6 +59,8 @@ const AdminDashboard = () => {
   const [trainingClicks7d, setTrainingClicks7d] = useState(0);
   const [trainingClicks30d, setTrainingClicks30d] = useState(0);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [revenueData, setRevenueData] = useState<any[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -75,6 +83,15 @@ const AdminDashboard = () => {
     try {
       const { data: alerts } = await billingApi.billingAlerts();
       setBillingAlerts(alerts?.count || 0);
+    } catch {}
+
+    try {
+      const [analyticsRes, revenueRes] = await Promise.all([
+        authApi.analytics(),
+        billingApi.billingAnalytics(),
+      ]);
+      setAnalytics(analyticsRes.data);
+      setRevenueData(revenueRes.data?.revenue_by_month || []);
     } catch {}
 
     if (user) {
@@ -117,6 +134,7 @@ const AdminDashboard = () => {
   if (subPath === "billing-run") return <DashboardLayout title="Billing Run" navItems={navItems}><AdminBillingRunPage /></DashboardLayout>;
   if (subPath === "subscriptions") return <DashboardLayout title="Subscription Plans" navItems={navItems}><AdminSubscriptionPlansPage /></DashboardLayout>;
   if (subPath === "users") return <DashboardLayout title="All Users" navItems={navItems}><AdminUsersPage /></DashboardLayout>;
+  if (subPath === "jobs") return <DashboardLayout title="Jobs & Submissions" navItems={navItems}><AdminJobsPage /></DashboardLayout>;
 
   const pipelineWidgets = [
     { key: "pending_approvals", label: "Pending Approvals", count: pendingApprovals, icon: <Shield className="h-4 w-4" />, link: "/admin-dashboard/approvals", color: "bg-destructive/10 text-destructive" },
@@ -199,6 +217,74 @@ const AdminDashboard = () => {
           ))}
         </div>
       </div>
+
+      {/* Analytics Charts */}
+      {analytics && (
+        <div className="dashboard-section">
+          <p className="dashboard-section-title">Analytics</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Registrations trend */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">User Registrations (6 months)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={analytics.registrations_by_month || []}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" stroke="hsl(var(--secondary))" strokeWidth={2} dot={{ r: 3 }} name="Registrations" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Revenue trend */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Revenue (6 months)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <ReBarChart data={revenueData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Revenue"]} />
+                    <Bar dataKey="revenue" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} name="Revenue" />
+                  </ReBarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Pipeline bar chart */}
+            <Card className="md:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Pipeline Stage Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={180}>
+                  <ReBarChart
+                    layout="vertical"
+                    data={Object.entries(pipelineCounts)
+                      .filter(([, v]) => v > 0)
+                      .map(([k, v]) => ({ stage: k.replace(/_/g, " "), count: v }))
+                    }
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="stage" tick={{ fontSize: 10 }} width={130} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="hsl(var(--secondary))" radius={[0, 4, 4, 0]} />
+                  </ReBarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {activeFilter && (
         <div className="mb-4 flex items-center gap-2">

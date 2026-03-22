@@ -52,7 +52,24 @@ def candidate_list(request):
     if status_filter:
         qs = qs.filter(status=status_filter)
 
-    return Response(CandidateListSerializer(qs.order_by('-created_at'), many=True).data)
+    search = request.query_params.get('search', '').strip()
+    if search:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(user__email__icontains=search) |
+            Q(user__profile__full_name__icontains=search)
+        )
+
+    qs = qs.order_by('-created_at')
+    total = qs.count()
+    page = int(request.query_params.get('page', 0))
+    page_size = int(request.query_params.get('page_size', 0))
+    if page > 0 and page_size > 0:
+        start = (page - 1) * page_size
+        data = CandidateListSerializer(qs[start:start + page_size], many=True).data
+        return Response({'total': total, 'results': data})
+
+    return Response(CandidateListSerializer(qs, many=True).data)
 
 
 @api_view(['GET'])

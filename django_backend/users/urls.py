@@ -13,5 +13,6 @@ urlpatterns = [
     path('approve-user/', views.approve_user, name='approve_user'),
     path('users/', views.all_users, name='all_users'),
     path('users/<uuid:user_id>/', views.manage_user, name='manage_user'),
+    path('analytics/', views.admin_analytics, name='admin_analytics'),
     path('change-password/', views.change_password, name='change_password'),
 ]

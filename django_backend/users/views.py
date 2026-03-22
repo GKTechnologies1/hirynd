@@ -69,6 +69,9 @@ def login(request):
             'approval_status': user.approval_status,
         }, status=status.HTTP_403_FORBIDDEN)
 
+    # Track login in audit log
+    log_action(user, 'user_login', str(user.id), 'user', {'role': user.role})
+
     refresh = RefreshToken.for_user(user)
     return Response({
         'access': str(refresh.access_token),
@@ -186,10 +189,23 @@ def approve_user(request):
 @permission_classes([IsAdmin])
 def all_users(request):
     role = request.query_params.get('role')
+    search = request.query_params.get('search', '').strip()
     qs = User.objects.select_related('profile').order_by('-created_at')
     if role:
         qs = qs.filter(role=role)
-    return Response(UserListSerializer(qs, many=True).data)
+    if search:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(email__icontains=search) |
+            Q(profile__full_name__icontains=search)
+        )
+    total = qs.count()
+    page = int(request.query_params.get('page', 0))
+    page_size = int(request.query_params.get('page_size', 0))
+    if page > 0 and page_size > 0:
+        start = (page - 1) * page_size
+        qs = qs[start:start + page_size]
+    return Response({'total': total, 'results': UserListSerializer(qs, many=True).data})
 
 
 @api_view(['GET', 'PATCH', 'DELETE'])
@@ -234,3 +250,61 @@ def manage_user(request, user_id):
     log_action(request.user, 'user_updated', str(user.id), 'user', request.data)
     return Response(UserListSerializer(user).data)
 
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_analytics(request):
+    """
+    Returns aggregated stats for Admin Dashboard charts:
+    - registrations_by_month: last 6 months user registrations
+    - logins_by_month: last 6 months login events (from audit)
+    - role_counts: user counts by role
+    - status_counts: candidate counts by status
+    """
+    from django.db.models import Count
+    from django.db.models.functions import TruncMonth
+    from django.utils import timezone
+    from datetime import timedelta
+    from audit.models import AuditLog
+
+    six_months_ago = timezone.now() - timedelta(days=180)
+
+    # Registrations per month
+    reg_qs = (
+        User.objects.filter(created_at__gte=six_months_ago)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(count=Count('id'))
+        .order_by('month')
+    )
+    registrations = [
+        {'month': r['month'].strftime('%b %Y'), 'count': r['count']}
+        for r in reg_qs
+    ]
+
+    # Logins per month (from audit log)
+    login_qs = (
+        AuditLog.objects.filter(action='user_login', created_at__gte=six_months_ago)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(count=Count('id'))
+        .order_by('month')
+    )
+    logins = [
+        {'month': l['month'].strftime('%b %Y'), 'count': l['count']}
+        for l in login_qs
+    ]
+
+    # Role counts
+    role_counts = list(User.objects.values('role').annotate(count=Count('id')))
+
+    # Candidate status counts
+    from candidates.models import Candidate
+    status_counts = list(Candidate.objects.values('status').annotate(count=Count('id')))
+
+    return Response({
+        'registrations_by_month': registrations,
+        'logins_by_month': logins,
+        'role_counts': role_counts,
+        'status_counts': status_counts,
+    })
