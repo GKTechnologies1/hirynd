@@ -91,10 +91,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const hasRole = (role: AppRole) => {
     if (!user) return false;
-    // Admin can access everything
     if (user.role === "admin") return true;
-    // Team manager can access recruiter views
-    if (role === "recruiter" && user.role in ["recruiter", "team_lead", "team_manager"]) return true;
+    if (role === "recruiter" && ["recruiter", "team_lead", "team_manager"].includes(user.role)) return true;
     return user.role === role;
   };
 
