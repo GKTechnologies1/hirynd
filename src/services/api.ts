@@ -96,6 +96,7 @@ export const candidatesApi = {
   closePlacement: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/placement/`, data),
   getPayments: (id: string) => api.get(`/candidates/${id}/payments/`),
+  qaChecklist: (id: string) => api.get(`/candidates/${id}/qa-checklist/`),
 };
 
 // ─── Recruiters ───
@@ -110,6 +111,9 @@ export const recruitersApi = {
     api.post(`/recruiters/${candidateId}/daily-logs/`, data),
   updateJobStatus: (jobId: string, status: string) =>
     api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
+  allRecruiters: () => api.get('/recruiters/all/'),
+  startMarketing: (candidateId: string) =>
+    api.post(`/candidates/${candidateId}/status/`, { status: 'active_marketing' }),
 };
 
 // ─── Billing ───
@@ -124,6 +128,7 @@ export const billingApi = {
   allPayments: (params?: Record<string, string>) => api.get('/billing/all-payments/', { params }),
   allSubscriptions: (params?: Record<string, string>) => api.get('/billing/all-subscriptions/', { params }),
   paymentSummary: () => api.get('/billing/payment-summary/'),
+  runBillingChecks: (dryRun: boolean) => api.post('/billing/run-checks/', { dry_run: dryRun }),
 
   // Per-candidate
   subscription: (candidateId: string) => api.get(`/billing/${candidateId}/subscription/`),
@@ -131,16 +136,27 @@ export const billingApi = {
     api.post(`/billing/${candidateId}/subscription/create/`, data),
   updateSubscription: (candidateId: string, data: Record<string, any>) =>
     api.patch(`/billing/${candidateId}/subscription/update/`, data),
+  pauseSubscription: (candidateId: string) =>
+    api.post(`/billing/${candidateId}/subscription/pause/`),
+  resumeSubscription: (candidateId: string) =>
+    api.post(`/billing/${candidateId}/subscription/resume/`),
+  cancelSubscription: (candidateId: string) =>
+    api.post(`/billing/${candidateId}/subscription/cancel/`),
   payments: (candidateId: string) => api.get(`/billing/${candidateId}/payments/`),
   recordPayment: (candidateId: string, data: Record<string, any>) =>
     api.post(`/billing/${candidateId}/payments/record/`, data),
   invoices: (candidateId: string) => api.get(`/billing/${candidateId}/invoices/`),
+  recordInvoicePayment: (invoiceId: string, data: Record<string, any>) =>
+    api.post(`/billing/invoices/${invoiceId}/pay/`, data),
+  markInvoiceFailed: (invoiceId: string, data: Record<string, any>) =>
+    api.post(`/billing/invoices/${invoiceId}/fail/`, data),
 };
 
 // ─── Audit ───
 export const auditApi = {
   globalLogs: (action?: string) => api.get('/audit/', { params: action ? { action } : {} }),
-  candidateLogs: (candidateId: string) => api.get(`/audit/${candidateId}/`),
+  candidateLogs: (candidateId: string, params?: Record<string, string>) =>
+    api.get(`/audit/${candidateId}/`, { params }),
 };
 
 // ─── Notifications ───
@@ -166,4 +182,30 @@ export const chatApi = {
   roomMessages: (roomId: string) => api.get(`/chat/rooms/${roomId}/messages/`),
   sendMessage: (roomId: string, message_text: string, attachment_url?: string) =>
     api.post(`/chat/rooms/${roomId}/send/`, { message_text, attachment_url }),
+};
+
+// ─── Admin Referrals ───
+export const adminReferralsApi = {
+  list: () => api.get('/admin/referrals/'),
+  updateStatus: (id: string, status: string) =>
+    api.patch(`/admin/referrals/${id}/`, { status }),
+  updateNotes: (id: string, notes: string) =>
+    api.patch(`/admin/referrals/${id}/`, { notes }),
+};
+
+// ─── Admin Config ───
+export const adminConfigApi = {
+  list: () => api.get('/admin/config/'),
+  save: (configs: Record<string, string>) =>
+    api.post('/admin/config/', { configs }),
+  trainingClicks: () => api.get('/admin/training-clicks/'),
+  sendTestEmail: () => api.post('/admin/send-test-email/'),
+};
+
+// ─── Admin Reports ───
+export const adminReportsApi = {
+  pipeline: () => api.get('/admin/reports/pipeline/'),
+  recruiterProductivity: () => api.get('/admin/reports/recruiter-productivity/'),
+  candidateActivity: () => api.get('/admin/reports/candidate-activity/'),
+  subscriptionLedger: () => api.get('/admin/reports/subscription-ledger/'),
 };
