@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { recruitersApi, authApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,41 +33,14 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
-    // Fetch active assignments
-    const { data: assigns } = await supabase
-      .from("candidate_assignments")
-      .select("*")
-      .eq("candidate_id", candidateId)
-      .eq("is_active", true);
-
-    if (assigns && assigns.length > 0) {
-      const recruiterIds = assigns.map((a: any) => a.recruiter_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, email, phone")
-        .in("user_id", recruiterIds);
-      setAssignments(assigns.map((a: any) => ({
-        ...a,
-        profile: profiles?.find((p: any) => p.user_id === a.recruiter_id),
-      })));
-    } else {
-      setAssignments([]);
-    }
-
-    // Fetch all recruiters for dropdown
-    const { data: recruiterRoles } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "recruiter");
-    if (recruiterRoles && recruiterRoles.length > 0) {
-      const rIds = recruiterRoles.map((r: any) => r.user_id);
-      const { data: rProfiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, email")
-        .in("user_id", rIds);
-      setRecruiters(rProfiles || []);
-    }
-
+    try {
+      const [assignRes, recruiterRes] = await Promise.all([
+        recruitersApi.assignments(candidateId),
+        authApi.allUsers({ role: 'recruiter', status: 'approved' }),
+      ]);
+      setAssignments(assignRes.data || []);
+      setRecruiters(recruiterRes.data || []);
+    } catch { /* ignore */ }
     setLoading(false);
   };
 
@@ -76,46 +49,42 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
   const handleAssign = async () => {
     if (!selectedRecruiter || !selectedRole) return;
     setAssigning(true);
-    const { error } = await supabase.rpc("admin_assign_recruiter", {
-      _candidate_id: candidateId,
-      _recruiter_id: selectedRecruiter,
-      _role_type: selectedRole,
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await recruitersApi.assign({
+        candidate: candidateId,
+        recruiter: selectedRecruiter,
+        role_type: selectedRole,
+      });
       toast({ title: "Recruiter assigned" });
       setSelectedRecruiter("");
       setSelectedRole("");
       fetchData();
       onRefresh();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
     }
     setAssigning(false);
   };
 
   const handleUnassign = async (assignmentId: string) => {
-    const { error } = await supabase.rpc("admin_unassign_recruiter", {
-      _assignment_id: assignmentId,
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await recruitersApi.unassign(assignmentId);
       toast({ title: "Recruiter unassigned" });
       fetchData();
       onRefresh();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
     }
   };
 
   const handleStartMarketing = async () => {
     setStartingMarketing(true);
-    const { error } = await supabase.rpc("admin_start_marketing", {
-      _candidate_id: candidateId,
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await recruitersApi.startMarketing(candidateId);
       toast({ title: "Marketing started!" });
       onRefresh();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
     }
     setStartingMarketing(false);
   };
@@ -127,7 +96,6 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
   return (
     <div className="space-y-4">
-      {/* Current Assignments */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Active Assignments</CardTitle>
@@ -141,13 +109,12 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
               {assignments.map((a: any) => (
                 <div key={a.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
-                    <p className="font-medium text-card-foreground">{a.profile?.full_name || "Unknown"}</p>
-                    <p className="text-sm text-muted-foreground">{a.profile?.email}</p>
-                    {a.profile?.phone && <p className="text-xs text-muted-foreground">{a.profile.phone}</p>}
+                    <p className="font-medium text-card-foreground">{a.recruiter_name || a.profile?.full_name || "Unknown"}</p>
+                    <p className="text-sm text-muted-foreground">{a.recruiter_email || a.profile?.email || ""}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusBadge status={a.role_type === "primary_recruiter" ? "active" : "pending"} className="text-xs" />
-                    <span className="text-xs text-muted-foreground capitalize">{a.role_type.replace(/_/g, " ")}</span>
+                    <span className="text-xs text-muted-foreground capitalize">{(a.role_type || "").replace(/_/g, " ")}</span>
                     <Button variant="ghost" size="sm" onClick={() => handleUnassign(a.id)}>
                       <XCircle className="h-4 w-4 text-destructive" />
                     </Button>
@@ -159,7 +126,6 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
         </CardContent>
       </Card>
 
-      {/* Assign New */}
       {canAssign && (
         <Card>
           <CardHeader>
@@ -173,7 +139,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                   <SelectTrigger><SelectValue placeholder="Select recruiter" /></SelectTrigger>
                   <SelectContent>
                     {recruiters.map((r: any) => (
-                      <SelectItem key={r.user_id} value={r.user_id}>{r.full_name} ({r.email})</SelectItem>
+                      <SelectItem key={r.id} value={r.id}>{r.profile?.full_name || r.email} ({r.email})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -197,7 +163,6 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
         </Card>
       )}
 
-      {/* Start Marketing */}
       {canStartMarketing && (
         <Card className="border-secondary/30">
           <CardContent className="flex items-center justify-between p-4">
