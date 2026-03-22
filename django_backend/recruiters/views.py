@@ -103,3 +103,12 @@ def update_job_status(request, job_id):
         job.candidate_response_status = new_status
         job.save()
     return Response(JobLinkEntrySerializer(job).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def all_recruiters(request):
+    from users.models import User
+    recruiters = User.objects.filter(role__in=['recruiter', 'team_lead', 'team_manager'], approval_status='approved')
+    data = [{'id': str(u.id), 'email': u.email, 'full_name': u.profile.full_name if hasattr(u, 'profile') else u.email} for u in recruiters]
+    return Response(data)
