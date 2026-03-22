@@ -1,6 +1,26 @@
 import uuid
 from django.db import models
 from candidates.models import Candidate
+from users.models import User
+
+
+class SubscriptionPlan(models.Model):
+    """Admin-defined subscription plans."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=10, default='INR')
+    billing_cycle = models.CharField(max_length=20, default='monthly')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'subscription_plans'
+
+    def __str__(self):
+        return f"{self.name} - {self.amount} {self.currency}"
 
 
 class Subscription(models.Model):
@@ -10,6 +30,7 @@ class Subscription(models.Model):
     ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.OneToOneField(Candidate, on_delete=models.CASCADE, related_name='subscription')
+    plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True, related_name='subscriptions')
     plan_name = models.CharField(max_length=100, default='standard')
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     currency = models.CharField(max_length=10, default='INR')
@@ -30,14 +51,20 @@ class Subscription(models.Model):
 
 
 class Payment(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'), ('completed', 'Completed'), ('failed', 'Failed'), ('refunded', 'Refunded'),
+    ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=10, default='INR')
     payment_type = models.CharField(max_length=50, default='subscription')
-    status = models.CharField(max_length=20, default='completed')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='completed')
     payment_date = models.DateField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+    razorpay_order_id = models.CharField(max_length=255, blank=True, null=True)
+    razorpay_payment_id = models.CharField(max_length=255, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

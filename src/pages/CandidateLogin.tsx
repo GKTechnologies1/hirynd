@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import ForgotPasswordDialog from "@/components/auth/ForgotPasswordDialog";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -204,6 +205,7 @@ const CandidateLogin = () => {
               <form onSubmit={handleLogin} className="space-y-4 pt-4">
                 <div><Label>Email</Label><Input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required /></div>
                 <PasswordField label="Password" value={loginPassword} onChange={setLoginPassword} show={showLoginPassword} onToggle={() => setShowLoginPassword(!showLoginPassword)} />
+                <div className="flex justify-end"><ForgotPasswordDialog /></div>
                 <Button variant="hero" className="w-full" disabled={submitting}>{submitting ? "Signing in..." : "Sign In"}</Button>
               </form>
             </TabsContent>

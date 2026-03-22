@@ -7,7 +7,6 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach JWT token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
@@ -16,7 +15,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-refresh on 401
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -57,10 +55,20 @@ export const authApi = {
   updateProfile: (data: Record<string, any>) => api.patch('/auth/profile/', data),
   changePassword: (data: { current_password: string; new_password: string; confirm_new_password: string }) =>
     api.post('/auth/change-password/', data),
+  forgotPassword: (email: string) =>
+    api.post('/auth/forgot-password/', { email }),
+  resetPassword: (data: { token: string; new_password: string; confirm_password: string }) =>
+    api.post('/auth/reset-password/', data),
   pendingApprovals: () => api.get('/auth/pending-approvals/'),
   approveUser: (user_id: string, action: 'approved' | 'rejected') =>
     api.post('/auth/approve-user/', { user_id, action }),
-  allUsers: (role?: string) => api.get('/auth/users/', { params: role ? { role } : {} }),
+  allUsers: (params?: { role?: string; status?: string; search?: string }) =>
+    api.get('/auth/users/', { params }),
+  updateUser: (user_id: string, data: Record<string, any>) =>
+    api.patch(`/auth/users/${user_id}/`, data),
+  deleteUser: (user_id: string) =>
+    api.delete(`/auth/users/${user_id}/delete/`),
+  dashboardStats: () => api.get('/auth/dashboard-stats/'),
 };
 
 // ─── Candidates ───
@@ -106,6 +114,18 @@ export const recruitersApi = {
 
 // ─── Billing ───
 export const billingApi = {
+  // Plans
+  plans: () => api.get('/billing/plans/'),
+  createPlan: (data: Record<string, any>) => api.post('/billing/plans/create/', data),
+  updatePlan: (planId: string, data: Record<string, any>) => api.patch(`/billing/plans/${planId}/update/`, data),
+  deletePlan: (planId: string) => api.delete(`/billing/plans/${planId}/delete/`),
+
+  // Global admin views
+  allPayments: (params?: Record<string, string>) => api.get('/billing/all-payments/', { params }),
+  allSubscriptions: (params?: Record<string, string>) => api.get('/billing/all-subscriptions/', { params }),
+  paymentSummary: () => api.get('/billing/payment-summary/'),
+
+  // Per-candidate
   subscription: (candidateId: string) => api.get(`/billing/${candidateId}/subscription/`),
   createSubscription: (candidateId: string, data: Record<string, any>) =>
     api.post(`/billing/${candidateId}/subscription/create/`, data),
