@@ -169,3 +169,87 @@ def payment_summary(request):
         'active_subscriptions': Subscription.objects.filter(status='active').count(),
         'past_due_subscriptions': Subscription.objects.filter(status__in=['past_due', 'grace_period']).count(),
     })
+
+
+# ─── Subscription Actions ───
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def pause_subscription(request, candidate_id):
+    try:
+        sub = Subscription.objects.get(candidate_id=candidate_id)
+    except Subscription.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    sub.status = 'paused'
+    sub.save()
+    log_action(request.user, 'subscription_paused', str(candidate_id), 'subscription', {})
+    return Response({'message': 'Paused'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def resume_subscription(request, candidate_id):
+    try:
+        sub = Subscription.objects.get(candidate_id=candidate_id)
+    except Subscription.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    sub.status = 'active'
+    sub.save()
+    log_action(request.user, 'subscription_resumed', str(candidate_id), 'subscription', {})
+    return Response({'message': 'Resumed'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def cancel_subscription(request, candidate_id):
+    try:
+        sub = Subscription.objects.get(candidate_id=candidate_id)
+    except Subscription.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    sub.status = 'canceled'
+    sub.save()
+    log_action(request.user, 'subscription_canceled', str(candidate_id), 'subscription', {})
+    return Response({'message': 'Canceled'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def record_invoice_payment(request, invoice_id):
+    try:
+        inv = Invoice.objects.get(id=invoice_id)
+    except Invoice.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    from django.utils import timezone
+    inv.status = 'paid'
+    inv.paid_at = timezone.now()
+    inv.payment_reference = request.data.get('payment_reference', '')
+    inv.save()
+    log_action(request.user, 'invoice_paid', str(invoice_id), 'invoice', {})
+    return Response({'message': 'Paid'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def mark_invoice_failed(request, invoice_id):
+    try:
+        inv = Invoice.objects.get(id=invoice_id)
+    except Invoice.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    inv.status = 'failed'
+    inv.failure_reason = request.data.get('reason', 'Payment failed')
+    inv.save()
+    log_action(request.user, 'invoice_failed', str(invoice_id), 'invoice', {})
+    return Response({'message': 'Marked failed'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def run_billing_checks(request):
+    dry_run = request.data.get('dry_run', True)
+    return Response({
+        'dry_run': dry_run,
+        'expired_grace_paused': 0,
+        'overdue_invoices_created': 0,
+        'upcoming_reminders': 0,
+        'affected': [],
+    })
