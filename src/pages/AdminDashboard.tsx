@@ -13,6 +13,9 @@ import AdminBillingRunPage from "@/pages/admin/AdminBillingRunPage";
 import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminPaymentsPage from "@/pages/admin/AdminPaymentsPage";
 import AdminActivityPage from "@/pages/admin/AdminActivityPage";
+import AdminRecruitersPage from "@/pages/admin/AdminRecruitersPage";
+import AdminNotificationsPage from "@/pages/admin/AdminNotificationsPage";
+import AdminGlobalAuditTab from "@/components/admin/AdminGlobalAuditTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign,
   UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard,
-  AlertTriangle, CheckCircle, Briefcase, MousePointer, TrendingUp,
+  AlertTriangle, CheckCircle, Briefcase, TrendingUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
@@ -33,6 +36,7 @@ const navItems = [
   { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
   { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
   { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
+  { label: "Notifications", path: "/admin-dashboard/notifications", icon: <Bell className="h-4 w-4" /> },
   { label: "Activity", path: "/admin-dashboard/activity", icon: <Activity className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
@@ -59,8 +63,6 @@ const AdminDashboard = () => {
     try {
       const { data } = await authApi.dashboardStats();
       setStats(data);
-
-      // Also fetch candidates for the table
       const { data: cands } = await (await import("@/services/api")).candidatesApi.list();
       setCandidates(cands || []);
     } catch { /* ignore */ }
@@ -89,12 +91,14 @@ const AdminDashboard = () => {
   }
   if (subPath === "approvals") return <DashboardLayout title="Approvals" navItems={navItems}><AdminApprovalsPage /></DashboardLayout>;
   if (subPath === "users") return <DashboardLayout title="User Management" navItems={navItems}><AdminUsersPage /></DashboardLayout>;
+  if (subPath === "recruiters") return <DashboardLayout title="Recruiter Management" navItems={navItems}><AdminRecruitersPage /></DashboardLayout>;
   if (subPath === "payments") return <DashboardLayout title="Payments & Billing" navItems={navItems}><AdminPaymentsPage /></DashboardLayout>;
   if (subPath === "activity") return <DashboardLayout title="Activity Tracking" navItems={navItems}><AdminActivityPage /></DashboardLayout>;
   if (subPath === "referrals") return <DashboardLayout title="Referrals" navItems={navItems}><AdminReferralsPage /></DashboardLayout>;
+  if (subPath === "notifications") return <DashboardLayout title="Notifications" navItems={navItems}><AdminNotificationsPage /></DashboardLayout>;
   if (subPath === "config") return <DashboardLayout title="Configuration" navItems={navItems}><AdminConfigPage /></DashboardLayout>;
   if (subPath === "reports") return <DashboardLayout title="Reports & Exports" navItems={navItems}><AdminReportsPage /></DashboardLayout>;
-  if (subPath === "audit") return <DashboardLayout title="Audit Logs" navItems={navItems}><AdminActivityPage /></DashboardLayout>;
+  if (subPath === "audit") return <DashboardLayout title="Audit Logs" navItems={navItems}><AdminGlobalAuditTab /></DashboardLayout>;
   if (subPath === "billing-run") return <DashboardLayout title="Billing Run" navItems={navItems}><AdminBillingRunPage /></DashboardLayout>;
 
   const pipeline = stats?.pipeline || {};
@@ -183,7 +187,7 @@ const AdminDashboard = () => {
           <p className="dashboard-section-title">Recent Activity</p>
           <Card>
             <CardContent className="p-4 space-y-2">
-              {stats.recent_activity.slice(0, 5).map((a: any) => (
+              {stats.recent_activity.slice(0, 8).map((a: any) => (
                 <div key={a.id} className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-3 hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
