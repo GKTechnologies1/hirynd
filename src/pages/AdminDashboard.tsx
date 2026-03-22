@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi, authApi, billingApi, notificationsApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import AdminCandidateDetail from "@/pages/admin/AdminCandidateDetail";
@@ -11,6 +11,8 @@ import AdminReportsPage from "@/pages/admin/AdminReportsPage";
 import AdminGlobalAuditTab from "@/components/admin/AdminGlobalAuditTab";
 import AdminApprovalsPage from "@/pages/admin/AdminApprovalsPage";
 import AdminBillingRunPage from "@/pages/admin/AdminBillingRunPage";
+import AdminSubscriptionPlansPage from "@/pages/admin/AdminSubscriptionPlansPage";
+import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,13 +24,13 @@ import { motion } from "framer-motion";
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
   { label: "Approvals", path: "/admin-dashboard/approvals", icon: <Shield className="h-4 w-4" /> },
+  { label: "All Users", path: "/admin-dashboard/users", icon: <Users className="h-4 w-4" /> },
   { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Users className="h-4 w-4" /> },
   { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
+  { label: "Subscriptions", path: "/admin-dashboard/subscriptions", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
-  { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
-  { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Configuration", path: "/admin-dashboard/config", icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -53,46 +55,33 @@ const AdminDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const fetchData = async () => {
-    const { data: cands } = await supabase.from("candidates").select("*");
-    if (cands) {
-      const userIds = cands.map((c: any) => c.user_id);
-      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds);
-      const merged = cands.map((c: any) => ({ ...c, profile: profiles?.find((p: any) => p.user_id === c.user_id) }));
-      setCandidates(merged);
-      const counts: Record<string, number> = {};
-      STATUSES.forEach((s) => { counts[s] = 0; });
-      cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
-      setPipelineCounts(counts);
-    }
+    setLoading(true);
+    try {
+      const { data: cands } = await candidatesApi.list();
+      if (cands) {
+        setCandidates(cands);
+        const counts: Record<string, number> = {};
+        STATUSES.forEach((s) => { counts[s] = 0; });
+        cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
+        setPipelineCounts(counts);
+      }
+    } catch {}
 
-    // Pending approvals count
-    const { data: pending } = await supabase.rpc("admin_get_pending_approvals");
-    setPendingApprovals(pending?.length || 0);
+    try {
+      const { data: pending } = await authApi.pendingApprovals();
+      setPendingApprovals(Array.isArray(pending) ? pending.length : 0);
+    } catch {}
 
-    // Billing alerts (past_due + grace_period subscriptions)
-    const { data: billingSubs } = await supabase
-      .from("candidate_subscriptions")
-      .select("id")
-      .in("status", ["past_due", "grace_period"]);
-    setBillingAlerts(billingSubs?.length || 0);
-
-    // Training clicks
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-    const { count: clicks7 } = await supabase
-      .from("training_clicks")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", sevenDaysAgo);
-    const { count: clicks30 } = await supabase
-      .from("training_clicks")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", thirtyDaysAgo);
-    setTrainingClicks7d(clicks7 || 0);
-    setTrainingClicks30d(clicks30 || 0);
+    try {
+      const { data: alerts } = await billingApi.billingAlerts();
+      setBillingAlerts(alerts?.count || 0);
+    } catch {}
 
     if (user) {
-      const { data: notifs } = await supabase.from("notifications").select("*").eq("user_id", user.id).eq("is_read", false).order("created_at", { ascending: false }).limit(10);
-      setNotifications(notifs || []);
+      try {
+        const { data: notifs } = await notificationsApi.list(true);
+        setNotifications(Array.isArray(notifs) ? notifs.slice(0, 10) : []);
+      } catch {}
     }
     setLoading(false);
   };
@@ -100,13 +89,17 @@ const AdminDashboard = () => {
   useEffect(() => { fetchData(); }, [user]);
 
   const handleStatusChange = async (candidateId: string, newStatus: string) => {
-    const { error } = await supabase.rpc("admin_update_candidate_status", { _candidate_id: candidateId, _new_status: newStatus, _reason: "" });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Status updated" }); fetchData(); }
+    try {
+      await candidatesApi.updateStatus(candidateId, newStatus);
+      toast({ title: "Status updated" });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
   };
 
   const markNotifRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    await notificationsApi.markRead(id).catch(() => {});
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
@@ -122,6 +115,8 @@ const AdminDashboard = () => {
   if (subPath === "reports") return <DashboardLayout title="Reports & Exports" navItems={navItems}><AdminReportsPage /></DashboardLayout>;
   if (subPath === "audit") return <DashboardLayout title="Audit Logs" navItems={navItems}><AdminGlobalAuditTab /></DashboardLayout>;
   if (subPath === "billing-run") return <DashboardLayout title="Billing Run" navItems={navItems}><AdminBillingRunPage /></DashboardLayout>;
+  if (subPath === "subscriptions") return <DashboardLayout title="Subscription Plans" navItems={navItems}><AdminSubscriptionPlansPage /></DashboardLayout>;
+  if (subPath === "users") return <DashboardLayout title="All Users" navItems={navItems}><AdminUsersPage /></DashboardLayout>;
 
   const pipelineWidgets = [
     { key: "pending_approvals", label: "Pending Approvals", count: pendingApprovals, icon: <Shield className="h-4 w-4" />, link: "/admin-dashboard/approvals", color: "bg-destructive/10 text-destructive" },
@@ -233,8 +228,8 @@ const AdminDashboard = () => {
                 <TableBody>
                   {filteredCandidates.map((c: any) => (
                     <TableRow key={c.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell className="font-medium text-sm">{c.profile?.full_name || "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{c.profile?.email || "—"}</TableCell>
+                      <TableCell className="font-medium text-sm">{c.full_name || "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{c.email || "—"}</TableCell>
                       <TableCell><StatusBadge status={c.status} /></TableCell>
                       <TableCell>
                         <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>

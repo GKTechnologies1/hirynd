@@ -61,10 +61,14 @@ export const authApi = {
   approveUser: (user_id: string, action: 'approved' | 'rejected') =>
     api.post('/auth/approve-user/', { user_id, action }),
   allUsers: (role?: string) => api.get('/auth/users/', { params: role ? { role } : {} }),
+  getUser: (userId: string) => api.get(`/auth/users/${userId}/`),
+  updateUser: (userId: string, data: Record<string, any>) => api.patch(`/auth/users/${userId}/`, data),
+  deleteUser: (userId: string) => api.delete(`/auth/users/${userId}/`),
 };
 
 // ─── Candidates ───
 export const candidatesApi = {
+  me: () => api.get('/candidates/me/'),
   list: (statusFilter?: string) => api.get('/candidates/', { params: statusFilter ? { status: statusFilter } : {} }),
   detail: (id: string) => api.get(`/candidates/${id}/`),
   updateStatus: (id: string, status: string) => api.post(`/candidates/${id}/status/`, { status }),
@@ -88,6 +92,9 @@ export const candidatesApi = {
   closePlacement: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/placement/`, data),
   getPayments: (id: string) => api.get(`/candidates/${id}/payments/`),
+  adminListReferrals: () => api.get('/candidates/referrals/all/'),
+  updateReferral: (referralId: string, data: Record<string, any>) =>
+    api.patch(`/candidates/referrals/${referralId}/update/`, data),
 };
 
 // ─── Recruiters ───
@@ -106,16 +113,51 @@ export const recruitersApi = {
 
 // ─── Billing ───
 export const billingApi = {
+  // Subscription Plans catalogue
+  listPlans: () => api.get('/billing/plans/'),
+  createPlan: (data: Record<string, any>) => api.post('/billing/plans/create/', data),
+  updatePlan: (planId: string, data: Record<string, any>) => api.patch(`/billing/plans/${planId}/`, data),
+  deletePlan: (planId: string) => api.delete(`/billing/plans/${planId}/`),
+
+  // Subscription Addons catalogue
+  listAddons: () => api.get('/billing/addons/'),
+  createAddon: (data: Record<string, any>) => api.post('/billing/addons/create/', data),
+  updateAddon: (addonId: string, data: Record<string, any>) => api.patch(`/billing/addons/${addonId}/`, data),
+  deleteAddon: (addonId: string) => api.delete(`/billing/addons/${addonId}/`),
+
+  // Admin overviews
+  allSubscriptions: (statusFilter?: string) =>
+    api.get('/billing/subscriptions/', { params: statusFilter ? { status: statusFilter } : {} }),
+  billingAlerts: () => api.get('/billing/alerts/'),
+
+  // Per-candidate subscription
   subscription: (candidateId: string) => api.get(`/billing/${candidateId}/subscription/`),
-  createSubscription: (candidateId: string, data: Record<string, any>) =>
-    api.post(`/billing/${candidateId}/subscription/create/`, data),
+  assignPlan: (candidateId: string, data: { plan_id: string; addons?: string[] }) =>
+    api.post(`/billing/${candidateId}/subscription/assign/`, data),
   updateSubscription: (candidateId: string, data: Record<string, any>) =>
     api.patch(`/billing/${candidateId}/subscription/update/`, data),
+  addAddonToSubscription: (candidateId: string, addon_id: string) =>
+    api.post(`/billing/${candidateId}/subscription/addon/`, { addon_id }),
+
+  // Razorpay checkout
+  createOrder: (candidateId: string) =>
+    api.post(`/billing/${candidateId}/payment/create-order/`),
+  verifyPayment: (candidateId: string, data: Record<string, any>) =>
+    api.post(`/billing/${candidateId}/payment/verify/`, data),
+
+  // Payment history
   payments: (candidateId: string) => api.get(`/billing/${candidateId}/payments/`),
   recordPayment: (candidateId: string, data: Record<string, any>) =>
     api.post(`/billing/${candidateId}/payments/record/`, data),
   invoices: (candidateId: string) => api.get(`/billing/${candidateId}/invoices/`),
+  updateInvoice: (invoiceId: string, data: Record<string, any>) =>
+    api.patch(`/billing/invoices/${invoiceId}/update/`, data),
+
+  // Legacy compat — used by AdminBillingTab manual form
+  createSubscription: (candidateId: string, data: Record<string, any>) =>
+    api.post(`/billing/${candidateId}/subscription/create/`, data),
 };
+
 
 // ─── Audit ───
 export const auditApi = {

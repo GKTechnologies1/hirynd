@@ -2,15 +2,15 @@ import { CheckCircle, Circle } from "lucide-react";
 import { motion } from "framer-motion";
 
 const PIPELINE_STEPS = [
-  { key: "pending_approval", label: "Registration Submitted" },
-  { key: "approved", label: "Profile Approved" },
-  { key: "intake_submitted", label: "Intake Submitted" },
-  { key: "roles_published", label: "Roles Reviewed" },
-  { key: "roles_candidate_responded", label: "Roles Confirmed" },
-  { key: "payment_completed", label: "Payment Completed" },
-  { key: "credentials_submitted", label: "Credentials Submitted" },
-  { key: "active_marketing", label: "Active Marketing" },
-  { key: "placed_closed", label: "Placement Closed" },
+  { key: "pending_approval",    label: "Registration Submitted" },
+  { key: "approved",            label: "Profile Approved" },
+  { key: "intake_submitted",    label: "Intake Submitted" },
+  { key: "roles_suggested",     label: "Roles Reviewed" },
+  { key: "roles_confirmed",     label: "Roles Confirmed" },
+  { key: "paid",                label: "Payment Completed" },
+  { key: "credential_completed", label: "Credentials Submitted" },
+  { key: "active_marketing",    label: "Active Marketing" },
+  { key: "placed",              label: "Placement Closed" },
 ];
 
 interface CandidateTimelineProps {
@@ -33,7 +33,7 @@ const CandidateTimeline = ({ currentStatus }: CandidateTimelineProps) => {
         {PIPELINE_STEPS.map((step, i) => {
           const isCompleted = currentIndex >= 0 && i < currentIndex;
           const isCurrent = i === currentIndex;
-          const isPlaced = currentStatus === "placed_closed" && step.key === "placed_closed";
+          const isPlaced = currentStatus === "placed" && step.key === "placed";
           return (
             <motion.div
               key={step.key}

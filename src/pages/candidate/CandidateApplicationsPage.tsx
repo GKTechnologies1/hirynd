@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { recruitersApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,21 +44,14 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   useEffect(() => {
     if (!candidate?.id) return;
     const fetchData = async () => {
-      const { data: logs } = await supabase
-        .from("daily_submission_logs")
-        .select("*")
-        .eq("candidate_id", candidate.id)
-        .order("log_date", { ascending: false });
-      setDailyLogs(logs || []);
-
-      if (logs && logs.length > 0) {
-        const logIds = logs.map((l: any) => l.id);
-        const { data: jobs } = await supabase
-          .from("job_postings")
-          .select("*")
-          .in("submission_log_id", logIds)
-          .order("created_at", { ascending: false });
-        setJobPostings(jobs || []);
+      try {
+        const { data: logs } = await recruitersApi.getDailyLogs(candidate.id);
+        setDailyLogs(logs || []);
+        const allJobs = (logs || []).flatMap((l: any) => l.job_entries || []);
+        setJobPostings(allJobs);
+      } catch {
+        setDailyLogs([]);
+        setJobPostings([]);
       }
       setLoading(false);
     };
@@ -67,17 +60,13 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
 
   const handleStatusUpdate = async (jobId: string, newStatus: string) => {
     setUpdatingJob(jobId);
-    const { error } = await supabase.rpc("add_job_status_update", {
-      _job_posting_id: jobId,
-      _status: newStatus,
-      _notes: statusNotes[jobId] || "",
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await recruitersApi.updateJobStatus(jobId, newStatus);
       toast({ title: "Status updated" });
-      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, candidate_response_status: newStatus } : j));
+      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
       setStatusNotes(prev => ({ ...prev, [jobId]: "" }));
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setUpdatingJob(null);
   };

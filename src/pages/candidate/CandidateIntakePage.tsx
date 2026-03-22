@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,25 +51,23 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
   useEffect(() => {
     if (!candidate) return;
     const fetchIntake = async () => {
-      const { data } = await supabase
-        .from("client_intake_sheets")
-        .select("*")
-        .eq("candidate_id", candidate.id)
-        .maybeSingle();
-      if (data) {
-        setIntake(data);
-        if (data.data) {
-          setFormData({ ...formData, ...(data.data as any) });
+      try {
+        const { data } = await candidatesApi.getIntake(candidate.id);
+        if (data && data.id) {
+          setIntake(data);
+          // data stored as JSON in data.data field
+          const saved = data.data || {};
+          setFormData(prev => ({ ...prev, ...saved }));
         }
-      }
+      } catch { /* no intake yet */ }
       setLoading(false);
     };
     fetchIntake();
-  }, [candidate]);
+  }, [candidate?.id]);
 
-  const statusAllowed = ["approved", "intake_submitted", "roles_suggested", "roles_confirmed", "paid", "credential_completed", "active_marketing", "placed"].includes(candidate?.status);
+  const statusAllowed = ["approved", "intake_submitted", "roles_suggested", "roles_confirmed", "paid", "credential_completed", "active_marketing", "placed", "on_hold", "paused", "past_due"].includes(candidate?.status);
   const isLocked = intake?.is_locked === true;
-  const canSubmit = candidate?.status === "approved" && !isLocked;
+  const canSubmit = ["approved", "lead"].includes(candidate?.status) && !isLocked;
 
   if (!statusAllowed) {
     return (
@@ -93,20 +91,14 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     if (!canSubmit) return;
     setSubmitting(true);
 
-    const { error } = await supabase.rpc("submit_intake_form", {
-      _candidate_id: candidate.id,
-      _form_data: formData,
-    });
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      setSubmitting(false);
-      return;
+    try {
+      await candidatesApi.submitIntake(candidate.id, formData);
+      toast({ title: "Intake form submitted!", description: "Your form has been locked and submitted for review." });
+      onStatusChange();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
-
-    toast({ title: "Intake form submitted!", description: "Your form has been locked and submitted for review." });
     setSubmitting(false);
-    onStatusChange();
   };
 
   if (loading) {

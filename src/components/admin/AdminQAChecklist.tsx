@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi, recruitersApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, XCircle } from "lucide-react";
 
@@ -22,19 +22,18 @@ const AdminQAChecklist = ({ candidateId, candidateStatus }: AdminQAChecklistProp
       const statusOrder = ["lead", "approved", "intake_submitted", "roles_suggested", "roles_confirmed", "paid", "credential_completed", "active_marketing", "paused", "cancelled", "placed"];
       const idx = statusOrder.indexOf(candidateStatus);
 
-      const [
-        { count: credCount },
-        { count: assignCount },
-        { count: logCount },
-        { count: interviewCount },
-        { count: placementCount },
-      ] = await Promise.all([
-        supabase.from("credential_intake_sheets").select("*", { count: "exact", head: true }).eq("candidate_id", candidateId),
-        supabase.from("candidate_assignments").select("*", { count: "exact", head: true }).eq("candidate_id", candidateId).eq("is_active", true),
-        supabase.from("daily_submission_logs").select("*", { count: "exact", head: true }).eq("candidate_id", candidateId),
-        supabase.from("interview_logs").select("*", { count: "exact", head: true }).eq("candidate_id", candidateId),
-        supabase.from("placement_closures").select("*", { count: "exact", head: true }).eq("candidate_id", candidateId),
+      const [credRes, assignRes, logRes, interviewRes, placementRes] = await Promise.all([
+        candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
+        recruitersApi.assignments(candidateId).catch(() => ({ data: [] })),
+        recruitersApi.getDailyLogs(candidateId).catch(() => ({ data: [] })),
+        candidatesApi.getInterviews(candidateId).catch(() => ({ data: [] })),
+        candidatesApi.getPlacement(candidateId).catch(() => ({ data: null })),
       ]);
+      const credCount = (credRes.data || []).length;
+      const assignCount = (assignRes.data || []).length;
+      const logCount = (logRes.data || []).length;
+      const interviewCount = (interviewRes.data || []).length;
+      const placementCount = placementRes.data ? 1 : 0;
 
       setChecks([
         { label: "Intake complete", done: idx >= 2 },

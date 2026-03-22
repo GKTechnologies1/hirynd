@@ -9,6 +9,8 @@ from users.serializers import ProfileSerializer
 
 class CandidateSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
@@ -19,6 +21,12 @@ class CandidateSerializer(serializers.ModelSerializer):
         if hasattr(obj.user, 'profile'):
             return ProfileSerializer(obj.user.profile).data
         return None
+
+    def get_full_name(self, obj):
+        return obj.user.profile.full_name if hasattr(obj.user, 'profile') else ''
+
+    def get_email(self, obj):
+        return obj.user.email
 
 
 class CandidateListSerializer(serializers.ModelSerializer):

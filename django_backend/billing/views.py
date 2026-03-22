@@ -1,18 +1,133 @@
+﻿"""
+Billing views  Razorpay integration, subscription-plan management,
+per-candidate subscription lifecycle, and payment verification.
+"""
+import hashlib
+import hmac
+import logging
+from decimal import Decimal
+
+from django.conf import settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from users.permissions import IsAdmin, IsApproved
+
+def _user_name(user):
+    """Return display name for a user without relying on get_full_name()."""
+    if hasattr(user, 'profile') and getattr(user.profile, 'full_name', None):
+        return user.profile.full_name
+    return user.email
+
 from audit.utils import log_action
-from .models import Subscription, Payment, Invoice
-from .serializers import SubscriptionSerializer, PaymentSerializer, InvoiceSerializer
+from candidates.models import Candidate
+from notifications.utils import send_email, create_notification
+from users.permissions import IsAdmin, IsApproved
+
+from .models import (
+    Invoice, Payment, RazorpayOrder,
+    Subscription, SubscriptionAddon, SubscriptionAddonAssignment, SubscriptionPlan,
+)
+from .serializers import (
+    InvoiceSerializer, PaymentSerializer, RazorpayOrderSerializer,
+    SubscriptionAddonSerializer, SubscriptionPlanSerializer, SubscriptionSerializer,
+)
+
+logger = logging.getLogger(__name__)
 
 
+def _get_razorpay_client():
+    try:
+        import razorpay
+    except ImportError:
+        return None, None
+    key_id = getattr(settings, 'RAZORPAY_KEY_ID', '')
+    key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', '')
+    if not key_id or not key_secret or key_id.startswith('rzp_test_xxx'):
+        return None, None
+    client = razorpay.Client(auth=(key_id, key_secret))
+    return client, key_secret
+
+
+#  Subscription Plan CRUD 
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def list_plans(request):
+    plans = SubscriptionPlan.objects.filter(is_active=True)
+    return Response(SubscriptionPlanSerializer(plans, many=True).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def create_plan(request):
+    serializer = SubscriptionPlanSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    plan = serializer.save(created_by=request.user)
+    log_action(request.user, 'plan_created', str(plan.id), 'subscription_plan', request.data)
+    return Response(SubscriptionPlanSerializer(plan).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAdmin])
+def manage_plan(request, plan_id):
+    try:
+        plan = SubscriptionPlan.objects.get(id=plan_id)
+    except SubscriptionPlan.DoesNotExist:
+        return Response({'error': 'Plan not found'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'DELETE':
+        plan.is_active = False
+        plan.save(update_fields=['is_active'])
+        return Response({'detail': 'Plan deactivated'})
+    serializer = SubscriptionPlanSerializer(plan, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
+
+
+#  Subscription Addon CRUD 
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def list_addons(request):
+    addons = SubscriptionAddon.objects.filter(is_active=True)
+    return Response(SubscriptionAddonSerializer(addons, many=True).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def create_addon(request):
+    serializer = SubscriptionAddonSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    addon = serializer.save(created_by=request.user)
+    log_action(request.user, 'addon_created', str(addon.id), 'subscription_addon', request.data)
+    return Response(SubscriptionAddonSerializer(addon).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAdmin])
+def manage_addon(request, addon_id):
+    try:
+        addon = SubscriptionAddon.objects.get(id=addon_id)
+    except SubscriptionAddon.DoesNotExist:
+        return Response({'error': 'Addon not found'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'DELETE':
+        addon.is_active = False
+        addon.save(update_fields=['is_active'])
+        return Response({'detail': 'Addon deactivated'})
+    serializer = SubscriptionAddonSerializer(addon, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
+
+
+#  Candidate Subscription 
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def subscription_detail(request, candidate_id):
     try:
-        sub = Subscription.objects.get(candidate_id=candidate_id)
+        sub = Subscription.objects.select_related('plan', 'candidate__user').prefetch_related(
+            'addon_assignments__addon'
+        ).get(candidate_id=candidate_id)
         return Response(SubscriptionSerializer(sub).data)
     except Subscription.DoesNotExist:
         return Response({})
@@ -20,14 +135,86 @@ def subscription_detail(request, candidate_id):
 
 @api_view(['POST'])
 @permission_classes([IsAdmin])
-def create_subscription(request, candidate_id):
-    data = request.data.copy()
-    data['candidate'] = candidate_id
-    serializer = SubscriptionSerializer(data=data)
-    serializer.is_valid(raise_exception=True)
-    serializer.save()
-    log_action(request.user, 'subscription_created', str(candidate_id), 'subscription', data)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+def assign_plan(request, candidate_id):
+    """Admin assigns a SubscriptionPlan to a candidate."""
+    try:
+        candidate = Candidate.objects.select_related('user').get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
+
+    plan_id = request.data.get('plan_id')
+    addon_ids = request.data.get('addons', [])
+    if not plan_id:
+        return Response({'error': 'plan_id is required'}, status=400)
+    try:
+        plan = SubscriptionPlan.objects.get(id=plan_id, is_active=True)
+    except SubscriptionPlan.DoesNotExist:
+        return Response({'error': 'Plan not found or inactive'}, status=404)
+
+    sub, created = Subscription.objects.get_or_create(
+        candidate=candidate,
+        defaults={
+            'plan': plan, 'plan_name': plan.name, 'amount': plan.amount,
+            'currency': plan.currency, 'billing_cycle': plan.billing_cycle,
+            'status': 'pending_payment', 'assigned_by': request.user,
+            'payment_initiated_at': timezone.now(),
+        },
+    )
+    if not created:
+        sub.plan = plan
+        sub.plan_name = plan.name
+        sub.amount = plan.amount
+        sub.currency = plan.currency
+        sub.billing_cycle = plan.billing_cycle
+        sub.status = 'pending_payment'
+        sub.assigned_by = request.user
+        sub.payment_initiated_at = timezone.now()
+        sub.save()
+        sub.addon_assignments.all().delete()
+
+    for addon_id in addon_ids:
+        try:
+            addon = SubscriptionAddon.objects.get(id=addon_id, is_active=True)
+            SubscriptionAddonAssignment.objects.get_or_create(
+                subscription=sub, addon=addon, defaults={'added_by': request.user},
+            )
+        except SubscriptionAddon.DoesNotExist:
+            pass
+
+    log_action(request.user, 'plan_assigned', str(candidate_id), 'subscription', {'plan': plan.name})
+    create_notification(
+        candidate.user, 'Payment Required',
+        f'Your plan "{plan.name}" has been assigned. Please complete payment to continue.',
+        link='/candidate-dashboard/payments',
+    )
+    send_email(
+        candidate.user.email, 'Action Required: Complete Your Payment',
+        f'<p>Hi {_user_name(candidate.user)},</p>'
+        f'<p>Your Hyrind plan <strong>{plan.name}</strong> (&#8377;{plan.amount}) has been assigned. '
+        f'Please log in and complete the payment to proceed.</p>',
+    )
+    return Response(SubscriptionSerializer(sub).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def add_addon_to_subscription(request, candidate_id):
+    try:
+        sub = Subscription.objects.get(candidate_id=candidate_id)
+    except Subscription.DoesNotExist:
+        return Response({'error': 'No subscription found'}, status=404)
+    addon_id = request.data.get('addon_id')
+    if not addon_id:
+        return Response({'error': 'addon_id required'}, status=400)
+    try:
+        addon = SubscriptionAddon.objects.get(id=addon_id, is_active=True)
+    except SubscriptionAddon.DoesNotExist:
+        return Response({'error': 'Addon not found'}, status=404)
+    assignment, created = SubscriptionAddonAssignment.objects.get_or_create(
+        subscription=sub, addon=addon, defaults={'added_by': request.user},
+    )
+    log_action(request.user, 'addon_added', str(candidate_id), 'subscription_addon', {'addon': addon.name})
+    return Response({'detail': 'Addon added', 'created': created})
 
 
 @api_view(['PATCH'])
@@ -37,17 +224,164 @@ def update_subscription(request, candidate_id):
         sub = Subscription.objects.get(candidate_id=candidate_id)
     except Subscription.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
-
     serializer = SubscriptionSerializer(sub, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)
 
 
+#  Razorpay  Create Order 
+@api_view(['POST'])
+@permission_classes([IsApproved])
+def create_razorpay_order(request, candidate_id):
+    try:
+        candidate = Candidate.objects.select_related('user').get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
+
+    if request.user.role == 'candidate' and str(candidate.user.id) != str(request.user.id):
+        return Response({'error': 'Forbidden'}, status=403)
+
+    try:
+        sub = Subscription.objects.prefetch_related('addon_assignments__addon').get(candidate=candidate)
+    except Subscription.DoesNotExist:
+        return Response({'error': 'No subscription assigned. Contact your advisor.'}, status=400)
+
+    if sub.status == 'active':
+        return Response({'error': 'Subscription already active'}, status=400)
+
+    addons_total = sum(a.addon.amount for a in sub.addon_assignments.all())
+    total_amount = float(sub.amount) + float(addons_total)
+    total_paise = int(total_amount * 100)
+
+    razorpay_client, _ = _get_razorpay_client()
+
+    if razorpay_client is None:
+        mock_order_id = f"order_mock_{str(candidate_id)[:8]}"
+        RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
+        rp_order = RazorpayOrder.objects.create(
+            candidate=candidate, subscription=sub,
+            razorpay_order_id=mock_order_id,
+            amount=total_amount, currency=sub.currency,
+            payment_type='subscription', notes={'plan': sub.plan_name, 'mode': 'mock'},
+        )
+        return Response({
+            'mode': 'mock', 'order_id': mock_order_id,
+            'amount': total_paise, 'currency': sub.currency,
+            'key_id': 'rzp_test_mock',
+            'subscription_id': str(sub.id), 'internal_order_id': str(rp_order.id),
+            'description': f'Hyrind  {sub.plan_name}',
+            'prefill': {'name': _user_name(candidate.user), 'email': candidate.user.email},
+        })
+
+    rz_order = razorpay_client.order.create({
+        'amount': total_paise, 'currency': sub.currency,
+        'receipt': f'hyrind_{str(candidate_id)[:8]}',
+        'notes': {'plan': sub.plan_name, 'candidate': str(candidate_id)},
+    })
+    RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
+    rp_order = RazorpayOrder.objects.create(
+        candidate=candidate, subscription=sub,
+        razorpay_order_id=rz_order['id'],
+        amount=total_amount, currency=sub.currency,
+        payment_type='subscription', notes={'plan': sub.plan_name},
+    )
+    return Response({
+        'order_id': rz_order['id'], 'amount': total_paise, 'currency': sub.currency,
+        'key_id': settings.RAZORPAY_KEY_ID,
+        'subscription_id': str(sub.id), 'internal_order_id': str(rp_order.id),
+        'description': f'Hyrind  {sub.plan_name}',
+        'prefill': {
+            'name': _user_name(candidate.user), 'email': candidate.user.email,
+            'contact': getattr(candidate.user, 'phone', ''),
+        },
+    })
+
+
+#  Razorpay  Verify Payment 
+@api_view(['POST'])
+@permission_classes([IsApproved])
+def verify_razorpay_payment(request, candidate_id):
+    rz_order_id = request.data.get('razorpay_order_id')
+    rz_payment_id = request.data.get('razorpay_payment_id')
+    rz_signature = request.data.get('razorpay_signature', '')
+    is_mock = request.data.get('mode') == 'mock'
+
+    try:
+        rp_order = RazorpayOrder.objects.select_related('candidate', 'subscription').get(
+            razorpay_order_id=rz_order_id,
+        )
+    except RazorpayOrder.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=404)
+
+    if str(rp_order.candidate_id) != str(candidate_id):
+        return Response({'error': 'Order does not belong to this candidate'}, status=403)
+
+    if not is_mock:
+        _, key_secret = _get_razorpay_client()
+        if key_secret:
+            generated = hmac.new(
+                key_secret.encode(),
+                f"{rz_order_id}|{rz_payment_id}".encode(),
+                hashlib.sha256,
+            ).hexdigest()
+            if not hmac.compare_digest(generated, rz_signature):
+                logger.warning("Razorpay signature mismatch for order %s", rz_order_id)
+                return Response({'error': 'Payment verification failed'}, status=400)
+
+    rp_order.razorpay_payment_id = rz_payment_id
+    rp_order.razorpay_signature = rz_signature
+    rp_order.status = 'paid'
+    rp_order.verified_at = timezone.now()
+    rp_order.save()
+
+    sub = rp_order.subscription
+    if sub:
+        sub.status = 'active'
+        sub.last_payment_at = timezone.now()
+        sub.start_date = timezone.now().date()
+        sub.save(update_fields=['status', 'last_payment_at', 'start_date'])
+
+    payment = Payment.objects.create(
+        candidate_id=candidate_id, subscription=sub, razorpay_order=rp_order,
+        amount=rp_order.amount, currency=rp_order.currency,
+        payment_type='subscription', status='completed',
+        payment_date=timezone.now().date(),
+        notes=f'Razorpay payment {rz_payment_id}',
+    )
+
+    candidate = rp_order.candidate
+    if candidate.status in ('roles_confirmed', 'pending_payment', 'intake_submitted'):
+        candidate.status = 'paid'
+        candidate.save(update_fields=['status'])
+
+    log_action(candidate.user, 'payment_verified', str(candidate_id), 'payment', {
+        'payment_id': rz_payment_id, 'amount': float(rp_order.amount),
+    })
+    create_notification(
+        candidate.user, 'Payment Successful',
+        f'Your payment of &#8377;{rp_order.amount} has been received. Your subscription is now active.',
+        link='/candidate-dashboard/payments',
+    )
+    send_email(
+        candidate.user.email, 'Payment Confirmed  Hyrind',
+        f'<p>Hi {_user_name(candidate.user)},</p>'
+        f'<p>We received your payment of <strong>&#8377;{rp_order.amount}</strong>. '
+        f'Your subscription is now <strong>Active</strong>.</p>',
+    )
+    return Response({
+        'detail': 'Payment verified successfully',
+        'payment_id': str(payment.id),
+        'candidate_status': candidate.status,
+        'subscription_status': sub.status if sub else None,
+    })
+
+
+#  Manual / Admin Payments 
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def payments(request, candidate_id):
-    pays = Payment.objects.filter(candidate_id=candidate_id)
+    pays = Payment.objects.filter(candidate_id=candidate_id).select_related('subscription', 'razorpay_order')
     return Response(PaymentSerializer(pays, many=True).data)
 
 
@@ -58,13 +392,93 @@ def record_payment(request, candidate_id):
     data['candidate'] = candidate_id
     serializer = PaymentSerializer(data=data)
     serializer.is_valid(raise_exception=True)
-    serializer.save()
+    pay = serializer.save(recorded_by=request.user)
+    if pay.payment_type == 'subscription':
+        try:
+            sub = Subscription.objects.get(candidate_id=candidate_id)
+            sub.status = 'active'
+            sub.last_payment_at = timezone.now()
+            sub.save(update_fields=['status', 'last_payment_at'])
+        except Subscription.DoesNotExist:
+            pass
+        try:
+            cand = Candidate.objects.get(id=candidate_id)
+            if cand.status in ('roles_confirmed', 'pending_payment', 'past_due'):
+                cand.status = 'paid'
+                cand.save(update_fields=['status'])
+        except Candidate.DoesNotExist:
+            pass
     log_action(request.user, 'payment_recorded', str(candidate_id), 'payment', data)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(PaymentSerializer(pay).data, status=status.HTTP_201_CREATED)
 
 
+#  Invoices 
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def invoices(request, candidate_id):
     invs = Invoice.objects.filter(candidate_id=candidate_id)
     return Response(InvoiceSerializer(invs, many=True).data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdmin])
+def update_invoice(request, invoice_id):
+    try:
+        inv = Invoice.objects.get(id=invoice_id)
+    except Invoice.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    inv_status = request.data.get('status')
+    if inv_status:
+        inv.status = inv_status
+        if inv_status == 'paid':
+            inv.paid_at = timezone.now()
+        if inv_status == 'failed':
+            inv.failure_reason = request.data.get('failure_reason', '')
+    if request.data.get('payment_reference'):
+        inv.payment_reference = request.data['payment_reference']
+    inv.save()
+    return Response(InvoiceSerializer(inv).data)
+
+
+#  Billing Alerts 
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def billing_alerts(request):
+    count = Subscription.objects.filter(status__in=['past_due', 'grace_period', 'pending_payment']).count()
+    pending = list(Subscription.objects.filter(status='pending_payment').values(
+        'candidate__user__email', 'plan_name', 'amount', 'payment_initiated_at',
+    ))
+    return Response({'count': count, 'pending_payment': pending})
+
+
+#  All subscriptions overview 
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def all_subscriptions(request):
+    subs = Subscription.objects.select_related('plan', 'candidate__user').prefetch_related(
+        'addon_assignments__addon'
+    ).all()
+    s = request.query_params.get('status')
+    if s:
+        subs = subs.filter(status=s)
+    return Response(SubscriptionSerializer(subs, many=True).data)
+
+
+# ─── Manual subscription create (legacy admin billing tab) ────────
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def create_subscription_manual(request, candidate_id):
+    """
+    Admin manually enters amount/plan_name without using the SubscriptionPlan catalogue.
+    Used by AdminBillingTab when no plan catalogue is selected.
+    """
+    data = request.data.copy()
+    data['candidate'] = str(candidate_id)
+    if 'status' not in data:
+        data['status'] = 'active'
+    serializer = SubscriptionSerializer(data=data)
+    serializer.is_valid(raise_exception=True)
+    sub = serializer.save(assigned_by=request.user)
+    log_action(request.user, 'subscription_created', str(candidate_id), 'subscription', request.data)
+    return Response(SubscriptionSerializer(sub).data, status=status.HTTP_201_CREATED)
+

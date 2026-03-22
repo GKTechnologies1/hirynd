@@ -40,26 +40,26 @@ const navItems = [
 
 // Status pipeline gating per spec Section 4.1
 const STATUS_TAB_ACCESS: Record<string, string[]> = {
-  pending_approval: ["overview"],
-  approved: ["overview", "intake"],
-  intake_submitted: ["overview", "intake"],
-  roles_published: ["overview", "intake", "roles"],
-  roles_candidate_responded: ["overview", "intake", "roles", "credentials"],
-  payment_pending: ["overview", "intake", "roles", "payments"],
-  payment_completed: ["overview", "intake", "roles", "credentials", "payments"],
-  credentials_submitted: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews"],
-  active_marketing: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  paused: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  on_hold: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  past_due: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  cancelled: ["overview"],
-  placed_closed: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  pending_approval:     ["overview"],
+  lead:                 ["overview"],
+  approved:             ["overview", "intake"],
+  intake_submitted:     ["overview", "intake"],
+  roles_suggested:      ["overview", "intake", "roles"],
+  roles_confirmed:      ["overview", "intake", "roles", "payments"],
+  paid:                 ["overview", "intake", "roles", "payments"],
+  credential_completed: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews"],
+  active_marketing:     ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  paused:               ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  on_hold:              ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  past_due:             ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  cancelled:            ["overview"],
+  placed:               ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
 };
 
 const LOCKED_MESSAGES: Record<string, { title: string; reason: string; action?: string; actionPath?: string }> = {
   intake: { title: "Intake Sheet", reason: "Complete your intake sheet to proceed with the onboarding process.", action: "Go to Intake →", actionPath: "/candidate-dashboard/intake" },
   roles: { title: "Roles", reason: "Role suggestions will appear here once your intake has been reviewed. Please allow 24–48 hours after intake submission." },
-  credentials: { title: "Credentials", reason: "Credentials will unlock after you complete your role confirmation and the required payment step is completed.", action: "Go to Payments →", actionPath: "/candidate-dashboard/payments" },
+  credentials: { title: "Credentials", reason: "Credentials will unlock after role confirmation and the required payment step.", action: "Go to Payments →", actionPath: "/candidate-dashboard/payments" },
   payments: { title: "Payments", reason: "Complete your role confirmation step to unlock payments." },
   billing: { title: "Billing", reason: "Your billing information will be available after payment is completed." },
   applications: { title: "Applications", reason: "Applications tracking will be available after your credentials are submitted." },
@@ -110,17 +110,9 @@ const CandidateDashboard = () => {
   const fetchData = async () => {
     if (!user) return;
     try {
-      const { data: candidates } = await candidatesApi.list();
-      const cand = candidates?.[0] || null;
+      // Use /candidates/me/ — auto-creates the Candidate record if missing
+      const { data: cand } = await candidatesApi.me();
       setCandidate(cand);
-
-      if (cand) {
-        try {
-          const { data: detail } = await candidatesApi.detail(cand.id);
-          setCandidate(detail);
-        } catch { /* use list data */ }
-      }
-
       try {
         const { data: notifs } = await notificationsApi.list(true);
         setNotifications(notifs?.slice(0, 10) || []);
@@ -147,7 +139,7 @@ const CandidateDashboard = () => {
   if (subPath === "intake") return <CandidateIntakePage candidate={candidate} onStatusChange={fetchData} />;
   if (subPath === "roles") return <CandidateRolesPage candidate={candidate} onStatusChange={fetchData} />;
   if (subPath === "credentials") return <CandidateCredentialsPage candidate={candidate} onStatusChange={fetchData} />;
-  if (subPath === "payments") return <CandidatePaymentsPage candidate={candidate} />;
+  if (subPath === "payments") return <CandidatePaymentsPage candidate={candidate} onStatusChange={fetchData} />;
   if (subPath === "billing") return <CandidateBillingPage candidate={candidate} />;
   if (subPath === "applications") return <CandidateApplicationsPage candidate={candidate} />;
   if (subPath === "interviews") return <CandidateInterviewsPage candidate={candidate} />;
@@ -158,31 +150,31 @@ const CandidateDashboard = () => {
   const getNextAction = () => {
     switch (status) {
       case "pending_approval": return "Your registration is under review. We'll notify you within 24–48 hours.";
-      case "approved": return "Complete your Client Intake Sheet to proceed.";
-      case "intake_submitted": return "Your intake is under review. Waiting for role suggestions from your team.";
-      case "roles_published": return "Review and respond to your suggested roles.";
-      case "roles_candidate_responded": return "Waiting for payment confirmation.";
-      case "payment_pending": return "Complete your payment to proceed.";
-      case "payment_completed": return "Submit your credential intake sheet.";
-      case "credentials_submitted": return "Your credentials are submitted. Waiting for recruiter assignment.";
-      case "active_marketing": return "Your profile is being actively marketed!";
-      case "placed_closed": return "🎉 Congratulations! You've been placed.";
-      case "paused": return "Your case is currently paused. Contact support for details.";
-      case "on_hold": return "Your case is on hold pending review.";
-      case "past_due": return "Payment past due. Please update your billing.";
-      case "cancelled": return "Your case has been cancelled. Contact support for details.";
-      default: return "Contact support for assistance.";
+      case "lead":              return "Your account has been noted. Awaiting full approval.";
+      case "approved":          return "Complete your Client Intake Sheet to proceed.";
+      case "intake_submitted":  return "Your intake is under review. Waiting for role suggestions from your team.";
+      case "roles_suggested":   return "Review and respond to your suggested roles.";
+      case "roles_confirmed":   return "Your roles are confirmed. Waiting for payment step.";
+      case "paid":              return "Payment received. Submit your credential intake sheet.";
+      case "credential_completed": return "Your credentials are submitted. Waiting for recruiter assignment.";
+      case "active_marketing":  return "Your profile is being actively marketed!";
+      case "placed":            return "🎉 Congratulations! You've been placed.";
+      case "paused":            return "Your case is currently paused. Contact support for details.";
+      case "on_hold":           return "Your case is on hold pending review.";
+      case "past_due":          return "Payment past due. Please update your billing.";
+      case "cancelled":         return "Your case has been cancelled. Contact support for details.";
+      default:                  return "Contact support for assistance.";
     }
   };
 
   const getNextActionCTA = () => {
     switch (status) {
-      case "approved": return { label: "Complete Intake Sheet →", path: "/candidate-dashboard/intake" };
-      case "roles_published": return { label: "Review Suggested Roles →", path: "/candidate-dashboard/roles" };
-      case "payment_pending": return { label: "View Payments →", path: "/candidate-dashboard/payments" };
-      case "payment_completed": return { label: "Complete Credential Intake →", path: "/candidate-dashboard/credentials" };
-      case "active_marketing": return { label: "View Applications →", path: "/candidate-dashboard/applications" };
-      case "past_due": return { label: "Update Billing →", path: "/candidate-dashboard/billing" };
+      case "approved":          return { label: "Complete Intake Sheet →", path: "/candidate-dashboard/intake" };
+      case "roles_suggested":   return { label: "Review Suggested Roles →", path: "/candidate-dashboard/roles" };
+      case "roles_confirmed":   return { label: "View Payments →", path: "/candidate-dashboard/payments" };
+      case "paid":              return { label: "Complete Credential Intake →", path: "/candidate-dashboard/credentials" };
+      case "active_marketing":  return { label: "View Applications →", path: "/candidate-dashboard/applications" };
+      case "past_due":          return { label: "Update Billing →", path: "/candidate-dashboard/billing" };
       default: return null;
     }
   };
@@ -199,7 +191,7 @@ const CandidateDashboard = () => {
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-5">
           {/* Placed Banner */}
-          {status === "placed_closed" && (
+          {status === "placed" && (
             <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}>
               <Card className="border-secondary/30 bg-secondary/5">
                 <CardContent className="p-4 flex items-center gap-3">

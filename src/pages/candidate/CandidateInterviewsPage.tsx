@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -27,11 +27,16 @@ const navItems = [
 
 const LOG_TYPES = [
   { value: "screening_call", label: "Screening Call" },
-  { value: "interview", label: "Interview" },
+  { value: "technical_interview", label: "Technical Interview" },
+  { value: "hr_interview", label: "HR Interview" },
+  { value: "client_round", label: "Client Round" },
+  { value: "final_round", label: "Final Round" },
+  { value: "mock_interview", label: "Mock Interview" },
+  { value: "support_call", label: "Support Call" },
 ];
 
 const ROUNDS = ["Round 1", "Round 2", "Tech", "Behavioral", "Final"];
-const OUTCOMES = ["Scheduled", "Completed", "No Show", "Rejected", "Next Round", "Offer"];
+const OUTCOMES = ["scheduled", "completed", "selected", "rejected", "follow_up_needed", "rescheduled", "no_show"];
 
 interface CandidateInterviewsPageProps {
   candidate: any;
@@ -59,12 +64,12 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
 
   const fetchLogs = async () => {
     if (!candidate?.id) return;
-    const { data } = await supabase
-      .from("interview_logs")
-      .select("*")
-      .eq("candidate_id", candidate.id)
-      .order("interview_date", { ascending: false });
-    setLogs(data || []);
+    try {
+      const { data } = await candidatesApi.getInterviews(candidate.id);
+      setLogs(data || []);
+    } catch {
+      setLogs([]);
+    }
     setLoading(false);
   };
 
@@ -75,52 +80,40 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
       toast({ title: "Fill all required fields", variant: "destructive" }); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("interview_logs").insert({
-      candidate_id: candidate.id,
-      submitted_by: user!.id,
-      log_type: logType,
-      company_name: companyName.trim(),
-      role_title: roleTitle.trim(),
-      interview_date: interviewDate,
-      round,
-      outcome,
-      notes: notes.trim(),
-      difficult_questions: difficultQuestions.trim(),
-      support_needed: supportNeeded,
-      support_notes: supportNotes.trim(),
-    });
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      // Notify admin/recruiters
-      await supabase.from("notifications").insert({
-        user_id: user!.id, // placeholder - ideally notify admins
-        title: "Interview Logged",
-        message: `${logType === "interview" ? "Interview" : "Screening call"} logged for ${companyName}`,
-        link: `/candidate-dashboard/interviews`,
+    try {
+      await candidatesApi.submitInterview(candidate.id, {
+        interview_type: logType,
+        company_name: companyName.trim(),
+        role_title: roleTitle.trim(),
+        interview_date: interviewDate,
+        stage_round: round,
+        outcome,
+        feedback_notes: notes.trim(),
+        difficult_questions: difficultQuestions.trim(),
+        support_needed: supportNeeded ? (supportNotes.trim() || "Yes") : "",
       });
-
       toast({ title: "Interview log saved" });
       setShowForm(false);
       resetForm();
       fetchLogs();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSaving(false);
   };
 
   const resetForm = () => {
     setLogType("screening_call"); setCompanyName(""); setRoleTitle(""); setInterviewDate("");
-    setRound(""); setOutcome("Scheduled"); setNotes(""); setDifficultQuestions("");
+    setRound(""); setOutcome("scheduled"); setNotes(""); setDifficultQuestions("");
     setSupportNeeded(false); setSupportNotes("");
   };
 
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
 
-  const scheduledThisWeek = logs.filter(l => l.outcome === "Scheduled" && l.interview_date >= weekAgo).length;
-  const completed = logs.filter(l => l.outcome === "Completed").length;
-  const offers = logs.filter(l => l.outcome === "Offer").length;
+  const scheduledThisWeek = logs.filter(l => l.outcome === "scheduled" && l.interview_date >= weekAgo).length;
+  const completed = logs.filter(l => l.outcome === "completed").length;
+  const offers = logs.filter(l => l.outcome === "selected").length;
 
   return (
     <DashboardLayout title="Interviews & Calls" navItems={navItems}>
@@ -243,10 +236,10 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                     {logs.map((l: any) => (
                       <TableRow key={l.id}>
                         <TableCell>{l.interview_date ? new Date(l.interview_date).toLocaleDateString() : "—"}</TableCell>
-                        <TableCell className="capitalize">{l.log_type?.replace("_", " ")}</TableCell>
+                        <TableCell className="capitalize">{l.interview_type?.replace(/_/g, " ")}</TableCell>
                         <TableCell className="font-medium">{l.company_name || "—"}</TableCell>
                         <TableCell>{l.role_title || "—"}</TableCell>
-                        <TableCell>{l.round || "—"}</TableCell>
+                        <TableCell>{l.stage_round || "—"}</TableCell>
                         <TableCell><StatusBadge status={l.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} /></TableCell>
                       </TableRow>
                     ))}

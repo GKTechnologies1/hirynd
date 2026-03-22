@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { auditApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,22 +30,14 @@ const AdminGlobalAuditTab = () => {
   useEffect(() => {
     const fetchLogs = async () => {
       setLoading(true);
-      let query = supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(200);
-      if (actionFilter !== "all") query = query.ilike("action", `%${actionFilter}%`);
-      if (dateFrom) query = query.gte("created_at", dateFrom);
-      if (dateTo) query = query.lte("created_at", dateTo + "T23:59:59");
-
-      const { data } = await query;
-      setLogs(data || []);
-
-      if (data && data.length > 0) {
-        const actorIds = [...new Set(data.map((l: any) => l.actor_id).filter(Boolean))];
-        if (actorIds.length > 0) {
-          const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", actorIds);
-          const map: Record<string, string> = {};
-          profiles?.forEach((p: any) => { map[p.user_id] = p.full_name; });
-          setActorProfiles(map);
-        }
+      try {
+        const { data: allLogs } = await auditApi.globalLogs(actionFilter !== "all" ? actionFilter : undefined);
+        let filtered = allLogs || [];
+        if (dateFrom) filtered = filtered.filter((l: any) => l.created_at >= dateFrom);
+        if (dateTo) filtered = filtered.filter((l: any) => l.created_at <= dateTo + "T23:59:59");
+        setLogs(filtered);
+      } catch {
+        setLogs([]);
       }
       setLoading(false);
     };
@@ -93,11 +85,11 @@ const AdminGlobalAuditTab = () => {
               {logs.map((log: any) => (
                 <TableRow key={log.id}>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</TableCell>
-                  <TableCell className="text-sm">{actorProfiles[log.actor_id] || "System"}</TableCell>
+                  <TableCell className="text-sm">{log.actor_name || "System"}</TableCell>
                   <TableCell className="text-sm font-medium capitalize">{log.action.replace(/_/g, " ")}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground capitalize">{log.entity_type?.replace(/_/g, " ")}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground capitalize">{log.target_type?.replace(/_/g, " ")}</TableCell>
                   <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
-                    {log.new_value ? Object.entries(log.new_value).map(([k, v]) => `${k}: ${v}`).join(", ") : "—"}
+                    {log.details ? Object.entries(log.details as any).map(([k, v]) => `${k}: ${v}`).join(", ") : "—"}
                   </TableCell>
                 </TableRow>
               ))}

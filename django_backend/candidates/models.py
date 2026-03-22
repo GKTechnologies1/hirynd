@@ -6,19 +6,19 @@ from users.models import User
 class Candidate(models.Model):
     STATUS_CHOICES = [
         ('pending_approval', 'Pending Approval'),
+        ('lead', 'Lead'),
         ('approved', 'Approved'),
         ('intake_submitted', 'Intake Submitted'),
-        ('roles_published', 'Roles Published'),
-        ('roles_candidate_responded', 'Roles Candidate Responded'),
-        ('payment_pending', 'Payment Pending'),
-        ('payment_completed', 'Payment Completed'),
-        ('credentials_submitted', 'Credentials Submitted'),
+        ('roles_suggested', 'Roles Suggested'),
+        ('roles_confirmed', 'Roles Confirmed'),
+        ('paid', 'Paid'),
+        ('credential_completed', 'Credential Completed'),
         ('active_marketing', 'Active Marketing'),
         ('paused', 'Paused'),
         ('on_hold', 'On Hold'),
         ('past_due', 'Past Due'),
         ('cancelled', 'Cancelled'),
-        ('placed_closed', 'Placed Closed'),
+        ('placed', 'Placed'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

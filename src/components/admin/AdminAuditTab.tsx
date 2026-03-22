@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { auditApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,46 +35,31 @@ const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
   useEffect(() => {
     const fetchLogs = async () => {
       setLoading(true);
-      let query = supabase.from("audit_logs").select("*").eq("entity_id", candidateId).order("created_at", { ascending: false }).limit(100);
-
-      if (actionFilter !== "all") {
-        query = query.ilike("action", `%${actionFilter}%`);
-      }
-      if (dateFrom) query = query.gte("created_at", dateFrom);
-      if (dateTo) query = query.lte("created_at", dateTo + "T23:59:59");
-
-      const { data } = await query;
-      setLogs(data || []);
-
-      if (data && data.length > 0) {
-        const actorIds = [...new Set(data.map((l: any) => l.actor_id).filter(Boolean))];
-        if (actorIds.length > 0) {
-          const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", actorIds);
-          const map: Record<string, string> = {};
-          profiles?.forEach((p: any) => { map[p.user_id] = p.full_name; });
-          setActorProfiles(map);
+      try {
+        const { data: allLogs } = await auditApi.candidateLogs(candidateId);
+        let filtered = allLogs || [];
+        if (actionFilter !== "all") {
+          filtered = filtered.filter((l: any) => l.action?.toLowerCase().includes(actionFilter.toLowerCase()));
         }
+        if (dateFrom) filtered = filtered.filter((l: any) => l.created_at >= dateFrom);
+        if (dateTo) filtered = filtered.filter((l: any) => l.created_at <= dateTo + "T23:59:59");
+        setLogs(filtered);
+      } catch {
+        setLogs([]);
       }
       setLoading(false);
     };
     fetchLogs();
   }, [candidateId, actionFilter, dateFrom, dateTo]);
 
-  const renderDiff = (oldVal: any, newVal: any) => {
-    if (!oldVal && !newVal) return "—";
-    const parts: string[] = [];
-    if (oldVal && typeof oldVal === "object") {
-      Object.keys(oldVal).forEach(k => {
-        if (newVal && newVal[k] !== oldVal[k]) {
-          parts.push(`${k}: ${oldVal[k]} → ${newVal[k]}`);
-        }
-      });
+  const renderDiff = (details: any) => {
+    if (!details) return "—";
+    if (typeof details === "object") {
+      const entries = Object.entries(details);
+      if (entries.length === 0) return "—";
+      return entries.map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`).join(", ").slice(0, 150);
     }
-    if (parts.length > 0) return parts.join(", ");
-    if (newVal && typeof newVal === "object") {
-      return Object.entries(newVal).map(([k, v]) => `${k}: ${v}`).join(", ");
-    }
-    return JSON.stringify(newVal || oldVal);
+    return String(details).slice(0, 150);
   };
 
   return (
@@ -117,9 +102,9 @@ const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
               {logs.map((log: any) => (
                 <TableRow key={log.id}>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</TableCell>
-                  <TableCell className="text-sm">{actorProfiles[log.actor_id] || "System"}</TableCell>
+                  <TableCell className="text-sm">{log.actor_name || "System"}</TableCell>
                   <TableCell className="text-sm font-medium capitalize">{log.action.replace(/_/g, " ")}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-xs truncate">{renderDiff(log.old_value, log.new_value)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-xs truncate">{renderDiff(log.details)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

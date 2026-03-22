@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { billingApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,23 +61,25 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const [actionLoading, setActionLoading] = useState("");
 
   const fetchBilling = async () => {
-    const [subRes, invRes, payRes] = await Promise.all([
-      supabase.from("candidate_subscriptions").select("*").eq("candidate_id", candidateId).maybeSingle(),
-      supabase.from("subscription_invoices").select("*").eq("candidate_id", candidateId).order("period_start", { ascending: false }),
-      supabase.from("subscription_payments").select("*").eq("candidate_id", candidateId).order("created_at", { ascending: false }),
-    ]);
-    setSubscription(subRes.data);
-    setInvoices(invRes.data || []);
-    setPayments(payRes.data || []);
-    if (subRes.data) {
-      setFormAmount(String(subRes.data.amount));
-      setFormStatus(subRes.data.status);
-      setFormGraceDays(String(subRes.data.grace_days || 5));
-      setFormPlanName(subRes.data.plan_name || "Monthly Marketing");
-      if (subRes.data.next_billing_at) {
-        setFormNextDate(new Date(subRes.data.next_billing_at).toISOString().split("T")[0]);
+    try {
+      const [subRes, invRes, payRes] = await Promise.all([
+        billingApi.subscription(candidateId).catch(() => ({ data: null })),
+        billingApi.invoices(candidateId).catch(() => ({ data: [] })),
+        billingApi.payments(candidateId).catch(() => ({ data: [] })),
+      ]);
+      setSubscription(subRes.data);
+      setInvoices(invRes.data || []);
+      setPayments(payRes.data || []);
+      if (subRes.data) {
+        setFormAmount(String(subRes.data.amount));
+        setFormStatus(subRes.data.status);
+        setFormGraceDays(String(subRes.data.grace_days || 5));
+        setFormPlanName(subRes.data.plan_name || "Monthly Marketing");
+        if (subRes.data.next_billing_at) {
+          setFormNextDate(new Date(subRes.data.next_billing_at).toISOString().split("T")[0]);
+        }
       }
-    }
+    } catch {}
     setLoading(false);
   };
 
@@ -86,64 +88,67 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const handleCreateOrUpdate = async () => {
     if (!formAmount || Number(formAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
     setSaving(true);
-    const { error } = await supabase.rpc("admin_create_or_update_subscription", {
-      _candidate_id: candidateId,
-      _amount: Number(formAmount),
-      _next_charge_date: formNextDate || undefined,
-      _grace_days: Number(formGraceDays),
-      _status: formStatus,
-      _plan_name: formPlanName,
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: subscription ? "Subscription updated" : "Subscription created" }); fetchBilling(); onRefresh(); }
+    setSaving(true);
+    try {
+      const payload = {
+        amount: Number(formAmount),
+        next_billing_at: formNextDate || undefined,
+        grace_days: Number(formGraceDays),
+        status: formStatus,
+        plan_name: formPlanName,
+      };
+      if (subscription) {
+        await billingApi.updateSubscription(candidateId, payload);
+      } else {
+        await billingApi.createSubscription(candidateId, payload);
+      }
+      toast({ title: subscription ? "Subscription updated" : "Subscription created" });
+      fetchBilling(); onRefresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
     setSaving(false);
   };
 
   const handleRecordPayment = async () => {
     if (!payInvoiceId) { toast({ title: "Select an invoice", variant: "destructive" }); return; }
     setRecordingPay(true);
-    const { error } = await supabase.rpc("admin_record_invoice_payment", {
-      _invoice_id: payInvoiceId,
-      _payment_reference: payRef,
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Payment recorded" }); setPayRef(""); setPayInvoiceId(""); fetchBilling(); onRefresh(); }
+    try {
+      await billingApi.updateInvoice(payInvoiceId, { status: "paid", payment_reference: payRef });
+      toast({ title: "Payment recorded" }); setPayRef(""); setPayInvoiceId(""); fetchBilling(); onRefresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
     setRecordingPay(false);
   };
 
   const handleMarkFailed = async () => {
     if (!failInvoiceId) { toast({ title: "Select an invoice", variant: "destructive" }); return; }
     setMarkingFailed(true);
-    const { error } = await supabase.rpc("admin_mark_invoice_failed", {
-      _invoice_id: failInvoiceId,
-      _reason: failReason || "Payment failed",
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Invoice marked failed" }); setFailInvoiceId(""); setFailReason(""); fetchBilling(); onRefresh(); }
+    try {
+      await billingApi.updateInvoice(failInvoiceId, { status: "failed", failure_reason: failReason || "Payment failed" });
+      toast({ title: "Invoice marked failed" }); setFailInvoiceId(""); setFailReason(""); fetchBilling(); onRefresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
     setMarkingFailed(false);
   };
 
   const handleAction = async (action: "pause" | "cancel" | "resume") => {
     if (!subscription) return;
     setActionLoading(action);
-    const { error } = await supabase.rpc("admin_pause_or_cancel_subscription", {
-      _subscription_id: subscription.id,
-      _action: action,
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: `Subscription ${action}d` }); fetchBilling(); onRefresh(); }
+    try {
+      const newStatus = action === "pause" ? "paused" : action === "cancel" ? "canceled" : "active";
+      await billingApi.updateSubscription(candidateId, { status: newStatus });
+      toast({ title: `Subscription ${action}d` }); fetchBilling(); onRefresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
     setActionLoading("");
   };
 
   const handleBillingCheck = async () => {
-    setActionLoading("check");
-    const { data, error } = await supabase.rpc("run_billing_checks", { _dry_run: false });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else {
-      const r = data as any;
-      toast({ title: "Billing check complete", description: `Grace expired: ${r?.expired_grace_paused || 0}, Overdue invoices: ${r?.overdue_invoices_created || 0}, Reminders: ${r?.upcoming_reminders || 0}` });
-      fetchBilling(); onRefresh();
-    }
+    toast({ title: "Feature not available", description: "Automated billing checks are not supported in this environment.", variant: "destructive" });
     setActionLoading("");
   };
 

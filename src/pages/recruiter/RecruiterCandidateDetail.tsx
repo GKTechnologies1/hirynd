@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi, recruitersApi, billingApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -54,38 +54,30 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
   const fetchAll = async () => {
     if (!user) return;
-    const { data: cand } = await supabase.from("candidates").select("*").eq("id", candidateId).single();
-    setCandidate(cand);
+    try {
+      const { data: cand } = await candidatesApi.detail(candidateId);
+      setCandidate(cand);
 
-    if (cand) {
-      const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", cand.user_id).single();
-      setProfile(prof);
-
-      const { data: intakeData } = await supabase.from("client_intake_sheets").select("*").eq("candidate_id", cand.id).maybeSingle();
-      setIntake(intakeData);
-
-      const { data: roleData } = await supabase.from("role_suggestions").select("*").eq("candidate_id", cand.id).order("created_at");
-      setRoles(roleData || []);
-
-      const { data: credData } = await supabase.from("credential_intake_sheets").select("*").eq("candidate_id", cand.id).order("version", { ascending: false });
-      setCredentials(credData || []);
-      if (credData && credData.length > 0) {
-        setCredForm(credData[0].data as Record<string, string>);
+      if (cand) {
+        const [intakeRes, roleRes, credRes, logsRes, subRes] = await Promise.all([
+          candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
+          candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
+          candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
+          recruitersApi.getDailyLogs(candidateId).catch(() => ({ data: [] })),
+          billingApi.subscription(candidateId).catch(() => ({ data: null })),
+        ]);
+        setIntake(intakeRes.data || null);
+        setRoles(roleRes.data || []);
+        const creds = credRes.data || [];
+        setCredentials(creds);
+        if (creds.length > 0 && creds[0].data) setCredForm(creds[0].data as Record<string, string>);
+        const logs = logsRes.data || [];
+        setDailyLogs(logs);
+        const allJobs = logs.flatMap((l: any) => l.job_entries || []);
+        setJobPostings(allJobs);
+        setSubscription(subRes.data?.id ? subRes.data : null);
       }
-
-      const { data: logs } = await supabase.from("daily_submission_logs").select("*").eq("candidate_id", cand.id).eq("recruiter_id", user.id).order("log_date", { ascending: false });
-      setDailyLogs(logs || []);
-
-      if (logs && logs.length > 0) {
-        const logIds = logs.map((l: any) => l.id);
-        const { data: jobs } = await supabase.from("job_postings").select("*").in("submission_log_id", logIds).order("created_at", { ascending: false });
-        setJobPostings(jobs || []);
-      }
-
-      // Fetch subscription
-      const { data: sub } = await supabase.from("candidate_subscriptions").select("*").eq("candidate_id", cand.id).maybeSingle();
-      setSubscription(sub);
-    }
+    } catch {}
     setLoading(false);
   };
 
@@ -96,12 +88,13 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       toast({ title: "Full legal name is required", variant: "destructive" }); return;
     }
     setSavingCred(true);
-    const { error } = await supabase.rpc("upsert_credential_intake", {
-      _candidate_id: candidateId,
-      _form_data: credForm as any,
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Credentials saved" }); fetchAll(); }
+    try {
+      await candidatesApi.upsertCredential(candidateId, credForm);
+      toast({ title: "Credentials saved" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
     setSavingCred(false);
   };
 
@@ -124,49 +117,26 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       toast({ title: "Enter application count", variant: "destructive" }); return;
     }
     setSavingLog(true);
-
-    // Create daily log
-    const { data: logData, error: logError } = await supabase
-      .from("daily_submission_logs")
-      .insert({
-        candidate_id: candidateId,
-        recruiter_id: user!.id,
+    try {
+      await recruitersApi.submitDailyLog(candidateId, {
         applications_count: Number(logCount),
         notes: logNotes,
-      })
-      .select()
-      .single();
-
-    if (logError) {
-      toast({ title: "Error", description: logError.message, variant: "destructive" });
-      setSavingLog(false);
-      return;
-    }
-
-    // Insert job postings
-    if (jobLinks.length > 0 && logData) {
-      const validJobs = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
-      if (validJobs.length > 0) {
-        const { error: jobError } = await supabase.from("job_postings").insert(
-          validJobs.map(j => ({
-            candidate_id: candidateId,
-            submission_log_id: logData.id,
+        job_links: jobLinks
+          .filter(j => j.job_url.trim() || j.company_name.trim())
+          .map(j => ({
             company_name: j.company_name,
             role_title: j.role_title,
             job_url: j.job_url,
             resume_used: j.resume_used,
             status: j.status.toLowerCase().replace(/ /g, "_"),
-          }))
-        );
-        if (jobError) {
-          toast({ title: "Jobs error", description: jobError.message, variant: "destructive" });
-        }
-      }
+          })),
+      });
+      toast({ title: "Daily log submitted" });
+      setLogCount(""); setLogNotes(""); setJobLinks([]);
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
-
-    toast({ title: "Daily log submitted" });
-    setLogCount(""); setLogNotes(""); setJobLinks([]);
-    fetchAll();
     setSavingLog(false);
   };
 
@@ -176,7 +146,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const intakeData = intake?.data as Record<string, string> | null;
 
   return (
-    <DashboardLayout title={`Candidate: ${profile?.full_name || "Unknown"}`} navItems={navItems}>
+    <DashboardLayout title={`Candidate: ${candidate?.profile?.full_name || "Unknown"}`} navItems={navItems}>
       <div className="mb-4 flex items-center gap-3">
         <StatusBadge status={candidate.status} />
         <Button variant="outline" size="sm" onClick={() => window.history.back()}>← Back</Button>
@@ -227,9 +197,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           <Card>
             <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
             <CardContent className="grid gap-2 sm:grid-cols-2 text-sm">
-              <div><span className="text-muted-foreground">Name:</span> {profile?.full_name}</div>
-              <div><span className="text-muted-foreground">Email:</span> {profile?.email}</div>
-              <div><span className="text-muted-foreground">Phone:</span> {profile?.phone || "—"}</div>
+              <div><span className="text-muted-foreground">Name:</span> {candidate?.profile?.full_name}</div>
+              <div><span className="text-muted-foreground">Email:</span> {candidate?.profile?.email}</div>
+              <div><span className="text-muted-foreground">Phone:</span> {candidate?.profile?.phone || "—"}</div>
               <div><span className="text-muted-foreground">Status:</span> {candidate.status.replace(/_/g, " ")}</div>
             </CardContent>
           </Card>
@@ -404,7 +374,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   </TableHeader>
                   <TableBody>
                     {dailyLogs.map((log: any) => {
-                      const logJobs = jobPostings.filter((j: any) => j.submission_log_id === log.id);
+                      const logJobs = log.job_entries || [];
                       return (
                         <TableRow key={log.id}>
                           <TableCell>{new Date(log.log_date).toLocaleDateString()}</TableCell>

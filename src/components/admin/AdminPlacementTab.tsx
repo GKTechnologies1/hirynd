@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,8 +34,9 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   });
 
   useEffect(() => {
-    supabase.from("placement_closures").select("*").eq("candidate_id", candidateId).maybeSingle()
-      .then(({ data }) => { setPlacement(data); setLoading(false); });
+    candidatesApi.getPlacement(candidateId)
+      .then(({ data }) => { setPlacement(data); setLoading(false); })
+      .catch(() => setLoading(false));
   }, [candidateId]);
 
   const handleSubmit = async () => {
@@ -44,23 +45,22 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.rpc("admin_close_placement", {
-      _candidate_id: candidateId,
-      _company_name: form.company_name.trim(),
-      _role_title: form.role_title.trim(),
-      _start_date: form.start_date,
-      _salary: form.salary.trim(),
-      _hr_email: form.hr_email.trim(),
-      _offer_letter_url: form.offer_letter_url,
-      _interviewer_email: form.interviewer_email,
-      _bgv_company_name: form.bgv_company_name,
-      _notes: form.notes,
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await candidatesApi.closePlacement(candidateId, {
+        company_name: form.company_name.trim(),
+        role_title: form.role_title.trim(),
+        start_date: form.start_date,
+        salary: form.salary.trim(),
+        hr_email: form.hr_email.trim(),
+        offer_letter_url: form.offer_letter_url,
+        interviewer_email: form.interviewer_email,
+        bgv_company_name: form.bgv_company_name,
+        notes: form.notes,
+      });
       toast({ title: "Case closed successfully!" });
       onRefresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSubmitting(false);
   };

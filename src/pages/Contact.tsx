@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/layout/Header";
 import SEO from "@/components/SEO";
 import Footer from "@/components/layout/Footer";
@@ -23,27 +22,6 @@ const Contact = () => {
     if (wantsMarketing === "yes" && !termsAccepted) {
       toast({ title: "Please accept the Terms & Conditions and Privacy Policy to continue.", variant: "destructive" });
       return;
-    }
-
-    // Try sending emails via edge function (non-blocking)
-    if (wantsMarketing === "yes") {
-      const form = e.target as HTMLFormElement;
-      const formData = new FormData(form);
-      const name = formData.get("name") as string || "";
-      const email = formData.get("email") as string || "";
-      const phone = formData.get("phone") as string || "";
-      const university = formData.get("university") as string || "";
-      const visaStatus = formData.get("visa_status") as string || "";
-
-      // Send confirmation to user
-      supabase.functions.invoke("send-transactional-email", {
-        body: { type: "interest_confirmation", payload: { name, email } },
-      }).catch(() => {});
-
-      // Notify admin
-      supabase.functions.invoke("send-transactional-email", {
-        body: { type: "interest_admin_notification", payload: { name, email, phone, university, visa_status: visaStatus, referral_source: referralSource } },
-      }).catch(() => {});
     }
 
     toast({

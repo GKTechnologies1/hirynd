@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,12 +39,12 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
 
   const fetchReferrals = async () => {
     if (!candidate?.id) return;
-    const { data } = await supabase
-      .from("referrals")
-      .select("*")
-      .eq("referrer_id", candidate.id)
-      .order("created_at", { ascending: false });
-    setReferrals(data || []);
+    try {
+      const { data } = await candidatesApi.getReferrals(candidate.id);
+      setReferrals(data || []);
+    } catch {
+      setReferrals([]);
+    }
     setLoading(false);
   };
 
@@ -59,42 +59,18 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
       toast({ title: "Enter a valid email", variant: "destructive" }); return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from("referrals").insert({
-      referrer_id: candidate.id,
-      friend_name: friendName.trim(),
-      friend_email: friendEmail.trim(),
-      friend_phone: friendPhone.trim(),
-      referral_note: referralNote.trim(),
-    });
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      // Notify admins
-      const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
-      if (adminRoles) {
-        for (const admin of adminRoles) {
-          await supabase.from("notifications").insert({
-            user_id: admin.user_id,
-            title: "New Referral",
-            message: `${friendName} was referred by a candidate. Email: ${friendEmail}`,
-            link: "/admin-dashboard/referrals",
-          });
-        }
-      }
-
-      // Send referral email to friend (non-blocking)
-      supabase.functions.invoke("send-email", {
-        body: {
-          type: "referral_email",
-          to: friendEmail.trim(),
-          data: { friend_name: friendName.trim(), referrer_name: "A HYRIND candidate", referral_note: referralNote.trim() },
-        },
-      }).catch(() => {});
-
+    try {
+      await candidatesApi.submitReferral(candidate.id, {
+        friend_name: friendName.trim(),
+        friend_email: friendEmail.trim(),
+        friend_phone: friendPhone.trim(),
+        referral_note: referralNote.trim(),
+      });
       toast({ title: "Referral submitted! Thank you." });
       setFriendName(""); setFriendEmail(""); setFriendPhone(""); setReferralNote("");
       fetchReferrals();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSubmitting(false);
   };

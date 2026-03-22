@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Django Backend",
+			"type": "shell",
+			"command": "C:\\Users\\NREDD27\\mine\\hy_env\\Scripts\\python.exe manage.py runserver 8000",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

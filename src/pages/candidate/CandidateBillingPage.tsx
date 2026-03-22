@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { billingApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,14 +56,19 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
   useEffect(() => {
     if (!candidate) return;
     const fetchBilling = async () => {
-      const [subRes, invRes, pmRes] = await Promise.all([
-        supabase.from("candidate_subscriptions").select("*").eq("candidate_id", candidate.id).maybeSingle(),
-        supabase.from("subscription_invoices").select("*").eq("candidate_id", candidate.id).order("period_start", { ascending: false }),
-        supabase.from("payment_methods").select("*").eq("candidate_id", candidate.id).eq("is_active", true),
-      ]);
-      setSubscription(subRes.data);
-      setInvoices(invRes.data || []);
-      setPaymentMethods(pmRes.data || []);
+      try {
+        const [subRes, invRes] = await Promise.all([
+          billingApi.subscription(candidate.id),
+          billingApi.invoices(candidate.id),
+        ]);
+        setSubscription(subRes.data?.id ? subRes.data : null);
+        setInvoices(invRes.data || []);
+        setPaymentMethods([]);
+      } catch {
+        setSubscription(null);
+        setInvoices([]);
+        setPaymentMethods([]);
+      }
       setLoading(false);
     };
     fetchBilling();

@@ -1,6 +1,7 @@
 import uuid
-import boto3
 from django.conf import settings
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import MultiPartParser
@@ -9,7 +10,8 @@ from rest_framework.response import Response
 from .models import UploadedFile
 
 
-def get_s3_client():
+def _get_s3_client():
+    import boto3
     return boto3.client(
         's3',
         endpoint_url=settings.AWS_S3_ENDPOINT_URL,
@@ -32,20 +34,28 @@ def upload_file(request):
     ext = file.name.split('.')[-1] if '.' in file.name else 'bin'
     bucket_path = f'{request.user.id}/{file_type}/{uuid.uuid4()}.{ext}'
 
-    s3 = get_s3_client()
-    s3.upload_fileobj(file, settings.AWS_STORAGE_BUCKET_NAME, bucket_path)
+    use_local = getattr(settings, 'USE_LOCAL_STORAGE', True)
+    if use_local:
+        saved_path = default_storage.save(bucket_path, ContentFile(file.read()))
+    else:
+        try:
+            s3 = _get_s3_client()
+            s3.upload_fileobj(file, settings.AWS_STORAGE_BUCKET_NAME, bucket_path)
+            saved_path = bucket_path
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     record = UploadedFile.objects.create(
         user=request.user,
         file_type=file_type,
-        bucket_path=bucket_path,
+        bucket_path=saved_path,
         original_name=file.name,
         size_bytes=file.size,
     )
 
     return Response({
         'id': str(record.id),
-        'bucket_path': bucket_path,
+        'bucket_path': saved_path,
         'original_name': file.name,
     }, status=status.HTTP_201_CREATED)
 
@@ -58,10 +68,19 @@ def get_download_url(request, file_id):
     except UploadedFile.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    s3 = get_s3_client()
-    url = s3.generate_presigned_url(
-        'get_object',
-        Params={'Bucket': settings.AWS_STORAGE_BUCKET_NAME, 'Key': record.bucket_path},
-        ExpiresIn=3600,
-    )
+    use_local = getattr(settings, 'USE_LOCAL_STORAGE', True)
+    if use_local:
+        url = request.build_absolute_uri(default_storage.url(record.bucket_path))
+    else:
+        try:
+            s3 = _get_s3_client()
+            url = s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': settings.AWS_STORAGE_BUCKET_NAME, 'Key': record.bucket_path},
+                ExpiresIn=3600,
+            )
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     return Response({'url': url, 'original_name': record.original_name})
+

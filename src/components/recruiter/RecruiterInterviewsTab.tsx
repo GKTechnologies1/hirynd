@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,15 @@ import { Phone, Plus } from "lucide-react";
 
 const LOG_TYPES = [
   { value: "screening_call", label: "Screening Call" },
-  { value: "interview", label: "Interview" },
+  { value: "technical_interview", label: "Technical Interview" },
+  { value: "hr_interview", label: "HR Interview" },
+  { value: "client_round", label: "Client Round" },
+  { value: "final_round", label: "Final Round" },
+  { value: "mock_interview", label: "Mock Interview" },
+  { value: "support_call", label: "Support Call" },
 ];
 const ROUNDS = ["Round 1", "Round 2", "Tech", "Behavioral", "Final"];
-const OUTCOMES = ["Scheduled", "Completed", "No Show", "Rejected", "Next Round", "Offer"];
+const OUTCOMES = ["scheduled", "completed", "selected", "rejected", "follow_up_needed", "rescheduled", "no_show"];
 
 interface RecruiterInterviewsTabProps {
   candidateId: string;
@@ -45,12 +50,12 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
   const [saving, setSaving] = useState(false);
 
   const fetchLogs = async () => {
-    const { data } = await supabase
-      .from("interview_logs")
-      .select("*")
-      .eq("candidate_id", candidateId)
-      .order("interview_date", { ascending: false });
-    setLogs(data || []);
+    try {
+      const { data } = await candidatesApi.getInterviews(candidateId);
+      setLogs(data || []);
+    } catch {
+      setLogs([]);
+    }
     setLoading(false);
   };
 
@@ -61,40 +66,31 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
       toast({ title: "Fill required fields", variant: "destructive" }); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("interview_logs").insert({
-      candidate_id: candidateId,
-      submitted_by: user!.id,
-      log_type: logType,
-      company_name: companyName.trim(),
-      role_title: roleTitle.trim(),
-      interview_date: interviewDate,
-      round, outcome,
-      notes: notes.trim(),
-      difficult_questions: difficultQuestions.trim(),
-      support_needed: supportNeeded,
-      support_notes: supportNotes.trim(),
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      // Notify candidate
-      await supabase.from("notifications").insert({
-        user_id: candidateUserId,
-        title: "Interview Logged",
-        message: `Your recruiter logged a ${logType === "interview" ? "interview" : "screening call"} with ${companyName}`,
-        link: "/candidate-dashboard/interviews",
+    try {
+      await candidatesApi.submitInterview(candidateId, {
+        interview_type: logType,
+        company_name: companyName.trim(),
+        role_title: roleTitle.trim(),
+        interview_date: interviewDate,
+        stage_round: round,
+        outcome,
+        feedback_notes: notes.trim(),
+        difficult_questions: difficultQuestions.trim(),
+        support_needed: supportNeeded ? (supportNotes.trim() || "Yes") : "",
       });
       toast({ title: "Log saved" });
       setShowForm(false);
       resetForm();
       fetchLogs();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSaving(false);
   };
 
   const resetForm = () => {
     setLogType("screening_call"); setCompanyName(""); setRoleTitle(""); setInterviewDate("");
-    setRound(""); setOutcome("Scheduled"); setNotes(""); setDifficultQuestions("");
+    setRound(""); setOutcome("scheduled"); setNotes(""); setDifficultQuestions("");
     setSupportNeeded(false); setSupportNotes("");
   };
 

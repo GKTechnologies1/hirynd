@@ -121,11 +121,20 @@ class ApproveUserSerializer(serializers.Serializer):
 
 
 class UserListSerializer(serializers.ModelSerializer):
+    """Flat serialiser — frontend gets full_name/phone directly without nested profile access."""
     profile = ProfileSerializer(read_only=True)
+    full_name = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'role', 'approval_status', 'created_at', 'profile']
+        fields = ['id', 'email', 'role', 'approval_status', 'is_active', 'created_at', 'full_name', 'phone', 'profile']
+
+    def get_full_name(self, obj):
+        return getattr(getattr(obj, 'profile', None), 'full_name', '') or ''
+
+    def get_phone(self, obj):
+        return getattr(getattr(obj, 'profile', None), 'phone', '') or ''
 
 
 class ChangePasswordSerializer(serializers.Serializer):

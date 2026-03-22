@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,28 +53,14 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   useEffect(() => {
     if (!candidate || !isPaid) { setLoading(false); return; }
     const fetchVersions = async () => {
-      const { data } = await supabase
-        .from("credential_intake_sheets")
-        .select("*")
-        .eq("candidate_id", candidate.id)
-        .order("version", { ascending: false });
-      setVersions(data || []);
-
-      if (data && data.length > 0) {
-        const latest = data[0];
-        if (latest.data) setFormData({ ...formData, ...(latest.data as any) });
-
-        // Fetch editor names
-        const editorIds = [...new Set(data.map((v: any) => v.edited_by).filter(Boolean))];
-        if (editorIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("user_id, full_name")
-            .in("user_id", editorIds);
-          const map: Record<string, string> = {};
-          profiles?.forEach((p: any) => { map[p.user_id] = p.full_name; });
-          setEditorProfiles(map);
+      try {
+        const { data } = await candidatesApi.getCredentials(candidate.id);
+        setVersions(data || []);
+        if (data && data.length > 0 && data[0].data) {
+          setFormData({ ...formData, ...(data[0].data as any) });
         }
+      } catch {
+        setVersions([]);
       }
       setLoading(false);
     };
@@ -101,15 +87,12 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { error } = await supabase.rpc("upsert_credential_intake", {
-      _candidate_id: candidate.id,
-      _form_data: formData,
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      await candidatesApi.upsertCredential(candidate.id, formData);
       toast({ title: versions.length === 0 ? "Credentials submitted!" : "Credentials updated!", description: "A new version has been saved." });
       onStatusChange();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSubmitting(false);
   };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,33 +14,14 @@ import { Users, FileText, Settings } from "lucide-react";
 const AdminReferralsPage = () => {
   const { toast } = useToast();
   const [referrals, setReferrals] = useState<any[]>([]);
-  const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
-    const { data: refs } = await supabase
-      .from("referrals")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (refs && refs.length > 0) {
-      const referrerIds = [...new Set(refs.map((r: any) => r.referrer_id))];
-      const { data: cands } = await supabase
-        .from("candidates")
-        .select("id, user_id")
-        .in("id", referrerIds);
-      if (cands) {
-        const userIds = cands.map((c: any) => c.user_id);
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .in("user_id", userIds);
-        setCandidates(cands.map((c: any) => ({
-          ...c,
-          profile: profiles?.find((p: any) => p.user_id === c.user_id),
-        })));
-      }
-      setReferrals(refs);
+    try {
+      const { data } = await candidatesApi.adminListReferrals();
+      setReferrals(data || []);
+    } catch {
+      setReferrals([]);
     }
     setLoading(false);
   };
@@ -48,20 +29,21 @@ const AdminReferralsPage = () => {
   useEffect(() => { fetchData(); }, []);
 
   const handleStatusChange = async (id: string, newStatus: string) => {
-    const { error } = await supabase.from("referrals").update({ status: newStatus }).eq("id", id);
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Status updated" }); fetchData(); }
+    try {
+      await candidatesApi.updateReferral(id, { status: newStatus });
+      toast({ title: "Status updated" }); fetchData();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
   };
 
   const handleNotesChange = async (id: string, notes: string) => {
-    const { error } = await supabase.from("referrals").update({ notes }).eq("id", id);
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else toast({ title: "Notes saved" });
-  };
-
-  const getReferrerName = (referrerId: string) => {
-    const cand = candidates.find((c: any) => c.id === referrerId);
-    return cand?.profile?.full_name || "Unknown";
+    try {
+      await candidatesApi.updateReferral(id, { notes });
+      toast({ title: "Notes saved" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
   };
 
   const STATUSES = ["new", "contacted", "onboarded", "closed"];
@@ -91,7 +73,7 @@ const AdminReferralsPage = () => {
                 <TableBody>
                   {referrals.map((r: any) => (
                     <TableRow key={r.id}>
-                      <TableCell className="font-medium">{getReferrerName(r.referrer_id)}</TableCell>
+                      <TableCell className="font-medium">{r.referrer_name || "Unknown"}</TableCell>
                       <TableCell>{r.friend_name}</TableCell>
                       <TableCell>{r.friend_email}</TableCell>
                       <TableCell>{r.friend_phone || "—"}</TableCell>

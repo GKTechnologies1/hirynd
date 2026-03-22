@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 
 from .models import User
+from candidates.models import Candidate
 from .serializers import (
     RegisterSerializer, UserSerializer, ApproveUserSerializer,
     UserListSerializer, ChangePasswordSerializer,
@@ -145,10 +146,15 @@ def approve_user(request):
     user.approval_status = action
     user.save()
 
-    # Update candidate status if approved
-    if action == 'approved' and hasattr(user, 'candidate'):
-        user.candidate.status = 'approved'
-        user.candidate.save()
+    # Update candidate status if approved, OR create the Candidate record
+    if action == 'approved' and user.role == 'candidate':
+        candidate_obj, _ = Candidate.objects.get_or_create(
+            user=user,
+            defaults={'status': 'approved'},
+        )
+        if candidate_obj.status == 'pending_approval':
+            candidate_obj.status = 'approved'
+            candidate_obj.save(update_fields=['status'])
 
     log_action(
         actor=request.user,
@@ -184,3 +190,47 @@ def all_users(request):
     if role:
         qs = qs.filter(role=role)
     return Response(UserListSerializer(qs, many=True).data)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAdmin])
+def manage_user(request, user_id):
+    """Admin: view, edit, or delete any user."""
+    try:
+        user = User.objects.select_related('profile').get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(UserListSerializer(user).data)
+
+    if request.method == 'DELETE':
+        if user.is_superuser:
+            return Response({'error': 'Cannot delete superuser'}, status=400)
+        log_action(request.user, 'user_deleted', str(user.id), 'user', {'email': user.email})
+        user.delete()
+        return Response({'detail': 'User deleted'})
+
+    # PATCH — only update fields that actually exist on the User model
+    user_fields = ['email', 'role', 'approval_status', 'is_active']
+    for field in user_fields:
+        if field in request.data:
+            setattr(user, field, request.data[field])
+    user.save()
+
+    # Profile fields (full_name, phone) live on the related Profile model
+    profile_updates = {}
+    if 'full_name' in request.data:
+        profile_updates['full_name'] = request.data['full_name']
+    if 'phone' in request.data:
+        profile_updates['phone'] = request.data['phone']
+    if profile_updates:
+        profile = getattr(user, 'profile', None)
+        if profile:
+            for k, v in profile_updates.items():
+                setattr(profile, k, v)
+            profile.save(update_fields=list(profile_updates.keys()))
+
+    log_action(request.user, 'user_updated', str(user.id), 'user', request.data)
+    return Response(UserListSerializer(user).data)
+

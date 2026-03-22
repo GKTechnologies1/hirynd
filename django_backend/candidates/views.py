@@ -7,16 +7,33 @@ from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
 from audit.utils import log_action
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, CredentialVersion,
-    Referral, InterviewLog, PlacementClosure,
+    Referral, InterviewLog, PlacementClosure, Payment,
 )
 from .serializers import (
     CandidateSerializer, CandidateListSerializer, ClientIntakeSerializer,
     RoleSuggestionSerializer, CredentialVersionSerializer,
     ReferralSerializer, InterviewLogSerializer, PlacementClosureSerializer,
+    PaymentSerializer,
 )
 
 
 # ─── Candidate CRUD ───
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def candidate_me(request):
+    """Return the Candidate record for the logged-in user, creating it lazily if needed."""
+    if request.user.role != 'candidate':
+        return Response({'error': 'Not a candidate user'}, status=status.HTTP_403_FORBIDDEN)
+    candidate, created = Candidate.objects.get_or_create(
+        user=request.user,
+        defaults={'status': 'approved'},
+    )
+    if not created and candidate.status == 'pending_approval':
+        candidate.status = 'approved'
+        candidate.save(update_fields=['status'])
+    return Response(CandidateSerializer(candidate).data)
+
 
 @api_view(['GET'])
 @permission_classes([IsApproved])
@@ -84,12 +101,21 @@ def intake(request, candidate_id):
         except ClientIntake.DoesNotExist:
             return Response({})
 
-    data = request.data.get('data', {})
+    # Check lock
+    try:
+        existing = ClientIntake.objects.get(candidate=candidate)
+        if existing.is_locked:
+            return Response({'error': 'Intake is locked. Contact admin to reopen.'}, status=status.HTTP_403_FORBIDDEN)
+    except ClientIntake.DoesNotExist:
+        pass
+
+    # Accept both { data: {...} } (legacy) and flat field submission
+    payload = request.data.get('data') if 'data' in request.data else request.data
     intake, created = ClientIntake.objects.update_or_create(
         candidate=candidate,
-        defaults={'data': data, 'submitted_at': timezone.now()},
+        defaults={'data': payload, 'submitted_at': timezone.now(), 'is_locked': True},
     )
-    if candidate.status == 'approved':
+    if candidate.status in ('approved', 'intake_pending', 'lead'):
         candidate.status = 'intake_submitted'
         candidate.save()
     log_action(request.user, 'intake_submitted', str(candidate.id), 'candidate', {})
@@ -189,6 +215,54 @@ def interviews(request, candidate_id):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+# ─── Candidate Payments ───
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def candidate_payments(request, candidate_id):
+    payments = Payment.objects.filter(candidate_id=candidate_id).order_by('-due_date')
+    return Response(PaymentSerializer(payments, many=True).data)
+
+
+# ─── Admin Referrals ───
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_referrals(request):
+    refs = Referral.objects.select_related('referrer__user__profile').all().order_by('-created_at')
+    data = []
+    for ref in refs:
+        row = ReferralSerializer(ref).data
+        try:
+            row['referrer_name'] = ref.referrer.user.profile.full_name
+        except Exception:
+            row['referrer_name'] = 'Unknown'
+        data.append(row)
+    return Response(data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdmin])
+def update_referral(request, referral_id):
+    try:
+        ref = Referral.objects.get(id=referral_id)
+    except Referral.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    ref_status = request.data.get('status')
+    notes_val = request.data.get('notes')
+    if ref_status:
+        ref.status = ref_status
+    if notes_val is not None:
+        ref.notes = notes_val
+    ref.save()
+    row = ReferralSerializer(ref).data
+    try:
+        row['referrer_name'] = ref.referrer.user.profile.full_name
+    except Exception:
+        row['referrer_name'] = 'Unknown'
+    return Response(row)
 
 
 # ─── Placement ───

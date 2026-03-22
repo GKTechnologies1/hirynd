@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,17 +15,8 @@ const AdminBillingRunPage = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState("");
 
-  const runCheck = async (dryRun: boolean) => {
-    setRunning(true);
-    setResult(null);
-    const { data, error } = await supabase.rpc("run_billing_checks", { _dry_run: dryRun });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setResult(data);
-      toast({ title: dryRun ? "Dry run complete" : "Billing checks executed" });
-    }
-    setRunning(false);
+  const runCheck = async (_dryRun: boolean) => {
+    toast({ title: "Feature not available", description: "Automated billing runs require a scheduled task configuration.", variant: "destructive" });
   };
 
   const handleExecuteClick = () => {

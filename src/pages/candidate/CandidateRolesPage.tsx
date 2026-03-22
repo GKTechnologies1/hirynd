@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,18 +33,15 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   useEffect(() => {
     if (!candidate) return;
     const fetchRoles = async () => {
-      const { data } = await supabase
-        .from("role_suggestions")
-        .select("*")
-        .eq("candidate_id", candidate.id)
-        .order("created_at", { ascending: true });
-      setRoles(data || []);
-      // Pre-fill decisions if already confirmed
-      const d: Record<string, boolean | null> = {};
-      (data || []).forEach((r: any) => {
-        d[r.id] = r.candidate_confirmed;
-      });
-      setDecisions(d);
+      try {
+        const { data } = await candidatesApi.getRoles(candidate.id);
+        setRoles(data || []);
+        const d: Record<string, boolean | null> = {};
+        (data || []).forEach((r: any) => { d[r.id] = r.candidate_confirmed; });
+        setDecisions(d);
+      } catch {
+        setRoles([]);
+      }
       setLoading(false);
     };
     fetchRoles();
@@ -76,13 +73,10 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
     if (!allDecided || !canConfirm) return;
     setSubmitting(true);
 
-    const { error } = await supabase.rpc("confirm_role_selections", {
-      _candidate_id: candidate.id,
-      _decisions: decisions,
-    });
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    try {
+      await candidatesApi.confirmRoles(candidate.id, decisions);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
       setSubmitting(false);
       return;
     }

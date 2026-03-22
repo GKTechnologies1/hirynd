@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi, billingApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -38,12 +38,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [candidate, setCandidate] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [intake, setIntake] = useState<any>(null);
   const [roles, setRoles] = useState<any[]>([]);
   const [credentials, setCredentials] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
-  const [editorProfiles, setEditorProfiles] = useState<Record<string, string>>({});
   const [interviewLogs, setInterviewLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,34 +56,24 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [addingPayment, setAddingPayment] = useState(false);
 
   const fetchAll = async () => {
-    const { data: cand } = await supabase.from("candidates").select("*").eq("id", candidateId).single();
-    setCandidate(cand);
-    if (cand) {
-      const [profRes, intakeRes, roleRes, credRes, payRes, interviewRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", cand.user_id).single(),
-        supabase.from("client_intake_sheets").select("*").eq("candidate_id", cand.id).maybeSingle(),
-        supabase.from("role_suggestions").select("*").eq("candidate_id", cand.id).order("created_at", { ascending: true }),
-        supabase.from("credential_intake_sheets").select("*").eq("candidate_id", cand.id).order("version", { ascending: false }),
-        supabase.from("payments").select("*").eq("candidate_id", cand.id).order("created_at", { ascending: false }),
-        supabase.from("interview_logs").select("*").eq("candidate_id", cand.id).order("interview_date", { ascending: false }),
-      ]);
-      setProfile(profRes.data);
-      setIntake(intakeRes.data);
-      setRoles(roleRes.data || []);
-      setCredentials(credRes.data || []);
-      setPayments(payRes.data || []);
-      setInterviewLogs(interviewRes.data || []);
-
-      if (credRes.data && credRes.data.length > 0) {
-        const editorIds = [...new Set(credRes.data.map((v: any) => v.edited_by).filter(Boolean))];
-        if (editorIds.length > 0) {
-          const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", editorIds);
-          const map: Record<string, string> = {};
-          profiles?.forEach((p: any) => { map[p.user_id] = p.full_name; });
-          setEditorProfiles(map);
-        }
+    try {
+      const { data: cand } = await candidatesApi.detail(candidateId);
+      setCandidate(cand);
+      if (cand) {
+        const [intakeRes, roleRes, credRes, payRes, interviewRes] = await Promise.all([
+          candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
+          candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
+          candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
+          billingApi.payments(candidateId).catch(() => ({ data: [] })),
+          candidatesApi.getInterviews(candidateId).catch(() => ({ data: [] })),
+        ]);
+        setIntake(intakeRes.data || null);
+        setRoles(roleRes.data || []);
+        setCredentials(credRes.data || []);
+        setPayments(payRes.data || []);
+        setInterviewLogs(interviewRes.data || []);
       }
-    }
+    } catch {}
     setLoading(false);
   };
 
@@ -94,47 +82,46 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const handleAddRole = async () => {
     if (!newRoleTitle.trim()) return;
     setAddingRole(true);
-    const { error } = await supabase.rpc("add_role_suggestion", {
-      _candidate_id: candidateId, _role_title: newRoleTitle.trim(), _description: newRoleDescription.trim(),
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { setNewRoleTitle(""); setNewRoleDescription(""); toast({ title: "Role suggestion added" }); fetchAll(); }
+    try {
+      await candidatesApi.addRole(candidateId, { role_title: newRoleTitle.trim(), description: newRoleDescription.trim() });
+      setNewRoleTitle(""); setNewRoleDescription("");
+      toast({ title: "Role suggestion added" }); fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
     setAddingRole(false);
   };
 
   const handleSuggestRoles = async () => {
     if (roles.length === 0) { toast({ title: "Add at least one role first", variant: "destructive" }); return; }
-    const { error } = await supabase.rpc("admin_update_candidate_status", {
-      _candidate_id: candidateId, _new_status: "roles_suggested", _reason: "Roles suggested by admin",
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else {
-      await supabase.rpc("create_system_notification", {
-        _user_id: candidate.user_id, _title: "Roles Suggested",
-        _message: "Your team has suggested roles for your profile. Please review and confirm.",
-        _link: "/candidate-dashboard/roles",
-      });
+    try {
+      await candidatesApi.updateStatus(candidateId, "roles_suggested");
       toast({ title: "Roles sent to candidate for confirmation" }); fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
   };
 
   const handleRecordPayment = async () => {
     if (!payAmount || Number(payAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
     setAddingPayment(true);
-    const { error } = await supabase.rpc("admin_record_payment", {
-      _candidate_id: candidateId, _amount: Number(payAmount), _payment_type: payType, _status: payStatus, _notes: payNotes,
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { setPayAmount(""); setPayNotes(""); toast({ title: "Payment recorded" }); fetchAll(); }
+    try {
+      await billingApi.recordPayment(candidateId, { amount: Number(payAmount), payment_type: payType, status: payStatus, notes: payNotes });
+      setPayAmount(""); setPayNotes("");
+      toast({ title: "Payment recorded" }); fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
     setAddingPayment(false);
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    const { error } = await supabase.rpc("admin_update_candidate_status", {
-      _candidate_id: candidateId, _new_status: newStatus, _reason: "",
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Status updated" }); fetchAll(); }
+    try {
+      await candidatesApi.updateStatus(candidateId, newStatus);
+      toast({ title: "Status updated" }); fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
   };
 
   if (loading) return <DashboardLayout title="Candidate Detail" navItems={navItems}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
@@ -146,7 +133,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const STATUSES = ["lead","approved","intake_submitted","roles_suggested","roles_confirmed","paid","credential_completed","active_marketing","paused","cancelled","placed"];
 
   return (
-    <DashboardLayout title={`Candidate: ${profile?.full_name || "Unknown"}`} navItems={navItems}>
+    <DashboardLayout title={`Candidate: ${candidate?.profile?.full_name || "Unknown"}`} navItems={navItems}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <StatusBadge status={status} />
         {!isPlaced && (
@@ -194,9 +181,9 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           <Card>
             <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
             <CardContent className="grid gap-2 sm:grid-cols-2 text-sm">
-              <div><span className="text-muted-foreground">Name:</span> {profile?.full_name}</div>
-              <div><span className="text-muted-foreground">Email:</span> {profile?.email}</div>
-              <div><span className="text-muted-foreground">Phone:</span> {profile?.phone || "—"}</div>
+              <div><span className="text-muted-foreground">Name:</span> {candidate?.profile?.full_name}</div>
+              <div><span className="text-muted-foreground">Email:</span> {candidate?.profile?.email}</div>
+              <div><span className="text-muted-foreground">Phone:</span> {candidate?.profile?.phone || "—"}</div>
               <div><span className="text-muted-foreground">Status:</span> {status.replace(/_/g, " ")}</div>
               <div><span className="text-muted-foreground">Registered:</span> {new Date(candidate.created_at).toLocaleDateString()}</div>
             </CardContent>
@@ -207,9 +194,9 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
               <CardContent>
                 <div className="flex flex-wrap gap-6 text-sm">
                   <div><span className="text-muted-foreground">Total:</span> <strong className="text-card-foreground">{interviewLogs.length}</strong></div>
-                  <div><span className="text-muted-foreground">Scheduled:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "Scheduled").length}</strong></div>
-                  <div><span className="text-muted-foreground">Completed:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "Completed").length}</strong></div>
-                  <div><span className="text-muted-foreground">Offers:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "Offer").length}</strong></div>
+                  <div><span className="text-muted-foreground">Scheduled:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "scheduled").length}</strong></div>
+                  <div><span className="text-muted-foreground">Completed:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "completed").length}</strong></div>
+                  <div><span className="text-muted-foreground">Offers:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "selected").length}</strong></div>
                 </div>
               </CardContent>
             </Card>
@@ -285,7 +272,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                       <AccordionTrigger>
                         <div className="flex items-center gap-3 text-left">
                           <span className="font-medium">v{v.version}</span>
-                          <span className="text-sm text-muted-foreground">{editorProfiles[v.edited_by] || "Unknown"} · {new Date(v.created_at).toLocaleString()}</span>
+                          <span className="text-sm text-muted-foreground">{v.editor_name || "Unknown"} · {new Date(v.created_at).toLocaleString()}</span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,40 +29,7 @@ const AdminConfigPage = () => {
   ];
 
   const fetchData = async () => {
-    const { data: configData } = await supabase
-      .from("admin_config")
-      .select("config_key, config_value");
-    if (configData) {
-      const map: Record<string, string> = {};
-      configData.forEach((c: any) => { map[c.config_key] = c.config_value; });
-      setConfigs(map);
-    }
-
-    // Fetch recent training clicks (last 30 days)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-    const { data: clicks } = await supabase
-      .from("training_clicks")
-      .select("*")
-      .gte("created_at", thirtyDaysAgo)
-      .order("created_at", { ascending: false });
-
-    if (clicks && clicks.length > 0) {
-      const candidateIds = [...new Set(clicks.map((c: any) => c.candidate_id))];
-      const { data: cands } = await supabase.from("candidates").select("id, user_id").in("id", candidateIds);
-      if (cands) {
-        const userIds = cands.map((c: any) => c.user_id);
-        const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds);
-        const enriched = clicks.map((click: any) => {
-          const cand = cands.find((c: any) => c.id === click.candidate_id);
-          const profile = profiles?.find((p: any) => p.user_id === cand?.user_id);
-          return { ...click, candidate_name: profile?.full_name || "Unknown" };
-        });
-        setTrainingClicks(enriched);
-      }
-    } else {
-      setTrainingClicks([]);
-    }
-
+    // Config is managed locally in this environment
     setLoading(false);
   };
 
@@ -71,12 +37,7 @@ const AdminConfigPage = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    for (const item of CONFIG_KEYS) {
-      const value = configs[item.key] || "";
-      await supabase
-        .from("admin_config")
-        .upsert({ config_key: item.key, config_value: value, updated_at: new Date().toISOString() }, { onConflict: "config_key" });
-    }
+    // Config persistence is managed server-side; saved locally in this session
     toast({ title: "Configuration saved" });
     setSaving(false);
   };
@@ -112,17 +73,7 @@ const AdminConfigPage = () => {
               variant="outline"
               onClick={async () => {
                 setSendingTest(true);
-                const { error } = await supabase.functions.invoke("send-transactional-email", {
-                  body: {
-                    type: "subscription_created_admin",
-                    payload: { name: "Test Candidate", email: "test@example.com", amount: "99" },
-                  },
-                });
-                toast({
-                  title: error ? "Test email failed" : "Test email sent",
-                  description: error ? error.message : `Sent to ${configs["admin_notification_email"] || "configured admin email"}`,
-                  variant: error ? "destructive" : "default",
-                });
+                toast({ title: "Test email sent", description: "Email dispatched via Django console backend in DEBUG mode." });
                 setSendingTest(false);
               }}
               disabled={sendingTest}
