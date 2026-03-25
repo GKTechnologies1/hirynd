@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   DollarSign, FileText, CheckCircle, XCircle, Clock, IndianRupee,
   Package, CreditCard, ShieldCheck, AlertTriangle, Loader2,
+  LayoutDashboard, Briefcase, KeyRound, ClipboardList, Phone, UserPlus, MessageSquare, Settings
 } from "lucide-react";
 
 declare global {
@@ -17,11 +18,17 @@ declare global {
 }
 
 const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <span className="h-4 w-4">📋</span> },
-  { label: "Intake Form", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <span className="h-4 w-4">💼</span> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <span className="h-4 w-4">🔑</span> },
+  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
+  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
+  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
   { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
+  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
+  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
+  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
+  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
+  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
+  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
 ];
 
 interface Props {
@@ -177,7 +184,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                   className={
                     subscription.status === "active"
                       ? "bg-green-100 text-green-800"
-                      : subscription.status === "pending_payment"
+                      : (subscription.status === "pending_payment" || subscription.status === "pending" || subscription.status === "unpaid")
                       ? "bg-yellow-100 text-yellow-800"
                       : "bg-gray-100 text-gray-700"
                   }
@@ -214,7 +221,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
               </div>
 
               {/* CTA */}
-              {subscription.status === "pending_payment" ? (
+              {(subscription.status === "pending_payment" || subscription.status === "pending" || subscription.status === "unpaid") ? (
                 <Button
                   className="w-full"
                   size="lg"

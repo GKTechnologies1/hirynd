@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle, Clock, XCircle, Info } from "lucide-react";
+import { DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle, Clock, XCircle, Info, IndianRupee } from "lucide-react";
 
 const CANDIDATE_NAV = [
   { label: "Overview", path: "/candidate-dashboard", icon: <span className="h-4 w-4">📋</span> },
@@ -144,7 +144,7 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Monthly Amount</p>
-                  <p className="text-lg font-bold text-card-foreground">${Number(subscription.amount).toLocaleString()} {subscription.currency}</p>
+                  <p className="text-lg font-bold text-card-foreground flex items-center gap-0.5"><IndianRupee className="h-4 w-4" />{Number(subscription.amount).toLocaleString()} {subscription.currency}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Next Charge Date</p>
@@ -225,7 +225,7 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
                 {invoices.map((inv: any) => (
                   <TableRow key={inv.id}>
                     <TableCell className="text-sm">{new Date(inv.period_start).toLocaleDateString()} – {new Date(inv.period_end).toLocaleDateString()}</TableCell>
-                    <TableCell className="font-medium">${Number(inv.amount).toLocaleString()} {inv.currency}</TableCell>
+                    <TableCell className="font-medium flex items-center gap-0.5"><IndianRupee className="h-4 w-4" />{Number(inv.amount).toLocaleString()} {inv.currency}</TableCell>
                     <TableCell><Badge className={invoiceStatusBadge[inv.status] || ""}>{inv.status.toUpperCase()}</Badge></TableCell>
                     <TableCell className="text-sm">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</TableCell>
                   </TableRow>

@@ -76,11 +76,13 @@ export const candidatesApi = {
   updateStatus: (id: string, status: string) => api.post(`/candidates/${id}/status/`, { status }),
   getIntake: (id: string) => api.get(`/candidates/${id}/intake/`),
   submitIntake: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/intake/`, { data }),
+  reopenIntake: (id: string) => api.post(`/candidates/${id}/intake/reopen/`),
   getRoles: (id: string) => api.get(`/candidates/${id}/roles/`),
+  reopenRoles: (id: string) => api.post(`/candidates/${id}/roles/reopen/`),
   addRole: (id: string, data: { role_title: string; description?: string; admin_note?: string }) =>
     api.post(`/candidates/${id}/roles/add/`, data),
-  confirmRoles: (id: string, decisions: Record<string, any>) =>
-    api.post(`/candidates/${id}/roles/confirm/`, { decisions }),
+  confirmRoles: (id: string, data: Record<string, any>) =>
+    api.post(`/candidates/${id}/roles/confirm/`, data),
   getCredentials: (id: string) => api.get(`/candidates/${id}/credentials/`),
   upsertCredential: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/credentials/upsert/`, { data }),
@@ -107,10 +109,9 @@ export const recruitersApi = {
     api.post('/recruiters/assign/', data),
   unassign: (assignmentId: string) => api.post(`/recruiters/unassign/${assignmentId}/`),
   getDailyLogs: (candidateId: string) => api.get(`/recruiters/${candidateId}/daily-logs/`),
-  submitDailyLog: (candidateId: string, data: Record<string, any>) =>
-    api.post(`/recruiters/${candidateId}/daily-logs/`, data),
-  updateJobStatus: (jobId: string, status: string) =>
-    api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
+  submitDailyLog: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/daily-logs/`, data),
+  updateJobStatus: (jobId: string, status: string) => api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
+  fetchJobDetails: (url: string) => api.post(`/recruiters/fetch-job-details/`, { url }),
 };
 
 // ─── Billing ───

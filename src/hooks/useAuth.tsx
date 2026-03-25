@@ -21,7 +21,7 @@ interface AuthContextType {
   user: UserData | null;
   loading: boolean;
   signUp: (email: string, password: string, fullName: string, role?: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any; approval_status?: string }>;
+  signIn: (email: string, password: string) => Promise<{ error: any; approval_status?: string; user?: UserData }>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   refreshUser: () => Promise<void>;
@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem("access_token", data.access);
       localStorage.setItem("refresh_token", data.refresh);
       setUser(data.user);
-      return { error: null };
+      return { error: null, user: data.user };
     } catch (err: any) {
       const errData = err.response?.data;
       if (err.response?.status === 403) {
@@ -91,10 +91,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const hasRole = (role: AppRole) => {
     if (!user) return false;
-    // Admin can access everything
-    if (user.role === "admin") return true;
     // Team manager can access recruiter views
-    if (role === "recruiter" && user.role in ["recruiter", "team_lead", "team_manager"]) return true;
+    if (role === "recruiter" && ["recruiter", "team_lead", "team_manager"].includes(user.role)) return true;
     return user.role === role;
   };
 

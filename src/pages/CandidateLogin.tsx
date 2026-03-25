@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, XCircle, Eye, EyeOff } from "lucide-react";
+import { Clock, XCircle } from "lucide-react";
+import PasswordField from "@/components/auth/PasswordField";
 
 const SOURCE_OPTIONS = ["LinkedIn", "Google", "University", "Friend", "Social Media", "Other"];
 const VISA_OPTIONS = ["H1B", "OPT", "CPT", "Green Card", "US Citizen", "EAD", "TN", "Other"];
@@ -21,7 +22,7 @@ const CandidateLogin = () => {
   const [submitting, setSubmitting] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<string | null>(null);
-  const { signIn } = useAuth();
+  const { signIn, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -65,17 +66,24 @@ const CandidateLogin = () => {
     e.preventDefault();
     setSubmitting(true);
     setApprovalStatus(null);
-    const { error, approval_status } = await signIn(loginEmail, loginPassword);
-    setSubmitting(false);
+    const { error, approval_status, user: loggedUser } = await signIn(loginEmail, loginPassword);
+    
     if (error) {
+      setSubmitting(false);
       if (approval_status === "pending") {
         setApprovalStatus("pending_approval");
       } else if (approval_status === "rejected") {
         setApprovalStatus("rejected");
       } else {
-        toast({ title: "Login failed", description: typeof error === "string" ? error : "Invalid credentials", variant: "destructive" });
+        const msg = typeof error === "string" ? error : (error.error || error.detail || "Invalid email or password.");
+        toast({ title: "Login failed", description: msg, variant: "destructive" });
       }
+    } else if (loggedUser?.role !== "candidate") {
+      await signOut();
+      setSubmitting(false);
+      toast({ title: "Access denied", description: "This account is not registered as a candidate.", variant: "destructive" });
     } else {
+      setSubmitting(false);
       navigate("/candidate-dashboard");
     }
   };
@@ -87,7 +95,18 @@ const CandidateLogin = () => {
     const { error } = await signUp(reg);
     setSubmitting(false);
     if (error) {
-      toast({ title: "Registration failed", description: typeof error === "string" ? error : JSON.stringify(error), variant: "destructive" });
+      let msg = "Something went wrong";
+      if (typeof error === "string") {
+        msg = error;
+      } else {
+        // Handle DRF validation error object
+        const firstKey = Object.keys(error)[0];
+        if (firstKey) {
+          const firstErr = error[firstKey];
+          msg = Array.isArray(firstErr) ? `${firstKey}: ${firstErr[0]}` : String(firstErr);
+        }
+      }
+      toast({ title: "Registration failed", description: msg, variant: "destructive" });
     } else {
       setRegistrationComplete(true);
     }
@@ -171,21 +190,6 @@ const CandidateLogin = () => {
       </div>
     );
   }
-
-  const PasswordField = ({ label, value, onChange, show, onToggle, error }: {
-    label: string; value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; error?: string;
-  }) => (
-    <div>
-      <Label>{label}</Label>
-      <div className="relative">
-        <Input type={show ? "text" : "password"} value={value} onChange={e => onChange(e.target.value)} required />
-        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={onToggle}>
-          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
-      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-background">

@@ -36,10 +36,12 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
     try {
       const [assignRes, recruiterRes] = await Promise.all([
         recruitersApi.assignments(candidateId),
-        authApi.allUsers('recruiter'),
+        authApi.allUsers({ role: 'recruiter' }),
       ]);
       setAssignments(assignRes.data || []);
-      setRecruiters(recruiterRes.data || []);
+      // backend returns { results: [], total: 0 }
+      const recruiterList = Array.isArray(recruiterRes.data) ? recruiterRes.data : recruiterRes.data?.results || [];
+      setRecruiters(recruiterList);
     } catch {
       setAssignments([]); setRecruiters([]);
     }
@@ -89,8 +91,8 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
   if (loading) return <p className="text-muted-foreground">Loading assignments...</p>;
 
-  const canAssign = ["paid", "credential_completed", "active_marketing"].includes(candidateStatus);
-  const canStartMarketing = ["paid", "credential_completed"].includes(candidateStatus) && hasCredentials && assignments.length > 0;
+  const canAssign = ["payment_completed", "credentials_submitted", "active_marketing"].includes(candidateStatus);
+  const canStartMarketing = ["payment_completed", "credentials_submitted"].includes(candidateStatus) && hasCredentials && assignments.length > 0;
 
   return (
     <div className="space-y-4">
@@ -181,7 +183,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
       {!canAssign && (
         <p className="text-sm text-muted-foreground">
-          Recruiter assignment is available when candidate status is paid, credential_completed, or active_marketing.
+          Recruiter assignment is available when candidate status is payment_completed, credentials_submitted, or active_marketing.
         </p>
       )}
     </div>

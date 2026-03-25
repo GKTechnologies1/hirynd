@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, IndianRupee } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -95,8 +95,8 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const handleSuggestRoles = async () => {
     if (roles.length === 0) { toast({ title: "Add at least one role first", variant: "destructive" }); return; }
     try {
-      await candidatesApi.updateStatus(candidateId, "roles_suggested");
-      toast({ title: "Roles sent to candidate for confirmation" }); fetchAll();
+      await candidatesApi.updateStatus(candidateId, "roles_published");
+      toast({ title: "Roles published to candidate for confirmation" }); fetchAll();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
@@ -115,6 +115,24 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
     setAddingPayment(false);
   };
 
+  const handleReopenIntake = async () => {
+    try {
+      await candidatesApi.reopenIntake(candidateId);
+      toast({ title: "Intake form reopened" }); fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+  };
+
+  const handleReopenRoles = async () => {
+    try {
+      await candidatesApi.reopenRoles(candidateId);
+      toast({ title: "Roles reset and status reverted to Intake Submitted" }); fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+  };
+
   const handleStatusChange = async (newStatus: string) => {
     try {
       await candidatesApi.updateStatus(candidateId, newStatus);
@@ -124,25 +142,63 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
     }
   };
 
+  const handlePauseResume = async () => {
+    const nextStatus = status === "paused" ? "active_marketing" : "paused";
+    try {
+      await candidatesApi.updateStatus(candidateId, nextStatus);
+      toast({ title: status === "paused" ? "Marketing resumed" : "Marketing paused" }); fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!window.confirm("Are you sure you want to cancel this profile? This will trigger billing closure.")) return;
+    try {
+      await candidatesApi.updateStatus(candidateId, "cancelled");
+      toast({ title: "Profile cancelled" }); fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
   if (loading) return <DashboardLayout title="Candidate Detail" navItems={navItems}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
   if (!candidate) return <DashboardLayout title="Candidate Detail" navItems={navItems}><p className="text-muted-foreground">Candidate not found.</p></DashboardLayout>;
 
   const intakeData = intake?.data as Record<string, string> | null;
   const status = candidate.status;
-  const isPlaced = status === "placed";
-  const STATUSES = ["lead","approved","intake_submitted","roles_suggested","roles_confirmed","paid","credential_completed","active_marketing","paused","cancelled","placed"];
+  const isPlaced = status === "placed_closed";
+  const STATUSES = [
+    "pending_approval", "lead", "approved", "intake_submitted", "roles_published", 
+    "roles_confirmed", "payment_completed", "credentials_submitted", "active_marketing", 
+    "paused", "on_hold", "past_due", "cancelled", "placed_closed"
+  ];
 
   return (
     <DashboardLayout title={`Candidate: ${candidate?.profile?.full_name || "Unknown"}`} navItems={navItems}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <StatusBadge status={status} />
         {!isPlaced && (
-          <Select value={status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={status} onValueChange={handleStatusChange}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            {(status === "active_marketing" || status === "paused") && (
+              <Button variant="outline" size="sm" onClick={handlePauseResume}>
+                {status === "paused" ? "Resume Marketing" : "Pause Marketing"}
+              </Button>
+            )}
+
+            {status !== "cancelled" && (
+              <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/5" onClick={handleCancel}>
+                Cancel Profile
+              </Button>
+            )}
+          </div>
         )}
         <Button variant="outline" size="sm" onClick={() => window.history.back()}>← Back</Button>
       </div>
@@ -207,8 +263,17 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         <TabsContent value="intake" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Client Intake Sheet</CardTitle>
-              <CardDescription>{intake ? (intake.is_locked ? "Submitted & locked" : "Draft") : "Not submitted yet"}</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Client Intake Sheet</CardTitle>
+                  <CardDescription>{intake ? (intake.is_locked ? "Submitted & locked" : "Draft") : "Not submitted yet"}</CardDescription>
+                </div>
+                {intake?.is_locked && (
+                  <Button variant="outline" size="sm" onClick={handleReopenIntake} className="text-secondary border-secondary/30 hover:bg-secondary/5">
+                    <History className="mr-1 h-3.5 w-3.5" /> Reopen for Editing
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {intakeData ? (
@@ -225,7 +290,16 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         {/* Roles Tab */}
         <TabsContent value="roles" className="space-y-4">
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5" /> Role Suggestions</CardTitle></CardHeader>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5" /> Role Suggestions</CardTitle>
+                {["roles_published", "roles_confirmed"].includes(status) && (
+                  <Button variant="outline" size="sm" onClick={handleReopenRoles} className="text-secondary border-secondary/30 hover:bg-secondary/5">
+                    <History className="mr-1 h-3.5 w-3.5" /> Reopen & Reset
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
             <CardContent>
               {roles.length === 0 ? <p className="text-muted-foreground">No roles suggested yet.</p> : (
                 <div className="space-y-3">
@@ -250,7 +324,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 <div><Label>Description / Rationale</Label><Textarea value={newRoleDescription} onChange={e => setNewRoleDescription(e.target.value)} /></div>
                 <div className="flex gap-3">
                   <Button onClick={handleAddRole} disabled={addingRole || !newRoleTitle.trim()}>{addingRole ? "Adding..." : "Add Role"}</Button>
-                  {status === "intake_submitted" && roles.length > 0 && <Button variant="hero" onClick={handleSuggestRoles}>Send Roles to Candidate</Button>}
+                  {status === "intake_submitted" && roles.length > 0 && <Button variant="hero" onClick={handleSuggestRoles}>Publish Suggested Roles</Button>}
                 </div>
               </CardContent>
             </Card>
@@ -294,10 +368,13 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         <TabsContent value="payments" className="space-y-4">
           {!isPlaced && (
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Payment</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Manual Payment</CardTitle>
+            <CardDescription>Manually record a payment received outside the gateway (e.g. bank transfer). To request a subscription payment from the candidate, use the Billing tab.</CardDescription>
+          </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div><Label>Amount ($) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
+                  <div><Label>Amount (₹) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
                   <div><Label>Type</Label><Select value={payType} onValueChange={setPayType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="initial">Initial</SelectItem><SelectItem value="subscription">Subscription</SelectItem><SelectItem value="refund">Refund</SelectItem><SelectItem value="adjustment">Adjustment</SelectItem></SelectContent></Select></div>
                   <div><Label>Status</Label><Select value={payStatus} onValueChange={setPayStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completed">Completed</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="refunded">Refunded</SelectItem></SelectContent></Select></div>
                 </div>
@@ -317,7 +394,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                         {p.status === "completed" ? <CheckCircle className="h-4 w-4 text-secondary" /> : p.status === "failed" ? <XCircle className="h-4 w-4 text-destructive" /> : <Clock className="h-4 w-4 text-muted-foreground" />}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center justify-between"><p className="font-semibold">${Number(p.amount).toLocaleString()} {p.currency}</p><span className="text-xs capitalize text-muted-foreground">{p.status}</span></div>
+                        <div className="flex items-center justify-between"><p className="font-semibold text-foreground flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{Number(p.amount).toLocaleString()} {p.currency}</p><span className="text-xs capitalize text-muted-foreground">{p.status}</span></div>
                         <p className="text-sm text-muted-foreground capitalize">{p.payment_type.replace(/_/g, " ")}</p>
                         {p.notes && <p className="mt-1 text-sm text-muted-foreground">{p.notes}</p>}
                         <p className="mt-1 text-xs text-muted-foreground">{new Date(p.payment_date || p.created_at).toLocaleDateString()}</p>

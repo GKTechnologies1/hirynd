@@ -19,8 +19,22 @@ from notifications.utils import send_email
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
+    # Daily Limit Check (Spec 3.4)
+    from django.utils import timezone
+    today = timezone.now().date()
+    daily_count = User.objects.filter(created_at__date=today).count()
+    if daily_count >= 10:
+        return Response({
+            'error': 'Daily registration limit reached. Please try again tomorrow.'
+        }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
     serializer = RegisterSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+    if not serializer.is_valid():
+        import logging
+        logger = logging.getLogger('django')
+        logger.error("Registration validation errors: %s", serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
     user = serializer.save()
 
     log_action(
@@ -58,10 +72,10 @@ def login(request):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Invalid email id'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if not user.check_password(password):
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Invalid password'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if user.approval_status != 'approved' and user.role != 'admin':
         return Response({

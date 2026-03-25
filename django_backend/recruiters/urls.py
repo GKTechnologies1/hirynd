@@ -8,4 +8,5 @@ urlpatterns = [
     path('<uuid:candidate_id>/assignments/', views.assignments, name='assignments'),
     path('<uuid:candidate_id>/daily-logs/', views.daily_logs, name='daily_logs'),
     path('jobs/<uuid:job_id>/status/', views.update_job_status, name='update_job_status'),
+    path('fetch-job-details/', views.fetch_job_details, name='fetch_job_details'),
 ]

@@ -19,7 +19,7 @@ const AdminQAChecklist = ({ candidateId, candidateStatus }: AdminQAChecklistProp
 
   useEffect(() => {
     const run = async () => {
-      const statusOrder = ["lead", "approved", "intake_submitted", "roles_suggested", "roles_confirmed", "paid", "credential_completed", "active_marketing", "paused", "cancelled", "placed"];
+      const statusOrder = ["pending_approval", "lead", "approved", "intake_submitted", "roles_published", "roles_confirmed", "payment_completed", "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due", "cancelled", "placed_closed"];
       const idx = statusOrder.indexOf(candidateStatus);
 
       const [credRes, assignRes, logRes, interviewRes, placementRes] = await Promise.all([
@@ -36,12 +36,12 @@ const AdminQAChecklist = ({ candidateId, candidateStatus }: AdminQAChecklistProp
       const placementCount = placementRes.data ? 1 : 0;
 
       setChecks([
-        { label: "Intake complete", done: idx >= 2 },
-        { label: "Roles confirmed", done: idx >= 4 },
-        { label: "Payment received", done: idx >= 5 },
-        { label: "Credentials submitted", done: (credCount || 0) > 0 },
+        { label: "Intake complete", done: idx >= 3 },
+        { label: "Roles confirmed", done: idx >= 5 },
+        { label: "Payment received", done: idx >= 6 },
+        { label: "Credentials submitted", done: (credCount || 0) > 0 || idx >= 7 },
         { label: "Recruiter assigned", done: (assignCount || 0) > 0 },
-        { label: "Marketing started", done: idx >= 7 || candidateStatus === "placed" },
+        { label: "Marketing started", done: idx >= 8 || candidateStatus === "placed_closed" },
         { label: "Applications logged", done: (logCount || 0) > 0 },
         { label: "Interviews logged", done: (interviewCount || 0) > 0 },
         { label: "Placement closed", done: (placementCount || 0) > 0 },

@@ -7,14 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import PasswordField from "@/components/auth/PasswordField";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -25,15 +26,22 @@ const AdminLogin = () => {
       return;
     }
     setSubmitting(true);
-    const { error } = await signIn(email, password);
-    setSubmitting(false);
+    const { error, user: loggedUser } = await signIn(email, password);
+    
     if (error) {
+      setSubmitting(false);
+      const msg = typeof error === "string" ? error : (error.error || error.detail || "Invalid email or password.");
       toast({
         title: "Login failed",
-        description: typeof error === "string" ? error : "Invalid credentials or insufficient permissions.",
+        description: msg,
         variant: "destructive",
       });
+    } else if (loggedUser?.role !== "admin") {
+      await signOut();
+      setSubmitting(false);
+      toast({ title: "Access denied", description: "Insufficient permissions.", variant: "destructive" });
     } else {
+      setSubmitting(false);
       navigate("/admin-dashboard");
     }
   };
@@ -68,29 +76,17 @@ const AdminLogin = () => {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    required
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPassword(p => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+              <PasswordField
+                id="password"
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                show={showPassword}
+                onToggle={() => setShowPassword(p => !p)}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                required
+              />
 
               <Button
                 type="submit"

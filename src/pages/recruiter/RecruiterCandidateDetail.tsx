@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle } from "lucide-react";
+import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
 
@@ -51,6 +51,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [logNotes, setLogNotes] = useState("");
   const [jobLinks, setJobLinks] = useState<Array<{ company_name: string; role_title: string; job_url: string; resume_used: string; status: string; }>>([]);
   const [savingLog, setSavingLog] = useState(false);
+  const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
 
   const fetchAll = async () => {
     if (!user) return;
@@ -110,6 +111,29 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
   const removeJobLink = (idx: number) => {
     setJobLinks(jobLinks.filter((_, i) => i !== idx));
+  };
+
+  const handleFetchJobDetails = async (idx: number) => {
+    const url = jobLinks[idx].job_url;
+    if (!url || !url.startsWith("http")) {
+      toast({ title: "Valid URL required", variant: "destructive" }); return;
+    }
+    setFetchingJob(prev => ({ ...prev, [idx]: true }));
+    try {
+      const { data } = await recruitersApi.fetchJobDetails(url);
+      if (data.role_title || data.company_name) {
+        const updated = [...jobLinks];
+        if (data.role_title) updated[idx].role_title = data.role_title;
+        if (data.company_name) updated[idx].company_name = data.company_name;
+        setJobLinks(updated);
+        toast({ title: "Job details fetched!" });
+      } else {
+        toast({ title: "Could not extract details", description: "Please enter manually." });
+      }
+    } catch {
+      toast({ title: "Fetch failed" });
+    }
+    setFetchingJob(prev => ({ ...prev, [idx]: false }));
   };
 
   const handleSubmitDailyLog = async () => {
@@ -334,7 +358,19 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Input placeholder="Company Name" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
                       <Input placeholder="Role Title" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
-                      <Input placeholder="Job URL" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
+                      <div className="relative">
+                        <Input placeholder="Job URL" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} className="pr-10" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-secondary hover:text-secondary/80"
+                          onClick={() => handleFetchJobDetails(idx)}
+                          disabled={fetchingJob[idx]}
+                          title="Auto-fetch job details"
+                        >
+                          {fetchingJob[idx] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
                       <Input placeholder="Resume Used (URL)" value={job.resume_used} onChange={e => updateJobLink(idx, "resume_used", e.target.value)} />
                     </div>
                     <div className="flex items-center gap-2">

@@ -6,7 +6,7 @@ from django.utils import timezone
 from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
 from audit.utils import log_action
 from .models import (
-    Candidate, ClientIntake, RoleSuggestion, CredentialVersion,
+    Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, CredentialVersion,
     Referral, InterviewLog, PlacementClosure, Payment,
 )
 from .serializers import (
@@ -107,7 +107,7 @@ def update_candidate_status(request, candidate_id):
 @permission_classes([IsApproved])
 def intake(request, candidate_id):
     try:
-        candidate = Candidate.objects.get(id=candidate_id)
+        candidate = Candidate.objects.select_related('user__profile').get(id=candidate_id)
     except Candidate.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -116,7 +116,22 @@ def intake(request, candidate_id):
             intake = ClientIntake.objects.get(candidate=candidate)
             return Response(ClientIntakeSerializer(intake).data)
         except ClientIntake.DoesNotExist:
-            return Response({})
+            # Fallback: Pre-populate from Candidate + User Profile for initial form load
+            initial_data = {
+                'full_name': candidate.user.profile.full_name,
+                'phone': candidate.user.profile.phone,
+                'email': candidate.user.email,
+                'university': candidate.university,
+                'major': candidate.major,
+                'degree': candidate.degree,
+                'graduation_year': candidate.graduation_year or (str(candidate.graduation_date.year) if candidate.graduation_date else ""),
+                'visa_status': candidate.visa_status,
+                'linkedin_url': candidate.linkedin_url,
+                'portfolio_url': candidate.portfolio_url,
+                'current_location': candidate.current_location,
+                'notes': candidate.notes,
+            }
+            return Response({'candidate': str(candidate_id), 'data': initial_data, 'is_locked': False})
 
     # Check lock
     try:
@@ -163,23 +178,70 @@ def add_role(request, candidate_id):
 @api_view(['POST'])
 @permission_classes([IsCandidate])
 def confirm_roles(request, candidate_id):
-    decisions = request.data.get('decisions', {})
-    for role_id, confirmed in decisions.items():
+    payload = request.data
+    decisions = payload.get('decisions', {})
+    notes = payload.get('notes', {})
+    custom_role = payload.get('custom_role')
+    
+    for role_id, decision in decisions.items():
+        status_val = True if decision == 'accepted' else False if decision == 'declined' else None
         RoleSuggestion.objects.filter(id=role_id, candidate_id=candidate_id).update(
-            candidate_confirmed=confirmed, confirmed_at=timezone.now()
+            candidate_confirmed=status_val,
+            confirmed_at=timezone.now(),
+            change_request_note=notes.get(role_id, '') if decision == 'change_requested' else None
         )
+    
+    if custom_role and custom_role.get('title'):
+        RoleConfirmation.objects.create(
+            candidate_id=candidate_id,
+            response='change_requested',
+            custom_role_title=custom_role['title'],
+            custom_reason=custom_role['reason']
+        )
+
     candidate = Candidate.objects.get(id=candidate_id)
-    if candidate.status == 'roles_suggested':
+    if candidate.status in ('roles_suggested', 'roles_published'):
         candidate.status = 'roles_confirmed'
         candidate.save()
     return Response({'message': 'Roles confirmed'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def reopen_intake(request, candidate_id):
+    try:
+        intake = ClientIntake.objects.get(candidate_id=candidate_id)
+        intake.is_locked = False
+        intake.save()
+        log_action(request.user, 'intake_reopened', str(candidate_id), 'intake', {})
+        return Response({'message': 'Intake reopened'})
+    except ClientIntake.DoesNotExist:
+        return Response({'error': 'Not found'}, status=404)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def reopen_roles(request, candidate_id):
+    try:
+        RoleSuggestion.objects.filter(candidate_id=candidate_id).update(
+            candidate_confirmed=None,
+            confirmed_at=None,
+            change_request_note=None
+        )
+        candidate = Candidate.objects.get(id=candidate_id)
+        candidate.status = 'intake_submitted'
+        candidate.save()
+        log_action(request.user, 'roles_reopened', str(candidate_id), 'roles', {})
+        return Response({'message': 'Roles reopened and status reset'})
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Not found'}, status=404)
 
 
 # ─── Credentials ───
 
 @api_view(['GET'])
 @permission_classes([IsApproved])
-def credential_list(request, candidate_id):
+def credentials(request, candidate_id):
     versions = CredentialVersion.objects.filter(candidate_id=candidate_id).select_related('edited_by__profile')
     return Response(CredentialVersionSerializer(versions, many=True).data)
 
@@ -187,15 +249,28 @@ def credential_list(request, candidate_id):
 @api_view(['POST'])
 @permission_classes([IsApproved])
 def upsert_credential(request, candidate_id):
-    last_version = CredentialVersion.objects.filter(candidate_id=candidate_id).order_by('-version').first()
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Accept both { data: {...} } and flat submission
+    payload = request.data.get('data') if 'data' in request.data else request.data
+
+    last_version = CredentialVersion.objects.filter(candidate=candidate).order_by('-version').first()
     new_version = (last_version.version + 1) if last_version else 1
     cred = CredentialVersion.objects.create(
-        candidate_id=candidate_id,
-        data=request.data.get('data', {}),
+        candidate=candidate,
+        data=payload,
         edited_by=request.user,
         version=new_version,
     )
-    log_action(request.user, 'credential_edit', str(candidate_id), 'credential', {'version': new_version})
+
+    if candidate.status in ('payment_completed', 'roles_confirmed', 'pending_payment'):
+        candidate.status = 'credentials_submitted'
+        candidate.save(update_fields=['status'])
+
+    log_action(request.user, 'credential_edit', str(candidate.id), 'credential', {'version': new_version})
     return Response(CredentialVersionSerializer(cred).data, status=status.HTTP_201_CREATED)
 
 
@@ -301,6 +376,6 @@ def placement(request, candidate_id):
     serializer.is_valid(raise_exception=True)
     serializer.save()
 
-    Candidate.objects.filter(id=candidate_id).update(status='placed')
+    Candidate.objects.filter(id=candidate_id).update(status='placed_closed')
     log_action(request.user, 'placement_closed', str(candidate_id), 'candidate', data)
     return Response(serializer.data, status=status.HTTP_201_CREATED)

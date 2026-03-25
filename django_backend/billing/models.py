@@ -115,6 +115,9 @@ class SubscriptionAddonAssignment(models.Model):
 # ────────────────────────────────────────────────────────────────
 #  Razorpay Order   (tracks each checkout attempt)
 # ────────────────────────────────────────────────────────────────
+from django.core.serializers.json import DjangoJSONEncoder
+
+
 class RazorpayOrder(models.Model):
     STATUS_CHOICES = [
         ('created', 'Created'),
@@ -133,7 +136,7 @@ class RazorpayOrder(models.Model):
     currency = models.CharField(max_length=10, default='INR')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='created')
     payment_type = models.CharField(max_length=50, default='subscription')  # subscription / addon
-    notes = models.JSONField(default=dict, blank=True)
+    notes = models.JSONField(default=dict, encoder=DjangoJSONEncoder, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     verified_at = models.DateTimeField(null=True, blank=True)
 

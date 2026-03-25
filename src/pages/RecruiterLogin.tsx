@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/services/api";
-import { Clock, XCircle, Eye, EyeOff } from "lucide-react";
+import { Clock, XCircle } from "lucide-react";
+import PasswordField from "@/components/auth/PasswordField";
 
 const SOURCE_OPTIONS = ["LinkedIn", "Google", "University", "Friend", "Social Media", "Other"];
 const WORK_TYPE_OPTIONS = ["Full-time", "Part-time", "Contract", "Remote"];
@@ -23,7 +24,7 @@ const RecruiterLogin = () => {
   const [submitting, setSubmitting] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<string | null>(null);
-  const { signIn } = useAuth();
+  const { signIn, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -70,17 +71,24 @@ const RecruiterLogin = () => {
     e.preventDefault();
     setSubmitting(true);
     setApprovalStatus(null);
-    const { error, approval_status } = await signIn(loginEmail, loginPassword);
-    setSubmitting(false);
+    const { error, approval_status, user: loggedUser } = await signIn(loginEmail, loginPassword);
+    
     if (error) {
+      setSubmitting(false);
       if (approval_status === "pending") {
         setApprovalStatus("pending_approval");
       } else if (approval_status === "rejected") {
         setApprovalStatus("rejected");
       } else {
-        toast({ title: "Login failed", description: typeof error === "string" ? error : "Invalid credentials", variant: "destructive" });
+        const msg = typeof error === "string" ? error : (error.error || error.detail || "Invalid email or password.");
+        toast({ title: "Login failed", description: msg, variant: "destructive" });
       }
+    } else if (!["recruiter", "team_lead", "team_manager"].includes(loggedUser?.role || "")) {
+      await signOut();
+      setSubmitting(false);
+      toast({ title: "Access denied", description: "This account is not registered as recruitment staff.", variant: "destructive" });
     } else {
+      setSubmitting(false);
       navigate("/recruiter-dashboard");
     }
   };
@@ -93,25 +101,23 @@ const RecruiterLogin = () => {
       await authApi.register({ ...reg, role: "recruiter" } as any);
       setRegistrationComplete(true);
     } catch (err: any) {
-      toast({ title: "Registration failed", description: err.response?.data?.email?.[0] || "Registration error", variant: "destructive" });
+      let msg = "Something went wrong";
+      const error = err.response?.data;
+      if (typeof error === "string") {
+        msg = error;
+      } else if (error) {
+        const firstKey = Object.keys(error)[0];
+        if (firstKey) {
+          const firstErr = error[firstKey];
+          msg = Array.isArray(firstErr) ? `${firstKey}: ${firstErr[0]}` : String(firstErr);
+        }
+      }
+      toast({ title: "Registration failed", description: msg, variant: "destructive" });
     }
     setSubmitting(false);
   };
 
-  const PasswordField = ({ label, value, onChange, show, onToggle, error }: {
-    label: string; value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; error?: string;
-  }) => (
-    <div>
-      <Label>{label}</Label>
-      <div className="relative">
-        <Input type={show ? "text" : "password"} value={value} onChange={e => onChange(e.target.value)} required />
-        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={onToggle}>
-          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
-      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
-    </div>
-  );
+
 
   if (registrationComplete) {
     return (

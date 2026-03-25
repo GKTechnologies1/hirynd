@@ -2,8 +2,12 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
+import requests
+import re
+from bs4 import BeautifulSoup
 
 from users.permissions import IsAdmin, IsApproved, IsRecruiter
+from candidates.models import Candidate
 from audit.utils import log_action
 from .models import RecruiterAssignment, DailySubmissionLog, JobLinkEntry
 from .serializers import (
@@ -53,15 +57,28 @@ def my_candidates(request):
         recruiter=request.user, is_active=True
     ).values_list('candidate_id', flat=True)
 
-    from candidates.models import Candidate
     from candidates.serializers import CandidateListSerializer
     candidates = Candidate.objects.filter(id__in=assigned_ids).select_related('user__profile')
     return Response(CandidateListSerializer(candidates, many=True).data)
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsRecruiter])
+@permission_classes([IsApproved])
 def daily_logs(request, candidate_id):
+    try:
+        candidate_obj = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
+
+    is_allowed = request.user.role in ('admin', 'recruiter', 'team_lead', 'team_manager')
+    if request.user.role == 'candidate':
+        # Check against the User ID, not the Candidate Record ID
+        if str(request.user.id) != str(candidate_obj.user_id) or request.method != 'GET':
+            is_allowed = False
+    
+    if not is_allowed:
+        return Response({'error': 'Forbidden'}, status=403)
+
     if request.method == 'GET':
         logs = DailySubmissionLog.objects.filter(
             candidate_id=candidate_id
@@ -103,3 +120,34 @@ def update_job_status(request, job_id):
         job.candidate_response_status = new_status
         job.save()
     return Response(JobLinkEntrySerializer(job).data)
+@api_view(['POST'])
+@permission_classes([IsRecruiter])
+def fetch_job_details(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=400)
+    
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            title = soup.title.string if soup.title else ""
+            title = re.sub(r' \| .*', '', title)
+            title = re.sub(r' - .*', '', title)
+            
+            company = ""
+            og_site = soup.find('meta', property='og:site_name')
+            if og_site:
+                company = og_site.get('content', '')
+            
+            if 'linkedin.com' in url:
+                company_meta = soup.find('meta', property='og:description')
+                if company_meta:
+                    match = re.search(r'at (.*?) in', company_meta.get('content', ''))
+                    if match: company = match.group(1)
+            
+            return Response({'role_title': title.strip(), 'company_name': company.strip()})
+    except:
+        pass
+    return Response({'role_title': '', 'company_name': ''})

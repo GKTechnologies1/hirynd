@@ -8,7 +8,9 @@ import RecruiterCandidateDetail from "@/pages/recruiter/RecruiterCandidateDetail
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, ClipboardList, User, Eye } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, ClipboardList, User, Eye, Search, Filter } from "lucide-react";
 import { motion } from "framer-motion";
 
 const navItems = [
@@ -23,6 +25,9 @@ const RecruiterDashboard = () => {
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [visaFilter, setVisaFilter] = useState("all");
 
   useEffect(() => {
     if (!user) return;
@@ -38,6 +43,15 @@ const RecruiterDashboard = () => {
     fetchCandidates();
   }, [user]);
 
+  const filteredCandidates = candidates.filter(c => {
+    const matchesSearch = !search || 
+      c.full_name?.toLowerCase().includes(search.toLowerCase()) || 
+      c.email?.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === "all" || c.status === statusFilter;
+    const matchesVisa = visaFilter === "all" || c.profile?.visa_status === visaFilter;
+    return matchesSearch && matchesStatus && matchesVisa;
+  });
+
   const subPath = location.pathname.replace("/recruiter-dashboard", "").replace(/^\//, "");
   if (subPath.startsWith("candidates/")) {
     const candidateId = subPath.replace("candidates/", "");
@@ -47,10 +61,48 @@ const RecruiterDashboard = () => {
   return (
     <DashboardLayout title="Recruiter Dashboard" navItems={navItems}>
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Users className="h-4 w-4 text-secondary" /> Assigned Candidates
-          </CardTitle>
+        <CardHeader className="pb-3 px-6 pt-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Users className="h-4 w-4 text-secondary" /> Assigned Candidates
+            </CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input 
+                  placeholder="Search name or email..." 
+                  className="pl-9 text-sm h-9" 
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px] h-9 text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="client_intake">Intake</SelectItem>
+                  <SelectItem value="roles_suggested">Roles Suggested</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="active_marketing">Active Marketing</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={visaFilter} onValueChange={setVisaFilter}>
+                <SelectTrigger className="w-[140px] h-9 text-xs">
+                  <SelectValue placeholder="Visa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Visas</SelectItem>
+                  <SelectItem value="H1B">H1B</SelectItem>
+                  <SelectItem value="OPT">OPT</SelectItem>
+                  <SelectItem value="CPT">CPT</SelectItem>
+                  <SelectItem value="US Citizen">US Citizen</SelectItem>
+                  <SelectItem value="Green Card">Green Card</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -75,7 +127,7 @@ const RecruiterDashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {candidates.map((c: any, i: number) => (
+                  {filteredCandidates.map((c: any, i: number) => (
                     <motion.tr
                       key={c.id}
                       initial={{ opacity: 0 }}
@@ -83,7 +135,16 @@ const RecruiterDashboard = () => {
                       transition={{ delay: i * 0.03 }}
                       className="border-b border-border hover:bg-muted/20 transition-colors"
                     >
-                      <TableCell className="font-medium text-sm">{c.full_name || "—"}</TableCell>
+                      <TableCell className="font-medium text-sm">
+                        <div>
+                          {c.full_name || "—"}
+                          {c.profile?.visa_status && (
+                            <span className="ml-2 text-[10px] bg-secondary/10 text-secondary px-1 py-0.5 rounded">
+                              {c.profile.visa_status}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{c.email || "—"}</TableCell>
                       <TableCell><StatusBadge status={c.status} /></TableCell>
                       <TableCell>

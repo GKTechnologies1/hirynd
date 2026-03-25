@@ -2,7 +2,7 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LogOut, Bell, User, Menu, X, ChevronLeft } from "lucide-react";
+import { LogOut, Bell, User, Menu, X, ChevronLeft, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface NavItem {
@@ -74,6 +74,17 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
           })}
         </nav>
         <div className={`border-t border-sidebar-border p-3 ${sidebarCollapsed ? "flex flex-col items-center" : ""}`}>
+          <div className="mb-2">
+            <Link
+              to="/help-desk"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all ${
+                sidebarCollapsed ? "justify-center px-2" : ""
+              }`}
+            >
+              <Phone className="h-4 w-4" />
+              {!sidebarCollapsed && <span>Help Desk / Support</span>}
+            </Link>
+          </div>
           {!sidebarCollapsed && (
             <div className="mb-2 flex items-center gap-2.5 px-1">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-primary/20 text-sidebar-primary">

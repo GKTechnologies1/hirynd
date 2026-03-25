@@ -1,4 +1,4 @@
-﻿"""
+"""
 Billing views  Razorpay integration, subscription-plan management,
 per-candidate subscription lifecycle, and payment verification.
 """
@@ -41,11 +41,16 @@ def _get_razorpay_client():
     try:
         import razorpay
     except ImportError:
+        logger.error("Razorpay library not found. Please install it.")
         return None, None
+    
     key_id = getattr(settings, 'RAZORPAY_KEY_ID', '')
     key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', '')
-    if not key_id or not key_secret or key_id.startswith('rzp_test_xxx'):
+    
+    if not key_id or not key_secret:
+        logger.warning("RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET missing in settings.")
         return None, None
+        
     client = razorpay.Client(auth=(key_id, key_secret))
     return client, key_secret
 
@@ -254,9 +259,15 @@ def create_razorpay_order(request, candidate_id):
     total_amount = float(sub.amount) + float(addons_total)
     total_paise = int(total_amount * 100)
 
-    razorpay_client, _ = _get_razorpay_client()
+    razorpay_client, key_id = _get_razorpay_client()
 
-    if razorpay_client is None:
+    # Use mock mode ONLY if keys are explicitly set to mock markers or if client failed to init and we are in debug
+    is_mock_key = key_id and str(key_id).startswith('rzp_test_mock')
+    
+    if razorpay_client is None or is_mock_key:
+        if not getattr(settings, 'DEBUG', False) and not is_mock_key:
+             return Response({'error': 'Payment gateway not configured'}, status=500)
+             
         mock_order_id = f"order_mock_{str(candidate_id)[:8]}"
         RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
         rp_order = RazorpayOrder.objects.create(
@@ -270,15 +281,20 @@ def create_razorpay_order(request, candidate_id):
             'amount': total_paise, 'currency': sub.currency,
             'key_id': 'rzp_test_mock',
             'subscription_id': str(sub.id), 'internal_order_id': str(rp_order.id),
-            'description': f'Hyrind  {sub.plan_name}',
+            'description': f'Hyrind | {sub.plan_name}',
             'prefill': {'name': _user_name(candidate.user), 'email': candidate.user.email},
         })
 
-    rz_order = razorpay_client.order.create({
-        'amount': total_paise, 'currency': sub.currency,
-        'receipt': f'hyrind_{str(candidate_id)[:8]}',
-        'notes': {'plan': sub.plan_name, 'candidate': str(candidate_id)},
-    })
+    try:
+        rz_order = razorpay_client.order.create({
+            'amount': total_paise, 'currency': sub.currency,
+            'receipt': f'hyrind_{str(candidate_id)[:8]}',
+            'notes': {'plan': sub.plan_name, 'candidate': str(candidate_id)},
+        })
+    except Exception as e:
+        logger.error("Razorpay order creation failed: %s", str(e))
+        return Response({'error': f'Failed to create Razorpay order: {str(e)}'}, status=500)
+
     RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
     rp_order = RazorpayOrder.objects.create(
         candidate=candidate, subscription=sub,
@@ -288,12 +304,12 @@ def create_razorpay_order(request, candidate_id):
     )
     return Response({
         'order_id': rz_order['id'], 'amount': total_paise, 'currency': sub.currency,
-        'key_id': settings.RAZORPAY_KEY_ID,
+        'key_id': key_id,
         'subscription_id': str(sub.id), 'internal_order_id': str(rp_order.id),
-        'description': f'Hyrind  {sub.plan_name}',
+        'description': f'Hyrind | {sub.plan_name}',
         'prefill': {
             'name': _user_name(candidate.user), 'email': candidate.user.email,
-            'contact': getattr(candidate.user, 'phone', ''),
+            'contact': getattr(candidate.user.profile, 'phone', '') if hasattr(candidate.user, 'profile') else '',
         },
     })
 
@@ -318,16 +334,20 @@ def verify_razorpay_payment(request, candidate_id):
         return Response({'error': 'Order does not belong to this candidate'}, status=403)
 
     if not is_mock:
-        _, key_secret = _get_razorpay_client()
-        if key_secret:
-            generated = hmac.new(
-                key_secret.encode(),
-                f"{rz_order_id}|{rz_payment_id}".encode(),
-                hashlib.sha256,
-            ).hexdigest()
-            if not hmac.compare_digest(generated, rz_signature):
-                logger.warning("Razorpay signature mismatch for order %s", rz_order_id)
+        client, _ = _get_razorpay_client()
+        if client:
+            params_dict = {
+                'razorpay_order_id': rz_order_id,
+                'razorpay_payment_id': rz_payment_id,
+                'razorpay_signature': rz_signature
+            }
+            try:
+                client.utility.verify_payment_signature(params_dict)
+            except Exception as e:
+                logger.warning("Razorpay signature verification failed: %s", str(e))
                 return Response({'error': 'Payment verification failed'}, status=400)
+        else:
+            return Response({'error': 'Payment gateway not configured'}, status=500)
 
     rp_order.razorpay_payment_id = rz_payment_id
     rp_order.razorpay_signature = rz_signature
@@ -352,7 +372,10 @@ def verify_razorpay_payment(request, candidate_id):
 
     candidate = rp_order.candidate
     if candidate.status in ('roles_confirmed', 'pending_payment', 'intake_submitted'):
-        candidate.status = 'paid'
+        if candidate.credentials.exists():
+            candidate.status = 'credentials_submitted'
+        else:
+            candidate.status = 'payment_completed'
         candidate.save(update_fields=['status'])
 
     log_action(candidate.user, 'payment_verified', str(candidate_id), 'payment', {
@@ -389,25 +412,35 @@ def payments(request, candidate_id):
 @permission_classes([IsAdmin])
 def record_payment(request, candidate_id):
     data = request.data.copy()
-    data['candidate'] = candidate_id
+    data['candidate'] = str(candidate_id)
     serializer = PaymentSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     pay = serializer.save(recorded_by=request.user)
     if pay.payment_type == 'subscription':
-        try:
-            sub = Subscription.objects.get(candidate_id=candidate_id)
+        sub, created = Subscription.objects.get_or_create(
+            candidate_id=candidate_id,
+            defaults={
+                'amount': pay.amount,
+                'status': 'active' if pay.status == 'completed' else 'pending_payment',
+                'plan_name': 'Hyrind Subscription',
+            }
+        )
+        if not created and pay.status == 'completed':
             sub.status = 'active'
             sub.last_payment_at = timezone.now()
             sub.save(update_fields=['status', 'last_payment_at'])
-        except Subscription.DoesNotExist:
-            pass
-        try:
-            cand = Candidate.objects.get(id=candidate_id)
-            if cand.status in ('roles_confirmed', 'pending_payment', 'past_due'):
-                cand.status = 'paid'
-                cand.save(update_fields=['status'])
-        except Candidate.DoesNotExist:
-            pass
+        
+        if pay.status == 'completed':
+            try:
+                cand = Candidate.objects.get(id=candidate_id)
+                if cand.status in ('roles_confirmed', 'pending_payment', 'past_due'):
+                    if cand.credentials.exists():
+                        cand.status = 'credentials_submitted'
+                    else:
+                        cand.status = 'payment_completed'
+                    cand.save(update_fields=['status'])
+            except Candidate.DoesNotExist:
+                pass
     log_action(request.user, 'payment_recorded', str(candidate_id), 'payment', data)
     return Response(PaymentSerializer(pay).data, status=status.HTTP_201_CREATED)
 

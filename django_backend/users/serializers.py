@@ -43,6 +43,7 @@ class RegisterSerializer(serializers.Serializer):
     visa_status = serializers.ChoiceField(
         choices=['H1B', 'OPT', 'CPT', 'Green Card', 'US Citizen', 'EAD', 'TN', 'Other'],
         required=False,
+        allow_blank=True,
     )
     current_location = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
@@ -51,6 +52,7 @@ class RegisterSerializer(serializers.Serializer):
     work_type_preference = serializers.ChoiceField(
         choices=['Full-time', 'Part-time', 'Contract', 'Remote'],
         required=False,
+        allow_blank=True,
     )
 
     def validate_email(self, value):

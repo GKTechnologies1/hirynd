@@ -6,12 +6,23 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Briefcase, Check, X } from "lucide-react";
+import { Lock, Briefcase, Check, X, MessageSquare, Plus, LayoutDashboard, FileText, KeyRound, DollarSign, CreditCard, ClipboardList, Phone, UserPlus, Settings } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 
 const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <span className="h-4 w-4">📋</span> },
-  { label: "Intake Form", path: "/candidate-dashboard/intake", icon: <span className="h-4 w-4">📄</span> },
+  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
   { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
+  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
+  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
+  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
+  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
+  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
+  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
+  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
+  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
 ];
 
 interface CandidateRolesPageProps {
@@ -25,10 +36,15 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [decisions, setDecisions] = useState<Record<string, boolean | null>>({});
+  const [decisions, setDecisions] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [customRole, setCustomRole] = useState({ title: "", reason: "" });
 
-  const canConfirm = candidate?.status === "roles_suggested";
-  const isConfirmed = ["roles_confirmed", "paid", "credential_completed", "active_marketing", "placed"].includes(candidate?.status);
+  const canConfirm = ["roles_suggested", "roles_published"].includes(candidate?.status);
+  const isConfirmed = [
+    "roles_confirmed", "payment_completed", "paid", "credentials_submitted",
+    "credential_completed", "active_marketing", "placed_closed", "placed"
+  ].includes(candidate?.status);
 
   useEffect(() => {
     if (!candidate) return;
@@ -36,18 +52,26 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
       try {
         const { data } = await candidatesApi.getRoles(candidate.id);
         setRoles(data || []);
-        const d: Record<string, boolean | null> = {};
-        (data || []).forEach((r: any) => { d[r.id] = r.candidate_confirmed; });
+        const d: Record<string, string> = {};
+        const n: Record<string, string> = {};
+        (data || []).forEach((r: any) => { 
+          d[r.id] = r.candidate_confirmed === true ? "accepted" : r.candidate_confirmed === false ? "declined" : "";
+          n[r.id] = r.change_request_note || "";
+        });
         setDecisions(d);
+        setNotes(n);
       } catch {
         setRoles([]);
       }
       setLoading(false);
     };
     fetchRoles();
-  }, [candidate]);
+  }, [candidate?.id]); // Also updated to depend on candidate.id
 
-  const statusAllowed = ["roles_suggested", "roles_confirmed", "paid", "credential_completed", "active_marketing", "placed"].includes(candidate?.status);
+  const statusAllowed = [
+    "roles_suggested", "roles_published", "roles_confirmed", "payment_completed", "paid", 
+    "credentials_submitted", "credential_completed", "active_marketing", "placed_closed", "placed"
+  ].includes(candidate?.status);
 
   if (!statusAllowed) {
     return (
@@ -62,19 +86,27 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
     );
   }
 
-  const handleDecision = (roleId: string, confirmed: boolean) => {
+  const handleDecision = (roleId: string, decision: string) => {
     if (!canConfirm) return;
-    setDecisions((prev) => ({ ...prev, [roleId]: confirmed }));
+    setDecisions((prev) => ({ ...prev, [roleId]: decision }));
   };
 
-  const allDecided = roles.length > 0 && roles.every((r: any) => decisions[r.id] !== null && decisions[r.id] !== undefined);
+  const handleNoteChange = (roleId: string, note: string) => {
+    setNotes((prev) => ({ ...prev, [roleId]: note }));
+  };
+
+  const allDecided = roles.length > 0 && roles.every((r: any) => !!decisions[r.id]);
 
   const handleSubmit = async () => {
     if (!allDecided || !canConfirm) return;
     setSubmitting(true);
 
     try {
-      await candidatesApi.confirmRoles(candidate.id, decisions);
+      await candidatesApi.confirmRoles(candidate.id, {
+        decisions,
+        notes,
+        custom_role: customRole.title ? customRole : null
+      });
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
       setSubmitting(false);
@@ -110,36 +142,105 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
             <p className="text-muted-foreground">No roles have been suggested yet. Please wait for your team to review your intake form.</p>
           ) : (
             <div className="space-y-4">
-              {roles.map((role: any) => (
-                <div key={role.id} className="flex items-center justify-between rounded-xl border border-border p-4">
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-card-foreground">{role.role_title}</h4>
-                    {role.description && <p className="mt-1 text-sm text-muted-foreground">{role.description}</p>}
-                  </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    {canConfirm ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant={decisions[role.id] === true ? "hero" : "outline"}
-                          onClick={() => handleDecision(role.id, true)}
-                        >
-                          <Check className="mr-1 h-4 w-4" /> Yes
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={decisions[role.id] === false ? "destructive" : "outline"}
-                          onClick={() => handleDecision(role.id, false)}
-                        >
-                          <X className="mr-1 h-4 w-4" /> No
-                        </Button>
-                      </>
-                    ) : (
-                      <StatusBadge status={role.candidate_confirmed ? "active" : role.candidate_confirmed === false ? "rejected" : "pending"} />
+              {roles.map((role: any) => {
+                const decision = decisions[role.id];
+                return (
+                  <div key={role.id} className="space-y-4 rounded-xl border border-border p-5 bg-card/50">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-lg text-card-foreground">{role.role_title}</h4>
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground bg-secondary/10 px-1.5 py-0.5 rounded">
+                            Suggested by {role.suggested_by_name || "Admin"}
+                          </span>
+                        </div>
+                        {role.description && <p className="mt-1 text-sm text-muted-foreground">{role.description}</p>}
+                        {role.admin_note && (
+                          <div className="mt-2 text-xs italic text-secondary">
+                            <strong>Note:</strong> {role.admin_note}
+                          </div>
+                        )}
+                      </div>
+                      <div className="ml-4 flex items-center gap-1.5 shrink-0">
+                        {canConfirm ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant={decision === "accepted" ? "hero" : "outline"}
+                              className="h-8 px-2.5"
+                              onClick={() => handleDecision(role.id, "accepted")}
+                              title="Accept"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={decision === "declined" ? "destructive" : "outline"}
+                              className="h-8 px-2.5"
+                              onClick={() => handleDecision(role.id, "declined")}
+                              title="Decline"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={decision === "change_requested" ? "accent" : "outline"}
+                              className="h-8 px-2.5"
+                              onClick={() => handleDecision(role.id, "change_requested")}
+                              title="Request Change"
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <StatusBadge status={role.candidate_confirmed ? "active" : role.candidate_confirmed === false ? "rejected" : "pending"} />
+                        )}
+                      </div>
+                    </div>
+
+                    {decision === "change_requested" && canConfirm && (
+                      <div className="mt-3 space-y-2 animate-in slide-in-from-top-1 duration-200">
+                        <Label className="text-xs">Reason for change / Feedback</Label>
+                        <Textarea 
+                          placeholder="What would you like to change about this role suggestion?"
+                          value={notes[role.id] || ""}
+                          onChange={(e) => handleNoteChange(role.id, e.target.value)}
+                          className="text-sm min-h-[80px]"
+                        />
+                      </div>
                     )}
                   </div>
+                );
+              })}
+
+              {/* Propose Custom Role */}
+              {canConfirm && (
+                <div className="mt-6 space-y-4 rounded-xl border border-dashed border-secondary/30 p-5 bg-secondary/5">
+                  <div className="flex items-center gap-2 text-secondary">
+                    <Plus className="h-4 w-4" />
+                    <h4 className="font-semibold">Propose a Custom Role</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Is there another role you'd like us to consider for your marketing? Propose it here.</p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label className="text-xs">Role Title</Label>
+                      <Input 
+                        placeholder="e.g. Senior Product Manager" 
+                        value={customRole.title}
+                        onChange={(e) => setCustomRole({...customRole, title: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Reason / Context</Label>
+                      <Input 
+                        placeholder="Why is this role a good fit?" 
+                        value={customRole.reason}
+                        onChange={(e) => setCustomRole({...customRole, reason: e.target.value})}
+                      />
+                    </div>
+                  </div>
                 </div>
-              ))}
+              )}
 
               {canConfirm && (
                 <Button
