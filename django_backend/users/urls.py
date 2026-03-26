@@ -15,4 +15,5 @@ urlpatterns = [
     path('users/<uuid:user_id>/', views.manage_user, name='manage_user'),
     path('analytics/', views.admin_analytics, name='admin_analytics'),
     path('change-password/', views.change_password, name='change_password'),
+    path('contact/', views.submit_contact, name='submit_contact'),
 ]

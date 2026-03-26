@@ -9,7 +9,7 @@ from .models import User
 from candidates.models import Candidate
 from .serializers import (
     RegisterSerializer, UserSerializer, ApproveUserSerializer,
-    UserListSerializer, ChangePasswordSerializer,
+    UserListSerializer, ChangePasswordSerializer, ContactSerializer,
 )
 from .permissions import IsAdmin
 from audit.utils import log_action
@@ -263,6 +263,102 @@ def manage_user(request, user_id):
 
     log_action(request.user, 'user_updated', str(user.id), 'user', request.data)
     return Response(UserListSerializer(user).data)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def submit_contact(request):
+    serializer = ContactSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    data = serializer.validated_data
+    mode = data['mode']
+    
+    if mode == 'interest':
+        # Create user if not exists
+        user, user_created = User.objects.get_or_create(
+            email=data['email'],
+            defaults={
+                'role': 'candidate',
+                'approval_status': 'pending',
+            }
+        )
+        if user_created:
+            user.set_unusable_password()
+            user.save()
+        
+        # Create profile if not exists
+        from .models import Profile
+        Profile.objects.get_or_create(
+            user=user,
+            defaults={
+                'full_name': data['name'],
+                'phone': data.get('phone', ''),
+            }
+        )
+        
+        # Create/Update Candidate with status='lead'
+        candidate, cand_created = Candidate.objects.get_or_create(
+            user=user,
+            defaults={
+                'status': 'lead',
+                'university': data.get('university', ''),
+                'major': data.get('major', ''),
+                'visa_status': data.get('visa_status', ''),
+                'referral_source': data.get('referral_source', ''),
+            }
+        )
+        if not cand_created and candidate.status == 'pending_approval':
+            candidate.status = 'lead'
+            candidate.save(update_fields=['status'])
+
+        # Notify admin of new lead
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')
+        send_email(
+            to=admin_email,
+            subject=f'New Candidate Interest: {data["name"]}',
+            html=f'<p><strong>{data["name"]}</strong> ({data["email"]}) has expressed interest.</p>'
+                 f'<p>University: {data.get("university", "—")}</p>'
+                 f'<p>Major: {data.get("major", "—")}</p>'
+                 f'<p>Phone: {data.get("phone", "—")}</p>'
+                 f'<p><a href="{settings.SITE_URL}/admin-dashboard">View in Dashboard</a></p>',
+            email_type='admin_notification'
+        )
+        
+        # Notify candidate
+        send_email(
+            to=data['email'],
+            subject='Thank you for your interest in HYRIND!',
+            html=f'<p>Hi {data["name"]},</p>'
+                 f'<p>Thank you for expressing interest in HYRIND. Our team will review your submission and reach out within 24–48 hours to schedule a discovery call.</p>',
+            email_type='interest_confirmation'
+        )
+        
+        log_action(user, 'interest_form_submitted', str(user.id), 'user', data)
+        return Response({'message': 'Interest form submitted successfully.'}, status=status.HTTP_201_CREATED)
+
+    else:
+        # General Inquiry
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')
+        send_email(
+            to=admin_email,
+            subject=f'New General Inquiry: {data["name"]}',
+            html=f'<p><strong>Name:</strong> {data["name"]}</p>'
+                 f'<p><strong>Email:</strong> {data["email"]}</p>'
+                 f'<p><strong>Message:</strong><br/>{data["message"]}</p>',
+            email_type='admin_notification'
+        )
+        
+        send_email(
+            to=data['email'],
+            subject='We received your message – HYRIND',
+            html=f'<p>Hi {data["name"]},</p>'
+                 f'<p>Thank you for reaching out! We have received your message and will get back to you within 24–48 hours.</p>',
+            email_type='inquiry_confirmation'
+        )
+        
+        return Response({'message': 'General inquiry submitted successfully.'})
 
 
 @api_view(['GET'])

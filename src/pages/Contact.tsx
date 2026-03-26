@@ -3,6 +3,7 @@ import Header from "@/components/layout/Header";
 import SEO from "@/components/SEO";
 import Footer from "@/components/layout/Footer";
 import { motion } from "framer-motion";
+import { authApi } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 const Contact = () => {
   const [wantsMarketing, setWantsMarketing] = useState<string | null>(null);
   const [referralSource, setReferralSource] = useState("");
+  const [visaStatus, setVisaStatus] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const { toast } = useToast();
 
@@ -24,12 +26,38 @@ const Contact = () => {
       return;
     }
 
-    toast({
-      title: "Form Submitted Successfully!",
-      description: wantsMarketing === "yes"
-        ? "Thank you for your interest! Our team will review your submission and reach out within 24–48 hours to schedule a discovery call."
-        : "Thank you for reaching out! We'll get back to you within 24–48 hours.",
-    });
+    const formData = new FormData(e.target as HTMLFormElement);
+    const data = Object.fromEntries(formData.entries());
+    
+    const payload = {
+      ...data,
+      mode: wantsMarketing === "yes" ? "interest" : "general",
+      referral_source: referralSource || (data.referral_source as string) || "",
+      visa_status: visaStatus,
+    };
+
+    try {
+      await authApi.submitContact(payload);
+      toast({
+        title: "Form Submitted Successfully!",
+        description: wantsMarketing === "yes"
+          ? "Thank you for your interest! Our team will review your submission and reach out within 24–48 hours to schedule a discovery call."
+          : "Thank you for reaching out! We'll get back to you within 24–48 hours.",
+      });
+      
+      // Reset form
+      (e.target as HTMLFormElement).reset();
+      setWantsMarketing(null);
+      setReferralSource("");
+      setVisaStatus("");
+      setTermsAccepted(false);
+    } catch (error: any) {
+      toast({
+        title: "Submission Failed",
+        description: error.response?.data?.message || "Something went wrong. Please try again later.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -110,7 +138,7 @@ const Contact = () => {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Major / Field of Study</Label>
-                      <Input placeholder="e.g., Computer Science" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <Input name="major" placeholder="e.g., Computer Science" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
                     </div>
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2">
@@ -127,7 +155,7 @@ const Contact = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Visa Status</Label>
-                    <Select>
+                    <Select value={visaStatus} onValueChange={setVisaStatus}>
                       <SelectTrigger className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11"><SelectValue placeholder="Select your visa status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="us-citizen">US Citizen</SelectItem>
@@ -149,7 +177,7 @@ const Contact = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">How did you hear about us?</Label>
-                    <Select onValueChange={setReferralSource}>
+                    <Select value={referralSource} onValueChange={setReferralSource}>
                       <SelectTrigger className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11"><SelectValue placeholder="Select source" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="google">Google Search</SelectItem>
