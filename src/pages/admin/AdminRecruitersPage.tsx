@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { recruitersApi, authApi, candidatesApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, Mail, Phone, MapPin, UserCheck, UserPlus, RefreshCw, BarChart3, TrendingUp, Calendar, Briefcase, Award, Loader2 } from "lucide-react";
@@ -83,60 +84,72 @@ const AdminRecruitersPage = () => {
 
       <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md overflow-hidden ring-1 ring-border/40">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 border-none transition-colors">
-                <TableHead className="py-4 font-bold text-xs uppercase tracking-widest pl-6">Recruiter Info</TableHead>
-                <TableHead className="font-bold text-xs uppercase tracking-widest text-center">Role</TableHead>
-                <TableHead className="font-bold text-xs uppercase tracking-widest">Contact Details</TableHead>
-                <TableHead className="font-bold text-xs uppercase tracking-widest text-center">Status</TableHead>
-                <TableHead className="text-right font-bold text-xs uppercase tracking-widest pr-6">Performance</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground font-medium">Loading recruiters...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground font-medium">No results found.</TableCell></TableRow>
-              ) : filtered.map(r => (
-                <TableRow key={r.id} className="hover:bg-muted/10 border-b border-border/20 transition-colors last:border-0 group">
-                  <TableCell className="pl-6">
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold shadow-sm ring-1 ring-primary/20">
-                        {r.full_name?.[0] || r.email?.[0]?.toUpperCase()}
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{r.full_name || "Unset Name"}</p>
-                        <p className="text-[11px] text-muted-foreground font-medium opacity-80">{r.email}</p>
-                      </div>
+          <DataTable
+            data={filtered}
+            isLoading={loading}
+            searchPlaceholder="Filter results..."
+            searchKey="full_name"
+            emptyMessage="No results found."
+            columns={[
+              { 
+                header: "Recruiter Info", 
+                className: "py-4 font-bold text-xs uppercase tracking-widest pl-6",
+                render: (r: any) => (
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold shadow-sm ring-1 ring-primary/20">
+                      {r.full_name?.[0] || r.email?.[0]?.toUpperCase()}
                     </div>
-                  </TableCell>
-                  <TableCell className="text-center">
+                    <div className="flex flex-col">
+                      <p className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{r.full_name || "Unset Name"}</p>
+                      <p className="text-[11px] text-muted-foreground font-medium opacity-80">{r.email}</p>
+                    </div>
+                  </div>
+                )
+              },
+              { 
+                header: "Role", 
+                className: "font-bold text-xs uppercase tracking-widest text-center",
+                render: (r: any) => (
+                  <div className="flex justify-center">
                     <Badge variant="outline" className="capitalize bg-secondary/5 border-secondary/20 text-secondary text-[10px] font-bold tracking-wider px-3 h-6 rounded-full">
                       {r.role?.replace("_", " ")}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
+                  </div>
+                )
+              },
+              { 
+                header: "Contact Details", 
+                className: "font-bold text-xs uppercase tracking-widest",
+                render: (r: any) => (
+                  <div className="space-y-1">
+                    <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
+                      <Phone className="h-3 w-3 opacity-60" /> {r.phone || "No phone listed"}
+                    </p>
+                    {r.profile?.city && (
                       <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
-                        <Phone className="h-3 w-3 opacity-60" /> {r.phone || "No phone listed"}
+                        <MapPin className="h-3 w-3 opacity-60" /> {r.profile.city}, {r.profile.country}
                       </p>
-                      {r.profile?.city && (
-                        <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
-                          <MapPin className="h-3 w-3 opacity-60" /> {r.profile.city}, {r.profile.country}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex justify-center">
-                      <Badge variant={r.approval_status === "approved" ? "secondary" : "outline"} className={`h-6 text-[9px] font-bold uppercase tracking-widest rounded-lg px-2 flex items-center gap-1.5 ${r.approval_status === "approved" ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"}`}>
-                        <div className={`h-1.5 w-1.5 rounded-full ${r.approval_status === "approved" ? "bg-green-500" : "bg-amber-500"}`} />
-                        {r.approval_status}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right pr-6">
+                    )}
+                  </div>
+                )
+              },
+              { 
+                header: "Status", 
+                className: "font-bold text-xs uppercase tracking-widest text-center",
+                render: (r: any) => (
+                  <div className="flex justify-center">
+                    <Badge variant={r.approval_status === "approved" ? "secondary" : "outline"} className={`h-6 text-[9px] font-bold uppercase tracking-widest rounded-lg px-2 flex items-center gap-1.5 ${r.approval_status === "approved" ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"}`}>
+                      <div className={`h-1.5 w-1.5 rounded-full ${r.approval_status === "approved" ? "bg-green-500" : "bg-amber-500"}`} />
+                      {r.approval_status}
+                    </Badge>
+                  </div>
+                )
+              },
+              { 
+                header: "Performance", 
+                className: "text-right font-bold text-xs uppercase tracking-widest pr-6",
+                render: (r: any) => (
+                  <div className="flex justify-end">
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -146,13 +159,14 @@ const AdminRecruitersPage = () => {
                       <BarChart3 className="h-3.5 w-3.5" />
                       View Analytics
                     </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                )
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
 
       {/* Performance Stats Modal */}
       <Dialog open={!!selectedRecruiter} onOpenChange={() => setSelectedRecruiter(null)}>

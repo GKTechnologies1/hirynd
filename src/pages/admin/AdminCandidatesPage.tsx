@@ -4,11 +4,12 @@ import { candidatesApi } from "@/services/api";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, Activity, CheckCircle, FileText, ClipboardList, DollarSign, Briefcase, Users, AlertTriangle, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+
 
 const STATUSES = [
   "pending_approval", "lead", "approved", "intake_submitted", "roles_published",
@@ -116,51 +117,48 @@ const AdminCandidatesPage = () => {
           <CardTitle className="text-sm font-semibold">Candidate Records</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-xl border border-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40">
-                  <TableHead className="text-xs font-semibold">Name</TableHead>
-                  <TableHead className="text-xs font-semibold">Email</TableHead>
-                  <TableHead className="text-xs font-semibold">Status</TableHead>
-                  <TableHead className="text-xs font-semibold">Update Status</TableHead>
-                  <TableHead className="text-xs font-semibold text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Loading candidates...</TableCell></TableRow>
-                ) : filteredCandidates.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No candidates found in this stage.</TableCell></TableRow>
-                ) : (
-                  filteredCandidates.map((c: any) => (
-                    <TableRow key={c.id} className="hover:bg-muted/20">
-                      <TableCell className="font-medium text-sm">{c.full_name || "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{c.email}</TableCell>
-                      <TableCell><StatusBadge status={c.status} /></TableCell>
-                      <TableCell>
-                        <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
-                          <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {STATUSES.map((s) => (
-                              <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
-                          <Eye className="mr-1.5 h-3.5 w-3.5" /> View Detail
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            data={filteredCandidates}
+            isLoading={loading}
+            searchKey="full_name"
+            searchPlaceholder="Search candidates by name..."
+            emptyMessage="No candidates found in this stage."
+            columns={[
+              { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold" },
+              { header: "Email", accessorKey: "email", className: "text-xs font-semibold" },
+              { 
+                header: "Status", 
+                render: (c: any) => <StatusBadge status={c.status} />,
+                className: "text-xs font-semibold"
+              },
+              { 
+                header: "Update Status", 
+                render: (c: any) => (
+                  <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
+                    <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ),
+                className: "text-xs font-semibold"
+              },
+              { 
+                header: "Actions", 
+                render: (c: any) => (
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
+                    <Eye className="mr-1.5 h-3.5 w-3.5" /> View Detail
+                  </Button>
+                ),
+                className: "text-xs font-semibold text-right"
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
     </div>
   );
 };

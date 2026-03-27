@@ -18,11 +18,12 @@ import AdminCandidatesPage from "@/pages/admin/AdminCandidatesPage";
 import AdminRecruitersPage from "@/pages/admin/AdminRecruitersPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+
 import {
   BarChart as ReBarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -304,45 +305,45 @@ const AdminDashboard = () => {
           <CardTitle className="text-sm font-semibold">{activeFilter ? `Candidates — ${activeFilter.replace(/_/g, " ")}` : "All Candidates"}</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? <p className="text-muted-foreground text-sm">Loading...</p> : (
-            <div className="rounded-xl border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="text-xs font-semibold">Name</TableHead>
-                    <TableHead className="text-xs font-semibold">Email</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Change Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCandidates.map((c: any) => (
-                    <TableRow key={c.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell className="font-medium text-sm">{c.full_name || "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{c.email || "—"}</TableCell>
-                      <TableCell><StatusBadge status={c.status} /></TableCell>
-                      <TableCell>
-                        <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
-                          <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
-                          <Eye className="mr-1 h-3.5 w-3.5" /> View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <DataTable
+            data={filteredCandidates}
+            isLoading={loading}
+            searchKey="full_name"
+            searchPlaceholder="Search candidates by name..."
+            columns={[
+              { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold" },
+              { header: "Email", accessorKey: "email", className: "text-xs font-semibold" },
+              { 
+                header: "Status", 
+                render: (c: any) => <StatusBadge status={c.status} />,
+                className: "text-xs font-semibold"
+              },
+              { 
+                header: "Change Status", 
+                render: (c: any) => (
+                  <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
+                    <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ),
+                className: "text-xs font-semibold"
+              },
+              { 
+                header: "Actions", 
+                render: (c: any) => (
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
+                    <Eye className="mr-1 h-3.5 w-3.5" /> View
+                  </Button>
+                ),
+                className: "text-xs font-semibold"
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
     </DashboardLayout>
   );
 };

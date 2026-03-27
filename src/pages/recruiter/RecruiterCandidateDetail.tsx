@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
+
 import { useToast } from "@/hooks/use-toast";
 import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save } from "lucide-react";
 import { motion } from "framer-motion";
@@ -436,50 +437,58 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           <Card className="border-none shadow-sm bg-card/60">
             <CardHeader><CardTitle className="text-base font-bold">Submission Pipeline</CardTitle></CardHeader>
             <CardContent className="p-0">
-              {jobPostings.length === 0 ? <p className="text-muted-foreground text-center py-12 italic text-sm">No applications recorded in the system.</p> : (
-                <Table>
-                  <TableHeader className="bg-muted/10">
-                    <TableRow className="border-none">
-                      <TableHead className="text-xs font-bold px-6">Company & Role</TableHead>
-                      <TableHead className="text-xs font-bold px-6">Application Status</TableHead>
-                      <TableHead className="text-xs font-bold px-6">Resume Version</TableHead>
-                      <TableHead className="text-xs font-bold px-6">Logged Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {jobPostings.map((j: any) => (
-                      <TableRow key={j.id} className="border-b border-border/40 hover:bg-muted/5">
-                        <TableCell className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                             <div>
-                                <p className="font-bold text-sm tracking-tight">{j.company_name || "—"}</p>
-                                <p className="text-[11px] text-muted-foreground">{j.role_title || "—"}</p>
-                             </div>
-                             {j.job_url && (
-                                <a href={j.job_url} target="_blank" rel="noreferrer" className="text-secondary hover:underline cursor-pointer">
-                                    <ExternalLink className="h-3 w-3" />
-                                </a>
-                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                            <Select defaultValue={j.application_status} onValueChange={(v) => handleUpdateJobStatus(j.id, v)}>
-                                <SelectTrigger className="w-32 h-7 text-[10px] font-bold border-none bg-muted/30 focus-visible:ring-0">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {JOB_STATUSES.map(s => <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs">{s}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </TableCell>
-                        <TableCell className="px-6 py-4 text-xs font-mono opacity-80">{j.resume_used || "Standard"}</TableCell>
-                        <TableCell className="px-6 py-4 text-[11px] text-muted-foreground font-medium">{new Date(j.log_date || j.created_at).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              <DataTable
+                data={jobPostings}
+                isLoading={loading}
+                searchPlaceholder="Search company..."
+                searchKey="company_name"
+                emptyMessage="No applications recorded in the system."
+                columns={[
+                  { 
+                    header: "Company & Role", 
+                    className: "px-6 py-4",
+                    render: (j: any) => (
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="font-bold text-sm tracking-tight">{j.company_name || "—"}</p>
+                          <p className="text-[11px] text-muted-foreground">{j.role_title || "—"}</p>
+                        </div>
+                        {j.job_url && (
+                          <a href={j.job_url} target="_blank" rel="noreferrer" className="text-secondary hover:underline cursor-pointer">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                    )
+                  },
+                  { 
+                    header: "Application Status", 
+                    className: "px-6 py-4",
+                    render: (j: any) => (
+                      <Select defaultValue={j.application_status} onValueChange={(v) => handleUpdateJobStatus(j.id, v)}>
+                        <SelectTrigger className="w-40 h-8 text-[11px] font-bold border-none bg-muted/50 focus-visible:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {JOB_STATUSES.map(s => <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs">{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )
+                  },
+                  { 
+                    header: "Resume Version", 
+                    className: "px-6 py-4",
+                    render: (j: any) => <span className="text-xs font-mono opacity-80">{j.resume_used || "Standard"}</span>
+                  },
+                  { 
+                    header: "Logged Date", 
+                    className: "px-6 py-4 text-right pr-6",
+                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{new Date(j.log_date || j.created_at).toLocaleDateString()}</span>
+                  }
+                ]}
+              />
             </CardContent>
+
           </Card>
         </TabsContent>
 

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { authApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
+
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
@@ -58,49 +59,55 @@ const AdminApprovalsPage = () => {
           <Clock className="h-5 w-5" /> Pending Approvals ({pending.length})
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        {loading ? (
-          <p className="text-muted-foreground">Loading...</p>
-        ) : pending.length === 0 ? (
-          <p className="text-muted-foreground">No pending registrations.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Registered</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pending.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.profile?.full_name || "—"}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>{u.profile?.phone || "—"}</TableCell>
-                  <TableCell><Badge variant="secondary">{u.role}</Badge></TableCell>
-                  <TableCell>{format(new Date(u.created_at), "MMM d, yyyy")}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="default" disabled={processing === u.id}
-                        onClick={() => handleAction(u.id, "approved")}>
-                        <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
-                      </Button>
-                      <Button size="sm" variant="destructive" disabled={processing === u.id}
-                        onClick={() => handleAction(u.id, "rejected")}>
-                        <XCircle className="mr-1 h-4 w-4" /> Reject
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+      <CardContent className="p-0">
+        <DataTable
+          data={pending}
+          isLoading={loading}
+          searchPlaceholder="Search by email..."
+          searchKey="email"
+          emptyMessage="No pending registrations."
+          columns={[
+            { 
+              header: "Name", 
+              render: (u: any) => <span className="font-medium text-sm pl-6">{u.profile?.full_name || "—"}</span>
+            },
+            { 
+              header: "Email", 
+              accessorKey: "email",
+              className: "text-sm"
+            },
+            { 
+              header: "Phone", 
+              render: (u: any) => <span className="text-sm">{u.profile?.phone || "—"}</span>
+            },
+            { 
+              header: "Role", 
+              render: (u: any) => <Badge variant="secondary" className="text-xs uppercase">{u.role}</Badge>
+            },
+            { 
+              header: "Registered", 
+              render: (u: any) => <span className="text-sm">{format(new Date(u.created_at), "MMM d, yyyy")}</span>
+            },
+            { 
+              header: "Actions", 
+              className: "pr-6",
+              render: (u: any) => (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="default" className="h-8 text-xs" disabled={processing === u.id}
+                    onClick={() => handleAction(u.id, "approved")}>
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Approve
+                  </Button>
+                  <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={processing === u.id}
+                    onClick={() => handleAction(u.id, "rejected")}>
+                    <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
+                  </Button>
+                </div>
+              )
+            }
+          ]}
+        />
       </CardContent>
+
     </Card>
   );
 };

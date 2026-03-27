@@ -7,11 +7,12 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import RecruiterCandidateDetail from "@/pages/recruiter/RecruiterCandidateDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, Award, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
+
 
 const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
@@ -151,68 +152,66 @@ const RecruiterHome = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {candidates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-muted/30 mb-4">
-                <Users className="h-8 w-8 text-muted-foreground/50" />
-              </div>
-              <h4 className="text-base font-semibold">No candidates assigned yet</h4>
-              <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">Your assigned candidates will appear here for management.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30 hover:bg-muted/30 border-none">
-                    <TableHead className="text-xs font-bold px-6">Candidate</TableHead>
-                    <TableHead className="text-xs font-bold px-6">Visa Status</TableHead>
-                    <TableHead className="text-xs font-bold px-6">Pipeline Status</TableHead>
-                    <TableHead className="text-xs font-bold px-6">Last Updated</TableHead>
-                    <TableHead className="text-xs font-bold px-6 text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCandidates.map((c: any, i: number) => (
-                    <motion.tr
-                      key={c.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="group border-b border-border/40 hover:bg-muted/10 transition-colors"
-                    >
-                      <TableCell className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm group-hover:text-secondary transition-colors underline-offset-4 decoration-secondary/30">{c.full_name || "—"}</span>
-                          <span className="text-xs text-muted-foreground">{c.email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/10 text-secondary border border-secondary/20 uppercase tracking-tighter">
-                          {c.profile?.visa_status || "N/A"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-6 py-4"><StatusBadge status={c.status} /></TableCell>
-                      <TableCell className="px-6 py-4 text-xs text-muted-foreground">
-                        {new Date(c.updated_at || c.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </TableCell>
-                      <TableCell className="px-6 py-4 text-right">
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          className="h-8 px-4 text-xs font-medium rounded-lg" 
-                          onClick={() => navigate(`/recruiter-dashboard/candidates/${c.id}`)}
-                        >
-                          <Eye className="mr-1.5 h-3.5 w-3.5" /> Manage
-                        </Button>
-                      </TableCell>
-                    </motion.tr>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <DataTable
+            data={filteredCandidates}
+            isLoading={loading}
+            searchPlaceholder="Filter results..."
+            // We use existing filters, but DataTable's internal search can be an extra layer
+            searchKey="full_name" 
+            emptyMessage="No candidates found matching your criteria."
+            columns={[
+              { 
+                header: "Candidate", 
+                className: "px-6",
+                render: (c: any) => (
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-sm group-hover:text-secondary transition-colors underline-offset-4 decoration-secondary/30">{c.full_name || "—"}</span>
+                    <span className="text-xs text-muted-foreground">{c.email}</span>
+                  </div>
+                )
+              },
+              { 
+                header: "Visa Status", 
+                className: "px-6",
+                render: (c: any) => (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/10 text-secondary border border-secondary/20 uppercase tracking-tighter">
+                    {c.profile?.visa_status || "N/A"}
+                  </span>
+                )
+              },
+              { 
+                header: "Pipeline Status", 
+                className: "px-6",
+                render: (c: any) => <StatusBadge status={c.status} />
+              },
+              { 
+                header: "Last Updated", 
+                className: "px-6",
+                render: (c: any) => (
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(c.updated_at || c.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                )
+              },
+              { 
+                header: "Action", 
+                className: "px-6 text-right",
+                render: (c: any) => (
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className="h-8 px-4 text-xs font-medium rounded-lg" 
+                    onClick={() => navigate(`/recruiter-dashboard/candidates/${c.id}`)}
+                  >
+                    <Eye className="mr-1.5 h-3.5 w-3.5" /> Manage
+                  </Button>
+                )
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
     </div>
   );
 };

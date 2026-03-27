@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTable } from "@/components/ui/DataTable";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
 import { useToast } from "@/hooks/use-toast";
 import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, IndianRupee } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
@@ -300,20 +302,30 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 )}
               </div>
             </CardHeader>
-            <CardContent>
-              {roles.length === 0 ? <p className="text-muted-foreground">No roles suggested yet.</p> : (
-                <div className="space-y-3">
-                  {roles.map((r: any) => (
-                    <div key={r.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                      <div>
-                        <p className="font-medium">{r.role_title}</p>
-                        {r.description && <p className="text-sm text-muted-foreground">{r.description}</p>}
-                      </div>
-                      <StatusBadge status={r.candidate_confirmed === true ? "active" : r.candidate_confirmed === false ? "rejected" : "pending"} />
-                    </div>
-                  ))}
-                </div>
-              )}
+            <CardContent className="p-0">
+              <DataTable
+                data={roles}
+                isLoading={loading}
+                searchPlaceholder="Search roles..."
+                searchKey="role_title"
+                emptyMessage="No roles suggested yet."
+                columns={[
+                  { 
+                    header: "Title", 
+                    accessorKey: "role_title",
+                    className: "font-medium text-sm pl-6"
+                  },
+                  { 
+                    header: "Description", 
+                    render: (r: any) => <span className="text-xs text-muted-foreground line-clamp-1">{r.description || "—"}</span>
+                  },
+                  { 
+                    header: "Confirmation", 
+                    className: "pr-6 text-right",
+                    render: (r: any) => <StatusBadge status={r.candidate_confirmed === true ? "active" : r.candidate_confirmed === false ? "rejected" : "pending"} />
+                  }
+                ]}
+              />
             </CardContent>
           </Card>
           {!isPlaced && ["intake_submitted", "roles_suggested"].includes(status) && (
@@ -385,27 +397,46 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           )}
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" /> Payment History</CardTitle></CardHeader>
-            <CardContent>
-              {payments.length === 0 ? <p className="text-muted-foreground">No payments recorded.</p> : (
-                <div className="space-y-3">
-                  {payments.map((p: any) => (
-                    <div key={p.id} className="flex items-start gap-4 rounded-lg border border-border p-4">
-                      <div className="mt-0.5">
-                        {p.status === "completed" ? <CheckCircle className="h-4 w-4 text-secondary" /> : p.status === "failed" ? <XCircle className="h-4 w-4 text-destructive" /> : <Clock className="h-4 w-4 text-muted-foreground" />}
+            <CardContent className="p-0">
+              <DataTable
+                data={payments}
+                isLoading={loading}
+                searchPlaceholder="Search payments..."
+                searchKey="payment_type"
+                emptyMessage="No payments recorded."
+                columns={[
+                  { 
+                    header: "Date", 
+                    render: (p: any) => <span className="text-sm pl-6">{new Date(p.payment_date || p.created_at).toLocaleDateString()}</span>
+                  },
+                  { 
+                    header: "Amount", 
+                    render: (p: any) => (
+                      <span className="font-bold text-foreground flex items-center gap-0.5 text-sm">
+                        <IndianRupee className="h-3 w-3" />{Number(p.amount).toLocaleString()}
+                      </span>
+                    )
+                  },
+                  { 
+                    header: "Type", 
+                    render: (p: any) => <span className="text-sm capitalize text-muted-foreground">{p.payment_type?.replace(/_/g, " ")}</span>
+                  },
+                  { 
+                    header: "Status", 
+                    className: "pr-6 text-right",
+                    render: (p: any) => (
+                      <div className="flex items-center justify-end gap-1.5">
+                        {p.status === "completed" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> : p.status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> : <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <span className="text-xs uppercase font-bold opacity-60 tracking-tighter">{p.status}</span>
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between"><p className="font-semibold text-foreground flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{Number(p.amount).toLocaleString()} {p.currency}</p><span className="text-xs capitalize text-muted-foreground">{p.status}</span></div>
-                        <p className="text-sm text-muted-foreground capitalize">{p.payment_type.replace(/_/g, " ")}</p>
-                        {p.notes && <p className="mt-1 text-sm text-muted-foreground">{p.notes}</p>}
-                        <p className="mt-1 text-xs text-muted-foreground">{new Date(p.payment_date || p.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    )
+                  }
+                ]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
+
 
         {/* Assignments Tab */}
         <TabsContent value="assignments">

@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
+
 import { useToast } from "@/hooks/use-toast";
 import { Phone, Plus } from "lucide-react";
 
@@ -134,29 +135,45 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Interview History</CardTitle></CardHeader>
-        <CardContent>
-          {logs.length === 0 ? <p className="text-muted-foreground">No logs yet.</p> : (
-            <Table>
-              <TableHeader><TableRow>
-                <TableHead>Date</TableHead><TableHead>Type</TableHead><TableHead>Company</TableHead>
-                <TableHead>Role</TableHead><TableHead>Round</TableHead><TableHead>Outcome</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                {logs.map((l: any) => (
-                  <TableRow key={l.id}>
-                    <TableCell>{l.interview_date ? new Date(l.interview_date).toLocaleDateString() : "—"}</TableCell>
-                    <TableCell className="capitalize">{l.log_type?.replace("_", " ")}</TableCell>
-                    <TableCell className="font-medium">{l.company_name || "—"}</TableCell>
-                    <TableCell>{l.role_title || "—"}</TableCell>
-                    <TableCell>{l.round || "—"}</TableCell>
-                    <TableCell><StatusBadge status={l.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+        <CardContent className="p-0">
+          <DataTable
+            data={logs}
+            isLoading={loading}
+            searchPlaceholder="Search company..."
+            searchKey="company_name"
+            emptyMessage="No logs yet."
+            columns={[
+              { 
+                header: "Date", 
+                render: (l: any) => <span className="text-sm pl-6">{l.interview_date ? new Date(l.interview_date).toLocaleDateString() : "—"}</span>
+              },
+              { 
+                header: "Type", 
+                render: (l: any) => <span className="text-sm capitalize">{l.log_type?.replace(/_/g, " ")}</span>
+              },
+              { 
+                header: "Company", 
+                accessorKey: "company_name",
+                className: "text-sm font-medium"
+              },
+              { 
+                header: "Role", 
+                render: (l: any) => <span className="text-sm">{l.role_title || "—"}</span>
+              },
+              { 
+                header: "Round", 
+                render: (l: any) => <span className="text-xs">{l.round || "—"}</span>
+              },
+              { 
+                header: "Outcome", 
+                className: "pr-6 text-right",
+                render: (l: any) => <StatusBadge status={l.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} />
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
     </div>
   );
 };

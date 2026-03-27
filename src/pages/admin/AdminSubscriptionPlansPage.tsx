@@ -12,10 +12,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, CreditCard, Package, Users, IndianRupee, CheckCircle } from "lucide-react";
 
@@ -192,41 +191,54 @@ const AdminSubscriptionPlansPage = () => {
               <CardTitle>Base Plans</CardTitle>
               <Button onClick={openCreatePlan} size="sm"><Plus className="mr-1 h-4 w-4" />New Plan</Button>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Billing Cycle</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {plans.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No plans yet. Create your first plan.</TableCell></TableRow>
-                  ) : plans.map(p => (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        <p className="font-medium">{p.name}</p>
+            <CardContent className="p-0">
+              <DataTable
+                data={plans}
+                isLoading={loading}
+                searchKey="name"
+                emptyMessage="No plans yet. Create your first plan."
+                columns={[
+                  { 
+                    header: "Name", 
+                    render: (p: any) => (
+                      <div>
+                        <p className="font-medium text-sm">{p.name}</p>
                         {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
-                      </TableCell>
-                      <TableCell>
-                        <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" />{Number(p.amount).toLocaleString()}</span>
-                      </TableCell>
-                      <TableCell className="capitalize">{p.billing_cycle?.replace(/_/g, " ")}</TableCell>
-                      <TableCell><Badge variant="outline">{p.is_base ? "Base" : "Addon"}</Badge></TableCell>
-                      <TableCell><Badge className={p.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}>{p.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button size="icon" variant="ghost" onClick={() => openEditPlan(p)}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deletePlan(p.id)}><Trash2 className="h-4 w-4" /></Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    )
+                  },
+                  { 
+                    header: "Amount", 
+                    render: (p: any) => (
+                      <span className="flex items-center gap-1 text-sm font-medium">
+                        <IndianRupee className="h-3 w-3" />{Number(p.amount).toLocaleString()}
+                      </span>
+                    )
+                  },
+                  { 
+                    header: "Billing Cycle", 
+                    render: (p: any) => <span className="text-sm capitalize">{p.billing_cycle?.replace(/_/g, " ")}</span>
+                  },
+                  { 
+                    header: "Type", 
+                    render: (p: any) => <Badge variant="outline" className="text-xs">{p.is_base ? "Base" : "Addon"}</Badge>
+                  },
+                  { 
+                    header: "Status", 
+                    render: (p: any) => <Badge variant={p.is_active ? "secondary" : "outline"} className={p.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}>{p.is_active ? "Active" : "Inactive"}</Badge>
+                  },
+                  { 
+                    header: "Actions", 
+                    className: "text-right pr-6",
+                    render: (p: any) => (
+                      <div className="flex justify-end gap-2">
+                        <Button size="icon" variant="ghost" onClick={() => openEditPlan(p)} className="h-8 w-8"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" className="text-destructive h-8 w-8 hover:text-destructive hover:bg-destructive/10" onClick={() => deletePlan(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    )
+                  }
+                ]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -238,37 +250,46 @@ const AdminSubscriptionPlansPage = () => {
               <CardTitle>Add-On Services</CardTitle>
               <Button onClick={openCreateAddon} size="sm"><Plus className="mr-1 h-4 w-4" />New Add-On</Button>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {addons.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No add-ons yet.</TableCell></TableRow>
-                  ) : addons.map(a => (
-                    <TableRow key={a.id}>
-                      <TableCell>
-                        <p className="font-medium">{a.name}</p>
+            <CardContent className="p-0">
+              <DataTable
+                data={addons}
+                isLoading={loading}
+                searchKey="name"
+                emptyMessage="No add-ons yet."
+                columns={[
+                  { 
+                    header: "Name", 
+                    render: (a: any) => (
+                      <div>
+                        <p className="font-medium text-sm">{a.name}</p>
                         {a.description && <p className="text-xs text-muted-foreground">{a.description}</p>}
-                      </TableCell>
-                      <TableCell>
-                        <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" />{Number(a.amount).toLocaleString()}</span>
-                      </TableCell>
-                      <TableCell><Badge className={a.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}>{a.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button size="icon" variant="ghost" onClick={() => openEditAddon(a)}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteAddon(a.id)}><Trash2 className="h-4 w-4" /></Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    )
+                  },
+                  { 
+                    header: "Amount", 
+                    render: (a: any) => (
+                      <span className="flex items-center gap-1 text-sm font-medium">
+                        <IndianRupee className="h-3 w-3" />{Number(a.amount).toLocaleString()}
+                      </span>
+                    )
+                  },
+                  { 
+                    header: "Status", 
+                    render: (a: any) => <Badge variant={a.is_active ? "secondary" : "outline"} className={a.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}>{a.is_active ? "Active" : "Inactive"}</Badge>
+                  },
+                  { 
+                    header: "Actions", 
+                    className: "text-right pr-6",
+                    render: (a: any) => (
+                      <div className="flex justify-end gap-2">
+                        <Button size="icon" variant="ghost" onClick={() => openEditAddon(a)} className="h-8 w-8"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" className="text-destructive h-8 w-8 hover:text-destructive hover:bg-destructive/10" onClick={() => deleteAddon(a.id)}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    )
+                  }
+                ]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -280,54 +301,62 @@ const AdminSubscriptionPlansPage = () => {
               <CardTitle>Active Subscriptions</CardTitle>
               <CardDescription>All candidates with an assigned subscription plan</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Candidate</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Add-Ons</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Assigned</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {subscriptions.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No subscriptions assigned yet.</TableCell></TableRow>
-                  ) : subscriptions.map(s => (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <p className="font-medium">{s.candidate_name}</p>
+            <CardContent className="p-0">
+              <DataTable
+                data={subscriptions}
+                isLoading={loading}
+                searchKey="candidate_name"
+                emptyMessage="No subscriptions assigned yet."
+                columns={[
+                  { 
+                    header: "Candidate", 
+                    render: (s: any) => (
+                      <div>
+                        <p className="font-medium text-sm">{s.candidate_name}</p>
                         <p className="text-xs text-muted-foreground">{s.candidate_email}</p>
-                      </TableCell>
-                      <TableCell>{s.plan_name}</TableCell>
-                      <TableCell>
-                        <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" />{Number(s.amount).toLocaleString()}</span>
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                    )
+                  },
+                  { header: "Plan", accessorKey: "plan_name", className: "text-sm" },
+                  { 
+                    header: "Amount", 
+                    render: (s: any) => (
+                      <span className="flex items-center gap-1 text-sm font-medium">
+                        <IndianRupee className="h-3 w-3" />{Number(s.amount).toLocaleString()}
+                      </span>
+                    )
+                  },
+                  { 
+                    header: "Add-Ons", 
+                    render: (s: any) => (
+                      <div className="flex flex-wrap gap-1">
                         {s.addon_assignments?.length > 0
                           ? s.addon_assignments.map((a: any) => (
-                            <Badge key={a.id} variant="outline" className="mr-1 text-xs">{a.addon_detail?.name}</Badge>
+                            <Badge key={a.id} variant="outline" className="text-[10px] px-1.5 h-5">{a.addon_detail?.name}</Badge>
                           ))
                           : <span className="text-xs text-muted-foreground">None</span>
                         }
-                      </TableCell>
-                      <TableCell>
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${subStatusColor[s.status] || "bg-gray-100 text-gray-700"}`}>
-                          {s.status?.replace(/_/g, " ")}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {s.payment_initiated_at ? new Date(s.payment_initiated_at).toLocaleDateString() : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    )
+                  },
+                  { 
+                    header: "Status", 
+                    render: (s: any) => (
+                      <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-bold ${subStatusColor[s.status] || "bg-gray-100 text-gray-700"}`}>
+                        {s.status?.replace(/_/g, " ")}
+                      </span>
+                    )
+                  },
+                  { 
+                    header: "Assigned", 
+                    render: (s: any) => <span className="text-xs text-muted-foreground">{s.payment_initiated_at ? new Date(s.payment_initiated_at).toLocaleDateString() : "—"}</span>
+                  }
+                ]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
+
       </Tabs>
 
       {/* ── Plan Create/Edit Dialog ── */}

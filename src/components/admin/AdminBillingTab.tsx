@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
+
 import { useToast } from "@/hooks/use-toast";
 import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban, IndianRupee } from "lucide-react";
 
@@ -311,33 +312,40 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
       {/* Invoice History */}
       <Card>
         <CardHeader><CardTitle>Invoice History</CardTitle></CardHeader>
-        <CardContent>
-          {invoices.length === 0 ? (
-            <p className="text-muted-foreground">No invoices yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Paid At</TableHead>
-                  <TableHead>Reference</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.map((inv: any) => (
-                  <TableRow key={inv.id}>
-                    <TableCell className="text-sm">{new Date(inv.period_start).toLocaleDateString()} – {new Date(inv.period_end).toLocaleDateString()}</TableCell>
-                    <TableCell className="font-medium flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{Number(inv.amount).toLocaleString()}</TableCell>
-                    <TableCell><Badge className={invoiceStatusBadge[inv.status] || ""}>{inv.status.toUpperCase()}</Badge></TableCell>
-                    <TableCell className="text-sm">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{inv.payment_reference || "—"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+        <CardContent className="p-0">
+          <DataTable
+            data={invoices}
+            isLoading={loading}
+            searchPlaceholder="Search invoices..."
+            searchKey="status"
+            emptyMessage="No invoices yet."
+            columns={[
+              { 
+                header: "Period", 
+                render: (inv: any) => <span className="text-sm pl-6">{new Date(inv.period_start).toLocaleDateString()} – {new Date(inv.period_end).toLocaleDateString()}</span>
+              },
+              { 
+                header: "Amount", 
+                render: (inv: any) => (
+                  <span className="font-medium flex items-center gap-0.5 text-sm">
+                    <IndianRupee className="h-3.5 w-3.5" />{Number(inv.amount).toLocaleString()}
+                  </span>
+                )
+              },
+              { 
+                header: "Status", 
+                render: (inv: any) => <Badge className={invoiceStatusBadge[inv.status] || ""}>{inv.status.toUpperCase()}</Badge>
+              },
+              { 
+                header: "Paid At", 
+                render: (inv: any) => <span className="text-sm">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</span>
+              },
+              { 
+                header: "Reference", 
+                render: (inv: any) => <span className="text-sm text-muted-foreground pr-6">{inv.payment_reference || "—"}</span>
+              }
+            ]}
+          />
         </CardContent>
       </Card>
 
@@ -345,37 +353,47 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
       {payments.length > 0 && (
         <Card>
           <CardHeader><CardTitle>Payment Records</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Method</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="text-sm">{new Date(p.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell className="font-medium flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{Number(p.amount).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        {p.payment_status === "success" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> :
-                         p.payment_status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> :
-                         <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <span className="capitalize text-sm">{p.payment_status}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="capitalize text-sm text-muted-foreground">{p.payment_method}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <CardContent className="p-0">
+            <DataTable
+              data={payments}
+              isLoading={loading}
+              searchPlaceholder="Search payments..."
+              searchKey="payment_status"
+              emptyMessage="No records yet."
+              columns={[
+                { 
+                  header: "Date", 
+                  render: (p: any) => <span className="text-sm pl-6">{new Date(p.created_at).toLocaleDateString()}</span>
+                },
+                { 
+                  header: "Amount", 
+                  render: (p: any) => (
+                    <span className="font-medium flex items-center gap-0.5 text-sm">
+                      <IndianRupee className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()}
+                    </span>
+                  )
+                },
+                { 
+                  header: "Status", 
+                  render: (p: any) => (
+                    <div className="flex items-center gap-1.5">
+                      {p.payment_status === "success" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> :
+                       p.payment_status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> :
+                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
+                      <span className="capitalize text-sm">{p.payment_status}</span>
+                    </div>
+                  )
+                },
+                { 
+                  header: "Method", 
+                  render: (p: any) => <span className="capitalize text-sm text-muted-foreground pr-6">{p.payment_method}</span>
+                }
+              ]}
+            />
           </CardContent>
         </Card>
       )}
+
     </div>
   );
 };

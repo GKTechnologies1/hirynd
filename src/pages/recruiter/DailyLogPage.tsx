@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+
 import { ClipboardList, Plus, CheckCircle2, ChevronRight, Search, TrendingUp, AlertCircle, FilePlus, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -98,63 +99,65 @@ const DailyLogPage = () => {
                 </div>
              </CardHeader>
              <CardContent className="p-0">
-                <Table>
-                    <TableHeader className="bg-muted/30 border-none">
-                        <TableRow className="border-none">
-                            <TableHead className="text-[10px] font-bold uppercase tracking-widest px-6 h-10">Candidate</TableHead>
-                            <TableHead className="text-[10px] font-bold uppercase tracking-widest px-6 h-10">Pipeline Status</TableHead>
-                            <TableHead className="text-[10px] font-bold uppercase tracking-widest px-6 h-10 text-center">Today's Log</TableHead>
-                            <TableHead className="text-[10px] font-bold uppercase tracking-widest px-6 h-10 text-right">Activity</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredCandidates.map((c, i) => (
-                          <motion.tr 
-                            key={c.id} 
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="group border-b border-border/40 hover:bg-muted/10 transition-colors"
+                <DataTable
+                  data={filteredCandidates}
+                  isLoading={loading}
+                  searchPlaceholder="Filter candidates..."
+                  searchKey="full_name"
+                  emptyMessage="No candidates assigned."
+                  columns={[
+                    { 
+                      header: "Candidate", 
+                      className: "px-6 py-4",
+                      render: (c: any) => (
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm group-hover:text-secondary transition-colors">{c.full_name}</span>
+                          <span className="text-[10px] text-muted-foreground">{c.profile?.visa_status || "No Visa Set"}</span>
+                        </div>
+                      )
+                    },
+                    { 
+                      header: "Pipeline Status", 
+                      className: "px-6 py-4",
+                      render: (c: any) => <StatusBadge status={c.status} />
+                    },
+                    { 
+                      header: "Today's Log", 
+                      className: "px-6 py-4 text-center",
+                      render: (c: any) => logsSummary[c.id] ? (
+                        <div className="flex items-center justify-center gap-1.5 text-emerald-500 bg-emerald-500/10 py-1 px-2 rounded-full w-fit mx-auto border border-emerald-500/20">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-bold">Logged</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-1.5 text-amber-500 bg-amber-500/10 py-1 px-2 rounded-full w-fit mx-auto border border-amber-500/20">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-bold">Pending</span>
+                        </div>
+                      )
+                    },
+                    { 
+                      header: "Activity", 
+                      className: "px-6 py-4 text-right",
+                      render: (c: any) => (
+                        <div className="flex justify-end">
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            className="h-8 px-4 text-xs font-bold rounded-lg text-white"
+                            asChild
                           >
-                            <TableCell className="px-6 py-4">
-                                <div className="flex flex-col">
-                                    <span className="font-semibold text-sm group-hover:text-secondary transition-colors">{c.full_name}</span>
-                                    <span className="text-[10px] text-muted-foreground">{c.profile?.visa_status || "No Visa Set"}</span>
-                                </div>
-                            </TableCell>
-                            <TableCell className="px-6 py-4">
-                                <StatusBadge status={c.status} />
-                            </TableCell>
-                            <TableCell className="px-6 py-4 text-center">
-                                {logsSummary[c.id] ? (
-                                    <div className="flex items-center justify-center gap-1.5 text-emerald-500 bg-emerald-500/10 py-1 px-2 rounded-full w-fit mx-auto border border-emerald-500/20">
-                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                        <span className="text-[10px] font-bold">Logged</span>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center justify-center gap-1.5 text-amber-500 bg-amber-500/10 py-1 px-2 rounded-full w-fit mx-auto border border-amber-500/20">
-                                        <AlertCircle className="h-3.5 w-3.5" />
-                                        <span className="text-[10px] font-bold">Pending</span>
-                                    </div>
-                                )}
-                            </TableCell>
-                            <TableCell className="px-6 py-4 text-right">
-                                <Button 
-                                    variant="secondary" 
-                                    size="sm" 
-                                    className="h-8 px-4 text-xs font-bold rounded-lg text-white"
-                                    asChild
-                                >
-                                    <Link to={`/recruiter-dashboard/candidates/${c.id}?tab=daily-log`}>
-                                        <Plus className="mr-1.5 h-3.5 w-3.5" /> {logsSummary[c.id] ? "View Log" : "Log Now"}
-                                    </Link>
-                                </Button>
-                            </TableCell>
-                          </motion.tr>
-                        ))}
-                    </TableBody>
-                </Table>
+                            <Link to={`/recruiter-dashboard/candidates/${c.id}?tab=daily-log`}>
+                              <Plus className="mr-1.5 h-3.5 w-3.5" /> {logsSummary[c.id] ? "View Log" : "Log Now"}
+                            </Link>
+                          </Button>
+                        </div>
+                      )
+                    }
+                  ]}
+                />
              </CardContent>
+
           </Card>
 
           <div className="space-y-6">
