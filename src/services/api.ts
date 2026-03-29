@@ -45,8 +45,8 @@ export default api;
 
 // ─── Auth ───
 export const authApi = {
-  register: (data: Record<string, any>) =>
-    api.post('/auth/register/', data),
+  register: (data: any) =>
+    api.post('/auth/register/', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   login: (email: string, password: string) =>
     api.post('/auth/login/', { email, password }),
   logout: () => {
@@ -159,6 +159,10 @@ export const billingApi = {
   payments: (candidateId: string) => api.get(`/billing/${candidateId}/payments/`),
   recordPayment: (candidateId: string, data: Record<string, any>) =>
     api.post(`/billing/${candidateId}/payments/record/`, data),
+  updatePayment: (paymentId: string, data: Record<string, any>) =>
+    api.patch(`/billing/payments/${paymentId}/manage/`, data),
+  deletePayment: (paymentId: string) =>
+    api.delete(`/billing/payments/${paymentId}/manage/`),
   invoices: (candidateId: string) => api.get(`/billing/${candidateId}/invoices/`),
   updateInvoice: (invoiceId: string, data: Record<string, any>) =>
     api.patch(`/billing/invoices/${invoiceId}/update/`, data),

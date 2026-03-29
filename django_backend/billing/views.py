@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -195,7 +196,7 @@ def assign_plan(request, candidate_id):
     send_email(
         candidate.user.email, 'Action Required: Complete Your Payment',
         f'<p>Hi {_user_name(candidate.user)},</p>'
-        f'<p>Your Hyrind plan <strong>{plan.name}</strong> (&#8377;{plan.amount}) has been assigned. '
+        f'<p>Your Hyrind plan <strong>{plan.name}</strong> (${plan.amount}) has been assigned. '
         f'Please log in and complete the payment to proceed.</p>',
     )
     return Response(SubscriptionSerializer(sub).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
@@ -383,13 +384,13 @@ def verify_razorpay_payment(request, candidate_id):
     })
     create_notification(
         candidate.user, 'Payment Successful',
-        f'Your payment of &#8377;{rp_order.amount} has been received. Your subscription is now active.',
+        f'Your payment of ${rp_order.amount} has been received. Your subscription is now active.',
         link='/candidate-dashboard/payments',
     )
     send_email(
         candidate.user.email, 'Payment Confirmed  Hyrind',
         f'<p>Hi {_user_name(candidate.user)},</p>'
-        f'<p>We received your payment of <strong>&#8377;{rp_order.amount}</strong>. '
+        f'<p>We received your payment of <strong>${rp_order.amount}</strong>. '
         f'Your subscription is now <strong>Active</strong>.</p>',
     )
     return Response({
@@ -552,3 +553,23 @@ def billing_analytics(request):
         'total_revenue': float(total_revenue),
         'total_payments': Payment.objects.filter(status='completed').count(),
     })
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAdmin])
+def manage_payment(request, payment_id):
+    """Update or delete a single payment record."""
+    payment = get_object_or_404(Payment, pk=payment_id)
+    
+    if request.method == 'DELETE':
+        candidate_id = payment.candidate.id
+        payment.delete()
+        log_action(request.user, 'payment_deleted', str(candidate_id), 'payment', {'payment_id': str(payment_id)})
+        return Response(status=status.HTTP_204_NO_CONTENT)
+        
+    elif request.method == 'PATCH':
+        serializer = PaymentSerializer(payment, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_action(request.user, 'payment_updated', str(payment.candidate.id), 'payment', request.data)
+        return Response(serializer.data)

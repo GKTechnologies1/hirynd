@@ -31,6 +31,7 @@ class RegisterSerializer(serializers.Serializer):
     university_name = serializers.CharField(max_length=120)
     major_degree = serializers.CharField(max_length=120)
     graduation_date = serializers.DateField()
+    opt_end_date = serializers.DateField(required=False, allow_null=True)
 
     # Source fields
     how_did_you_hear = serializers.ChoiceField(
@@ -39,15 +40,31 @@ class RegisterSerializer(serializers.Serializer):
     )
     friend_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
     linkedin_url = serializers.URLField(required=False, allow_blank=True)
+    social_profile = serializers.URLField(required=False, allow_blank=True)
     portfolio_url = serializers.URLField(required=False, allow_blank=True)
+    github_url = serializers.URLField(required=False, allow_blank=True)
     visa_status = serializers.ChoiceField(
-        choices=['H1B', 'OPT', 'CPT', 'Green Card', 'US Citizen', 'EAD', 'TN', 'Other'],
+        choices=['H1B', 'OPT', 'CPT', 'Green Card', 'US Citizen', 'EAD', 'TN', 'Other', 'Other (Visa Status)'],
         required=False,
         allow_blank=True,
     )
     current_location = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    city = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    state = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    country = serializers.CharField(max_length=100, required=False, allow_blank=True)
 
-    # Recruiter-specific optional fields
+    # Candidate specific
+    resume_file = serializers.FileField(required=False)
+    additional_notes = serializers.CharField(max_length=1000, required=False, allow_blank=True)
+    consent_to_terms = serializers.BooleanField(required=True)
+
+    # Recruiter-specific fields from legacy proj
+    company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    employee_id = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    date_of_joining = serializers.DateField(required=False, allow_null=True)
+    department = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    specialization = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    max_clients = serializers.IntegerField(required=False, default=3)
     prior_recruitment_experience = serializers.CharField(max_length=500, required=False, allow_blank=True)
     work_type_preference = serializers.ChoiceField(
         choices=['Full-time', 'Part-time', 'Contract', 'Remote'],
@@ -61,29 +78,55 @@ class RegisterSerializer(serializers.Serializer):
         return value.lower()
 
     def validate(self, data):
+        if not data.get('consent_to_terms'):
+            raise serializers.ValidationError({'consent_to_terms': 'You must agree to the Terms and Conditions.'})
+            
         if data.get('how_did_you_hear') == 'Friend' and not data.get('friend_name'):
             raise serializers.ValidationError({'friend_name': 'Friend name is required when source is Friend.'})
+        
         # Recruiter must provide at least one professional link
-        if data.get('role') == 'recruiter' and not data.get('linkedin_url'):
-            raise serializers.ValidationError({'linkedin_url': 'LinkedIn URL is required for recruiters.'})
+        if data.get('role') == 'recruiter':
+            if not data.get('linkedin_url') and not data.get('social_profile'):
+                raise serializers.ValidationError({'linkedin_url': 'LinkedIn URL or other social profile is required for recruiters.'})
         return data
 
     def create(self, validated_data):
+        consent_to_terms = validated_data.pop('consent_to_terms', False)
         first_name = validated_data.pop('first_name')
         last_name = validated_data.pop('last_name')
         phone = validated_data.pop('phone', '')
         role = validated_data.pop('role', 'candidate')
+        
+        # Candidate specific fields
+        opt_end_date = validated_data.pop('opt_end_date', None)
+        github_url = validated_data.pop('github_url', '')
+        resume_file = validated_data.pop('resume_file', None)
+        additional_notes = validated_data.pop('additional_notes', '')
+
+        # Recruiter specific fields
+        company_name = validated_data.pop('company_name', '')
+        employee_id = validated_data.pop('employee_id', '')
+        date_of_joining = validated_data.pop('date_of_joining', None)
+        department = validated_data.pop('department', '')
+        specialization = validated_data.pop('specialization', '')
+        max_clients = validated_data.pop('max_clients', 3)
+
+        # Common profile fields
         university_name = validated_data.pop('university_name', '')
         major_degree = validated_data.pop('major_degree', '')
         graduation_date = validated_data.pop('graduation_date', None)
         how_did_you_hear = validated_data.pop('how_did_you_hear', '')
         friend_name = validated_data.pop('friend_name', '')
         linkedin_url = validated_data.pop('linkedin_url', '')
+        social_profile = validated_data.pop('social_profile', '')
         portfolio_url = validated_data.pop('portfolio_url', '')
         visa_status = validated_data.pop('visa_status', '')
         current_location = validated_data.pop('current_location', '')
-        validated_data.pop('prior_recruitment_experience', '')
-        validated_data.pop('work_type_preference', '')
+        city = validated_data.pop('city', '')
+        state = validated_data.pop('state', '')
+        country = validated_data.pop('country', '')
+        prior_recruitment_experience = validated_data.pop('prior_recruitment_experience', '')
+        work_type_preference = validated_data.pop('work_type_preference', '')
 
         user = User.objects.create_user(
             email=validated_data['email'],
@@ -97,7 +140,7 @@ class RegisterSerializer(serializers.Serializer):
             phone=phone,
         )
 
-        # Create candidate record with registration data
+        # Create candidate record
         if role == 'candidate':
             from candidates.models import Candidate
             Candidate.objects.create(
@@ -106,12 +149,36 @@ class RegisterSerializer(serializers.Serializer):
                 university=university_name,
                 major=major_degree,
                 graduation_date=graduation_date,
+                opt_end_date=opt_end_date,
                 visa_status=visa_status,
                 referral_source=how_did_you_hear,
                 referral_friend_name=friend_name,
                 linkedin_url=linkedin_url,
                 portfolio_url=portfolio_url,
+                github_url=github_url,
                 current_location=current_location,
+                notes=additional_notes
+            )
+        elif role == 'recruiter':
+            from recruiters.models import RecruiterProfile
+            RecruiterProfile.objects.create(
+                user=user,
+                city=city or current_location,
+                state=state,
+                country=country,
+                university=university_name,
+                major=major_degree,
+                graduation_date=graduation_date,
+                company_name=company_name,
+                employee_id=employee_id,
+                date_of_joining=date_of_joining,
+                department=department,
+                specialization=specialization,
+                max_clients=max_clients,
+                linkedin_url=linkedin_url,
+                social_profile_url=social_profile,
+                prior_recruitment_experience=prior_recruitment_experience,
+                work_type_preference=work_type_preference,
             )
 
         return user
@@ -127,16 +194,167 @@ class UserListSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
     full_name = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
+    university = serializers.SerializerMethodField()
+    major = serializers.SerializerMethodField()
+    graduation_date = serializers.SerializerMethodField()
+    linkedin_url = serializers.SerializerMethodField()
+    social_profile_url = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField()
+    # Candidate specific
+    opt_end_date = serializers.SerializerMethodField()
+    github_url = serializers.SerializerMethodField()
+    visa_status = serializers.SerializerMethodField()
+    referral_source = serializers.SerializerMethodField()
+    referral_friend_name = serializers.SerializerMethodField()
+    notes = serializers.SerializerMethodField()
+    # Recruiter specific
+    company_name = serializers.SerializerMethodField()
+    employee_id = serializers.SerializerMethodField()
+    date_of_joining = serializers.SerializerMethodField()
+    department = serializers.SerializerMethodField()
+    specialization = serializers.SerializerMethodField()
+    max_clients = serializers.SerializerMethodField()
+    prior_recruitment_experience = serializers.SerializerMethodField()
+    work_type_preference = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'role', 'approval_status', 'is_active', 'created_at', 'full_name', 'phone', 'profile']
+        fields = [
+            'id', 'email', 'role', 'approval_status', 'is_active', 'created_at', 
+            'full_name', 'phone', 'profile', 
+            'university', 'major', 'graduation_date', 
+            'linkedin_url', 'social_profile_url', 
+            'city', 'state', 'country',
+            'opt_end_date', 'github_url', 'visa_status', 'referral_source', 'referral_friend_name', 'notes',
+            'company_name', 'employee_id', 'date_of_joining', 'department', 'specialization', 'max_clients',
+            'prior_recruitment_experience', 'work_type_preference'
+        ]
 
     def get_full_name(self, obj):
         return getattr(getattr(obj, 'profile', None), 'full_name', '') or ''
 
     def get_phone(self, obj):
         return getattr(getattr(obj, 'profile', None), 'phone', '') or ''
+
+    def _get_target_profile(self, obj):
+        if obj.role == 'candidate':
+            return getattr(obj, 'candidate', None)
+        elif obj.role == 'recruiter':
+            return getattr(obj, 'recruiter_profile', None)
+        return None
+
+    def get_university(self, obj):
+        p = self._get_target_profile(obj)
+        return getattr(p, 'university', '') or ''
+
+    def get_major(self, obj):
+        p = self._get_target_profile(obj)
+        return getattr(p, 'major', '') or ''
+
+    def get_graduation_date(self, obj):
+        p = self._get_target_profile(obj)
+        date = getattr(p, 'graduation_date', None)
+        return date.isoformat() if date else None
+
+    def get_linkedin_url(self, obj):
+        p = self._get_target_profile(obj)
+        return getattr(p, 'linkedin_url', '') or ''
+
+    def get_social_profile_url(self, obj):
+        p = self._get_target_profile(obj)
+        if obj.role == 'candidate':
+            return getattr(p, 'portfolio_url', '') or ''
+        return getattr(p, 'social_profile_url', '') or ''
+
+    def get_city(self, obj):
+        p = self._get_target_profile(obj)
+        if obj.role == 'candidate':
+            return getattr(p, 'current_location', '') or ''
+        return getattr(p, 'city', '') or ''
+
+    def get_state(self, obj):
+        p = self._get_target_profile(obj)
+        return getattr(p, 'state', '') or ''
+
+    def get_country(self, obj):
+        p = self._get_target_profile(obj)
+        return getattr(p, 'country', '') or ''
+
+    # Candidate especific
+    def get_opt_end_date(self, obj):
+        if obj.role != 'candidate': return None
+        p = getattr(obj, 'candidate', None)
+        date = getattr(p, 'opt_end_date', None)
+        return date.isoformat() if date else None
+
+    def get_github_url(self, obj):
+        if obj.role != 'candidate': return ''
+        p = getattr(obj, 'candidate', None)
+        return getattr(p, 'github_url', '') or ''
+
+    def get_visa_status(self, obj):
+        if obj.role != 'candidate': return ''
+        p = getattr(obj, 'candidate', None)
+        return getattr(p, 'visa_status', '') or ''
+
+    def get_referral_source(self, obj):
+        if obj.role != 'candidate': return ''
+        p = getattr(obj, 'candidate', None)
+        return getattr(p, 'referral_source', '') or ''
+
+    def get_referral_friend_name(self, obj):
+        if obj.role != 'candidate': return ''
+        p = getattr(obj, 'candidate', None)
+        return getattr(p, 'referral_friend_name', '') or ''
+
+    def get_notes(self, obj):
+        if obj.role != 'candidate': return ''
+        p = getattr(obj, 'candidate', None)
+        return getattr(p, 'notes', '') or ''
+
+    # Recruiter especific
+    def get_company_name(self, obj):
+        if obj.role != 'recruiter': return ''
+        p = getattr(obj, 'recruiter_profile', None)
+        return getattr(p, 'company_name', '') or ''
+
+    def get_employee_id(self, obj):
+        if obj.role != 'recruiter': return ''
+        p = getattr(obj, 'recruiter_profile', None)
+        return getattr(p, 'employee_id', '') or ''
+
+    def get_date_of_joining(self, obj):
+        if obj.role != 'recruiter': return None
+        p = getattr(obj, 'recruiter_profile', None)
+        date = getattr(p, 'date_of_joining', None)
+        return date.isoformat() if date else None
+
+    def get_department(self, obj):
+        if obj.role != 'recruiter': return ''
+        p = getattr(obj, 'recruiter_profile', None)
+        return getattr(p, 'department', '') or ''
+
+    def get_specialization(self, obj):
+        if obj.role != 'recruiter': return ''
+        p = getattr(obj, 'recruiter_profile', None)
+        return getattr(p, 'specialization', '') or ''
+
+    def get_max_clients(self, obj):
+        if obj.role != 'recruiter': return None
+        p = getattr(obj, 'recruiter_profile', None)
+        return getattr(p, 'max_clients', 0)
+
+    def get_prior_recruitment_experience(self, obj):
+        if obj.role != 'recruiter': return ''
+        p = getattr(obj, 'recruiter_profile', None)
+        return getattr(p, 'prior_recruitment_experience', '') or ''
+
+    def get_work_type_preference(self, obj):
+        if obj.role != 'recruiter': return ''
+        p = getattr(obj, 'recruiter_profile', None)
+        return getattr(p, 'work_type_preference', '') or ''
 
 
 class ChangePasswordSerializer(serializers.Serializer):

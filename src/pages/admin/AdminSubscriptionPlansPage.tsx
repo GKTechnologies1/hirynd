@@ -16,11 +16,11 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, CreditCard, Package, Users, IndianRupee, CheckCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, CreditCard, Package, Users, DollarSign, CheckCircle } from "lucide-react";
 
 // Shared empty plan form
-const emptyPlan = { name: "", description: "", amount: "", currency: "INR", billing_cycle: "monthly", is_base: true };
-const emptyAddon = { name: "", description: "", amount: "", currency: "INR" };
+const emptyPlan = { name: "", description: "", amount: "", currency: "USD", billing_cycle: "monthly", is_base: true };
+const emptyAddon = { name: "", description: "", amount: "", currency: "USD" };
 
 const AdminSubscriptionPlansPage = () => {
   const { toast } = useToast();
@@ -211,7 +211,7 @@ const AdminSubscriptionPlansPage = () => {
                     header: "Amount", 
                     render: (p: any) => (
                       <span className="flex items-center gap-1 text-sm font-medium">
-                        <IndianRupee className="h-3 w-3" />{Number(p.amount).toLocaleString()}
+                        <DollarSign className="h-3 w-3" />{Number(p.amount).toLocaleString()}
                       </span>
                     )
                   },
@@ -270,7 +270,7 @@ const AdminSubscriptionPlansPage = () => {
                     header: "Amount", 
                     render: (a: any) => (
                       <span className="flex items-center gap-1 text-sm font-medium">
-                        <IndianRupee className="h-3 w-3" />{Number(a.amount).toLocaleString()}
+                        <DollarSign className="h-3 w-3" />{Number(a.amount).toLocaleString()}
                       </span>
                     )
                   },
@@ -322,7 +322,7 @@ const AdminSubscriptionPlansPage = () => {
                     header: "Amount", 
                     render: (s: any) => (
                       <span className="flex items-center gap-1 text-sm font-medium">
-                        <IndianRupee className="h-3 w-3" />{Number(s.amount).toLocaleString()}
+                        <DollarSign className="h-3 w-3" />{Number(s.amount).toLocaleString()}
                       </span>
                     )
                   },
@@ -371,7 +371,7 @@ const AdminSubscriptionPlansPage = () => {
             <div><Label>Description</Label><Textarea value={planForm.description} onChange={e => setPlanForm(p => ({ ...p, description: e.target.value }))} rows={2} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Amount (₹)</Label>
+                <Label>Amount ($)</Label>
                 <Input type="number" value={planForm.amount} onChange={e => setPlanForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
               </div>
               <div>
@@ -405,7 +405,7 @@ const AdminSubscriptionPlansPage = () => {
             <div><Label>Add-On Name</Label><Input value={addonForm.name} onChange={e => setAddonForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Resume Review, Mock Interview" /></div>
             <div><Label>Description</Label><Textarea value={addonForm.description} onChange={e => setAddonForm(p => ({ ...p, description: e.target.value }))} rows={2} /></div>
             <div>
-              <Label>Amount (₹)</Label>
+              <Label>Amount ($)</Label>
               <Input type="number" value={addonForm.amount} onChange={e => setAddonForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
             </div>
           </div>
@@ -446,7 +446,7 @@ const AdminSubscriptionPlansPage = () => {
                 <SelectContent>
                   {plans.filter(p => p.is_base).map(p => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} — ₹{Number(p.amount).toLocaleString()} / {p.billing_cycle}
+                      {p.name} — ${Number(p.amount).toLocaleString()} / {p.billing_cycle}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -465,7 +465,7 @@ const AdminSubscriptionPlansPage = () => {
                         className="h-4 w-4"
                       />
                       <span className="flex-1 font-medium text-sm">{a.name}</span>
-                      <span className="text-sm text-muted-foreground">+₹{Number(a.amount).toLocaleString()}</span>
+                      <span className="text-sm text-muted-foreground">+${Number(a.amount).toLocaleString()}</span>
                     </label>
                   ))}
                 </div>
@@ -475,7 +475,7 @@ const AdminSubscriptionPlansPage = () => {
               <div className="rounded-lg bg-muted/50 p-3">
                 <p className="text-sm font-medium">Total</p>
                 <p className="text-2xl font-bold text-foreground">
-                  ₹{(
+                  ${(
                     Number(plans.find(p => p.id === assignPlanId)?.amount || 0) +
                     assignAddonIds.reduce((sum, id) => sum + Number(addons.find(a => a.id === id)?.amount || 0), 0)
                   ).toLocaleString()}

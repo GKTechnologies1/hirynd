@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
-import { DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle, Clock, XCircle, Info, IndianRupee } from "lucide-react";
+import { DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle, Clock, XCircle, Info } from "lucide-react";
 
 
 const CANDIDATE_NAV = [
@@ -145,7 +145,7 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Monthly Amount</p>
-                  <p className="text-lg font-bold text-card-foreground flex items-center gap-0.5"><IndianRupee className="h-4 w-4" />{Number(subscription.amount).toLocaleString()} {subscription.currency}</p>
+                  <p className="text-lg font-bold text-card-foreground flex items-center gap-0.5"><DollarSign className="h-4 w-4" />{Number(subscription.amount).toLocaleString()} {subscription.currency}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Next Charge Date</p>
@@ -225,7 +225,7 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
                 header: "Amount", 
                 render: (inv: any) => (
                   <span className="font-medium flex items-center gap-0.5 text-sm">
-                    <IndianRupee className="h-4 w-4" />{Number(inv.amount).toLocaleString()} {inv.currency}
+                    <DollarSign className="h-4 w-4" />{Number(inv.amount).toLocaleString()} {inv.currency}
                   </span>
                 )
               },

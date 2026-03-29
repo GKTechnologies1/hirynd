@@ -14,7 +14,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, IndianRupee } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -115,6 +115,32 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setAddingPayment(false);
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!confirm("Are you sure you want to delete this payment record?")) return;
+    try {
+      await billingApi.deletePayment(paymentId);
+      toast({ title: "Payment deleted" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleUpdatePayment = async (paymentId: string, currentAmount: string, currentNotes: string) => {
+    const amount = prompt("Update Amount ($):", currentAmount);
+    if (amount === null) return;
+    const notes = prompt("Update Notes:", currentNotes);
+    if (notes === null) return;
+
+    try {
+      await billingApi.updatePayment(paymentId, { amount: parseFloat(amount), notes });
+      toast({ title: "Payment updated" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleReopenIntake = async () => {
@@ -386,7 +412,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div><Label>Amount (₹) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
+                  <div><Label>Amount ($) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
                   <div><Label>Type</Label><Select value={payType} onValueChange={setPayType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="initial">Initial</SelectItem><SelectItem value="subscription">Subscription</SelectItem><SelectItem value="refund">Refund</SelectItem><SelectItem value="adjustment">Adjustment</SelectItem></SelectContent></Select></div>
                   <div><Label>Status</Label><Select value={payStatus} onValueChange={setPayStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completed">Completed</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="refunded">Refunded</SelectItem></SelectContent></Select></div>
                 </div>
@@ -413,7 +439,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     header: "Amount", 
                     render: (p: any) => (
                       <span className="font-bold text-foreground flex items-center gap-0.5 text-sm">
-                        <IndianRupee className="h-3 w-3" />{Number(p.amount).toLocaleString()}
+                        <DollarSign className="h-3 w-3" />{Number(p.amount).toLocaleString()}
                       </span>
                     )
                   },
@@ -423,11 +449,34 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   },
                   { 
                     header: "Status", 
-                    className: "pr-6 text-right",
                     render: (p: any) => (
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center gap-1.5">
                         {p.status === "completed" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> : p.status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> : <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
                         <span className="text-xs uppercase font-bold opacity-60 tracking-tighter">{p.status}</span>
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Actions",
+                    className: "pr-6 text-right",
+                    render: (p: any) => (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleUpdatePayment(p.id, p.amount, p.notes)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeletePayment(p.id)}
+                        >
+                          <Trash className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     )
                   }

@@ -37,6 +37,8 @@ class Candidate(models.Model):
     referral_source = models.CharField(max_length=255, blank=True, null=True)
     referral_friend_name = models.CharField(max_length=255, blank=True, null=True)
     current_location = models.CharField(max_length=255, blank=True, null=True)
+    github_url = models.URLField(blank=True, null=True)
+    opt_end_date = models.DateField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
 
     # Cal.com scheduling URLs (Admin-configurable)

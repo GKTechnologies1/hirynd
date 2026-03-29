@@ -257,8 +257,8 @@ const AdminDashboard = () => {
                   <ReBarChart data={revenueData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Revenue"]} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: any) => [`$${Number(v).toLocaleString("en-US")}`, "Revenue"]} />
                     <Bar dataKey="revenue" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} name="Revenue" />
                   </ReBarChart>
                 </ResponsiveContainer>

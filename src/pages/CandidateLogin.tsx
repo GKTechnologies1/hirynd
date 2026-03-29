@@ -32,32 +32,49 @@ const CandidateLogin = () => {
     password: "", confirm_password: "",
     university_name: "", major_degree: "", graduation_date: "",
     how_did_you_hear: "", friend_name: "",
-    linkedin_url: "", portfolio_url: "", visa_status: "", current_location: "",
+    linkedin_url: "", portfolio_url: "", github_url: "",
+    visa_status: "", opt_end_date: "",
+    current_location: "", additional_notes: "",
+    resume_file: null as File | null,
+    consent_to_terms: false,
   });
-  const [showRegPassword, setShowRegPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [regErrors, setRegErrors] = useState<Record<string, string>>({});
 
-  const updateReg = (field: string, value: string) => {
+  const updateReg = (field: string, value: any) => {
     setReg(prev => ({ ...prev, [field]: value }));
     setRegErrors(prev => ({ ...prev, [field]: "" }));
   };
 
   const validateRegistration = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!reg.first_name) errors.first_name = "First name is required";
-    if (!reg.last_name) errors.last_name = "Last name is required";
-    if (!reg.email) errors.email = "Email is required";
-    if (!reg.phone) errors.phone = "Phone number is required";
-    if (!reg.password || reg.password.length < 8) errors.password = "Password must be at least 8 characters";
+    if (!reg.first_name.trim()) errors.first_name = "First name is required";
+    else if (/\d/.test(reg.first_name)) errors.first_name = "Numbers not allowed in first name";
+
+    if (!reg.last_name.trim()) errors.last_name = "Last name is required";
+    else if (/\d/.test(reg.last_name)) errors.last_name = "Numbers not allowed in last name";
+
+    if (!reg.email.trim()) errors.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reg.email)) errors.email = "Enter a valid email address";
+
+    if (!reg.phone.trim()) errors.phone = "Phone number is required";
+    else if (!/^[\d\s+\-()]{7,}$/.test(reg.phone)) errors.phone = "Invalid format";
+
+    if (!reg.password) errors.password = "Password is required";
+    else if (reg.password.length < 8) errors.password = "Password must be at least 8 characters";
     else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])/.test(reg.password))
       errors.password = "Must contain uppercase, lowercase, number, and special character";
+
     if (reg.password !== reg.confirm_password) errors.confirm_password = "Passwords do not match";
-    if (!reg.university_name) errors.university_name = "University is required";
-    if (!reg.major_degree) errors.major_degree = "Major/degree is required";
+
+    if (!reg.university_name.trim()) errors.university_name = "University is required";
+    if (!reg.major_degree.trim()) errors.major_degree = "Major/degree is required";
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
+
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
-    if (reg.how_did_you_hear === "Friend" && !reg.friend_name) errors.friend_name = "Friend name is required when source is Friend";
+    if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) errors.friend_name = "Friend name is required when source is Friend";
+    
+    if (!reg.consent_to_terms) errors.consent_to_terms = "You must agree to the Terms and Conditions";
+
     setRegErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -88,18 +105,54 @@ const CandidateLogin = () => {
     }
   };
 
+  const { signUp: signUpRaw } = useAuth();
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateRegistration()) return;
     setSubmitting(true);
-    const { error } = await signUp(reg);
-    setSubmitting(false);
-    if (error) {
+    
+    // Using FormData for multipart submission
+    const data = new FormData();
+    data.append("role", "candidate");
+    data.append("first_name", reg.first_name.trim());
+    data.append("last_name", reg.last_name.trim());
+    data.append("email", reg.email.toLowerCase().trim());
+    data.append("phone", reg.phone.trim());
+    data.append("password", reg.password);
+    data.append("confirm_password", reg.confirm_password);
+    data.append("university_name", reg.university_name);
+    data.append("major_degree", reg.major_degree);
+    data.append("graduation_date", reg.graduation_date);
+    data.append("how_did_you_hear", reg.how_did_you_hear);
+    data.append("friend_name", reg.friend_name);
+    data.append("linkedin_url", reg.linkedin_url);
+    data.append("portfolio_url", reg.portfolio_url);
+    data.append("github_url", reg.github_url);
+    data.append("visa_status", reg.visa_status);
+    if (reg.opt_end_date) {
+      data.append("opt_end_date", reg.opt_end_date);
+    }
+    data.append("current_location", reg.current_location);
+    data.append("additional_notes", reg.additional_notes);
+    data.append("consent_to_terms", String(reg.consent_to_terms));
+
+    if (reg.resume_file) {
+      data.append("resume_file", reg.resume_file, reg.resume_file.name);
+    }
+
+    try {
+      const { authApi } = await import("@/services/api");
+      await authApi.register(data as any);
+      
+      await signOut();
+      setRegistrationComplete(true);
+      toast({ title: "Success", description: "Registration received! Check your email." });
+    } catch (err: any) {
       let msg = "Something went wrong";
+      const error = err.response?.data;
       if (typeof error === "string") {
         msg = error;
-      } else {
-        // Handle DRF validation error object
+      } else if (error) {
         const firstKey = Object.keys(error)[0];
         if (firstKey) {
           const firstErr = error[firstKey];
@@ -107,31 +160,11 @@ const CandidateLogin = () => {
         }
       }
       toast({ title: "Registration failed", description: msg, variant: "destructive" });
-    } else {
-      setRegistrationComplete(true);
     }
+    setSubmitting(false);
   };
 
-  const { signUp: signUpRaw } = useAuth();
-  const signUp = async (data: typeof reg) => {
-    try {
-      const { authApi } = await import("@/services/api");
-      await authApi.register({
-        email: data.email, password: data.password,
-        first_name: data.first_name, last_name: data.last_name,
-        phone: data.phone, role: "candidate",
-        university_name: data.university_name, major_degree: data.major_degree,
-        graduation_date: data.graduation_date, how_did_you_hear: data.how_did_you_hear,
-        friend_name: data.friend_name, linkedin_url: data.linkedin_url,
-        portfolio_url: data.portfolio_url, visa_status: data.visa_status,
-        current_location: data.current_location,
-      });
-      return { error: null };
-    } catch (err: any) {
-      return { error: err.response?.data || err.message };
-    }
-  };
-
+  // Section 3.4 Pending Approval Screen
   if (registrationComplete || approvalStatus === "pending_approval") {
     return (
       <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -139,23 +172,27 @@ const CandidateLogin = () => {
         <main className="flex-grow flex items-center justify-center pt-24 pb-12 px-4">
           <div className="mx-auto w-full max-w-md bg-white p-10 rounded-2xl border border-neutral-200 shadow-xl animate-in text-center">
             <div className="relative mb-8 flex justify-center">
-              <div className="relative h-16 w-16 bg-neutral-50 rounded-full flex items-center justify-center border border-neutral-100 shadow-sm">
-                <Clock className="h-8 w-8 text-primary" />
+              <div className="relative h-20 w-20 bg-primary/5 rounded-full flex items-center justify-center border border-primary/10 shadow-sm">
+                <Clock className="h-10 w-10 text-primary" />
               </div>
             </div>
-            <h1 className="mb-3 text-2xl font-bold text-neutral-900">Application Received</h1>
-            <p className="text-muted-foreground mb-6 leading-relaxed">Thank you for registering. Your profile has been received and is currently under strategic review.</p>
-            <div className="bg-muted/30 rounded-2xl p-5 mb-8 border border-border/40 inline-block w-full text-left">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-2 w-2 rounded-full bg-secondary animate-pulse" />
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Status: Review in progress</p>
-              </div>
-              <p className="text-sm text-foreground/80">Expected review time: <span className="font-bold text-secondary">24–48 hours</span></p>
-              <p className="text-xs text-muted-foreground mt-2">Check your email for approval notifications.</p>
+            
+            <h1 className="mb-3 text-2xl font-bold text-neutral-900 tracking-tight">Thank you for registering with Hyrind</h1>
+            <p className="text-muted-foreground mb-6 leading-relaxed">Your registration has been received and is under review.</p>
+            
+            <div className="bg-muted/30 rounded-2xl p-6 mb-8 border border-border/40 inline-block w-full text-center">
+              <p className="text-sm font-semibold text-foreground mb-2">Expected review time: <span className="text-primary">24–48 hours</span></p>
+              <p className="text-xs text-muted-foreground">You will receive an email once your profile is approved.</p>
             </div>
-            <Button variant="outline" className="h-11 rounded-xl px-8 hover:bg-secondary/5 transition-colors border-secondary/20" onClick={() => { setRegistrationComplete(false); setApprovalStatus(null); }}>
-              {approvalStatus === "pending_approval" ? "Logout" : "Back to Login"}
-            </Button>
+            
+            <div className="flex flex-col gap-3">
+              <Button variant="hero" className="h-11 rounded-xl shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30" onClick={() => { setRegistrationComplete(false); setApprovalStatus(null); }}>
+                Logout
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Need help? <Link to="/contact" className="underline decoration-muted-foreground/30 hover:text-primary transition-colors">Contact Support</Link>
+              </p>
+            </div>
           </div>
         </main>
         <Footer />
@@ -168,16 +205,15 @@ const CandidateLogin = () => {
       <div className="min-h-screen bg-neutral-50 flex flex-col">
         <Header />
         <main className="flex-grow flex items-center justify-center pt-24 pb-12 px-4">
-          <div className="mx-auto w-full max-w-md glass-card p-10 card-elevated text-center border-destructive/10 animate-in">
+          <div className="mx-auto w-full max-w-md bg-white p-10 rounded-2xl border border-neutral-200 shadow-xl animate-in text-center">
             <div className="relative mb-6 flex justify-center">
-              <div className="absolute inset-0 bg-destructive/10 rounded-full blur-xl" />
               <div className="relative h-16 w-16 bg-card rounded-full flex items-center justify-center border border-destructive/20 shadow-lg">
                 <XCircle className="h-8 w-8 text-destructive" />
               </div>
             </div>
-            <h1 className="mb-3 text-2xl font-bold text-destructive">Review Finalized</h1>
+            <h1 className="mb-3 text-2xl font-bold text-destructive">Registration Not Approved</h1>
             <p className="text-muted-foreground mb-8 leading-relaxed">
-              Your Hyrind account application was not approved at this time based on current criteria.
+              Based on our current criteria, your Hyrind application was not approved at this time.
             </p>
             <div className="p-4 rounded-xl bg-destructive/5 border border-destructive/10 mb-8 text-sm">
               If you believe this decision was made in error or wish to appeal, please contact our support team.
@@ -255,7 +291,7 @@ const CandidateLogin = () => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Identity Info</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">A – Required Identity</span>
                     <div className="h-px bg-neutral-200 flex-grow" />
                   </div>
                   
@@ -266,7 +302,7 @@ const CandidateLogin = () => {
                         value={reg.first_name} 
                         onChange={e => updateReg("first_name", e.target.value)} 
                         maxLength={60} 
-                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
                       {regErrors.first_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.first_name}</p>}
                     </div>
@@ -276,7 +312,7 @@ const CandidateLogin = () => {
                         value={reg.last_name} 
                         onChange={e => updateReg("last_name", e.target.value)} 
                         maxLength={60} 
-                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
                       {regErrors.last_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.last_name}</p>}
                     </div>
@@ -288,7 +324,7 @@ const CandidateLogin = () => {
                       type="email" 
                       value={reg.email} 
                       onChange={e => updateReg("email", e.target.value)} 
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
                     {regErrors.email && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.email}</p>}
                   </div>
@@ -299,7 +335,7 @@ const CandidateLogin = () => {
                       type="tel" 
                       value={reg.phone} 
                       onChange={e => updateReg("phone", e.target.value)} 
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
                     {regErrors.phone && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.phone}</p>}
                   </div>
@@ -308,29 +344,17 @@ const CandidateLogin = () => {
                     label="Password *" 
                     value={reg.password} 
                     onChange={v => updateReg("password", v)} 
-                    show={showRegPassword} 
-                    onToggle={() => setShowRegPassword(!showRegPassword)} 
                     error={regErrors.password} 
-                    className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                    className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                   />
                   
                   <PasswordField 
                     label="Confirm Password *" 
                     value={reg.confirm_password} 
                     onChange={v => updateReg("confirm_password", v)} 
-                    show={showConfirmPassword} 
-                    onToggle={() => setShowConfirmPassword(!showConfirmPassword)} 
                     error={regErrors.confirm_password} 
-                    className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                    className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                   />
-                </div>
-
-                <div className="space-y-4 pt-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Education</span>
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                  </div>
                   
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">University *</Label>
@@ -338,7 +362,7 @@ const CandidateLogin = () => {
                       value={reg.university_name} 
                       onChange={e => updateReg("university_name", e.target.value)} 
                       maxLength={120} 
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
                     {regErrors.university_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.university_name}</p>}
                   </div>
@@ -349,7 +373,7 @@ const CandidateLogin = () => {
                       value={reg.major_degree} 
                       onChange={e => updateReg("major_degree", e.target.value)} 
                       maxLength={120} 
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
                     {regErrors.major_degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major_degree}</p>}
                   </div>
@@ -360,7 +384,7 @@ const CandidateLogin = () => {
                       type="date" 
                       value={reg.graduation_date} 
                       onChange={e => updateReg("graduation_date", e.target.value)} 
-                      className="block h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                      className="block w-full h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
                     {regErrors.graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.graduation_date}</p>}
                   </div>
@@ -369,55 +393,114 @@ const CandidateLogin = () => {
                 <div className="space-y-4 pt-2">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Discovery</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">B – Source / Discovery</span>
                     <div className="h-px bg-neutral-200 flex-grow" />
                   </div>
                   
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">How did you hear about us? *</Label>
                     <Select value={reg.how_did_you_hear} onValueChange={v => updateReg("how_did_you_hear", v)}>
-                      <SelectTrigger className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"><SelectValue placeholder="Select source" /></SelectTrigger>
+                      <SelectTrigger className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"><SelectValue placeholder="Select source" /></SelectTrigger>
                       <SelectContent>{SOURCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                     </Select>
                     {regErrors.how_did_you_hear && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.how_did_you_hear}</p>}
                   </div>
                   
                   {reg.how_did_you_hear === "Friend" && (
-                    <div className="space-y-2 animate-in">
+                    <div className="space-y-2 animate-in slide-in-from-top-1">
                       <Label className="text-sm font-medium ml-1">Friend's Name *</Label>
                       <Input 
                         value={reg.friend_name} 
                         onChange={e => updateReg("friend_name", e.target.value)} 
                         maxLength={120} 
-                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
                       {regErrors.friend_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.friend_name}</p>}
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-4 pt-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Extras (Optional)</span>
-                    <div className="h-px bg-neutral-200 flex-grow" />
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-px bg-neutral-200 flex-grow" />
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">C – Optional / Extras</span>
+                      <div className="h-px bg-neutral-200 flex-grow" />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label className="text-sm font-medium ml-1">LinkedIn URL</Label><Input type="url" value={reg.linkedin_url} onChange={e => updateReg("linkedin_url", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
+                      <div className="space-y-2"><Label className="text-sm font-medium ml-1">GitHub URL</Label><Input type="url" value={reg.github_url} onChange={e => updateReg("github_url", e.target.value)} placeholder="https://github.com/..." className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
+                    </div>
+                    
+                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">Portfolio / Website</Label><Input type="url" value={reg.portfolio_url} onChange={e => updateReg("portfolio_url", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium ml-1">Visa Status</Label>
+                      <Select value={reg.visa_status} onValueChange={v => updateReg("visa_status", v)}>
+                        <SelectTrigger className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"><SelectValue placeholder="Select visa type" /></SelectTrigger>
+                        <SelectContent>{VISA_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+
+                    {reg.visa_status === "OPT" && (
+                      <div className="space-y-2 animate-in slide-in-from-top-1">
+                        <Label className="text-sm font-medium ml-1">OPT End Date</Label>
+                        <Input 
+                          type="date" 
+                          value={reg.opt_end_date} 
+                          onChange={v => updateReg("opt_end_date", v.target.value)}
+                          className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" 
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">Current Location</Label><Input value={reg.current_location} onChange={e => updateReg("current_location", e.target.value)} placeholder="City, State, Country" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium ml-1">Resume File (PDF/DOCX) *</Label>
+                      <Input 
+                        type="file" 
+                        accept=".pdf,.doc,.docx" 
+                        onChange={e => updateReg("resume_file", e.target.files?.[0])}
+                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm py-1.5 px-2 text-xs" 
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium ml-1">Additional Notes</Label>
+                      <Input 
+                        value={reg.additional_notes} 
+                        onChange={e => updateReg("additional_notes", e.target.value)} 
+                        placeholder="Anything else we should know?"
+                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
+                      />
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2"><Label className="text-sm font-medium ml-1">LinkedIn URL</Label><Input type="url" value={reg.linkedin_url} onChange={e => updateReg("linkedin_url", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
-                  <div className="space-y-2"><Label className="text-sm font-medium ml-1">Portfolio URL</Label><Input type="url" value={reg.portfolio_url} onChange={e => updateReg("portfolio_url", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Visa Status</Label>
-                    <Select value={reg.visa_status} onValueChange={v => updateReg("visa_status", v)}>
-                      <SelectTrigger className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"><SelectValue placeholder="Select visa type" /></SelectTrigger>
-                      <SelectContent>{VISA_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-                    </Select>
+
+                  <div className="pt-2 px-1">
+                    <div className="flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 shadow-sm transition-all hover:bg-white">
+                      <div className="pt-0.5">
+                        <input
+                          type="checkbox"
+                          id="consent_to_terms"
+                          checked={reg.consent_to_terms}
+                          onChange={e => updateReg("consent_to_terms", e.target.checked)}
+                          className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary"
+                        />
+                      </div>
+                      <Label htmlFor="consent_to_terms" className="text-xs text-muted-foreground leading-normal cursor-pointer select-none">
+                        I hereby confirm that all information provided is accurate and agree to the{" "}
+                        <a href="https://merchant.razorpay.com/policy/Rn2giKHxuBBdz0/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline">Terms of Service</a>
+                         {" "}and{" "}
+                        <a href="https://merchant.razorpay.com/policy/Rn2giKHxuBBdz0/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline">Privacy Policy</a>. *
+                      </Label>
+                    </div>
+                    {regErrors.consent_to_terms && <p className="text-[10px] text-destructive mt-1 font-medium ml-2">{regErrors.consent_to_terms}</p>}
                   </div>
-                  <div className="space-y-2"><Label className="text-sm font-medium ml-1">Current Location</Label><Input value={reg.current_location} onChange={e => updateReg("current_location", e.target.value)} placeholder="City, State, Country" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
-                </div>
 
                 <div className="pt-4 pb-2">
                   <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/10" disabled={submitting}>
-                    {submitting ? "Registering..." : "Create Account"}
+                    {submitting ? "Processing Registration..." : "Create Account"}
                   </Button>
                 </div>
               </form>

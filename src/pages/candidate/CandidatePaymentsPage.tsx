@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
-  DollarSign, FileText, CheckCircle, XCircle, Clock, IndianRupee,
+  DollarSign, FileText, CheckCircle, XCircle, Clock,
   Package, CreditCard, ShieldCheck, AlertTriangle, Loader2,
   LayoutDashboard, Briefcase, KeyRound, ClipboardList, Phone, UserPlus, MessageSquare, Settings
 } from "lucide-react";
@@ -199,7 +199,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Base Plan</span>
                   <span className="flex items-center gap-1">
-                    <IndianRupee className="h-3 w-3" />{Number(subscription.amount).toLocaleString()}
+                    <DollarSign className="h-3 w-3" />{Number(subscription.amount).toLocaleString()}
                   </span>
                 </div>
                 {subscription.addon_assignments?.map((a: any) => (
@@ -208,14 +208,14 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                       <Package className="h-3 w-3" />{a.addon_detail?.name}
                     </span>
                     <span className="flex items-center gap-1">
-                      <IndianRupee className="h-3 w-3" />{Number(a.addon_detail?.amount).toLocaleString()}
+                      <DollarSign className="h-3 w-3" />{Number(a.addon_detail?.amount).toLocaleString()}
                     </span>
                   </div>
                 ))}
                 <div className="border-t pt-2 flex justify-between font-semibold">
                   <span>Total</span>
                   <span className="text-lg flex items-center gap-1">
-                    <IndianRupee className="h-4 w-4" />{totalAmount.toLocaleString()}
+                    <DollarSign className="h-4 w-4" />{totalAmount.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -232,7 +232,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                   {paying ? (
                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Processing...</>
                   ) : (
-                    <><IndianRupee className="mr-2 h-5 w-5" />Pay ₹{totalAmount.toLocaleString()} Now</>
+                    <><DollarSign className="mr-2 h-5 w-5" />Pay ${totalAmount.toLocaleString()} Now</>
                   )}
                 </Button>
               ) : subscription.status === "active" ? (
@@ -266,7 +266,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <p className="font-semibold text-card-foreground flex items-center gap-0.5">
-                          <IndianRupee className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()} {p.currency}
+                          <DollarSign className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()} {p.currency}
                         </p>
                         <span className="text-xs capitalize text-muted-foreground">{p.status}</span>
                       </div>

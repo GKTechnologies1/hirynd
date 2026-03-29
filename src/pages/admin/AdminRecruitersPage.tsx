@@ -118,6 +118,34 @@ const AdminRecruitersPage = () => {
                 )
               },
               { 
+                header: "Professional Background", 
+                className: "font-bold text-xs uppercase tracking-widest",
+                render: (r: any) => (
+                  <div className="space-y-1.5 py-1">
+                    {r.university && (
+                      <p className="text-[11px] flex items-center gap-2 text-foreground font-bold">
+                        <Award className="h-3 w-3 text-secondary" /> {r.university}
+                      </p>
+                    )}
+                    {r.major && (
+                      <p className="text-[10px] text-muted-foreground font-medium pl-5">{r.major}</p>
+                    )}
+                    <div className="flex gap-3 mt-1 pl-5">
+                      {r.linkedin_url && (
+                        <a href={r.linkedin_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
+                           LinkedIn
+                        </a>
+                      )}
+                      {r.social_profile_url && (
+                        <a href={r.social_profile_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
+                           Social
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )
+              },
+              { 
                 header: "Contact Details", 
                 className: "font-bold text-xs uppercase tracking-widest",
                 render: (r: any) => (
@@ -125,9 +153,9 @@ const AdminRecruitersPage = () => {
                     <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
                       <Phone className="h-3 w-3 opacity-60" /> {r.phone || "No phone listed"}
                     </p>
-                    {r.profile?.city && (
+                    {r.city && (
                       <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
-                        <MapPin className="h-3 w-3 opacity-60" /> {r.profile.city}, {r.profile.country}
+                        <MapPin className="h-3 w-3 opacity-60" /> {r.city}, {r.state ? `${r.state}, ` : ""}{r.country}
                       </p>
                     )}
                   </div>

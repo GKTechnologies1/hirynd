@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/DataTable";
 
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban, IndianRupee } from "lucide-react";
+import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban } from "lucide-react";
 
 interface AdminBillingTabProps {
   candidateId: string;
@@ -185,7 +185,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Amount</p>
-                <p className="font-bold text-card-foreground flex items-center gap-0.5"><IndianRupee className="h-3.5 w-3.5" />{Number(subscription.amount).toLocaleString()}/mo</p>
+                <p className="font-bold text-card-foreground flex items-center gap-0.5"><DollarSign className="h-3.5 w-3.5" />{Number(subscription.amount).toLocaleString()}/mo</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Next Charge</p>
@@ -212,7 +212,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div><Label>Plan Name</Label><Input value={formPlanName} onChange={e => setFormPlanName(e.target.value)} /></div>
-            <div><Label>Monthly Amount (₹) *</Label><Input type="number" min="1" value={formAmount} onChange={e => setFormAmount(e.target.value)} placeholder="499" /></div>
+            <div><Label>Monthly Amount ($) *</Label><Input type="number" min="1" value={formAmount} onChange={e => setFormAmount(e.target.value)} placeholder="499" /></div>
             <div><Label>Next Charge Date</Label><Input type="date" value={formNextDate} onChange={e => setFormNextDate(e.target.value)} /></div>
             <div><Label>Grace Days</Label><Input type="number" min="1" max="30" value={formGraceDays} onChange={e => setFormGraceDays(e.target.value)} /></div>
             <div><Label>Status</Label>
@@ -264,7 +264,8 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                   <SelectContent>
                     {pendingInvoices.map((inv: any) => (
                       <SelectItem key={inv.id} value={inv.id}>
-                        ₹{Number(inv.amount).toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} to {new Date(inv.period_end).toLocaleDateString()}
+                        {/* Use template literal for $ to avoid confusion with variable interpolation in some contexts (though not here, but consistent) */}
+                        ${Number(inv.amount).toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} to {new Date(inv.period_end).toLocaleDateString()}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -294,7 +295,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                   <SelectContent>
                     {pendingInvoices.map((inv: any) => (
                       <SelectItem key={inv.id} value={inv.id}>
-                        ₹{Number(inv.amount).toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} to {new Date(inv.period_end).toLocaleDateString()}
+                        ${Number(inv.amount).toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} to {new Date(inv.period_end).toLocaleDateString()}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -328,7 +329,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                 header: "Amount", 
                 render: (inv: any) => (
                   <span className="font-medium flex items-center gap-0.5 text-sm">
-                    <IndianRupee className="h-3.5 w-3.5" />{Number(inv.amount).toLocaleString()}
+                    <DollarSign className="h-3.5 w-3.5" />{Number(inv.amount).toLocaleString()}
                   </span>
                 )
               },
@@ -369,7 +370,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                   header: "Amount", 
                   render: (p: any) => (
                     <span className="font-medium flex items-center gap-0.5 text-sm">
-                      <IndianRupee className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()}
+                      <DollarSign className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()}
                     </span>
                   )
                 },
