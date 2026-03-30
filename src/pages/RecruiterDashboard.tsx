@@ -218,6 +218,9 @@ const RecruiterHome = () => {
   );
 };
 
+import DailyLogPage from "@/pages/recruiter/DailyLogPage";
+import RecruiterProfilePage from "@/pages/recruiter/RecruiterProfilePage";
+
 const CandidateDetailWrapper = () => {
   const { candidateId } = useParams<{ candidateId: string }>();
   return <RecruiterCandidateDetail candidateId={candidateId || ""} />;
@@ -234,6 +237,15 @@ const RecruiterDashboard = () => {
       </Routes>
     </DashboardLayout>
   );
+};
+
+const CandidateDetailWrapper = () => {
+  const { candidateId } = useLocation().pathname.split("/").slice(-1).reduce((acc, val) => ({ candidateId: val }), { candidateId: "" });
+  // More robust way to get candidateId from path if nested
+  const pathParts = useLocation().pathname.split("/");
+  const idFromPath = pathParts[pathParts.length - 1];
+  
+  return <RecruiterCandidateDetail candidateId={idFromPath} />;
 };
 
 export default RecruiterDashboard;
