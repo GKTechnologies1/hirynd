@@ -269,7 +269,10 @@ def create_razorpay_order(request, candidate_id):
         if not getattr(settings, 'DEBUG', False) and not is_mock_key:
              return Response({'error': 'Payment gateway not configured'}, status=500)
              
-        mock_order_id = f"order_mock_{str(candidate_id)[:8]}"
+        # Generate a truly unique mock ID using timestamp to avoid UNIQUE constraint conflicts
+        import time
+        mock_order_id = f"order_mock_{str(candidate_id)[:8]}_{int(time.time())}"
+        
         RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
         rp_order = RazorpayOrder.objects.create(
             candidate=candidate, subscription=sub,
@@ -418,23 +421,41 @@ def record_payment(request, candidate_id):
     serializer.is_valid(raise_exception=True)
     pay = serializer.save(recorded_by=request.user)
     if pay.payment_type == 'subscription':
+        # Ensure subscription object exists and is synced with this payment
         sub, created = Subscription.objects.get_or_create(
             candidate_id=candidate_id,
             defaults={
                 'amount': pay.amount,
-                'status': 'active' if pay.status == 'completed' else 'pending_payment',
+                'currency': pay.currency,
+                'status': 'pending_payment' if pay.status == 'pending' else 'active',
                 'plan_name': 'Hyrind Subscription',
+                'assigned_by': request.user,
             }
         )
-        if not created and pay.status == 'completed':
-            sub.status = 'active'
-            sub.last_payment_at = timezone.now()
-            sub.save(update_fields=['status', 'last_payment_at'])
+        if not created:
+            # Sync existing subscription if this is a newer/relevant payment
+            if pay.status == 'completed':
+                sub.status = 'active'
+                sub.last_payment_at = timezone.now()
+                sub.amount = pay.amount
+                sub.currency = pay.currency
+                sub.save(update_fields=['status', 'last_payment_at', 'amount', 'currency'])
+            elif pay.status == 'pending':
+                # If a new pending payment is recorded, make sure the subscription reflects it
+                sub.status = 'pending_payment'
+                sub.amount = pay.amount
+                sub.currency = pay.currency
+                sub.save(update_fields=['status', 'amount', 'currency'])
         
+        # LINK THE PAYMENT TO THE SUBSCRIPTION FOR CASCADE/SYNC
+        pay.subscription = sub
+        pay.save(update_fields=['subscription'])
+        
+        # Update candidate status if payment is completed
         if pay.status == 'completed':
             try:
                 cand = Candidate.objects.get(id=candidate_id)
-                if cand.status in ('roles_confirmed', 'pending_payment', 'past_due'):
+                if cand.status in ('roles_confirmed', 'pending_payment', 'past_due', 'intake_submitted'):
                     if cand.credentials.exists():
                         cand.status = 'credentials_submitted'
                     else:
@@ -563,7 +584,22 @@ def manage_payment(request, payment_id):
     
     if request.method == 'DELETE':
         candidate_id = payment.candidate.id
+        sub = payment.subscription
         payment.delete()
+        
+        # If we just deleted a subscription payment, check if we need to revert the status
+        if sub and sub.status == 'active':
+            # Check if there are any other completed payments for this subscription
+            has_other_paid = Payment.objects.filter(subscription=sub, status='completed').exists()
+            if not has_other_paid:
+                sub.status = 'pending_payment'
+                sub.save(update_fields=['status'])
+                # Also revert candidate status if necessary
+                cand = sub.candidate
+                if cand.status == 'payment_completed' or cand.status == 'credentials_submitted':
+                    cand.status = 'pending_payment'
+                    cand.save(update_fields=['status'])
+
         log_action(request.user, 'payment_deleted', str(candidate_id), 'payment', {'payment_id': str(payment_id)})
         return Response(status=status.HTTP_204_NO_CONTENT)
         

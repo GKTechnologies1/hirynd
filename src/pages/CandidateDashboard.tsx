@@ -153,8 +153,14 @@ const CandidateDashboard = () => {
 
   // Check if the tab is accessible
   const tabKey = subPath === "" ? "overview" : subPath;
+  const isBillingTab = tabKey === "payments" || tabKey === "billing";
+  const hasPendingSub = ["pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status);
+
   if (tabKey !== "overview" && !allowedTabs.includes(tabKey)) {
-    return <LockedTab tab={tabKey} />;
+    // Override: Allow access to payments/billing if payment is required
+    if (!(isBillingTab && hasPendingSub)) {
+      return <LockedTab tab={tabKey} />;
+    }
   }
 
   // Sub-routing
@@ -190,6 +196,11 @@ const CandidateDashboard = () => {
   };
 
   const getNextActionCTA = () => {
+    // If payment is pending, prioritize that regardless of status
+    if (["pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status)) {
+      return { label: "Pay Now →", path: "/candidate-dashboard/payments" };
+    }
+
     switch (status) {
       case "approved":          return { label: "Complete Intake Sheet →", path: "/candidate-dashboard/intake" };
       case "roles_published":   return { label: "Review Suggested Roles →", path: "/candidate-dashboard/roles" };

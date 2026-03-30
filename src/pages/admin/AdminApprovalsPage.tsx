@@ -6,7 +6,7 @@ import { DataTable } from "@/components/ui/DataTable";
 
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, Mail, UserX } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, Mail, UserX, LayoutDashboard, Users, Award, CreditCard, Briefcase, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 import { 
@@ -193,185 +193,216 @@ const AdminApprovalsPage = () => {
       </Card>
 
       <Sheet open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
-        <SheetContent className="w-full sm:max-w-xl p-0 overflow-hidden flex flex-col border-l shadow-2xl">
+        <SheetContent className="w-full sm:max-w-2xl p-0 overflow-hidden flex flex-col border-l shadow-2xl">
           <SheetHeader className="p-6 pb-4 border-b bg-card">
-            <div className="flex items-center justify-between pr-8">
+            <div className="flex items-center justify-between">
               <div>
                 <SheetTitle className="text-xl font-bold flex items-center gap-2">
-                  Registration Details
-                  <Badge variant="outline" className="uppercase text-[10px]">
+                  Registration Review
+                  <Badge variant="secondary" className="uppercase text-[10px] font-bold">
                     {selectedUser?.role}
                   </Badge>
                 </SheetTitle>
-                <SheetDescription>
-                  Reviewing submission from {selectedUser?.full_name}
+                <SheetDescription className="flex items-center gap-1.5 mt-0.5">
+                   Submitted on {selectedUser?.created_at && format(new Date(selectedUser.created_at), "PPp")}
                 </SheetDescription>
               </div>
             </div>
-            <div className="flex gap-2.5 pt-4">
-              <Button className="flex-1 bg-green-600 hover:bg-green-700 h-10 shadow-sm transition-all" 
-                onClick={() => selectedUser && handleAction(selectedUser.id, "approved")}>
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Approve User
+            
+            <div className="flex gap-3 pt-5">
+              <Button 
+                className="flex-1 bg-green-600 hover:bg-green-700 h-11 shadow-sm transition-all font-bold" 
+                onClick={() => selectedUser && handleAction(selectedUser.id, "approved")}
+                disabled={!!processing}
+              >
+                {processing === selectedUser?.id ? <RefreshCw className="animate-spin h-4 w-4 mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                Approve Registration
               </Button>
-              <Button variant="outline" className="flex-1 h-10 border-destructive/30 text-destructive hover:bg-destructive/10 transition-all"
-                onClick={() => selectedUser && handleAction(selectedUser.id, "rejected")}>
+              <Button 
+                variant="outline" 
+                className="flex-1 h-11 border-destructive/20 text-destructive hover:bg-destructive/10 transition-all font-medium"
+                onClick={() => selectedUser && handleAction(selectedUser.id, "rejected")}
+                disabled={!!processing}
+              >
                 <XCircle className="w-4 h-4 mr-2" />
                 Reject
               </Button>
             </div>
           </SheetHeader>
           
-          <ScrollArea className="flex-1 px-6 pb-8 bg-muted/10">
-            <div className="space-y-6 pt-6">
-              {/* Identity Section */}
-              <section>
-                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Primary Identity
-                </h3>
-                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-xl border border-muted">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Full Name</p>
-                    <p className="text-sm font-medium">{selectedUser?.full_name || "—"}</p>
+          <ScrollArea className="flex-1 bg-muted/20">
+            <div className="p-6 space-y-6">
+              {/* Profile Card */}
+              <Card className="border-none shadow-sm overflow-hidden">
+                <CardHeader className="bg-primary/5 pb-3 py-4">
+                  <CardTitle className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4" /> Primary Identity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  <div className="grid grid-cols-2 gap-y-4 text-sm">
+                    <div>
+                      <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Full Name</p>
+                      <p className="font-semibold text-foreground">{selectedUser?.profile?.full_name || selectedUser?.full_name || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Email Address</p>
+                      <p className="font-medium text-foreground flex items-center gap-1.5 underline decoration-primary/20 decoration-2 underline-offset-4">
+                        {selectedUser?.email}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Phone Number</p>
+                      <p className="font-medium text-foreground">{selectedUser?.profile?.phone || selectedUser?.phone || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">User Role</p>
+                      <p className="font-medium text-foreground capitalize">{selectedUser?.role}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Email Address</p>
-                    <p className="text-sm font-medium">{selectedUser?.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Phone</p>
-                    <p className="text-sm font-medium">{selectedUser?.phone || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Role</p>
-                    <p className="text-sm font-medium capitalize">{selectedUser?.role}</p>
-                  </div>
-                </div>
-              </section>
+                </CardContent>
+              </Card>
 
-              {/* Education Section */}
-              <section>
-                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Education Profile
-                </h3>
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-xl border border-muted">
+              {/* Education Card */}
+              <Card className="border-none shadow-sm overflow-hidden">
+                <CardHeader className="bg-muted/50 pb-3 py-4">
+                  <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Award className="h-4 w-4" /> Education & Background
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 grid grid-cols-2 gap-y-4 text-sm">
                   <div className="col-span-2">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">University</p>
-                    <p className="text-sm font-medium">{selectedUser?.university || "—"}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">University / Institute</p>
+                    <p className="font-semibold text-foreground">{selectedUser?.university || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Major / Degree</p>
-                    <p className="text-sm font-medium">{selectedUser?.major || "—"}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Major / Degree</p>
+                    <p className="font-medium text-foreground">{selectedUser?.major || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Graduation Date</p>
-                    <p className="text-sm font-medium">{selectedUser?.graduation_date ? format(new Date(selectedUser.graduation_date), "PP") : "—"}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Graduation</p>
+                    <p className="font-medium text-foreground">
+                      {selectedUser?.graduation_date ? format(new Date(selectedUser.graduation_date), "MMM yyyy") : "—"}
+                    </p>
                   </div>
-                </div>
-              </section>
+                </CardContent>
+              </Card>
 
-              {/* Location Section */}
-              <section>
-                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Location & Social
-                </h3>
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-xl border border-muted">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Current Location</p>
-                    <p className="text-sm font-medium">
+              {/* Professional Links */}
+              <Card className="border-none shadow-sm overflow-hidden">
+                <CardHeader className="bg-muted/50 pb-3 py-4">
+                  <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" /> Location & Professional Links
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 grid grid-cols-2 gap-y-4 text-sm">
+                  <div className="col-span-2">
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Current Location</p>
+                    <p className="font-medium text-foreground">
                       {[selectedUser?.city, selectedUser?.state, selectedUser?.country].filter(Boolean).join(", ") || "—"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">LinkedIn</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">LinkedIn URL</p>
                     {selectedUser?.linkedin_url ? (
-                      <a href={selectedUser.linkedin_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                        View Profile
+                      <a href={selectedUser.linkedin_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1">
+                        View Profile <Mail className="h-3 w-3" />
                       </a>
-                    ) : <p className="text-sm">—</p>}
+                    ) : <p className="text-muted-foreground italic text-xs">Not provided</p>}
                   </div>
-                </div>
-              </section>
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Other Profile</p>
+                    {selectedUser?.social_profile_url ? (
+                      <a href={selectedUser.social_profile_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline">
+                        Visit Site
+                      </a>
+                    ) : <p className="text-muted-foreground italic text-xs">Not provided</p>}
+                  </div>
+                </CardContent>
+              </Card>
 
-              {/* Role Specific Section */}
-              {selectedUser?.role === 'candidate' && (
-                <section>
-                  <h3 className="text-sm font-semibold text-blue-600 mb-3 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                    Candidate Specifics
-                  </h3>
-                  <div className="space-y-4 p-4 rounded-xl border border-blue-100 bg-blue-50/30">
+              {/* Role Specific Details */}
+              {selectedUser?.role === 'candidate' ? (
+                <Card className="border-blue-100 bg-blue-50/20 shadow-sm overflow-hidden">
+                  <CardHeader className="bg-blue-600/5 pb-3 py-4 border-b border-blue-100">
+                    <CardTitle className="text-xs font-bold uppercase tracking-widest text-blue-700 flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" /> Candidate Specifics
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-5 space-y-4 text-sm">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Visa Status</p>
-                        <p className="text-sm font-medium">{selectedUser?.visa_status || "—"}</p>
+                        <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">Visa Status</p>
+                        <p className="font-semibold text-blue-900">{selectedUser?.visa_status || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">OPT End Date</p>
-                        <p className="text-sm font-medium">{selectedUser?.opt_end_date ? format(new Date(selectedUser.opt_end_date), "PP") : "—"}</p>
+                        <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">OPT End Date</p>
+                        <p className="font-medium text-blue-900">{selectedUser?.opt_end_date ? format(new Date(selectedUser.opt_end_date), "PP") : "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">GitHub</p>
+                        <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">GitHub Profile</p>
                         {selectedUser?.github_url ? (
-                          <a href={selectedUser.github_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">
+                          <a href={selectedUser.github_url} target="_blank" rel="noreferrer" className="text-blue-700 font-medium hover:underline">
                             View GitHub
                           </a>
-                        ) : <p className="text-sm">—</p>}
+                        ) : <p className="text-slate-400 italic text-xs">Not provided</p>}
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Source</p>
-                        <p className="text-sm font-medium">{selectedUser?.referral_source} {selectedUser?.referral_friend_name ? `(${selectedUser.referral_friend_name})` : ""}</p>
+                        <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">Referral Source</p>
+                        <p className="font-medium text-blue-900">{selectedUser?.referral_source || "Organic"} {selectedUser?.referral_friend_name ? `(${selectedUser.referral_friend_name})` : ""}</p>
                       </div>
                     </div>
+                    <Separator className="bg-blue-100" />
                     <div>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Additional Notes</p>
-                      <p className="text-xs text-foreground mt-1 bg-white p-2 rounded border border-blue-100 italic">
-                        {selectedUser?.notes || "No additional notes provided."}
-                      </p>
+                      <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight block mb-1">Additional Candidate Notes</p>
+                      <div className="text-xs text-blue-800 leading-relaxed bg-white border border-blue-200 p-3 rounded-lg shadow-inner">
+                        {selectedUser?.notes || "No additional comments from candidate."}
+                      </div>
                     </div>
-                  </div>
-                </section>
-              )}
-
-              {selectedUser?.role === 'recruiter' && (
-                <section>
-                  <h3 className="text-sm font-semibold text-teal-600 mb-3 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
-                    Recruitment Details
-                  </h3>
-                  <div className="space-y-4 p-4 rounded-xl border border-teal-100 bg-teal-50/30">
+                  </CardContent>
+                </Card>
+              ) : selectedUser?.role === 'recruiter' && (
+                <Card className="border-teal-100 bg-teal-50/20 shadow-sm overflow-hidden">
+                  <CardHeader className="bg-teal-600/5 pb-3 py-4 border-b border-teal-100">
+                    <CardTitle className="text-xs font-bold uppercase tracking-widest text-teal-700 flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Recruiter Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-5 space-y-4 text-sm">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Company</p>
-                        <p className="text-sm font-medium">{selectedUser?.company_name || "—"}</p>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Company Name</p>
+                        <p className="font-semibold text-teal-900">{selectedUser?.company_name || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Employee ID</p>
-                        <p className="text-sm font-medium">{selectedUser?.employee_id || "—"}</p>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Employee ID</p>
+                        <p className="font-medium text-teal-900">{selectedUser?.employee_id || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Status</p>
-                        <p className="text-sm font-medium">{selectedUser?.work_type_preference || "—"}</p>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Experience</p>
+                        <p className="font-medium text-teal-900">{selectedUser?.prior_recruitment_experience || "None specified"}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Max Clients</p>
-                        <p className="text-sm font-medium">{selectedUser?.max_clients}</p>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Work Type Preference</p>
+                        <p className="font-medium text-teal-900">{selectedUser?.work_type_preference || "—"}</p>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Prior Experience</p>
-                      <p className="text-xs text-foreground mt-1 italic">
-                        {selectedUser?.prior_recruitment_experience || "None specified."}
-                      </p>
-                    </div>
-                  </div>
-                </section>
+                  </CardContent>
+                </Card>
               )}
             </div>
           </ScrollArea>
+          
+          <div className="p-6 border-t bg-card flex justify-center">
+            <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground text-[10px] uppercase tracking-tighter"
+                onClick={() => selectedUser && handleBlock(selectedUser.id)}
+            >
+                <UserX className="h-3 w-3 mr-1" /> Block User ID Permanently
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
     </div>

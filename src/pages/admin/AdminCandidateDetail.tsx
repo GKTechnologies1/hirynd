@@ -12,9 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/DataTable";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, RefreshCw, Activity, Eye, AlertTriangle, ClipboardList } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -44,6 +46,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [roles, setRoles] = useState<any[]>([]);
   const [credentials, setCredentials] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [subscription, setSubscription] = useState<any>(null);
   const [interviewLogs, setInterviewLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,8 +55,8 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [addingRole, setAddingRole] = useState(false);
 
   const [payAmount, setPayAmount] = useState("");
-  const [payType, setPayType] = useState("initial");
-  const [payStatus, setPayStatus] = useState("completed");
+  const [payType, setPayType] = useState("subscription");
+  const [payStatus, setPayStatus] = useState("pending");
   const [payNotes, setPayNotes] = useState("");
   const [addingPayment, setAddingPayment] = useState(false);
 
@@ -62,17 +65,19 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
       const { data: cand } = await candidatesApi.detail(candidateId);
       setCandidate(cand);
       if (cand) {
-        const [intakeRes, roleRes, credRes, payRes, interviewRes] = await Promise.all([
+        const [intakeRes, roleRes, credRes, payRes, subRes, interviewRes] = await Promise.all([
           candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
           candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
           candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
           billingApi.payments(candidateId).catch(() => ({ data: [] })),
+          billingApi.subscription(candidateId).catch(() => ({ data: null })),
           candidatesApi.getInterviews(candidateId).catch(() => ({ data: [] })),
         ]);
         setIntake(intakeRes.data || null);
         setRoles(roleRes.data || []);
         setCredentials(credRes.data || []);
         setPayments(payRes.data || []);
+        setSubscription(subRes.data?.id ? subRes.data : null);
         setInterviewLogs(interviewRes.data || []);
       }
     } catch {}
@@ -234,6 +239,26 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
       {/* QA Checklist */}
       <AdminQAChecklist candidateId={candidateId} candidateStatus={status} />
 
+      {/* Intake Warning */}
+      {!intake && status !== 'lead' && status !== 'pending_approval' && (
+        <Card className="mb-6 border-amber-200 bg-amber-50">
+          <CardContent className="p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-amber-100 p-2 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900">Intake Sheet Pending</p>
+                <p className="text-sm text-amber-700/80">The candidate has not submitted their professional intake form yet. Review the registration data below in the meantime.</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" className="border-amber-200 text-amber-700 hover:bg-amber-100" onClick={() => handleStatusChange('lead')}>
+              Remind Candidate
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Placed Banner */}
       {isPlaced && (
         <Card className="mb-6 border-secondary/50 bg-secondary/5">
@@ -261,26 +286,157 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
-            <CardContent className="grid gap-2 sm:grid-cols-2 text-sm">
-              <div><span className="text-muted-foreground">Name:</span> {candidate?.profile?.full_name || candidate?.full_name || "—"}</div>
-              <div><span className="text-muted-foreground">Email:</span> {candidate?.profile?.email || candidate?.email || "—"}</div>
-              <div><span className="text-muted-foreground">Phone:</span> {candidate?.profile?.phone || "—"}</div>
-              <div><span className="text-muted-foreground">Status:</span> {status.replace(/_/g, " ")}</div>
-              <div><span className="text-muted-foreground">Registered:</span> {new Date(candidate.created_at).toLocaleDateString()}</div>
-            </CardContent>
-          </Card>
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Primary Profile */}
+            <Card className="border-none shadow-sm flex flex-col">
+              <CardHeader className="bg-muted/30 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-primary" /> Registration Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Full Name</Label>
+                  <p className="font-semibold text-foreground text-base tracking-tight">{candidate?.profile?.full_name || candidate?.full_name || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Contact Details</Label>
+                  <p className="font-medium text-foreground">{candidate?.profile?.email || candidate?.email || "—"}</p>
+                  <p className="font-medium text-muted-foreground mt-0.5">{candidate?.profile?.phone || "—"}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Base Currency</Label>
+                    <p className="font-medium text-foreground">{subscription?.currency || "USD"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Date Joined</Label>
+                    <p className="font-medium text-foreground">{new Date(candidate.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Education Profile */}
+            <Card className="border-none shadow-sm flex flex-col">
+              <CardHeader className="bg-muted/30 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Award className="h-4 w-4 text-primary" /> Educational Background
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">University / College</Label>
+                  <p className="font-semibold text-foreground">{candidate?.university || "—"}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Degree</Label>
+                    <p className="font-medium text-foreground">{candidate?.degree || "—"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Major</Label>
+                    <p className="font-medium text-foreground">{candidate?.major || "—"}</p>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Graduation Details</Label>
+                  <p className="font-medium text-foreground">
+                    {candidate?.graduation_year || "—"} {candidate?.graduation_date ? `(${new Date(candidate.graduation_date).toLocaleDateString()})` : ""}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Professional Presence */}
+            <Card className="border-none shadow-sm flex flex-col">
+              <CardHeader className="bg-muted/30 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-primary" /> Presence & Socials
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Current Location</Label>
+                  <p className="font-medium text-foreground">{candidate?.current_location || "—"}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">LinkedIn</Label>
+                    {candidate?.linkedin_url ? (
+                      <a href={candidate.linkedin_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1 mt-1">
+                        View Profile <Eye className="h-3 w-3" />
+                      </a>
+                    ) : <p className="text-muted-foreground italic text-xs">No URL Provided</p>}
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">GitHub</Label>
+                    {candidate?.github_url ? (
+                      <a href={candidate.github_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1 mt-1">
+                        View Codebase <FileText className="h-3 w-3" />
+                      </a>
+                    ) : <p className="text-muted-foreground italic text-xs">No URL Provided</p>}
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Portfolio</Label>
+                    {candidate?.portfolio_url ? (
+                      <a href={candidate.portfolio_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1 mt-1">
+                        Open Portfolio <LayoutDashboard className="h-3 w-3" />
+                      </a>
+                    ) : <p className="text-muted-foreground italic text-xs">No URL Provided</p>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Visa & Eligibility */}
+            <Card className="border-none shadow-sm flex flex-col">
+              <CardHeader className="bg-muted/30 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <History className="h-4 w-4 text-primary" /> Visa & Eligibility
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Work Authorization</Label>
+                  <p className="font-semibold text-foreground text-base">{candidate?.visa_status || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">OPT / STEM End Date</Label>
+                  <p className="font-medium text-foreground">{candidate?.opt_end_date ? new Date(candidate.opt_end_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Source / Referral</Label>
+                  <p className="font-medium text-foreground">{candidate?.referral_source || "Organic Registration"}</p>
+                  {candidate?.referral_friend_name && <p className="text-xs text-muted-foreground mt-0.5 font-medium">Referred by: {candidate.referral_friend_name}</p>}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {candidate?.notes && (
+            <Card className="border-none shadow-sm overflow-hidden">
+               <CardHeader className="bg-muted/10 pb-2">
+                 <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1.5">
+                   <FileText className="h-3 w-3" /> Additional Candidate Notes
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-4 pt-1">
+                 <p className="text-sm text-foreground/80 italic leading-relaxed">"{candidate.notes}"</p>
+               </CardContent>
+            </Card>
+          )}
+
           {interviewLogs.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle>Interview Activity</CardTitle></CardHeader>
+            <Card className="bg-blue-600 shadow-lg border-none text-white">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest opacity-90"><BarChart className="h-4 w-4" /> Pipeline Performance</CardTitle></CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-6 text-sm">
-                  <div><span className="text-muted-foreground">Total:</span> <strong className="text-card-foreground">{interviewLogs.length}</strong></div>
-                  <div><span className="text-muted-foreground">Scheduled:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "scheduled").length}</strong></div>
-                  <div><span className="text-muted-foreground">Completed:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "completed").length}</strong></div>
-                  <div><span className="text-muted-foreground">Offers:</span> <strong className="text-card-foreground">{interviewLogs.filter((l: any) => l.outcome === "selected").length}</strong></div>
+                <div className="flex flex-wrap gap-8 text-sm">
+                  <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Total Interviews</span> <strong className="text-2xl">{interviewLogs.length}</strong></div>
+                  <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Scheduled</span> <strong className="text-2xl">{interviewLogs.filter((l: any) => l.outcome === "scheduled").length}</strong></div>
+                  <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Success Rate</span> <strong className="text-2xl">{Math.round((interviewLogs.filter((l: any) => l.outcome === "selected").length / interviewLogs.length) * 100)}%</strong></div>
+                  <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Offers Received</span> <strong className="text-2xl">{interviewLogs.filter((l: any) => l.outcome === "selected").length}</strong></div>
                 </div>
               </CardContent>
             </Card>
@@ -303,14 +459,83 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 )}
               </div>
             </CardHeader>
-            <CardContent>
-              {intakeData ? (
-                <div className="grid gap-3 sm:grid-cols-2 text-sm">
-                  {Object.entries(intakeData).map(([key, value]) => (
-                    <div key={key}><span className="text-muted-foreground capitalize">{key.replace(/_/g, " ")}:</span> <span className="text-card-foreground">{value || "—"}</span></div>
-                  ))}
+            <CardContent className="min-h-[300px]">
+              {intakeData && intake?.is_locked ? (
+                <div className="space-y-8">
+                  {/* Personal & Immigration */}
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Personal & Contact</h4>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div><p className="text-muted-foreground mb-1">DOB</p><p className="font-semibold">{intakeData.dob || intakeData.date_of_birth || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Marketing Contact</p><p className="font-semibold">{intakeData.marketingPhone || intakeData.marketing_contact_number || "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Current Address</p><p className="font-semibold">{intakeData.currentAddress || intakeData.current_address || "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Mailing Address</p><p className="font-semibold">{intakeData.mailingAddress || intakeData.mailing_address || "—"}</p></div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Immigration Details</h4>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div><p className="text-muted-foreground mb-1">Visa Status</p><p className="font-semibold">{intakeData.visaStatus || intakeData.visa_status || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Total Years in US</p><p className="font-semibold">{intakeData.totalYearsUS || intakeData.total_years_in_us || "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">First Entry into U.S.</p><p className="font-semibold">{intakeData.firstEntryUS || intakeData.first_entry_us || "—"}</p></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Skills & Technical */}
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Skills & Mastery</h4>
+                      <div className="space-y-3 text-xs">
+                        <div><p className="text-muted-foreground mb-1">Skilled In (Technical)</p><p className="font-medium bg-muted/50 p-2 rounded">{intakeData.skilledIn || intakeData.skilled_in || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Experienced Tools</p><p className="font-medium">{intakeData.experiencedTools || intakeData.experienced_with || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Currently Learning</p><p className="font-medium">{intakeData.currentlyLearning || intakeData.currently_learning || "—"}</p></div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Other Proficiencies</h4>
+                      <div className="space-y-3 text-xs">
+                        <div><p className="text-muted-foreground mb-1">Self-Taught Tools</p><p className="font-medium">{intakeData.selfTaughtTools || intakeData.learning_tools || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Non-Technical Skills</p><p className="font-medium">{intakeData.nonTechnicalSkills || intakeData.non_technical_skills || "—"}</p></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Education & Career */}
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Advanced Education</h4>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Highest Degree</p><p className="font-semibold">{intakeData.highestDegree || intakeData.highest_degree || "—"} in {intakeData.fieldOfStudy || intakeData.highest_field_of_study || ""}</p></div>
+                        <div><p className="text-muted-foreground mb-1">University</p><p className="font-medium">{intakeData.universityName || intakeData.highest_university || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Graduation Date</p><p className="font-medium">{intakeData.gradMonthYear || intakeData.highest_graduation_date || "—"}</p></div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Career Goals</h4>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Desired Job Role(s)</p><p className="font-semibold text-primary">{intakeData.desiredJobRoles || intakeData.desired_job_role || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Desired YOE</p><p className="font-medium">{intakeData.desiredYOE || intakeData.desired_years_experience || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">LinkedIn Profile</p><a href={intakeData.linkedinProfile || intakeData.linkedin_profile} target="_blank" rel="noreferrer" className="text-blue-600 truncate block">View Profile</a></div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
-              ) : <p className="text-muted-foreground">Intake form not submitted yet.</p>}
+              ) : (
+                <div className="text-center py-8 w-full">
+                  <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground/20 mb-4" />
+                  <p className="text-foreground font-semibold">Intake Form Not Submitted</p>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
+                    The candidate has access to their portal but has not yet finalized and submitted the intake questionnaire.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -377,25 +602,76 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
               <CardDescription>{credentials.length} version(s)</CardDescription>
             </CardHeader>
             <CardContent>
-              {credentials.length === 0 ? <p className="text-muted-foreground">No credential intake submitted yet.</p> : (
+              {credentials.length === 0 ? <p className="text-muted-foreground py-8 text-center">No credential intake submitted yet.</p> : (
                 <Accordion type="single" collapsible defaultValue={credentials[0]?.id}>
-                  {credentials.map((v: any) => (
-                    <AccordionItem key={v.id} value={v.id}>
-                      <AccordionTrigger>
+                  {credentials.map((v: any) => {
+                    const cData = v.data as Record<string, string>;
+                    return (
+                    <AccordionItem key={v.id} value={v.id} className="border-none shadow-sm mb-4 bg-muted/20 rounded-xl overflow-hidden px-4">
+                      <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-3 text-left">
-                          <span className="font-medium">v{v.version}</span>
-                          <span className="text-sm text-muted-foreground">{v.editor_name || "Unknown"} · {new Date(v.created_at).toLocaleString()}</span>
+                          <Badge variant="secondary" className="h-6">v{v.version}</Badge>
+                          <div>
+                            <span className="font-semibold block">{v.editor_name || "Candidate Submission"}</span>
+                            <span className="text-[10px] uppercase text-muted-foreground font-bold">{new Date(v.created_at).toLocaleString()}</span>
+                          </div>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="grid gap-2 text-sm sm:grid-cols-2">
-                          {Object.entries(v.data as Record<string, string>).map(([key, value]) => value ? (
-                            <div key={key}><span className="text-muted-foreground capitalize">{key.replace(/_/g, " ")}:</span> <span className="text-card-foreground">{value}</span></div>
-                          ) : null)}
+                      <AccordionContent className="pb-6">
+                        <div className="space-y-8 pt-4">
+                          {/* Top Identity Grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Personal Email</p><p className="font-medium">{cData.personal_email || cData.personalEmail || "—"}</p></div>
+                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Phone</p><p className="font-medium">{cData.phone_number || cData.phoneNumber || "—"}</p></div>
+                            <div className="col-span-2"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || "—"}</p></div>
+                          </div>
+
+                          {/* OPT & Entry */}
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-white p-4 rounded-lg shadow-sm border border-muted">
+                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
+                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{cData.first_entry_us || cData.firstEntryUS || "—"}</p></div>
+                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{cData.opt_offer_letter_submitted || cData.optOfferLetterSubmitted || "No"}</Badge></div>
+                          </div>
+
+                          {/* Job Portals - CRITICAL DATA */}
+                          <div className="space-y-3">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-destructive flex items-center gap-2">
+                               <Shield className="h-3 w-3" /> Job Portal Credentials
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {[
+                                { label: 'LinkedIn', id: 'linkedin_id', pw: 'linkedin_password' },
+                                { label: 'Indeed', id: 'indeed_id', pw: 'indeed_password' },
+                                { label: 'Dice', id: 'dice_id', pw: 'dice_password' },
+                                { label: 'Monster', id: 'monster_id', pw: 'monster_password' },
+                                { label: 'ZipRecruiter', id: 'ziprecruiter_id', pw: 'ziprecruiter_password' }
+                              ].map(portal => (
+                                <div key={portal.label} className="bg-white border rounded-lg p-3">
+                                  <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
+                                  <div className="space-y-1">
+                                    <p className="text-[11px] truncate">ID: <span className="font-medium">{cData[portal.id] || "N/A"}</span></p>
+                                    <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded">{cData[portal.pw] ? "••••••••" : "N/A"}</span></p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Preferences */}
+                          <div className="grid gap-4 md:grid-cols-2">
+                             <div className="bg-primary/5 p-3 rounded-lg">
+                               <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Roles</p>
+                               <p className="text-xs font-medium">{cData.preferred_job_roles || cData.preferredRoles || "—"}</p>
+                             </div>
+                             <div className="bg-primary/5 p-3 rounded-lg">
+                               <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Locations</p>
+                               <p className="text-xs font-medium">{cData.preferred_locations || cData.preferredLocations || "—"}</p>
+                             </div>
+                          </div>
                         </div>
                       </AccordionContent>
                     </AccordionItem>
-                  ))}
+                  )})}
                 </Accordion>
               )}
             </CardContent>
@@ -404,6 +680,47 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
 
         {/* Payments Tab */}
         <TabsContent value="payments" className="space-y-4">
+          {subscription && (
+            <Card className="border-secondary/20 bg-secondary/5">
+              <CardHeader className="py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                       <CreditCard className="h-4 w-4 text-secondary" />
+                       Plan: {subscription.plan_name || "Unknown"}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Status: <span className="capitalize font-semibold">{subscription.status?.replace(/_/g, " ")}</span> | Amount: {subscription.currency === "INR" ? "₹" : "$"}{Number(subscription.amount).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {subscription.status === 'active' && payments.filter(p => p.status === 'completed').length === 0 && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="h-8 text-[10px] uppercase font-bold"
+                        onClick={async () => {
+                           if(confirm("No completed payments found. Revert status to Pending Payment?")) {
+                             try {
+                               await billingApi.updateSubscription(candidateId, { status: 'pending_payment' });
+                               toast({ title: "Status reverted to Pending Payment" });
+                               fetchAll();
+                             } catch(err: any) { toast({ title: "Sync failed", variant: "destructive" }); }
+                           }
+                        }}
+                      >
+                        Revert to Pending
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={fetchAll} disabled={loading}>
+                      <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+          )}
+
           {!isPlaced && (
             <Card>
           <CardHeader>
