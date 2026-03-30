@@ -22,7 +22,7 @@ const ForgotPasswordDialog = ({ trigger }: ForgotPasswordDialogProps) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await authApi.forgotPassword(email);
+      await authApi.requestPasswordReset(email);
       setSent(true);
     } catch {
       toast({ title: "Error sending reset email", variant: "destructive" });
