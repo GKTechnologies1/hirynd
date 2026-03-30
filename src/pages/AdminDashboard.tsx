@@ -146,6 +146,8 @@ const AdminDashboard = () => {
   if (subPath === "jobs") return <DashboardLayout title="Jobs & Submissions" navItems={navItems}><AdminJobsPage /></DashboardLayout>;
   if (subPath === "candidates") return <DashboardLayout title="Candidate Management" navItems={navItems}><AdminCandidatesPage /></DashboardLayout>;
   if (subPath === "recruiters") return <DashboardLayout title="Recruiter Management" navItems={navItems}><AdminRecruitersPage /></DashboardLayout>;
+  if (subPath === "payments") return <DashboardLayout title="Payments & Revenue" navItems={navItems}><AdminPaymentsPage /></DashboardLayout>;
+  if (subPath === "notifications") return <DashboardLayout title="Notifications" navItems={navItems}><AdminNotificationsPage /></DashboardLayout>;
 
   const pipelineWidgets = [
     { key: "pending_approvals", label: "Pending Approvals", count: pendingApprovals, icon: <Shield className="h-4 w-4" />, link: "/admin-dashboard/approvals", color: "bg-destructive/10 text-destructive" },
