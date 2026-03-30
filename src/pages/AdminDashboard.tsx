@@ -29,6 +29,9 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 
+import AdminPaymentsPage from "@/pages/admin/AdminPaymentsPage";
+import AdminNotificationsPage from "@/pages/admin/AdminNotificationsPage";
+
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
   { label: "Approvals", path: "/admin-dashboard/approvals", icon: <Shield className="h-4 w-4" /> },
@@ -36,8 +39,11 @@ const navItems = [
   { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Users className="h-4 w-4" /> },
   { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
   { label: "Jobs", path: "/admin-dashboard/jobs", icon: <Briefcase className="h-4 w-4" /> },
+  { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
   { label: "Subscriptions", path: "/admin-dashboard/subscriptions", icon: <CreditCard className="h-4 w-4" /> },
+  { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <AlertTriangle className="h-4 w-4" /> },
   { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
+  { label: "Notifications", path: "/admin-dashboard/notifications", icon: <Bell className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
   { label: "Configuration", path: "/admin-dashboard/config", icon: <Settings className="h-4 w-4" /> },
