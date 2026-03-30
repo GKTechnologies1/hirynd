@@ -14,4 +14,5 @@ urlpatterns = [
     path('api/files/', include('files.urls')),
     path('api/chat/', include('chat.urls')),
     path('api/jobs/', include('jobs.urls')),
+    path('api/admin/', include('audit.admin_urls')),
 ] + (static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) if settings.DEBUG and getattr(settings, 'USE_LOCAL_STORAGE', True) else [])

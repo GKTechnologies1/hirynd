@@ -15,6 +15,7 @@ dist-ssr
 .env.local
 .env.*.local
 .venv
+django_backend/.venv
 
 django_backend/.env
 

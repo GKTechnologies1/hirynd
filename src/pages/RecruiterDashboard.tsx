@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, Routes, Route } from "react-router-dom";
+import { useLocation, useNavigate, useParams, Routes, Route } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { recruitersApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import RecruiterCandidateDetail from "@/pages/recruiter/RecruiterCandidateDetail";
+import DailyLogPage from "@/pages/recruiter/DailyLogPage";
+import RecruiterProfilePage from "@/pages/recruiter/RecruiterProfilePage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
@@ -219,6 +221,11 @@ const RecruiterHome = () => {
 import DailyLogPage from "@/pages/recruiter/DailyLogPage";
 import RecruiterProfilePage from "@/pages/recruiter/RecruiterProfilePage";
 
+const CandidateDetailWrapper = () => {
+  const { candidateId } = useParams<{ candidateId: string }>();
+  return <RecruiterCandidateDetail candidateId={candidateId || ""} />;
+};
+
 const RecruiterDashboard = () => {
   return (
     <DashboardLayout title="Recruiter Dashboard" navItems={navItems}>
@@ -242,3 +249,4 @@ const CandidateDetailWrapper = () => {
 };
 
 export default RecruiterDashboard;
+
