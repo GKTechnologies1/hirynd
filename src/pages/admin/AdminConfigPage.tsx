@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
+
 import { useToast } from "@/hooks/use-toast";
 import { Settings, Save, Calendar, MousePointer, Mail } from "lucide-react";
 
@@ -88,34 +89,35 @@ const AdminConfigPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><MousePointer className="h-5 w-5" /> Training Link Clicks</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex gap-6 text-sm">
+        <CardContent className="p-0">
+          <div className="p-6 pb-0 mb-4 flex gap-6 text-sm">
             <span className="text-muted-foreground">Last 7 days: <strong className="text-card-foreground">{clicksLast7.length}</strong></span>
             <span className="text-muted-foreground">Last 30 days: <strong className="text-card-foreground">{clicksLast30.length}</strong></span>
           </div>
-          {trainingClicks.length === 0 ? (
-            <p className="text-muted-foreground">No training link clicks recorded yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Candidate</TableHead>
-                  <TableHead>Training Type</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {trainingClicks.slice(0, 50).map((c: any) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.candidate_name}</TableCell>
-                    <TableCell className="capitalize">{c.training_type.replace(/_/g, " ")}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{new Date(c.created_at).toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable
+            data={trainingClicks}
+            isLoading={loading}
+            searchPlaceholder="Search candidate..."
+            searchKey="candidate_name"
+            emptyMessage="No training link clicks recorded yet."
+            columns={[
+              { 
+                header: "Candidate", 
+                accessorKey: "candidate_name",
+                className: "font-medium text-sm pl-6"
+              },
+              { 
+                header: "Training Type", 
+                render: (c: any) => <span className="text-sm capitalize">{c.training_type.replace(/_/g, " ")}</span>
+              },
+              { 
+                header: "Date", 
+                render: (c: any) => <span className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</span>
+              }
+            ]}
+          />
         </CardContent>
+
       </Card>
     </div>
   );

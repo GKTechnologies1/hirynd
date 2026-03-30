@@ -32,5 +32,6 @@ urlpatterns = [
     # Payment history
     path('<uuid:candidate_id>/payments/', views.payments, name='payments'),
     path('<uuid:candidate_id>/payments/record/', views.record_payment, name='record_payment'),
+    path('payments/<uuid:payment_id>/manage/', views.manage_payment, name='manage_payment'),
     path('<uuid:candidate_id>/invoices/', views.invoices, name='invoices'),
 ]

@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { useToast } from "@/hooks/use-toast";
+
 import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Send } from "lucide-react";
 
 const navItems = [
@@ -98,34 +99,41 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
         {/* Referral History */}
         <Card>
           <CardHeader><CardTitle>My Referrals</CardTitle></CardHeader>
-          <CardContent>
-            {loading ? <p className="text-muted-foreground">Loading...</p> :
-              referrals.length === 0 ? <p className="text-muted-foreground">No referrals yet.</p> : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {referrals.map((r: any) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.friend_name}</TableCell>
-                        <TableCell>{r.friend_email}</TableCell>
-                        <TableCell>{r.friend_phone || "—"}</TableCell>
-                        <TableCell><StatusBadge status={r.status} /></TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+          <CardContent className="p-0">
+            <DataTable
+              data={referrals}
+              isLoading={loading}
+              searchPlaceholder="Search friend name..."
+              searchKey="friend_name"
+              emptyMessage="No referrals yet."
+              columns={[
+                { 
+                  header: "Name", 
+                  accessorKey: "friend_name",
+                  className: "font-medium text-sm pl-6"
+                },
+                { 
+                  header: "Email", 
+                  accessorKey: "friend_email",
+                  className: "text-sm"
+                },
+                { 
+                  header: "Phone", 
+                  render: (r: any) => <span className="text-sm">{r.friend_phone || "—"}</span>
+                },
+                { 
+                  header: "Status", 
+                  render: (r: any) => <StatusBadge status={r.status} />
+                },
+                { 
+                  header: "Date", 
+                  render: (r: any) => <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+                }
+              ]}
+            />
           </CardContent>
         </Card>
+
       </div>
     </DashboardLayout>
   );

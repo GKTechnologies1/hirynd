@@ -14,13 +14,16 @@ import AdminBillingRunPage from "@/pages/admin/AdminBillingRunPage";
 import AdminSubscriptionPlansPage from "@/pages/admin/AdminSubscriptionPlansPage";
 import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminJobsPage from "@/pages/admin/AdminJobsPage";
+import AdminCandidatesPage from "@/pages/admin/AdminCandidatesPage";
+import AdminRecruitersPage from "@/pages/admin/AdminRecruitersPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+
 import {
   BarChart as ReBarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -41,8 +44,8 @@ const navItems = [
 ];
 
 const STATUSES = [
-  "lead", "approved", "intake_submitted", "roles_suggested", "roles_confirmed",
-  "paid", "credential_completed", "active_marketing", "paused", "cancelled", "placed"
+  "pending_approval", "lead", "approved", "intake_submitted", "roles_published", "roles_confirmed",
+  "payment_completed", "credentials_submitted", "active_marketing", "paused", "cancelled", "placed_closed"
 ];
 
 const AdminDashboard = () => {
@@ -135,17 +138,20 @@ const AdminDashboard = () => {
   if (subPath === "subscriptions") return <DashboardLayout title="Subscription Plans" navItems={navItems}><AdminSubscriptionPlansPage /></DashboardLayout>;
   if (subPath === "users") return <DashboardLayout title="All Users" navItems={navItems}><AdminUsersPage /></DashboardLayout>;
   if (subPath === "jobs") return <DashboardLayout title="Jobs & Submissions" navItems={navItems}><AdminJobsPage /></DashboardLayout>;
+  if (subPath === "candidates") return <DashboardLayout title="Candidate Management" navItems={navItems}><AdminCandidatesPage /></DashboardLayout>;
+  if (subPath === "recruiters") return <DashboardLayout title="Recruiter Management" navItems={navItems}><AdminRecruitersPage /></DashboardLayout>;
 
   const pipelineWidgets = [
     { key: "pending_approvals", label: "Pending Approvals", count: pendingApprovals, icon: <Shield className="h-4 w-4" />, link: "/admin-dashboard/approvals", color: "bg-destructive/10 text-destructive" },
     { key: "lead", label: "New Leads", count: pipelineCounts["lead"] || 0, icon: <Activity className="h-4 w-4" />, filter: "lead", color: "bg-muted" },
     { key: "approved", label: "Approved", count: pipelineCounts["approved"] || 0, icon: <CheckCircle className="h-4 w-4" />, filter: "approved", color: "bg-secondary/10" },
     { key: "intake_submitted", label: "Intake → Awaiting Roles", count: pipelineCounts["intake_submitted"] || 0, icon: <FileText className="h-4 w-4" />, filter: "intake_submitted", color: "bg-accent/10" },
+    { key: "roles_published", label: "Roles → Awaiting Confirmation", count: pipelineCounts["roles_published"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "roles_published", color: "bg-accent/15" },
     { key: "roles_confirmed", label: "Roles → Awaiting Payment", count: pipelineCounts["roles_confirmed"] || 0, icon: <ClipboardList className="h-4 w-4" />, filter: "roles_confirmed", color: "bg-accent/20" },
-    { key: "paid", label: "Paid", count: pipelineCounts["paid"] || 0, icon: <DollarSign className="h-4 w-4" />, filter: "paid", color: "bg-secondary/20" },
-    { key: "credential_completed", label: "Credentials Ready", count: pipelineCounts["credential_completed"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "credential_completed", color: "bg-secondary/30" },
+    { key: "payment_completed", label: "Payment Completed", count: pipelineCounts["payment_completed"] || 0, icon: <DollarSign className="h-4 w-4" />, filter: "payment_completed", color: "bg-secondary/20" },
+    { key: "credentials_submitted", label: "Credentials Ready", count: pipelineCounts["credentials_submitted"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "credentials_submitted", color: "bg-secondary/30" },
     { key: "active_marketing", label: "Active Marketing", count: pipelineCounts["active_marketing"] || 0, icon: <Activity className="h-4 w-4" />, filter: "active_marketing", color: "bg-secondary/40" },
-    { key: "placed", label: "Placed", count: pipelineCounts["placed"] || 0, icon: <Users className="h-4 w-4" />, filter: "placed", color: "bg-secondary text-secondary-foreground" },
+    { key: "placed_closed", label: "Placed", count: pipelineCounts["placed_closed"] || 0, icon: <Users className="h-4 w-4" />, filter: "placed_closed", color: "bg-secondary text-secondary-foreground" },
     { key: "billing_alerts", label: "Billing Alerts", count: billingAlerts, icon: <AlertTriangle className="h-4 w-4" />, link: "/admin-dashboard/billing-run", color: billingAlerts > 0 ? "bg-destructive/10 text-destructive" : "bg-muted" },
     { key: "paused", label: "Paused", count: pipelineCounts["paused"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "paused", color: "bg-accent/30" },
     { key: "training_clicks", label: "Training Clicks (7d / 30d)", count: trainingClicks7d, icon: <MousePointer className="h-4 w-4" />, link: "/admin-dashboard/config", color: "bg-muted", subtitle: `${trainingClicks7d} / ${trainingClicks30d}` },
@@ -251,8 +257,8 @@ const AdminDashboard = () => {
                   <ReBarChart data={revenueData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Revenue"]} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: any) => [`$${Number(v).toLocaleString("en-US")}`, "Revenue"]} />
                     <Bar dataKey="revenue" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} name="Revenue" />
                   </ReBarChart>
                 </ResponsiveContainer>
@@ -299,45 +305,45 @@ const AdminDashboard = () => {
           <CardTitle className="text-sm font-semibold">{activeFilter ? `Candidates — ${activeFilter.replace(/_/g, " ")}` : "All Candidates"}</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? <p className="text-muted-foreground text-sm">Loading...</p> : (
-            <div className="rounded-xl border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="text-xs font-semibold">Name</TableHead>
-                    <TableHead className="text-xs font-semibold">Email</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Change Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCandidates.map((c: any) => (
-                    <TableRow key={c.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell className="font-medium text-sm">{c.full_name || "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{c.email || "—"}</TableCell>
-                      <TableCell><StatusBadge status={c.status} /></TableCell>
-                      <TableCell>
-                        <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
-                          <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
-                          <Eye className="mr-1 h-3.5 w-3.5" /> View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <DataTable
+            data={filteredCandidates}
+            isLoading={loading}
+            searchKey="full_name"
+            searchPlaceholder="Search candidates by name..."
+            columns={[
+              { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold" },
+              { header: "Email", accessorKey: "email", className: "text-xs font-semibold" },
+              { 
+                header: "Status", 
+                render: (c: any) => <StatusBadge status={c.status} />,
+                className: "text-xs font-semibold"
+              },
+              { 
+                header: "Change Status", 
+                render: (c: any) => (
+                  <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
+                    <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ),
+                className: "text-xs font-semibold"
+              },
+              { 
+                header: "Actions", 
+                render: (c: any) => (
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
+                    <Eye className="mr-1 h-3.5 w-3.5" /> View
+                  </Button>
+                ),
+                className: "text-xs font-semibold"
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
     </DashboardLayout>
   );
 };

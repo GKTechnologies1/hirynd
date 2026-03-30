@@ -1,85 +1,176 @@
+import React from "react";
 import { Link } from "react-router-dom";
-import { Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Mail, Phone, Instagram, Linkedin } from "lucide-react";
 
 const Footer = () => {
   return (
-    <footer className="border-t border-border bg-primary text-primary-foreground">
-      <div className="container py-12">
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-          {/* Brand */}
-          <div>
-            <h3 className="mb-4 text-lg font-bold">HYRIND</h3>
-            <p className="text-sm text-primary-foreground/70">
-              Recruiter-led career support. We market your profile so you can focus on your growth.
-            </p>
-            <div className="mt-4 flex gap-3">
-              <a href="https://instagram.com/hyrind" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-primary-foreground/10 p-2 transition-colors hover:bg-primary-foreground/20">
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a href="https://linkedin.com/company/hyrind" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-primary-foreground/10 p-2 transition-colors hover:bg-primary-foreground/20">
-                <Linkedin className="h-4 w-4" />
-              </a>
-              <a href="https://wa.me" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-primary-foreground/10 p-2 transition-colors hover:bg-primary-foreground/20">
-                <MessageCircle className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
+    <>
+      <style>
+        {`
+          .footer-custom {
+            background-color: #0d47a1;
+            color: white;
+            padding: 80px 30px 40px;
+            font-family: Arial, sans-serif;
+          }
+
+          .footer-container-custom {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 50px;
+            margin-bottom: 50px;
+          }
+
+          .footer-title-custom {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 25px;
+            color: white;
+          }
+
+          .footer-link-custom {
+            margin-bottom: 15px;
+            font-size: 15px;
+          }
+
+          .footer-link-custom a {
+            color: #e0e8ff !important;
+            text-decoration: none;
+            transition: 0.3s;
+          }
+
+          .footer-link-custom a:hover {
+            color: #ffeb3b !important;
+            padding-left: 5px;
+          }
+
+          .qr-box-custom {
+            width: 150px;
+            height: 150px;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+          }
+
+          .contact-item-custom {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+            font-size: 15px;
+            color: #e0e8ff;
+          }
+
+          .contact-item-custom a {
+            color: inherit;
+            text-decoration: none;
+          }
+
+          .social-icons-custom {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+          }
+
+          .social-icon-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s;
+            color: white;
+          }
+
+          .social-icon-btn:hover {
+            background: #ffeb3b;
+            color: #0d47a1;
+            transform: translateY(-5px);
+          }
+
+          .footer-bottom-custom {
+            text-align: center;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 30px;
+            font-size: 14px;
+            color: #dce6ff;
+            max-width: 1200px;
+            margin: 0 auto;
+          }
+        `}
+      </style>
+
+      <footer className="footer-custom">
+        <div className="footer-container-custom">
 
           {/* Quick Links */}
           <div>
-            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary-foreground/60">Quick Links</h4>
-            <ul className="space-y-2 text-sm">
-              {[
-                { label: "Home", path: "/" },
-                { label: "About Us", path: "/about" },
-                { label: "Services", path: "/services/profile-marketing" },
-                { label: "How It Works", path: "/how-it-works" },
-                { label: "Reviews", path: "/reviews" },
-                { label: "Contact Us", path: "/contact" },
-              ].map((link) => (
-                <li key={link.path}>
-                  <Link to={link.path} className="text-primary-foreground/70 transition-colors hover:text-primary-foreground">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <h3 className="footer-title-custom">Quick Links</h3>
+            <div className="footer-link-custom"><Link to="/">Home</Link></div>
+            <div className="footer-link-custom"><Link to="/about">About Us</Link></div>
+            <div className="footer-link-custom"><Link to="/services">Services</Link></div>
+            <div className="footer-link-custom"><Link to="/how-it-works">How it works</Link></div>
+            <div className="footer-link-custom"><Link to="/reviews">Reviews</Link></div>
+            <div className="footer-link-custom"><Link to="/contact">Contact us</Link></div>
           </div>
 
-          {/* Solutions */}
+          {/* Our Solutions */}
           <div>
-            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary-foreground/60">Solutions</h4>
-            <ul className="space-y-2 text-sm text-primary-foreground/70">
-              <li>End-to-End Job Process Support</li>
-              <li>Resume Optimization & Applications</li>
-              <li>Candidate Management & Tracking</li>
-              <li>Secure Data Handling</li>
-            </ul>
+            <h3 className="footer-title-custom">Our Solutions</h3>
+            <p className="footer-link-custom" style={{color: '#e0e8ff'}}>End-to-End Job Search Support</p>
+            <p className="footer-link-custom" style={{color: '#e0e8ff'}}>Recruiter-Led Profile Marketing</p>
+            <p className="footer-link-custom" style={{color: '#e0e8ff'}}>Resume Optimization</p>
+            <p className="footer-link-custom" style={{color: '#e0e8ff'}}>Interview & Screening Prep</p>
+            <p className="footer-link-custom" style={{color: '#e0e8ff'}}>Secure Data Handling</p>
           </div>
 
-          {/* Scan & Connect */}
+          {/* QR Code */}
           <div>
-            <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary-foreground/60">Scan & Connect</h4>
-            <p className="mb-3 text-sm text-primary-foreground/70">
-              Connect with us on social media for updates, tips, and career resources.
-            </p>
-            <Link to="/scan-connect" className="text-sm font-medium text-secondary underline-offset-4 hover:underline">
-              Visit our social hub →
-            </Link>
+            <h3 className="footer-title-custom">Scan & Connect</h3>
+            <div className="qr-box-custom">
+                <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(window.location.origin + "/scan-connect")}`}
+                    alt="QR Code"
+                    className="w-full h-full object-contain"
+                />
+            </div>
+            <p style={{ marginTop: "15px", fontSize: "14px", color: '#e0e8ff' }}>Stay updated with job tips!</p>
+          </div>
+
+          {/* Contact Section */}
+          <div>
+            <h3 className="footer-title-custom">Contact</h3>
+            <div className="contact-item-custom">
+              <Mail size={18} /> <a href="mailto:support@hyrind.com">support@hyrind.com</a>
+            </div>
+            <div className="contact-item-custom">
+              <Phone size={18} /> <a href="tel:3143540634">314-354-0634</a>
+            </div>
+
+            <h3 className="footer-title-custom" style={{ marginTop: "30px" }}>Social Media</h3>
+            <div className="social-icons-custom">
+              <a href="https://www.instagram.com/hyrind_usa/" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
+                <Instagram size={20} />
+              </a>
+              <a href="https://www.linkedin.com/company/hyrind/" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
+                <Linkedin size={20} />
+              </a>
+            </div>
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-primary-foreground/10 pt-6 md:flex-row">
-          <p className="text-xs text-primary-foreground/50">
-            © {new Date().getFullYear()} HYRIND. All rights reserved.
-          </p>
-          <div className="flex gap-4 text-xs text-primary-foreground/50">
-            <Link to="/privacy-policy" className="hover:text-primary-foreground/70">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-primary-foreground/70">Terms & Conditions</Link>
-          </div>
+        <div className="footer-bottom-custom">
+          © {new Date().getFullYear()} HYRIND. All Rights Reserved |
+          <Link to="/privacy-policy" style={{ color: "#dce6ff", margin: "0 10px" }}>Privacy Policy</Link> |
+          <Link to="/terms" style={{ color: "#dce6ff", margin: "0 10px" }}>Terms & Conditions</Link>
         </div>
-      </div>
-    </footer>
+      </footer>
+    </>
   );
 };
 

@@ -11,11 +11,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -208,71 +207,79 @@ const AdminUsersPage = () => {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Active</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No users found</TableCell></TableRow>
-              ) : filtered.map(u => (
-                <TableRow key={u.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium text-foreground">{u.full_name || "(name not set)"}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Mail className="h-3 w-3" />{u.email}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${ROLE_COLORS[u.role] || "bg-gray-100"}`}>
-                      {u.role?.replace(/_/g, " ")}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${APPROVAL_COLORS[u.approval_status] || "bg-gray-100"}`}>
-                      {u.approval_status}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`text-xs ${u.is_active !== false ? "text-green-600" : "text-red-500"}`}>
-                      {u.is_active !== false ? "Active" : "Inactive"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+          <DataTable
+            data={filtered}
+            isLoading={loading}
+            searchPlaceholder="Search by name..."
+            searchKey="full_name" // Internal search will work on filtered list
+            columns={[
+              { 
+                header: "User", 
+                render: (u: any) => (
+                  <div>
+                    <p className="font-medium text-foreground">{u.full_name || "(name not set)"}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Mail className="h-3 w-3" />{u.email}
+                    </p>
+                  </div>
+                )
+              },
+              { 
+                header: "Role", 
+                render: (u: any) => (
+                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${ROLE_COLORS[u.role] || "bg-gray-100"}`}>
+                    {u.role?.replace(/_/g, " ")}
+                  </span>
+                )
+              },
+              { 
+                header: "Status", 
+                render: (u: any) => (
+                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${APPROVAL_COLORS[u.approval_status] || "bg-gray-100"}`}>
+                    {u.approval_status}
+                  </span>
+                )
+              },
+              { 
+                header: "Active", 
+                render: (u: any) => (
+                  <span className={`text-xs ${u.is_active !== false ? "text-green-600" : "text-red-500"}`}>
+                    {u.is_active !== false ? "Active" : "Inactive"}
+                  </span>
+                )
+              },
+              { 
+                header: "Joined", 
+                render: (u: any) => (
+                  <span className="text-xs text-muted-foreground">
                     {u.date_joined ? new Date(u.date_joined).toLocaleDateString() : u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      {u.approval_status === "pending" && (
-                        <Button size="icon" variant="ghost" className="text-green-600" title="Quick Approve" onClick={() => quickApprove(u)}>
-                          <ShieldCheck className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(u)}>
-                        <Pencil className="h-4 w-4" />
+                  </span>
+                )
+              },
+              { 
+                header: "Actions", 
+                className: "text-right",
+                render: (u: any) => (
+                  <div className="flex justify-end gap-1">
+                    {u.approval_status === "pending" && (
+                      <Button size="icon" variant="ghost" className="text-green-600" title="Quick Approve" onClick={() => quickApprove(u)}>
+                        <ShieldCheck className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeleteTarget(u)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    )}
+                    <Button size="icon" variant="ghost" onClick={() => openEdit(u)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeleteTarget(u)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
 
       {/* Edit User Dialog */}
       <Dialog open={!!editUser} onOpenChange={open => { if (!open) setEditUser(null); }}>

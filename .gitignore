@@ -25,4 +25,8 @@ dist-ssr
 
 *.pyc
 __pycache__/
-
+venv
+media
+migrations
+*.sqlite3
+db.sqlite3

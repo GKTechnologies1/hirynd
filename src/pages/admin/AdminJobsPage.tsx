@@ -12,11 +12,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -287,57 +286,57 @@ const AdminJobsPage = () => {
 
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40">
-                    <TableHead className="text-xs font-semibold">Title</TableHead>
-                    <TableHead className="text-xs font-semibold">Company</TableHead>
-                    <TableHead className="text-xs font-semibold">Type</TableHead>
-                    <TableHead className="text-xs font-semibold">Location</TableHead>
-                    <TableHead className="text-xs font-semibold">Submissions</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Loading...</TableCell></TableRow>
-                  ) : filteredJobs.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No jobs found</TableCell></TableRow>
-                  ) : filteredJobs.map(job => (
-                    <TableRow key={job.id} className="hover:bg-muted/20">
-                      <TableCell className="font-medium text-sm">{job.title}</TableCell>
-                      <TableCell className="text-sm">
-                        <div className="flex items-center gap-1.5">
-                          <Building className="h-3.5 w-3.5 text-muted-foreground" />{job.company}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{job.employment_type?.replace(/_/g, " ").toUpperCase()}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {job.remote ? "Remote" : job.location || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">{job.submissions_count ?? 0}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status] ?? ""}`}>
-                          {job.status.replace(/_/g, " ")}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1.5">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditJob(job)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteJob(job)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                data={filteredJobs}
+                isLoading={loading}
+                searchPlaceholder="Search title or company..."
+                searchKey="title"
+                emptyMessage="No jobs found"
+                columns={[
+                  { header: "Title", accessorKey: "title", className: "font-medium text-sm" },
+                  { 
+                    header: "Company", 
+                    render: (job: any) => (
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Building className="h-3.5 w-3.5 text-muted-foreground" />{job.company}
+                      </div>
+                    )
+                  },
+                  { 
+                    header: "Type", 
+                    render: (job: any) => <span className="text-xs text-muted-foreground">{job.employment_type?.replace(/_/g, " ").toUpperCase()}</span>
+                  },
+                  { 
+                    header: "Location", 
+                    render: (job: any) => <span className="text-xs text-muted-foreground">{job.remote ? "Remote" : job.location || "—"}</span>
+                  },
+                  { 
+                    header: "Submissions", 
+                    render: (job: any) => <Badge variant="secondary" className="text-xs">{job.submissions_count ?? 0}</Badge>
+                  },
+                  { 
+                    header: "Status", 
+                    render: (job: any) => (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status] ?? ""}`}>
+                        {job.status.replace(/_/g, " ")}
+                      </span>
+                    )
+                  },
+                  { 
+                    header: "Actions", 
+                    render: (job: any) => (
+                      <div className="flex gap-1.5">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditJob(job)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteJob(job)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )
+                  }
+                ]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -365,57 +364,56 @@ const AdminJobsPage = () => {
 
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40">
-                    <TableHead className="text-xs font-semibold">Candidate</TableHead>
-                    <TableHead className="text-xs font-semibold">Job</TableHead>
-                    <TableHead className="text-xs font-semibold">Company</TableHead>
-                    <TableHead className="text-xs font-semibold">Submitted By</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Date</TableHead>
-                    <TableHead className="text-xs font-semibold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Loading...</TableCell></TableRow>
-                  ) : filteredSubs.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No submissions found</TableCell></TableRow>
-                  ) : filteredSubs.map(sub => (
-                    <TableRow key={sub.id} className="hover:bg-muted/20">
-                      <TableCell>
+              <DataTable
+                data={filteredSubs}
+                isLoading={loading}
+                searchPlaceholder="Search candidate..."
+                searchKey="candidate_name"
+                emptyMessage="No submissions found"
+                columns={[
+                  { 
+                    header: "Candidate", 
+                    render: (sub: any) => (
+                      <div>
                         <p className="font-medium text-sm">{sub.candidate_name || "—"}</p>
                         <p className="text-xs text-muted-foreground">{sub.candidate_email}</p>
-                      </TableCell>
-                      <TableCell className="font-medium text-sm">{sub.job_title}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{sub.job_company}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{sub.submitted_by_name || "—"}</TableCell>
-                      <TableCell>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SUB_STATUS_COLORS[sub.status] ?? ""}`}>
-                          {sub.status.replace(/_/g, " ")}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {sub.created_at ? new Date(sub.created_at).toLocaleDateString() : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1.5">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSub(sub)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteSub(sub)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    )
+                  },
+                  { header: "Job", accessorKey: "job_title", className: "font-medium text-sm" },
+                  { header: "Company", accessorKey: "job_company", className: "text-sm text-muted-foreground" },
+                  { header: "Submitted By", accessorKey: "submitted_by_name", className: "text-xs text-muted-foreground" },
+                  { 
+                    header: "Status", 
+                    render: (sub: any) => (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SUB_STATUS_COLORS[sub.status] ?? ""}`}>
+                        {sub.status.replace(/_/g, " ")}
+                      </span>
+                    )
+                  },
+                  { 
+                    header: "Date", 
+                    render: (sub: any) => <span className="text-xs text-muted-foreground">{sub.created_at ? new Date(sub.created_at).toLocaleDateString() : "—"}</span>
+                  },
+                  { 
+                    header: "Actions", 
+                    render: (sub: any) => (
+                      <div className="flex gap-1.5">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSub(sub)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteSub(sub)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )
+                  }
+                ]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
+
       </Tabs>
 
       {/* ── Create/Edit Job Dialog ── */}

@@ -8,6 +8,7 @@ from users.serializers import ProfileSerializer
 
 
 class CandidateSerializer(serializers.ModelSerializer):
+    subscription_status = serializers.SerializerMethodField()
     profile = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
@@ -15,7 +16,12 @@ class CandidateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Candidate
         fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'subscription_status']
+
+    def get_subscription_status(self, obj):
+        if hasattr(obj, 'subscription'):
+            return obj.subscription.status
+        return None
 
     def get_profile(self, obj):
         if hasattr(obj.user, 'profile'):

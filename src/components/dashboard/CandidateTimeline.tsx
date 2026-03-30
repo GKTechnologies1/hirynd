@@ -5,12 +5,12 @@ const PIPELINE_STEPS = [
   { key: "pending_approval",    label: "Registration Submitted" },
   { key: "approved",            label: "Profile Approved" },
   { key: "intake_submitted",    label: "Intake Submitted" },
-  { key: "roles_suggested",     label: "Roles Reviewed" },
-  { key: "roles_confirmed",     label: "Roles Confirmed" },
-  { key: "paid",                label: "Payment Completed" },
-  { key: "credential_completed", label: "Credentials Submitted" },
-  { key: "active_marketing",    label: "Active Marketing" },
-  { key: "placed",              label: "Placement Closed" },
+  { label: "Roles Reviewed",     key: "roles_published", alias: "roles_suggested" },
+  { label: "Roles Confirmed",    key: "roles_confirmed" },
+  { label: "Payment Completed",  key: "payment_completed", alias: "paid" },
+  { label: "Credentials Submitted", key: "credentials_submitted", alias: "credential_completed" },
+  { label: "Active Marketing",    key: "active_marketing" },
+  { label: "Placement Closed",     key: "placed_closed", alias: "placed" },
 ];
 
 interface CandidateTimelineProps {
@@ -18,7 +18,7 @@ interface CandidateTimelineProps {
 }
 
 const CandidateTimeline = ({ currentStatus }: CandidateTimelineProps) => {
-  const currentIndex = PIPELINE_STEPS.findIndex((s) => s.key === currentStatus);
+  const currentIndex = PIPELINE_STEPS.findIndex((s) => s.key === currentStatus || (s as any).alias === currentStatus);
   const isPausedOrSpecial = ["paused", "cancelled", "on_hold", "past_due"].includes(currentStatus);
 
   return (

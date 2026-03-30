@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
-  DollarSign, FileText, CheckCircle, XCircle, Clock, IndianRupee,
-  Package, CreditCard, ShieldCheck, AlertTriangle, Loader2,
+  DollarSign, FileText, CheckCircle, XCircle, Clock,
+  Package, CreditCard, ShieldCheck, AlertTriangle, Loader2, RefreshCw,
+  LayoutDashboard, Briefcase, KeyRound, ClipboardList, Phone, UserPlus, MessageSquare, Settings
 } from "lucide-react";
 
 declare global {
@@ -17,11 +18,17 @@ declare global {
 }
 
 const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <span className="h-4 w-4">📋</span> },
-  { label: "Intake Form", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <span className="h-4 w-4">💼</span> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <span className="h-4 w-4">🔑</span> },
+  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
+  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
+  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
   { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
+  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
+  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
+  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
+  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
+  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
+  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
 ];
 
 interface Props {
@@ -76,23 +83,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
     try {
       const { data: orderData } = await billingApi.createOrder(candidate.id);
 
-      // Mock mode (dev with placeholder keys)
-      if (orderData.mode === "mock") {
-        toast({ title: "Mock payment initiated (dev mode)" });
-        const { data: result } = await billingApi.verifyPayment(candidate.id, {
-          razorpay_order_id: orderData.order_id,
-          razorpay_payment_id: "pay_mock_123",
-          razorpay_signature: "mock_sig",
-          mode: "mock",
-        });
-        toast({ title: "Mock payment verified!", description: `Status: ${result.candidate_status}` });
-        fetchData();
-        onStatusChange?.();
-        setPaying(false);
-        return;
-      }
-
-      // Real Razorpay checkout
+      // Real Razorpay checkout flow
       const options = {
         key: orderData.key_id,
         amount: orderData.amount,
@@ -164,10 +155,15 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
             <CardHeader>
               <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-primary" />
-                    {subscription.plan_name || "Subscription Plan"}
+                <div className="flex-1">
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                       <CreditCard className="h-5 w-5 text-primary" />
+                       {subscription.plan_name || "Subscription Plan"}
+                    </span>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={fetchData} disabled={loading}>
+                      <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                    </Button>
                   </CardTitle>
                   <CardDescription className="mt-1">
                     {subscription.billing_cycle?.replace(/_/g, " ")} billing
@@ -177,7 +173,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                   className={
                     subscription.status === "active"
                       ? "bg-green-100 text-green-800"
-                      : subscription.status === "pending_payment"
+                      : (subscription.status === "pending_payment" || subscription.status === "pending" || subscription.status === "unpaid" || subscription.status === "past_due")
                       ? "bg-yellow-100 text-yellow-800"
                       : "bg-gray-100 text-gray-700"
                   }
@@ -192,7 +188,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Base Plan</span>
                   <span className="flex items-center gap-1">
-                    <IndianRupee className="h-3 w-3" />{Number(subscription.amount).toLocaleString()}
+                    {subscription.currency === 'INR' ? "₹" : "$"}{Number(subscription.amount).toLocaleString()}
                   </span>
                 </div>
                 {subscription.addon_assignments?.map((a: any) => (
@@ -201,20 +197,18 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                       <Package className="h-3 w-3" />{a.addon_detail?.name}
                     </span>
                     <span className="flex items-center gap-1">
-                      <IndianRupee className="h-3 w-3" />{Number(a.addon_detail?.amount).toLocaleString()}
+                      {subscription.currency === 'INR' ? "₹" : "$"}{Number(a.addon_detail?.amount).toLocaleString()}
                     </span>
                   </div>
                 ))}
                 <div className="border-t pt-2 flex justify-between font-semibold">
                   <span>Total</span>
-                  <span className="text-lg flex items-center gap-1">
-                    <IndianRupee className="h-4 w-4" />{totalAmount.toLocaleString()}
-                  </span>
+                    {subscription.currency === 'INR' ? "₹" : "$"}{totalAmount.toLocaleString()}
                 </div>
               </div>
 
               {/* CTA */}
-              {subscription.status === "pending_payment" ? (
+              {(subscription.status === "pending_payment" || subscription.status === "pending" || subscription.status === "unpaid" || subscription.status === "past_due") ? (
                 <Button
                   className="w-full"
                   size="lg"
@@ -225,7 +219,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                   {paying ? (
                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Processing...</>
                   ) : (
-                    <><IndianRupee className="mr-2 h-5 w-5" />Pay ₹{totalAmount.toLocaleString()} Now</>
+                    <>{subscription.currency === 'INR' ? "₹" : "$"}{totalAmount.toLocaleString()} Pay Now</>
                   )}
                 </Button>
               ) : subscription.status === "active" ? (
@@ -247,8 +241,13 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
         {payments.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <DollarSign className="h-4 w-4" />Payment History
+              <CardTitle className="flex items-center justify-between text-base">
+                <span className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />Payment History
+                </span>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={fetchData} disabled={loading}>
+                   <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -258,9 +257,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                     <div className="mt-0.5">{statusIcon(p.status)}</div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="font-semibold text-card-foreground flex items-center gap-0.5">
-                          <IndianRupee className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()} {p.currency}
-                        </p>
+                          {p.currency === 'INR' ? "₹" : "$"}{Number(p.amount).toLocaleString()} {p.currency}
                         <span className="text-xs capitalize text-muted-foreground">{p.status}</span>
                       </div>
                       <p className="text-sm text-muted-foreground capitalize">{p.payment_type?.replace(/_/g, " ")}</p>

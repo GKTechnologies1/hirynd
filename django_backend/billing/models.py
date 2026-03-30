@@ -20,7 +20,7 @@ class SubscriptionPlan(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, null=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    currency = models.CharField(max_length=10, default='INR')
+    currency = models.CharField(max_length=10, default='USD')
     billing_cycle = models.CharField(max_length=20, choices=BILLING_CYCLE_CHOICES, default='monthly')
     is_active = models.BooleanField(default=True)
     is_base = models.BooleanField(default=True, help_text='Base plan vs addon plan')
@@ -42,7 +42,7 @@ class SubscriptionAddon(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    currency = models.CharField(max_length=10, default='INR')
+    currency = models.CharField(max_length=10, default='USD')
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name='created_addons')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -76,7 +76,7 @@ class Subscription(models.Model):
     # keep flat fields for quick reads / backward compat
     plan_name = models.CharField(max_length=100, default='standard')
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    currency = models.CharField(max_length=10, default='INR')
+    currency = models.CharField(max_length=10, default='USD')
     billing_cycle = models.CharField(max_length=20, default='monthly')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending_payment')
     start_date = models.DateField(blank=True, null=True)
@@ -115,6 +115,9 @@ class SubscriptionAddonAssignment(models.Model):
 # ────────────────────────────────────────────────────────────────
 #  Razorpay Order   (tracks each checkout attempt)
 # ────────────────────────────────────────────────────────────────
+from django.core.serializers.json import DjangoJSONEncoder
+
+
 class RazorpayOrder(models.Model):
     STATUS_CHOICES = [
         ('created', 'Created'),
@@ -129,11 +132,11 @@ class RazorpayOrder(models.Model):
     razorpay_order_id = models.CharField(max_length=100, unique=True)
     razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
     razorpay_signature = models.CharField(max_length=255, blank=True, null=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)          # in INR (not paise)
-    currency = models.CharField(max_length=10, default='INR')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)          # in USD (not cents)
+    currency = models.CharField(max_length=10, default='USD')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='created')
     payment_type = models.CharField(max_length=50, default='subscription')  # subscription / addon
-    notes = models.JSONField(default=dict, blank=True)
+    notes = models.JSONField(default=dict, encoder=DjangoJSONEncoder, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     verified_at = models.DateTimeField(null=True, blank=True)
 
@@ -157,7 +160,7 @@ class Payment(models.Model):
     subscription = models.ForeignKey(Subscription, null=True, blank=True, on_delete=models.SET_NULL, related_name='payments')
     razorpay_order = models.OneToOneField(RazorpayOrder, null=True, blank=True, on_delete=models.SET_NULL, related_name='payment')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    currency = models.CharField(max_length=10, default='INR')
+    currency = models.CharField(max_length=10, default='USD')
     payment_type = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES, default='subscription')
     status = models.CharField(max_length=20, default='completed')   # completed / refunded / failed
     payment_date = models.DateField(blank=True, null=True)
@@ -178,7 +181,7 @@ class Invoice(models.Model):
     subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='invoices')
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='invoices')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    currency = models.CharField(max_length=10, default='INR')
+    currency = models.CharField(max_length=10, default='USD')
     period_start = models.DateField()
     period_end = models.DateField()
     status = models.CharField(max_length=20, default='pending')

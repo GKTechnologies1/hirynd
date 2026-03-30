@@ -153,7 +153,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # Razorpay Payment Gateway
 # Use test keys from https://dashboard.razorpay.com — key_id starts with rzp_test_
 # For production, replace with rzp_live_ keys
-RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_test_xxxxxxxxxxxxx')
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_test_mock_xxxxxxxxxxx')
 RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'xxxxxxxxxxxxxxxxxxxxxxxx')
 
 

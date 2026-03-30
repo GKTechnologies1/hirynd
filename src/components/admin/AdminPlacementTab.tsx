@@ -35,9 +35,13 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
 
   useEffect(() => {
     candidatesApi.getPlacement(candidateId)
-      .then(({ data }) => { setPlacement(data); setLoading(false); })
+      .then(({ data }) => { 
+        setPlacement(data && Object.keys(data).length > 0 ? data : null); 
+        setLoading(false); 
+      })
       .catch(() => setLoading(false));
   }, [candidateId]);
+
 
   const handleSubmit = async () => {
     if (!form.company_name.trim() || !form.role_title.trim() || !form.start_date || !form.salary.trim() || !form.hr_email.trim()) {

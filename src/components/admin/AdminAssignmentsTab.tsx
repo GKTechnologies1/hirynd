@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { recruitersApi, candidatesApi, authApi } from "@/services/api";
+import { DataTable } from "@/components/ui/DataTable";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -36,10 +38,12 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
     try {
       const [assignRes, recruiterRes] = await Promise.all([
         recruitersApi.assignments(candidateId),
-        authApi.allUsers('recruiter'),
+        authApi.allUsers({ role: 'recruiter' }),
       ]);
       setAssignments(assignRes.data || []);
-      setRecruiters(recruiterRes.data || []);
+      // backend returns { results: [], total: 0 }
+      const recruiterList = Array.isArray(recruiterRes.data) ? recruiterRes.data : recruiterRes.data?.results || [];
+      setRecruiters(recruiterList);
     } catch {
       setAssignments([]); setRecruiters([]);
     }
@@ -89,8 +93,8 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
   if (loading) return <p className="text-muted-foreground">Loading assignments...</p>;
 
-  const canAssign = ["paid", "credential_completed", "active_marketing"].includes(candidateStatus);
-  const canStartMarketing = ["paid", "credential_completed"].includes(candidateStatus) && hasCredentials && assignments.length > 0;
+  const canAssign = ["payment_completed", "credentials_submitted", "active_marketing"].includes(candidateStatus);
+  const canStartMarketing = ["payment_completed", "credentials_submitted"].includes(candidateStatus) && hasCredentials && assignments.length > 0;
 
   return (
     <div className="space-y-4">
@@ -100,31 +104,46 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
           <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Active Assignments</CardTitle>
           <CardDescription>{assignments.length} recruiter(s) assigned</CardDescription>
         </CardHeader>
-        <CardContent>
-          {assignments.length === 0 ? (
-            <p className="text-muted-foreground">No recruiters assigned yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {assignments.map((a: any) => (
-                <div key={a.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                  <div>
-                    <p className="font-medium text-card-foreground">{a.recruiter_name || "Unknown"}</p>
-                    <p className="text-sm text-muted-foreground">{a.recruiter_email}</p>
-                    {a.recruiter_phone && <p className="text-xs text-muted-foreground">{a.recruiter_phone}</p>}
+        <CardContent className="p-0">
+          <DataTable
+            data={assignments}
+            isLoading={loading}
+            searchPlaceholder="Search recruiters..."
+            searchKey="recruiter_name"
+            emptyMessage="No recruiters assigned yet."
+            columns={[
+              { 
+                header: "Recruiter", 
+                render: (a: any) => (
+                  <div className="pl-6">
+                    <p className="font-medium text-sm text-card-foreground">{a.recruiter_name || "Unknown"}</p>
+                    <p className="text-xs text-muted-foreground">{a.recruiter_email}</p>
                   </div>
+                )
+              },
+              { 
+                header: "Designation", 
+                render: (a: any) => (
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={a.role_type === "primary_recruiter" ? "active" : "pending"} className="text-xs" />
-                    <span className="text-xs text-muted-foreground capitalize">{a.role_type.replace(/_/g, " ")}</span>
-                    <Button variant="ghost" size="sm" onClick={() => handleUnassign(a.id)}>
-                      <XCircle className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <StatusBadge status={a.role_type === "primary_recruiter" ? "active" : "pending"} className="text-[10px]" />
+                    <span className="text-xs text-muted-foreground capitalize">{a.role_type?.replace(/_/g, " ")}</span>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                )
+              },
+              { 
+                header: "Actions", 
+                className: "pr-6 text-right",
+                render: (a: any) => (
+                  <Button variant="ghost" size="sm" onClick={() => handleUnassign(a.id)} className="h-8 w-8 p-0 hover:bg-destructive/10">
+                    <XCircle className="h-4 w-4 text-destructive" />
+                  </Button>
+                )
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
 
       {/* Assign New */}
       {canAssign && (
@@ -181,7 +200,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
       {!canAssign && (
         <p className="text-sm text-muted-foreground">
-          Recruiter assignment is available when candidate status is paid, credential_completed, or active_marketing.
+          Recruiter assignment is available when candidate status is payment_completed, credentials_submitted, or active_marketing.
         </p>
       )}
     </div>

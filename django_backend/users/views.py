@@ -9,18 +9,37 @@ from .models import User
 from candidates.models import Candidate
 from .serializers import (
     RegisterSerializer, UserSerializer, ApproveUserSerializer,
-    UserListSerializer, ChangePasswordSerializer,
+    UserListSerializer, ChangePasswordSerializer, ContactSerializer,
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
 )
 from .permissions import IsAdmin
 from audit.utils import log_action
 from notifications.utils import send_email
 
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
+    # Daily Limit Check (Spec 3.4)
+    from django.utils import timezone
+    today = timezone.now().date()
+    daily_count = User.objects.filter(created_at__date=today).count()
+    if daily_count >= 10:
+        return Response({
+            'error': 'Daily registration limit reached. Please try again tomorrow.'
+        }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
     serializer = RegisterSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+    if not serializer.is_valid():
+        import logging
+        logger = logging.getLogger('django')
+        logger.error("Registration validation errors: %s", serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
     user = serializer.save()
 
     log_action(
@@ -58,10 +77,10 @@ def login(request):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Invalid email id'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if not user.check_password(password):
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Invalid password'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if user.approval_status != 'approved' and user.role != 'admin':
         return Response({
@@ -102,6 +121,8 @@ def me(request):
 @permission_classes([IsAuthenticated])
 def update_profile(request):
     profile = request.user.profile
+    if 'first_name' in request.data and 'last_name' in request.data:
+        profile.full_name = f"{request.data['first_name']} {request.data['last_name']}".strip()
     for field in ['full_name', 'phone', 'avatar_url']:
         if field in request.data:
             setattr(profile, field, request.data[field])
@@ -251,6 +272,102 @@ def manage_user(request, user_id):
     return Response(UserListSerializer(user).data)
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def submit_contact(request):
+    serializer = ContactSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    data = serializer.validated_data
+    mode = data['mode']
+    
+    if mode == 'interest':
+        # Create user if not exists
+        user, user_created = User.objects.get_or_create(
+            email=data['email'],
+            defaults={
+                'role': 'candidate',
+                'approval_status': 'pending',
+            }
+        )
+        if user_created:
+            user.set_unusable_password()
+            user.save()
+        
+        # Create profile if not exists
+        from .models import Profile
+        Profile.objects.get_or_create(
+            user=user,
+            defaults={
+                'full_name': data['name'],
+                'phone': data.get('phone', ''),
+            }
+        )
+        
+        # Create/Update Candidate with status='lead'
+        candidate, cand_created = Candidate.objects.get_or_create(
+            user=user,
+            defaults={
+                'status': 'lead',
+                'university': data.get('university', ''),
+                'major': data.get('major', ''),
+                'visa_status': data.get('visa_status', ''),
+                'referral_source': data.get('referral_source', ''),
+            }
+        )
+        if not cand_created and candidate.status == 'pending_approval':
+            candidate.status = 'lead'
+            candidate.save(update_fields=['status'])
+
+        # Notify admin of new lead
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')
+        send_email(
+            to=admin_email,
+            subject=f'New Candidate Interest: {data["name"]}',
+            html=f'<p><strong>{data["name"]}</strong> ({data["email"]}) has expressed interest.</p>'
+                 f'<p>University: {data.get("university", "—")}</p>'
+                 f'<p>Major: {data.get("major", "—")}</p>'
+                 f'<p>Phone: {data.get("phone", "—")}</p>'
+                 f'<p><a href="{settings.SITE_URL}/admin-dashboard">View in Dashboard</a></p>',
+            email_type='admin_notification'
+        )
+        
+        # Notify candidate
+        send_email(
+            to=data['email'],
+            subject='Thank you for your interest in HYRIND!',
+            html=f'<p>Hi {data["name"]},</p>'
+                 f'<p>Thank you for expressing interest in HYRIND. Our team will review your submission and reach out within 24–48 hours to schedule a discovery call.</p>',
+            email_type='interest_confirmation'
+        )
+        
+        log_action(user, 'interest_form_submitted', str(user.id), 'user', data)
+        return Response({'message': 'Interest form submitted successfully.'}, status=status.HTTP_201_CREATED)
+
+    else:
+        # General Inquiry
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')
+        send_email(
+            to=admin_email,
+            subject=f'New General Inquiry: {data["name"]}',
+            html=f'<p><strong>Name:</strong> {data["name"]}</p>'
+                 f'<p><strong>Email:</strong> {data["email"]}</p>'
+                 f'<p><strong>Message:</strong><br/>{data["message"]}</p>',
+            email_type='admin_notification'
+        )
+        
+        send_email(
+            to=data['email'],
+            subject='We received your message – HYRIND',
+            html=f'<p>Hi {data["name"]},</p>'
+                 f'<p>Thank you for reaching out! We have received your message and will get back to you within 24–48 hours.</p>',
+            email_type='inquiry_confirmation'
+        )
+        
+        return Response({'message': 'General inquiry submitted successfully.'})
+
+
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def admin_analytics(request):
@@ -308,3 +425,68 @@ def admin_analytics(request):
         'role_counts': role_counts,
         'status_counts': status_counts,
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_request(request):
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    email = serializer.validated_data['email']
+
+    try:
+        user = User.objects.get(email=email)
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        reset_url = f"{settings.SITE_URL}/reset-password?uid={uid}&token={token}"
+        
+        send_email(
+            to=user.email,
+            subject='Password Reset Request – Hyrind',
+            html=f'<p>Hi,</p>'
+                 f'<p>You requested a password reset for your Hyrind account.</p>'
+                 f'<p>Click the link below to set a new password:</p>'
+                 f'<p><a href="{reset_url}">{reset_url}</a></p>'
+                 f'<p>This link will expire in 24 hours.</p>'
+                 f'<p>If you did not request this, please ignore this email.</p>',
+        )
+        log_action(user, 'password_reset_requested', str(user.id), 'user', {})
+    except User.DoesNotExist:
+        # We don't reveal if user exists for security
+        pass
+
+    return Response({'message': 'If an account exists with this email, a reset link has been sent.'})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_confirm(request):
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    uidb64 = serializer.validated_data['uidb64']
+    token = serializer.validated_data['token']
+    new_password = serializer.validated_data['new_password']
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({'error': 'Invalid reset link'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not default_token_generator.check_token(user, token):
+        return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+    
+    log_action(user, 'password_reset_completed', str(user.id), 'user', {})
+    
+    send_email(
+        to=user.email,
+        subject='Password Reset Successful',
+        html=f'<p>Hi,</p><p>Your password has been successfully reset. You can now log in with your new password.</p>',
+    )
+    
+    return Response({'message': 'Password has been reset successfully.'})

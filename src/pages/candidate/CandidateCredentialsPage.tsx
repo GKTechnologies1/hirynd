@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi } from "@/services/api";
+import { candidatesApi, filesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,14 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, FileText, History, Clock, User } from "lucide-react";
+import { Lock, FileText, History, Clock, User, X, LayoutDashboard, Briefcase, KeyRound, DollarSign, CreditCard, ClipboardList, Phone, UserPlus, MessageSquare, Settings } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <span className="h-4 w-4">📋</span> },
-  { label: "Intake Form", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <span className="h-4 w-4">💼</span> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <span className="h-4 w-4">🔑</span> },
+  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
+  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
+  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
+  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
+  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
+  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
+  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
+  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
+  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
+  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
 ];
 
 interface CandidateCredentialsPageProps {
@@ -32,23 +39,25 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    full_legal_name: "",
-    email: "",
-    phone: "",
+    full_name_as_resume: "",
+    primary_resume: "",
+    alternate_resume_versions: [] as string[],
     linkedin_url: "",
     github_url: "",
     portfolio_url: "",
-    summary: "",
-    work_experience: "",
-    education: "",
+    work_history_summary: "",
+    skills_summary: "",
+    tools_and_technologies: "",
     certifications: "",
-    technical_skills: "",
-    soft_skills: "",
-    references: "",
-    notes: "",
+    visa_details: "",
+    relocation_preference: "",
+    references_if_needed: "",
   });
 
-  const isPaid = ["paid", "credential_completed", "active_marketing", "placed"].includes(candidate?.status);
+  const isPaid = [
+    "paid", "payment_completed", "credentials_submitted", "credential_completed", 
+    "active_marketing", "placed_closed", "placed"
+  ].includes(candidate?.status);
 
   useEffect(() => {
     if (!candidate || !isPaid) { setLoading(false); return; }
@@ -80,6 +89,22 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     );
   }
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { data } = await filesApi.upload(file, "credential");
+      if (field === "alternate_resume_versions") {
+        setFormData(prev => ({ ...prev, alternate_resume_versions: [...prev.alternate_resume_versions, data.url] }));
+      } else {
+        setFormData(prev => ({ ...prev, [field]: data.url }));
+      }
+      toast({ title: "File uploaded!" });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -100,6 +125,12 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   if (loading) {
     return <DashboardLayout title="Credential Intake" navItems={CANDIDATE_NAV}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
   }
+
+  const SENSITIVE_FIELDS = ["visa_details", "references_if_needed"];
+  const maskSensitive = (key: string, value: string) => {
+    if (SENSITIVE_FIELDS.includes(key) && value) return "******** (Sensitive Data Masked)";
+    return value;
+  };
 
   const latestVersion = versions[0];
 
@@ -136,29 +167,54 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div><Label>Full Legal Name *</Label><Input value={formData.full_legal_name} onChange={e => handleChange("full_legal_name", e.target.value)} required /></div>
-                <div><Label>Email</Label><Input type="email" value={formData.email} onChange={e => handleChange("email", e.target.value)} /></div>
-                <div><Label>Phone</Label><Input value={formData.phone} onChange={e => handleChange("phone", e.target.value)} /></div>
-                <div><Label>LinkedIn URL</Label><Input value={formData.linkedin_url} onChange={e => handleChange("linkedin_url", e.target.value)} placeholder="https://linkedin.com/in/..." /></div>
-                <div><Label>GitHub URL</Label><Input value={formData.github_url} onChange={e => handleChange("github_url", e.target.value)} placeholder="https://github.com/..." /></div>
-                <div><Label>Portfolio URL</Label><Input value={formData.portfolio_url} onChange={e => handleChange("portfolio_url", e.target.value)} placeholder="https://..." /></div>
+                <div className="sm:col-span-2">
+                  <Label>Full Name as on Resume *</Label>
+                  <Input value={formData.full_name_as_resume} onChange={e => handleChange("full_name_as_resume", e.target.value)} required />
+                </div>
+                <div><Label>LinkedIn URL *</Label><Input value={formData.linkedin_url} onChange={e => handleChange("linkedin_url", e.target.value)} required /></div>
+                <div><Label>GitHub URL</Label><Input value={formData.github_url} onChange={e => handleChange("github_url", e.target.value)} /></div>
+                <div><Label>Portfolio URL</Label><Input value={formData.portfolio_url} onChange={e => handleChange("portfolio_url", e.target.value)} /></div>
+                <div><Label>Relocation Preference</Label><Input value={formData.relocation_preference} onChange={e => handleChange("relocation_preference", e.target.value)} placeholder="e.g. Open to US, Prefer East Coast" /></div>
               </div>
 
-              <div><Label>Professional Summary</Label><Textarea value={formData.summary} onChange={e => handleChange("summary", e.target.value)} rows={3} placeholder="Brief professional overview" /></div>
-              <div><Label>Work Experience</Label><Textarea value={formData.work_experience} onChange={e => handleChange("work_experience", e.target.value)} rows={5} placeholder="List work experience..." /></div>
-              <div><Label>Education</Label><Textarea value={formData.education} onChange={e => handleChange("education", e.target.value)} rows={3} /></div>
+              <div className="space-y-4 pt-2">
+                <div>
+                  <Label>Primary Resume (PDF/DOCX) *</Label>
+                  <Input type="file" onChange={e => handleFileUpload(e, "primary_resume")} accept=".pdf,.doc,.docx" required={!formData.primary_resume} />
+                  {formData.primary_resume && <p className="mt-1 text-xs text-green-600">✓ Uploaded: <a href={formData.primary_resume} target="_blank" className="underline">View</a></p>}
+                </div>
+                <div>
+                  <Label>Alternate Resume Versions</Label>
+                  <Input type="file" onChange={e => handleFileUpload(e, "alternate_resume_versions")} accept=".pdf,.doc,.docx" />
+                  <div className="mt-2 space-y-1">
+                    {formData.alternate_resume_versions.map((url, i) => (
+                      <p key={i} className="text-xs text-muted-foreground flex items-center gap-2">
+                        <span>v{i+1}: <a href={url} target="_blank" className="underline">Resume Link</a></span>
+                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setFormData(prev => ({ ...prev, alternate_resume_versions: prev.alternate_resume_versions.filter((_, idx) => idx !== i) }))}><X className="h-3 w-3" /></Button>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div><Label>Professional / Work History Summary *</Label><Textarea value={formData.work_history_summary} onChange={e => handleChange("work_history_summary", e.target.value)} rows={4} required /></div>
+              <div><Label>Skills Summary *</Label><Textarea value={formData.skills_summary} onChange={e => handleChange("skills_summary", e.target.value)} rows={3} required /></div>
+              <div><Label>Tools & Technologies *</Label><Textarea value={formData.tools_and_technologies} onChange={e => handleChange("tools_and_technologies", e.target.value)} rows={3} required /></div>
               <div><Label>Certifications</Label><Textarea value={formData.certifications} onChange={e => handleChange("certifications", e.target.value)} rows={2} /></div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div><Label>Technical Skills</Label><Textarea value={formData.technical_skills} onChange={e => handleChange("technical_skills", e.target.value)} rows={3} /></div>
-                <div><Label>Soft Skills</Label><Textarea value={formData.soft_skills} onChange={e => handleChange("soft_skills", e.target.value)} rows={3} /></div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-4">
+                  <Label className="text-amber-800">Visa / Immigration Details (Sensitive) *</Label>
+                  <Textarea value={formData.visa_details} onChange={e => handleChange("visa_details", e.target.value)} rows={3} placeholder="Full details for internal use only" required />
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-4">
+                  <Label className="text-amber-800">References (Sensitive)</Label>
+                  <Textarea value={formData.references_if_needed} onChange={e => handleChange("references_if_needed", e.target.value)} rows={3} placeholder="Name, Role, Company, Email, Phone" />
+                </div>
               </div>
 
-              <div><Label>References</Label><Textarea value={formData.references} onChange={e => handleChange("references", e.target.value)} rows={3} placeholder="Name, company, email, phone" /></div>
-              <div><Label>Additional Notes</Label><Textarea value={formData.notes} onChange={e => handleChange("notes", e.target.value)} rows={2} /></div>
-
-              <Button type="submit" variant="hero" className="w-full" disabled={submitting}>
-                {submitting ? "Saving..." : versions.length === 0 ? "Submit Credentials" : "Save New Version"}
+              <Button type="submit" variant="hero" className="w-full h-12" disabled={submitting}>
+                {submitting ? "Saving..." : versions.length === 0 ? "Submit Marketing Credentials" : "Save New Version"}
               </Button>
             </form>
           </CardContent>
@@ -183,12 +239,21 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="grid gap-2 text-sm sm:grid-cols-2">
-                        {Object.entries(v.data as Record<string, string>).map(([key, value]) => (
+                      <div className="grid gap-4 text-sm sm:grid-cols-2">
+                        {Object.entries(v.data as Record<string, any>).map(([key, value]) => (
                           value ? (
-                            <div key={key}>
-                              <span className="text-muted-foreground capitalize">{key.replace(/_/g, " ")}:</span>{" "}
-                              <span className="text-card-foreground">{value}</span>
+                            <div key={key} className="col-span-full border-b border-border/50 pb-2 last:border-0">
+                              <span className="text-muted-foreground capitalize block text-xs mb-0.5">{key.replace(/_/g, " ")}:</span>{" "}
+                              <div className="text-card-foreground whitespace-pre-wrap">
+                                {Array.isArray(value) 
+                                  ? value.map((item, idx) => (
+                                      <div key={idx} className="flex items-center gap-1.5">
+                                        <span className="h-1 w-1 rounded-full bg-secondary" /> 
+                                        {maskSensitive(key, String(item))}
+                                      </div>
+                                    ))
+                                  : maskSensitive(key, String(value))}
+                              </div>
                             </div>
                           ) : null
                         ))}

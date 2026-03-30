@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const isStaging = window.location.href.includes("staging.hyrind.com") || window.location.href.includes("staging.hrind.com");
+
+const STAGING_URL = import.meta.env.VITE_STAGING_API || 'https://api-staging.hyrind.com';
+const LOCAL_URL = import.meta.env.VITE_LOCAL_API || 'http://localhost:8000';
+
+const DEFAULT_URL = isStaging ? STAGING_URL : LOCAL_URL;
+
+const VITE_API_URL = import.meta.env.VITE_API_URL || DEFAULT_URL;
+const API_BASE_URL = `${VITE_API_URL.replace(/\/$/, "")}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -45,8 +53,8 @@ export default api;
 
 // ─── Auth ───
 export const authApi = {
-  register: (data: Record<string, any>) =>
-    api.post('/auth/register/', data),
+  register: (data: any) =>
+    api.post('/auth/register/', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   login: (email: string, password: string) =>
     api.post('/auth/login/', { email, password }),
   logout: () => {
@@ -58,6 +66,8 @@ export const authApi = {
   changePassword: (data: { current_password: string; new_password: string; confirm_new_password: string }) =>
     api.post('/auth/change-password/', data),
   pendingApprovals: () => api.get('/auth/pending-approvals/'),
+  requestPasswordReset: (email: string) => api.post('/auth/password-reset/', { email }),
+  resetPassword: (data: any) => api.post('/auth/password-reset/confirm/', data),
   approveUser: (user_id: string, action: 'approved' | 'rejected') =>
     api.post('/auth/approve-user/', { user_id, action }),
   allUsers: (params?: { role?: string; search?: string; page?: number; page_size?: number }) =>
@@ -66,6 +76,7 @@ export const authApi = {
   updateUser: (userId: string, data: Record<string, any>) => api.patch(`/auth/users/${userId}/`, data),
   deleteUser: (userId: string) => api.delete(`/auth/users/${userId}/`),
   analytics: () => api.get('/auth/analytics/'),
+  submitContact: (data: any) => api.post('/auth/contact/', data),
 };
 
 // ─── Candidates ───
@@ -76,11 +87,13 @@ export const candidatesApi = {
   updateStatus: (id: string, status: string) => api.post(`/candidates/${id}/status/`, { status }),
   getIntake: (id: string) => api.get(`/candidates/${id}/intake/`),
   submitIntake: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/intake/`, { data }),
+  reopenIntake: (id: string) => api.post(`/candidates/${id}/intake/reopen/`),
   getRoles: (id: string) => api.get(`/candidates/${id}/roles/`),
+  reopenRoles: (id: string) => api.post(`/candidates/${id}/roles/reopen/`),
   addRole: (id: string, data: { role_title: string; description?: string; admin_note?: string }) =>
     api.post(`/candidates/${id}/roles/add/`, data),
-  confirmRoles: (id: string, decisions: Record<string, any>) =>
-    api.post(`/candidates/${id}/roles/confirm/`, { decisions }),
+  confirmRoles: (id: string, data: Record<string, any>) =>
+    api.post(`/candidates/${id}/roles/confirm/`, data),
   getCredentials: (id: string) => api.get(`/candidates/${id}/credentials/`),
   upsertCredential: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/credentials/upsert/`, { data }),
@@ -107,10 +120,14 @@ export const recruitersApi = {
     api.post('/recruiters/assign/', data),
   unassign: (assignmentId: string) => api.post(`/recruiters/unassign/${assignmentId}/`),
   getDailyLogs: (candidateId: string) => api.get(`/recruiters/${candidateId}/daily-logs/`),
-  submitDailyLog: (candidateId: string, data: Record<string, any>) =>
-    api.post(`/recruiters/${candidateId}/daily-logs/`, data),
-  updateJobStatus: (jobId: string, status: string) =>
-    api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
+  submitDailyLog: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/daily-logs/`, data),
+  updateJobStatus: (jobId: string, status: string) => api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
+  fetchJobDetails: (url: string) => api.post(`/recruiters/fetch-job-details/`, { url }),
+  stats: (params?: { user_id?: string }) => api.get('/recruiters/stats/', { params }),
+  getProfile: () => api.get('/recruiters/profile/'),
+  updateProfile: (data: any) => api.patch('/recruiters/profile/', data),
+  getBankDetails: () => api.get('/recruiters/bank-details/'),
+  updateBankDetails: (data: any) => api.post('/recruiters/bank-details/', data),
 };
 
 // ─── Billing ───
@@ -152,6 +169,10 @@ export const billingApi = {
   payments: (candidateId: string) => api.get(`/billing/${candidateId}/payments/`),
   recordPayment: (candidateId: string, data: Record<string, any>) =>
     api.post(`/billing/${candidateId}/payments/record/`, data),
+  updatePayment: (paymentId: string, data: Record<string, any>) =>
+    api.patch(`/billing/payments/${paymentId}/manage/`, data),
+  deletePayment: (paymentId: string) =>
+    api.delete(`/billing/payments/${paymentId}/manage/`),
   invoices: (candidateId: string) => api.get(`/billing/${candidateId}/invoices/`),
   updateInvoice: (invoiceId: string, data: Record<string, any>) =>
     api.patch(`/billing/invoices/${invoiceId}/update/`, data),

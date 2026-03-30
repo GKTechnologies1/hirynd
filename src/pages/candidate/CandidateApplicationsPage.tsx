@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { recruitersApi } from "@/services/api";
+import { DataTable } from "@/components/ui/DataTable";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe } from "lucide-react";
+
 
 const navItems = [
   { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -99,94 +100,105 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
             ))}
           </div>
 
-          {/* Daily Logs grouped */}
-          {dailyLogs.length === 0 ? (
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-muted-foreground">No applications submitted yet. Your recruiter will begin submitting once marketing starts.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader><CardTitle>Submission History</CardTitle></CardHeader>
-              <CardContent>
-                <Accordion type="single" collapsible>
-                  {dailyLogs.map((log: any) => {
-                    const logJobs = jobPostings.filter((j: any) => j.submission_log_id === log.id);
-                    return (
-                      <AccordionItem key={log.id} value={log.id}>
-                        <AccordionTrigger>
-                          <div className="flex items-center gap-4 text-left">
-                            <span className="font-medium">{new Date(log.log_date).toLocaleDateString()}</span>
-                            <span className="text-sm text-muted-foreground">{log.applications_count} applications</span>
-                            {logJobs.length > 0 && <span className="text-xs text-muted-foreground">({logJobs.length} links)</span>}
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          {log.notes && <p className="mb-3 text-sm text-muted-foreground">{log.notes}</p>}
-                          {logJobs.length > 0 ? (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Company</TableHead>
-                                  <TableHead>Role</TableHead>
-                                  <TableHead>Recruiter Status</TableHead>
-                                  <TableHead>Your Update</TableHead>
-                                  <TableHead>Link</TableHead>
-                                  <TableHead>Actions</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {logJobs.map((j: any) => (
-                                  <TableRow key={j.id}>
-                                    <TableCell className="font-medium">{j.company_name || "—"}</TableCell>
-                                    <TableCell>{j.role_title || "—"}</TableCell>
-                                    <TableCell><StatusBadge status={j.status} /></TableCell>
-                                    <TableCell>
-                                      {j.candidate_response_status ? (
-                                        <StatusBadge status={j.candidate_response_status} />
-                                      ) : (
-                                        <span className="text-xs text-muted-foreground">Not set</span>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      {j.job_url ? (
-                                        <a href={j.job_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-                                          View <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                      ) : "—"}
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center gap-2">
-                                        <Select
-                                          value={j.candidate_response_status || ""}
-                                          onValueChange={(val) => handleStatusUpdate(j.id, val)}
-                                          disabled={updatingJob === j.id}
-                                        >
-                                          <SelectTrigger className="w-32 h-8 text-xs">
-                                            <SelectValue placeholder="Update..." />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {CANDIDATE_STATUSES.map(s => (
-                                              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          ) : <p className="text-sm text-muted-foreground">No job links for this day.</p>}
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-                </Accordion>
-              </CardContent>
-            </Card>
-          )}
+          {/* Master Application Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-secondary" /> 
+                All Submissions ({jobPostings.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataTable
+                data={jobPostings}
+                isLoading={loading}
+                searchPlaceholder="Search company or role..."
+                searchKey="company_name"
+                emptyMessage="No applications submitted yet."
+                columns={[
+                  { 
+                    header: "Company", 
+                    accessorKey: "company_name",
+                    className: "font-medium text-sm pl-6"
+                  },
+                  { 
+                    header: "Role", 
+                    accessorKey: "role_title",
+                    className: "text-sm"
+                  },
+                  { 
+                    header: "Recruiter Status", 
+                    render: (j: any) => <StatusBadge status={j.status} />
+                  },
+                  { 
+                    header: "Your Update", 
+                    render: (j: any) => (
+                      j.candidate_response_status ? (
+                        <StatusBadge status={j.candidate_response_status} />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not set</span>
+                      )
+                    )
+                  },
+                  { 
+                    header: "Link", 
+                    render: (j: any) => (
+                      j.job_url ? (
+                        <a href={j.job_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          View <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : "—"
+                    )
+                  },
+                  { 
+                    header: "Actions", 
+                    className: "pr-6 text-right",
+                    render: (j: any) => (
+                      <div className="flex items-center justify-end gap-2">
+                        <Select
+                          value={j.candidate_response_status || ""}
+                          onValueChange={(val) => handleStatusUpdate(j.id, val)}
+                          disabled={updatingJob === j.id}
+                        >
+                          <SelectTrigger className="w-32 h-8 text-[10px] font-bold border-none bg-muted-50">
+                            <SelectValue placeholder="Update..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CANDIDATE_STATUSES.map(s => (
+                              <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )
+                  }
+                ]}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Daily Summary grouping (Optional) */}
+          <Card>
+            <CardHeader><CardTitle className="text-sm font-semibold opacity-70">Daily Summary</CardTitle></CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible>
+                {dailyLogs.map((log: any) => (
+                  <AccordionItem key={log.id} value={log.id}>
+                    <AccordionTrigger>
+                      <div className="flex items-center gap-4 text-left">
+                        <span className="text-sm font-bold">{new Date(log.log_date).toLocaleDateString()}</span>
+                        <span className="text-xs text-muted-foreground">{log.applications_count} applications logged</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      {log.notes && <p className="text-sm text-muted-foreground italic border-l-2 pl-3 border-secondary/30">{log.notes}</p>}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
+
 
           {/* Drive folder link */}
           {candidate?.drive_folder_url && (
