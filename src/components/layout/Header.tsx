@@ -513,6 +513,10 @@ export default function Header() {
                     </div>
                   )}
                 </div>
+                <Link to="/admin-login" className="nav-link" style={{ fontSize: '12px', opacity: 0.7, padding: '6px 12px' }}>
+                  🔒 Admin
+                </Link>
+                </>
               ) : (
                 <div className="profile-container">
                   <button onClick={toggleProfileDropdown} className="profile-button">
