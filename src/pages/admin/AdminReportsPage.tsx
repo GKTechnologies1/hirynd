@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { adminReportsApi } from "@/services/api";
+import { candidatesApi, recruitersApi, billingApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -21,51 +21,84 @@ const AdminReportsPage = () => {
   const { toast } = useToast();
   const [exporting, setExporting] = useState("");
 
-  const handleExport = async (type: string, filename: string) => {
-    setExporting(type);
+  const exportPipeline = async () => {
+    setExporting("pipeline");
     try {
-      let res;
-      switch (type) {
-        case "pipeline": res = await adminReportsApi.pipeline(); break;
-        case "productivity": res = await adminReportsApi.recruiterProductivity(); break;
-        case "activity": res = await adminReportsApi.candidateActivity(); break;
-        case "subscriptions": res = await adminReportsApi.subscriptionLedger(); break;
-        default: return;
-      }
-      if (res.data && res.data.length > 0) {
-        downloadCSV(res.data, filename);
-        toast({ title: `${type} exported` });
-      } else {
-        toast({ title: "No data to export" });
-      }
-    } catch {
-      toast({ title: "Export failed", variant: "destructive" });
-    }
+      const { data: candidates } = await candidatesApi.list();
+      if (!candidates || candidates.length === 0) { toast({ title: "No data" }); setExporting(""); return; }
+      const rows = candidates.map((c: any) => ({
+        candidate_name: c.full_name || c.profile?.full_name || "",
+        email: c.email || c.profile?.email || "",
+        status: c.status,
+        created_at: c.created_at,
+      }));
+      downloadCSV(rows, "candidate-pipeline.csv");
+      toast({ title: "Pipeline exported" });
+    } catch { toast({ title: "Export failed", variant: "destructive" }); }
     setExporting("");
   };
 
-  const reports = [
-    { type: "pipeline", title: "Candidate Pipeline Export", desc: "Name, status, assigned recruiters, dates.", file: "candidate-pipeline.csv" },
-    { type: "productivity", title: "Recruiter Productivity Export", desc: "Assigned candidates, submission totals, interviews logged.", file: "recruiter-productivity.csv" },
-    { type: "activity", title: "Candidate Activity Export", desc: "Per-candidate submissions, jobs, interviews, training clicks.", file: "candidate-activity.csv" },
-    { type: "subscriptions", title: "Subscription Ledger Export", desc: "Candidate, recruiters, subscription status, billing, total paid.", file: "subscription-ledger.csv" },
-  ];
+  const exportRecruiterProductivity = async () => {
+    toast({ title: "Export unavailable", description: "This report requires additional backend support.", variant: "destructive" });
+  };
+
+  const exportCandidateActivity = async () => {
+    toast({ title: "Export unavailable", description: "This report requires additional backend support.", variant: "destructive" });
+  };
+
+  const exportSubscriptionLedger = async () => {
+    toast({ title: "Export unavailable", description: "This report requires additional backend support.", variant: "destructive" });
+  };
 
   return (
     <div className="space-y-6">
-      {reports.map(r => (
-        <Card key={r.type}>
-          <CardHeader>
-            <CardTitle>{r.title}</CardTitle>
-            <CardDescription>{r.desc}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => handleExport(r.type, r.file)} disabled={exporting === r.type}>
-              <Download className="mr-2 h-4 w-4" /> {exporting === r.type ? "Exporting..." : "Export CSV"}
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
+      <Card>
+        <CardHeader>
+          <CardTitle>Candidate Pipeline Export</CardTitle>
+          <CardDescription>Name, status, assigned recruiters, dates.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={exportPipeline} disabled={exporting === "pipeline"}>
+            <Download className="mr-2 h-4 w-4" /> {exporting === "pipeline" ? "Exporting..." : "Export CSV"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recruiter Productivity Export</CardTitle>
+          <CardDescription>Assigned candidates, submission totals, interviews logged.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={exportRecruiterProductivity} disabled={exporting === "productivity"}>
+            <Download className="mr-2 h-4 w-4" /> {exporting === "productivity" ? "Exporting..." : "Export CSV"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Candidate Activity Export</CardTitle>
+          <CardDescription>Per-candidate submissions, jobs, interviews, training clicks.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={exportCandidateActivity} disabled={exporting === "activity"}>
+            <Download className="mr-2 h-4 w-4" /> {exporting === "activity" ? "Exporting..." : "Export CSV"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Subscription Ledger Export</CardTitle>
+          <CardDescription>Candidate, recruiters, subscription status, billing, total paid.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={exportSubscriptionLedger} disabled={exporting === "subscriptions"}>
+            <Download className="mr-2 h-4 w-4" /> {exporting === "subscriptions" ? "Exporting..." : "Export CSV"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi, recruitersApi, billingApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,11 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
+
 import { useToast } from "@/hooks/use-toast";
-import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle } from "lucide-react";
+import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save } from "lucide-react";
+import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
+import ChatTab from "@/components/recruiter/ChatTab";
 
 const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
@@ -33,7 +36,6 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const { user } = useAuth();
   const { toast } = useToast();
   const [candidate, setCandidate] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [intake, setIntake] = useState<any>(null);
   const [roles, setRoles] = useState<any[]>([]);
   const [credentials, setCredentials] = useState<any[]>([]);
@@ -51,41 +53,34 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [logNotes, setLogNotes] = useState("");
   const [jobLinks, setJobLinks] = useState<Array<{ company_name: string; role_title: string; job_url: string; resume_used: string; status: string; }>>([]);
   const [savingLog, setSavingLog] = useState(false);
+  const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
 
   const fetchAll = async () => {
     if (!user) return;
-    const { data: cand } = await supabase.from("candidates").select("*").eq("id", candidateId).single();
-    setCandidate(cand);
+    try {
+      const { data: cand } = await candidatesApi.detail(candidateId);
+      setCandidate(cand);
 
-    if (cand) {
-      const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", cand.user_id).single();
-      setProfile(prof);
-
-      const { data: intakeData } = await supabase.from("client_intake_sheets").select("*").eq("candidate_id", cand.id).maybeSingle();
-      setIntake(intakeData);
-
-      const { data: roleData } = await supabase.from("role_suggestions").select("*").eq("candidate_id", cand.id).order("created_at");
-      setRoles(roleData || []);
-
-      const { data: credData } = await supabase.from("credential_intake_sheets").select("*").eq("candidate_id", cand.id).order("version", { ascending: false });
-      setCredentials(credData || []);
-      if (credData && credData.length > 0) {
-        setCredForm(credData[0].data as Record<string, string>);
+      if (cand) {
+        const [intakeRes, roleRes, credRes, logsRes, subRes] = await Promise.all([
+          candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
+          candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
+          candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
+          recruitersApi.getDailyLogs(candidateId).catch(() => ({ data: [] })),
+          billingApi.subscription(candidateId).catch(() => ({ data: null })),
+        ]);
+        setIntake(intakeRes.data || null);
+        setRoles(roleRes.data || []);
+        const creds = credRes.data || [];
+        setCredentials(creds);
+        if (creds.length > 0 && creds[0].data) setCredForm(creds[0].data as Record<string, string>);
+        const logs = logsRes.data || [];
+        setDailyLogs(logs);
+        const allJobs = logs.flatMap((l: any) => (l.job_entries || []).map((j: any) => ({ ...j, log_date: l.log_date })));
+        setJobPostings(allJobs);
+        setSubscription(subRes?.data?.id ? subRes.data : null);
       }
-
-      const { data: logs } = await supabase.from("daily_submission_logs").select("*").eq("candidate_id", cand.id).eq("recruiter_id", user.id).order("log_date", { ascending: false });
-      setDailyLogs(logs || []);
-
-      if (logs && logs.length > 0) {
-        const logIds = logs.map((l: any) => l.id);
-        const { data: jobs } = await supabase.from("job_postings").select("*").in("submission_log_id", logIds).order("created_at", { ascending: false });
-        setJobPostings(jobs || []);
-      }
-
-      // Fetch subscription
-      const { data: sub } = await supabase.from("candidate_subscriptions").select("*").eq("candidate_id", cand.id).maybeSingle();
-      setSubscription(sub);
-    }
+    } catch {}
     setLoading(false);
   };
 
@@ -96,13 +91,25 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       toast({ title: "Full legal name is required", variant: "destructive" }); return;
     }
     setSavingCred(true);
-    const { error } = await supabase.rpc("upsert_credential_intake", {
-      _candidate_id: candidateId,
-      _form_data: credForm as any,
-    });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Credentials saved" }); fetchAll(); }
+    try {
+      await candidatesApi.upsertCredential(candidateId, credForm);
+      toast({ title: "Credentials saved" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
     setSavingCred(false);
+  };
+
+  const handleUpdateJobStatus = async (jobId: string, status: string) => {
+    try {
+      const normalizedStatus = status.toLowerCase().replace(/ /g, "_");
+      await recruitersApi.updateJobStatus(jobId, normalizedStatus);
+      toast({ title: "Application status updated" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Update failed", variant: "destructive" });
+    }
   };
 
   const addJobLink = () => {
@@ -119,155 +126,177 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     setJobLinks(jobLinks.filter((_, i) => i !== idx));
   };
 
+  const handleFetchJobDetails = async (idx: number) => {
+    const url = jobLinks[idx].job_url;
+    if (!url || !url.startsWith("http")) {
+      toast({ title: "Valid URL required", variant: "destructive" }); return;
+    }
+    setFetchingJob(prev => ({ ...prev, [idx]: true }));
+    try {
+      const { data } = await recruitersApi.fetchJobDetails(url);
+      if (data.role_title || data.company_name) {
+        const updated = [...jobLinks];
+        if (data.role_title) updated[idx].role_title = data.role_title;
+        if (data.company_name) updated[idx].company_name = data.company_name;
+        setJobLinks(updated);
+        toast({ title: "Job details fetched!" });
+      } else {
+        toast({ title: "Could not extract details", description: "Please enter manually." });
+      }
+    } catch {
+      toast({ title: "Fetch failed" });
+    }
+    setFetchingJob(prev => ({ ...prev, [idx]: false }));
+  };
+
   const handleSubmitDailyLog = async () => {
     if (!logCount || Number(logCount) < 0) {
       toast({ title: "Enter application count", variant: "destructive" }); return;
     }
     setSavingLog(true);
-
-    // Create daily log
-    const { data: logData, error: logError } = await supabase
-      .from("daily_submission_logs")
-      .insert({
-        candidate_id: candidateId,
-        recruiter_id: user!.id,
+    try {
+      await recruitersApi.submitDailyLog(candidateId, {
         applications_count: Number(logCount),
         notes: logNotes,
-      })
-      .select()
-      .single();
-
-    if (logError) {
-      toast({ title: "Error", description: logError.message, variant: "destructive" });
-      setSavingLog(false);
-      return;
-    }
-
-    // Insert job postings
-    if (jobLinks.length > 0 && logData) {
-      const validJobs = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
-      if (validJobs.length > 0) {
-        const { error: jobError } = await supabase.from("job_postings").insert(
-          validJobs.map(j => ({
-            candidate_id: candidateId,
-            submission_log_id: logData.id,
+        job_links: jobLinks
+          .filter(j => j.job_url.trim() || j.company_name.trim())
+          .map(j => ({
             company_name: j.company_name,
             role_title: j.role_title,
             job_url: j.job_url,
             resume_used: j.resume_used,
             status: j.status.toLowerCase().replace(/ /g, "_"),
-          }))
-        );
-        if (jobError) {
-          toast({ title: "Jobs error", description: jobError.message, variant: "destructive" });
-        }
-      }
+          })),
+      });
+      toast({ title: "Daily log submitted" });
+      setLogCount(""); setLogNotes(""); setJobLinks([]);
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
-
-    toast({ title: "Daily log submitted" });
-    setLogCount(""); setLogNotes(""); setJobLinks([]);
-    fetchAll();
     setSavingLog(false);
   };
 
-  if (loading) return <DashboardLayout title="Candidate Detail" navItems={navItems}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
-  if (!candidate) return <DashboardLayout title="Candidate Detail" navItems={navItems}><p className="text-muted-foreground">Candidate not found.</p></DashboardLayout>;
+  if (loading) return <div className="p-8 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mx-auto mr-2 inline" /> Loading candidate file...</div>;
+  if (!candidate) return <div className="p-8 text-center text-muted-foreground">Candidate not found.</div>;
 
   const intakeData = intake?.data as Record<string, string> | null;
 
   return (
-    <DashboardLayout title={`Candidate: ${profile?.full_name || "Unknown"}`} navItems={navItems}>
-      <div className="mb-4 flex items-center gap-3">
-        <StatusBadge status={candidate.status} />
-        <Button variant="outline" size="sm" onClick={() => window.history.back()}>← Back</Button>
+    <div className="space-y-6">
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <StatusBadge status={candidate.status} />
+          <h2 className="text-xl font-bold">{candidate?.profile?.full_name || candidate?.full_name || "Unknown"}</h2>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">{candidate?.email || candidate?.profile?.email || ""}</span>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => window.history.back()} className="rounded-xl px-4">
+          ← Back to Dashboard
+        </Button>
       </div>
 
-      {/* Placed / Paused / Cancelled Banners */}
+      {/* Banners */}
       {candidate.status === "placed" && (
-        <Card className="mb-4 border-secondary/50 bg-secondary/5">
+        <Card className="mb-6 border-secondary/50 bg-secondary/10 shadow-sm overflow-hidden">
           <CardContent className="p-4 flex items-center gap-3">
             <Award className="h-6 w-6 text-secondary" />
-            <p className="font-semibold text-card-foreground">Case Closed — Candidate Placed. Daily logs are locked.</p>
-          </CardContent>
-        </Card>
-      )}
-      {["paused", "cancelled"].includes(candidate.status) && (
-        <Card className="mb-4 border-destructive/30 bg-destructive/5">
-          <CardContent className="p-4">
-            <p className="font-semibold text-card-foreground capitalize">{candidate.status} — Daily logs are disabled.</p>
+            <p className="font-semibold text-secondary-foreground text-sm">Success! Candidate Placed. Submission logs are now archived.</p>
           </CardContent>
         </Card>
       )}
       {subscription && ["past_due", "canceled", "unpaid", "grace_period", "paused"].includes(subscription.status) && (
-        <Card className="mb-4 border-destructive/30 bg-destructive/5">
+        <Card className="mb-6 border-destructive/30 bg-destructive/10">
           <CardContent className="p-4 flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
             <div>
-              <p className="font-semibold text-card-foreground">Billing Issue — Marketing paused</p>
-              <p className="text-sm text-muted-foreground">This candidate has a billing issue. Daily logs and credential edits are disabled until resolved.</p>
+              <p className="font-bold text-destructive text-sm italic">Billing Restriction Active — Marketing Suspended</p>
+              <p className="text-xs text-destructive/80 mt-0.5">Marketing activities are disabled until the candidate resolves their subscription issue.</p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <Tabs defaultValue="overview">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="intake">Intake</TabsTrigger>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="credentials">Credentials</TabsTrigger>
-          <TabsTrigger value="daily-log">Daily Log</TabsTrigger>
-          <TabsTrigger value="applications">Applications</TabsTrigger>
-          <TabsTrigger value="interviews">Interviews</TabsTrigger>
-          <TabsTrigger value="audit">Audit</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="bg-muted/50 p-1 h-auto flex-wrap justify-start border border-border/50 rounded-2xl shadow-sm">
+          {[
+            { value: "overview", label: "Overview", icon: <User className="h-3.5 w-3.5" /> },
+            { value: "intake", label: "Intake", icon: <FileText className="h-3.5 w-3.5" /> },
+            { value: "roles", label: "Roles", icon: <Briefcase className="h-3.5 w-3.5" /> },
+            { value: "credentials", label: "Credentials", icon: <KeyRound className="h-3.5 w-3.5" /> },
+            { value: "daily-log", label: "Daily Log", icon: <ClipboardList className="h-3.5 w-3.5" /> },
+            { value: "applications", label: "Applications", icon: <Globe className="h-3.5 w-3.5" /> },
+            { value: "interviews", label: "Interviews", icon: <Phone className="h-3.5 w-3.5" /> },
+            { value: "messages", label: "Messages", icon: <MessageSquare className="h-3.5 w-3.5" /> },
+            { value: "audit", label: "Audit", icon: <Shield className="h-3.5 w-3.5" /> },
+          ].map(t => (
+            <TabsTrigger key={t.value} value={t.value} className="rounded-xl px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-semibold gap-2">
+              {t.icon} {t.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        {/* Overview */}
         <TabsContent value="overview" className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
-            <CardContent className="grid gap-2 sm:grid-cols-2 text-sm">
-              <div><span className="text-muted-foreground">Name:</span> {profile?.full_name}</div>
-              <div><span className="text-muted-foreground">Email:</span> {profile?.email}</div>
-              <div><span className="text-muted-foreground">Phone:</span> {profile?.phone || "—"}</div>
-              <div><span className="text-muted-foreground">Status:</span> {candidate.status.replace(/_/g, " ")}</div>
+          <Card className="border-none shadow-sm bg-card/60">
+            <CardHeader><CardTitle className="text-base font-bold">Registration Data</CardTitle></CardHeader>
+            <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Full Name</p>
+                <p className="font-medium">{candidate?.profile?.full_name || candidate?.full_name || "—"}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Email Address</p>
+                <p className="font-medium">{candidate?.profile?.email || candidate?.email || "—"}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Phone Number</p>
+                <p className="font-medium">{candidate?.profile?.phone || "—"}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Visa Status</p>
+                <p className="font-medium bg-secondary/10 text-secondary w-fit px-2 py-0.5 rounded text-xs">{candidate?.profile?.visa_status || candidate.visa_status || "N/A"}</p>
+              </div>
+              <div className="space-y-1">
+                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Current Location</p>
+                 <p className="font-medium">{candidate?.profile?.current_location || "—"}</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Intake (read-only) */}
         <TabsContent value="intake" className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle>Client Intake Sheet</CardTitle><CardDescription>Read-only</CardDescription></CardHeader>
+          <Card className="border-none shadow-sm bg-card/60">
+            <CardHeader>
+              <CardTitle className="text-base font-bold">Client Intake Sheet</CardTitle>
+              <CardDescription>Comprehensive details provided by the candidate at onboarding.</CardDescription>
+            </CardHeader>
             <CardContent>
               {intakeData ? (
-                <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 text-sm">
                   {Object.entries(intakeData).map(([key, value]) => (
-                    <div key={key}>
-                      <span className="text-muted-foreground capitalize">{key.replace(/_/g, " ")}:</span>{" "}
-                      <span className="text-card-foreground">{value || "—"}</span>
+                    <div key={key} className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">{key.replace(/_/g, " ")}</p>
+                      <p className="font-medium text-card-foreground break-words">{String(value) || "—"}</p>
                     </div>
                   ))}
                 </div>
-              ) : <p className="text-muted-foreground">Not submitted yet.</p>}
+              ) : <div className="p-8 text-center text-muted-foreground bg-muted/20 rounded-2xl border border-dashed italic">Intake sheet not yet submitted by candidate.</div>}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Roles (read-only) */}
         <TabsContent value="roles" className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5" /> Confirmed Roles</CardTitle></CardHeader>
+          <Card className="border-none shadow-sm bg-card/60">
+            <CardHeader><CardTitle className="text-base font-bold flex items-center gap-2"><Briefcase className="h-5 w-5 text-secondary" /> Preferred Roles</CardTitle></CardHeader>
             <CardContent>
-              {roles.length === 0 ? <p className="text-muted-foreground">No roles yet.</p> : (
-                <div className="space-y-2">
+              {roles.length === 0 ? <p className="text-muted-foreground text-center py-8">No specific roles confirmed yet.</p> : (
+                <div className="grid gap-3 sm:grid-cols-2">
                   {roles.map((r: any) => (
-                    <div key={r.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                      <div>
-                        <p className="font-medium">{r.role_title}</p>
-                        {r.description && <p className="text-sm text-muted-foreground">{r.description}</p>}
+                    <div key={r.id} className="flex flex-col gap-2 rounded-2xl border border-border/50 p-4 bg-muted/10">
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-sm tracking-tight">{r.role_title}</p>
+                        <StatusBadge status={r.candidate_confirmed ? "active" : r.candidate_confirmed === false ? "rejected" : "pending"} />
                       </div>
-                      <StatusBadge status={r.candidate_confirmed ? "active" : r.candidate_confirmed === false ? "rejected" : "pending"} />
+                      {r.description && <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{r.description}</p>}
                     </div>
                   ))}
                 </div>
@@ -276,195 +305,206 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           </Card>
         </TabsContent>
 
-        {/* Credentials (editable via RPC) */}
-        <TabsContent value="credentials" className="space-y-4">
-          {(candidate.status === "paid" || ["credential_completed", "active_marketing", "placed"].includes(candidate.status)) && !(subscription && ["past_due", "canceled", "unpaid", "grace_period", "paused"].includes(subscription?.status)) ? (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" /> Edit Credentials</CardTitle>
-                  <CardDescription>Changes are versioned and audited.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {["full_legal_name", "email", "phone", "linkedin_url", "current_title", "years_experience", "certifications", "skills_summary"].map((field) => (
-                    <div key={field}>
-                      <Label className="capitalize">{field.replace(/_/g, " ")}</Label>
-                      {field === "skills_summary" ? (
-                        <Textarea value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
-                      ) : (
-                        <Input value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
-                      )}
-                    </div>
-                  ))}
-                  <Button variant="hero" onClick={handleSaveCredential} disabled={savingCred}>
-                    {savingCred ? "Saving..." : "Save Credentials"}
-                  </Button>
-                </CardContent>
-              </Card>
+        <TabsContent value="credentials" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2 border-none shadow-sm bg-card/60">
+              <CardHeader>
+                <CardTitle className="text-base font-bold flex items-center gap-2"><KeyRound className="h-5 w-5 text-amber-500" /> Professional Credentials</CardTitle>
+                <CardDescription>Update candidate details. Every save is versioned for transparency.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                    {["full_legal_name", "email", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
+                      <div key={field} className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
+                        <Input className="bg-background/50 text-sm h-10 border-border/50" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                      </div>
+                    ))}
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Skills Summary & Keywords</Label>
+                    <Textarea rows={5} className="bg-background/50 text-sm border-border/50 italic" value={credForm["skills_summary"] || ""} onChange={e => setCredForm(prev => ({ ...prev, ["skills_summary"]: e.target.value }))} />
+                </div>
+                <Button variant="secondary" className="w-full h-11 text-white font-bold rounded-xl gap-2 shadow-lg shadow-secondary/20" onClick={handleSaveCredential} disabled={savingCred}>
+                  {savingCred ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Finalize and Update Credentials
+                </Button>
+              </CardContent>
+            </Card>
 
-              {credentials.length > 0 && (
-                <Card>
-                  <CardHeader><CardTitle>Version History</CardTitle></CardHeader>
-                  <CardContent>
-                    <Accordion type="single" collapsible>
-                      {credentials.map((v: any) => (
-                        <AccordionItem key={v.id} value={v.id}>
-                          <AccordionTrigger>
-                            <span className="text-sm">v{v.version} — {new Date(v.created_at).toLocaleString()}</span>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="grid gap-2 text-sm sm:grid-cols-2">
-                              {Object.entries(v.data as Record<string, string>).map(([key, val]) => val ? (
-                                <div key={key}><span className="text-muted-foreground capitalize">{key.replace(/_/g, " ")}:</span> {val}</div>
-                              ) : null)}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          ) : (
-            <Card><CardContent className="p-6"><p className="text-muted-foreground">Credential editing requires paid status.</p></CardContent></Card>
-          )}
+            <Card className="border-none shadow-sm bg-muted/20">
+              <CardHeader><CardTitle className="text-sm font-bold flex items-center gap-2"><History className="h-4 w-4" /> Version History</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <Accordion type="single" collapsible className="w-full">
+                  {credentials.map((v: any, idx) => (
+                    <AccordionItem key={v.id} value={v.id} className="border-b border-border/40 px-4">
+                      <AccordionTrigger className="hover:no-underline py-4">
+                        <div className="flex flex-col items-start gap-1">
+                            <span className="text-xs font-bold">Version {v.version}</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">{new Date(v.created_at).toLocaleDateString()} by {v.edited_by?.profile?.full_name || "Admin"}</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-4">
+                         <div className="space-y-3 pt-2">
+                            {Object.entries(v.data as Record<string, string>).slice(0, 5).map(([key, val]) => val && (
+                                <div key={key}>
+                                    <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter">{key.replace(/_/g, " ")}</p>
+                                    <p className="text-[11px] leading-relaxed truncate">{val}</p>
+                                </div>
+                            ))}
+                         </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+                {credentials.length === 0 && <p className="p-6 text-center text-xs text-muted-foreground italic">No prior versions recorded.</p>}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        {/* Daily Log */}
-        <TabsContent value="daily-log" className="space-y-4">
-          {["placed", "paused", "cancelled"].includes(candidate.status) || (subscription && ["past_due", "canceled", "unpaid", "grace_period", "paused"].includes(subscription?.status)) ? (
-            <Card><CardContent className="p-6"><p className="text-muted-foreground">Daily logs are disabled{subscription && ["past_due", "canceled", "unpaid"].includes(subscription?.status) ? " due to billing issue" : ` for ${candidate.status} candidates`}.</p></CardContent></Card>
-          ) : (
-          <>
-          <Card>
+        <TabsContent value="daily-log" className="space-y-6">
+          <Card className="border-none shadow-sm bg-card/60 overflow-hidden">
+             <div className="h-1 bg-secondary w-full" />
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5" /> Submit Daily Log</CardTitle>
+              <CardTitle className="text-base font-bold flex items-center gap-2"><ClipboardList className="h-5 w-5 text-secondary" /> Daily Submission Journal</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label>Applications Submitted *</Label>
-                  <Input type="number" min="0" value={logCount} onChange={e => setLogCount(e.target.value)} placeholder="0" />
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Total Applications Submitted Today *</Label>
+                  <Input type="number" min="0" value={logCount} onChange={e => setLogCount(e.target.value)} placeholder="Enter count..." className="h-11 bg-background/50 border-border/50" />
                 </div>
-                <div>
-                  <Label>Notes</Label>
-                  <Input value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Optional notes" />
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">General Internal Notes</Label>
+                  <Input value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Recruiter notes for today..." className="h-11 bg-background/50 border-border/50" />
                 </div>
               </div>
 
-              {/* Job Links */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">Job Postings</Label>
-                  <Button variant="outline" size="sm" onClick={addJobLink}><Plus className="mr-1 h-3 w-3" /> Add Job</Button>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2 mb-2">
+                  <h4 className="text-sm font-bold flex items-center gap-2">Jobs & URLs <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">{jobLinks.length}</span></h4>
+                  <Button variant="ghost" size="sm" onClick={addJobLink} className="h-8 text-[11px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 rounded-lg border border-secondary/20">
+                     <Plus className="mr-1 h-3 w-3" /> Add Job Link
+                  </Button>
                 </div>
-                {jobLinks.map((job, idx) => (
-                  <div key={idx} className="rounded-lg border border-border p-3 space-y-2">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Input placeholder="Company Name" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
-                      <Input placeholder="Role Title" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
-                      <Input placeholder="Job URL" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
-                      <Input placeholder="Resume Used (URL)" value={job.resume_used} onChange={e => updateJobLink(idx, "resume_used", e.target.value)} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
-                        <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {JOB_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="sm" onClick={() => removeJobLink(idx)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                
+                {jobLinks.length === 0 && (
+                   <div className="p-8 text-center bg-muted/10 rounded-2xl border border-dashed border-border/50 text-xs text-muted-foreground italic">
+                      Add specific job links that were submitted for more granular tracking.
+                   </div>
+                )}
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {jobLinks.map((job, idx) => (
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={idx} className="rounded-2xl border border-border/50 p-4 bg-muted/5 space-y-3 relative group">
+                        <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeJobLink(idx)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <div className="grid gap-3 grid-cols-2">
+                           <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
+                           <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
+                        </div>
+                        <div className="relative">
+                            <Input placeholder="Paste Job URL here..." className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
+                            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
+                                {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                            </Button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Input placeholder="Resume Used (e.g. SDE-2024.pdf)" className="h-9 text-[10px] bg-background/50" value={job.resume_used} onChange={e => updateJobLink(idx, "resume_used", e.target.value)} />
+                            <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
+                                <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {JOB_STATUSES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
 
-              <Button variant="hero" onClick={handleSubmitDailyLog} disabled={savingLog || !logCount}>
-                {savingLog ? "Submitting..." : "Submit Daily Log"}
+              <Button variant="hero" className="w-full h-12 text-sm font-bold tracking-tight rounded-2xl shadow-xl shadow-primary/10" onClick={handleSubmitDailyLog} disabled={savingLog || !logCount}>
+                {savingLog ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-white" />}
+                Submit Daily Record
               </Button>
             </CardContent>
           </Card>
-
-          {/* Log History */}
-          {dailyLogs.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle>My Submission History</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Applications</TableHead>
-                      <TableHead>Notes</TableHead>
-                      <TableHead>Jobs</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dailyLogs.map((log: any) => {
-                      const logJobs = jobPostings.filter((j: any) => j.submission_log_id === log.id);
-                      return (
-                        <TableRow key={log.id}>
-                          <TableCell>{new Date(log.log_date).toLocaleDateString()}</TableCell>
-                          <TableCell className="font-medium">{log.applications_count}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{log.notes || "—"}</TableCell>
-                          <TableCell>{logJobs.length} link(s)</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-          </>
-          )}
         </TabsContent>
 
-        {/* Applications overview */}
         <TabsContent value="applications" className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle>All Job Postings</CardTitle></CardHeader>
-            <CardContent>
-              {jobPostings.length === 0 ? <p className="text-muted-foreground">No job postings yet.</p> : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {jobPostings.map((j: any) => (
-                      <TableRow key={j.id}>
-                        <TableCell className="font-medium">{j.company_name || "—"}</TableCell>
-                        <TableCell>{j.role_title || "—"}</TableCell>
-                        <TableCell><StatusBadge status={j.status} /></TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{new Date(j.created_at).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+          <Card className="border-none shadow-sm bg-card/60">
+            <CardHeader><CardTitle className="text-base font-bold">Submission Pipeline</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <DataTable
+                data={jobPostings}
+                isLoading={loading}
+                searchPlaceholder="Search company..."
+                searchKey="company_name"
+                emptyMessage="No applications recorded in the system."
+                columns={[
+                  { 
+                    header: "Company & Role", 
+                    className: "px-6 py-4",
+                    render: (j: any) => (
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="font-bold text-sm tracking-tight">{j.company_name || "—"}</p>
+                          <p className="text-[11px] text-muted-foreground">{j.role_title || "—"}</p>
+                        </div>
+                        {j.job_url && (
+                          <a href={j.job_url} target="_blank" rel="noreferrer" className="text-secondary hover:underline cursor-pointer">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                    )
+                  },
+                  { 
+                    header: "Application Status", 
+                    className: "px-6 py-4",
+                    render: (j: any) => (
+                      <Select defaultValue={j.application_status} onValueChange={(v) => handleUpdateJobStatus(j.id, v)}>
+                        <SelectTrigger className="w-40 h-8 text-[11px] font-bold border-none bg-muted/50 focus-visible:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {JOB_STATUSES.map(s => <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs">{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )
+                  },
+                  { 
+                    header: "Resume Version", 
+                    className: "px-6 py-4",
+                    render: (j: any) => <span className="text-xs font-mono opacity-80">{j.resume_used || "Standard"}</span>
+                  },
+                  { 
+                    header: "Logged Date", 
+                    className: "px-6 py-4 text-right pr-6",
+                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{new Date(j.log_date || j.created_at).toLocaleDateString()}</span>
+                  }
+                ]}
+              />
             </CardContent>
+
           </Card>
         </TabsContent>
 
-        {/* Interviews */}
         <TabsContent value="interviews">
           <RecruiterInterviewsTab candidateId={candidateId} candidateUserId={candidate.user_id} />
         </TabsContent>
 
-        {/* Audit */}
+        <TabsContent value="messages">
+          <ChatTab candidateId={candidateId} />
+        </TabsContent>
+
         <TabsContent value="audit">
           <AdminAuditTab candidateId={candidateId} />
         </TabsContent>
       </Tabs>
-    </DashboardLayout>
+    </div>
   );
 };
 

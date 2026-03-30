@@ -1,29 +1,45 @@
-import uuid
-import secrets
-
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
-from django.utils import timezone
 
-from .models import User, Profile, PasswordResetToken
+from .models import User
+from candidates.models import Candidate
 from .serializers import (
     RegisterSerializer, UserSerializer, ApproveUserSerializer,
-    UserListSerializer, ChangePasswordSerializer,
+    UserListSerializer, ChangePasswordSerializer, ContactSerializer,
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
 )
-from .permissions import IsAdmin, IsSelfOrAdmin
+from .permissions import IsAdmin
 from audit.utils import log_action
 from notifications.utils import send_email
+
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
+    # Daily Limit Check (Spec 3.4)
+    from django.utils import timezone
+    today = timezone.now().date()
+    daily_count = User.objects.filter(created_at__date=today).count()
+    if daily_count >= 10:
+        return Response({
+            'error': 'Daily registration limit reached. Please try again tomorrow.'
+        }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
     serializer = RegisterSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+    if not serializer.is_valid():
+        import logging
+        logger = logging.getLogger('django')
+        logger.error("Registration validation errors: %s", serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
     user = serializer.save()
 
     log_action(
@@ -32,6 +48,7 @@ def register(request):
         details={'role': user.role},
     )
 
+    # Email to candidate
     name = user.profile.full_name if hasattr(user, 'profile') else user.email
     send_email(
         to=user.email,
@@ -40,6 +57,8 @@ def register(request):
              f'<p>Thank you for registering with Hyrind. Your account is under review.</p>'
              f'<p>Expected review time: 24–48 hours.</p>',
     )
+
+    # Email to admin
     send_email(
         to=settings.ADMIN_NOTIFICATION_EMAIL,
         subject=f'New {user.role} registration – {name}',
@@ -58,13 +77,10 @@ def login(request):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Invalid email id'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if not user.check_password(password):
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-
-    if not user.is_active:
-        return Response({'error': 'Account has been deactivated'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'error': 'Invalid password'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if user.approval_status != 'approved' and user.role != 'admin':
         return Response({
@@ -72,8 +88,8 @@ def login(request):
             'approval_status': user.approval_status,
         }, status=status.HTTP_403_FORBIDDEN)
 
-    # Log login activity
-    log_action(user, 'user_login', str(user.id), 'user', {'ip': request.META.get('REMOTE_ADDR', '')})
+    # Track login in audit log
+    log_action(user, 'user_login', str(user.id), 'user', {'role': user.role})
 
     refresh = RefreshToken.for_user(user)
     return Response({
@@ -105,6 +121,8 @@ def me(request):
 @permission_classes([IsAuthenticated])
 def update_profile(request):
     profile = request.user.profile
+    if 'first_name' in request.data and 'last_name' in request.data:
+        profile.full_name = f"{request.data['first_name']} {request.data['last_name']}".strip()
     for field in ['full_name', 'phone', 'avatar_url']:
         if field in request.data:
             setattr(profile, field, request.data[field])
@@ -129,80 +147,6 @@ def change_password(request):
     return Response({'message': 'Password updated successfully'})
 
 
-# ─── Forgot / Reset Password ───
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def forgot_password(request):
-    email = request.data.get('email', '').lower()
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        # Don't reveal if email exists
-        return Response({'message': 'If an account exists, a reset link has been sent.'})
-
-    token = secrets.token_urlsafe(48)
-    PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
-    PasswordResetToken.objects.create(
-        user=user,
-        token=token,
-        expires_at=timezone.now() + timezone.timedelta(hours=1),
-    )
-
-    reset_url = f"{settings.SITE_URL}/reset-password?token={token}"
-    name = user.profile.full_name if hasattr(user, 'profile') else user.email
-    send_email(
-        to=user.email,
-        subject='Reset Your HYRIND Password',
-        html=f'<p>Hi {name},</p>'
-             f'<p>You requested a password reset. Click the button below to set a new password:</p>'
-             f'<p><a href="{reset_url}" style="display:inline-block;padding:12px 24px;background:#1a365d;color:#fff;text-decoration:none;border-radius:8px;">Reset Password</a></p>'
-             f'<p>This link expires in 1 hour.</p>'
-             f'<p>If you didn\'t request this, ignore this email.</p>',
-        email_type='password_reset',
-    )
-
-    log_action(user, 'password_reset_requested', str(user.id), 'user', {})
-    return Response({'message': 'If an account exists, a reset link has been sent.'})
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def reset_password(request):
-    token = request.data.get('token', '')
-    new_password = request.data.get('new_password', '')
-    confirm_password = request.data.get('confirm_password', '')
-
-    if not token or not new_password:
-        return Response({'error': 'Token and new password are required.'}, status=status.HTTP_400_BAD_REQUEST)
-    if len(new_password) < 8:
-        return Response({'error': 'Password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
-    if new_password != confirm_password:
-        return Response({'error': 'Passwords do not match.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        reset_token = PasswordResetToken.objects.get(token=token, is_used=False)
-    except PasswordResetToken.DoesNotExist:
-        return Response({'error': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    if reset_token.expires_at < timezone.now():
-        reset_token.is_used = True
-        reset_token.save()
-        return Response({'error': 'Token has expired.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    user = reset_token.user
-    user.set_password(new_password)
-    user.save()
-
-    reset_token.is_used = True
-    reset_token.save()
-
-    log_action(user, 'password_reset_completed', str(user.id), 'user', {})
-    return Response({'message': 'Password has been reset successfully.'})
-
-
-# ─── Admin Approval & User Management ───
-
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def pending_approvals(request):
@@ -226,9 +170,15 @@ def approve_user(request):
     user.approval_status = action
     user.save()
 
-    if action == 'approved' and hasattr(user, 'candidate'):
-        user.candidate.status = 'approved'
-        user.candidate.save()
+    # Update candidate status if approved, OR create the Candidate record
+    if action == 'approved' and user.role == 'candidate':
+        candidate_obj, _ = Candidate.objects.get_or_create(
+            user=user,
+            defaults={'status': 'approved'},
+        )
+        if candidate_obj.status == 'pending_approval':
+            candidate_obj.status = 'approved'
+            candidate_obj.save(update_fields=['status'])
 
     log_action(
         actor=request.user,
@@ -260,131 +210,283 @@ def approve_user(request):
 @permission_classes([IsAdmin])
 def all_users(request):
     role = request.query_params.get('role')
-    approval_status = request.query_params.get('status')
-    search = request.query_params.get('search', '')
+    search = request.query_params.get('search', '').strip()
     qs = User.objects.select_related('profile').order_by('-created_at')
     if role:
         qs = qs.filter(role=role)
-    if approval_status:
-        qs = qs.filter(approval_status=approval_status)
     if search:
         from django.db.models import Q
         qs = qs.filter(
             Q(email__icontains=search) |
             Q(profile__full_name__icontains=search)
         )
-    return Response(UserListSerializer(qs, many=True).data)
+    total = qs.count()
+    page = int(request.query_params.get('page', 0))
+    page_size = int(request.query_params.get('page_size', 0))
+    if page > 0 and page_size > 0:
+        start = (page - 1) * page_size
+        qs = qs[start:start + page_size]
+    return Response({'total': total, 'results': UserListSerializer(qs, many=True).data})
 
 
-@api_view(['PATCH'])
+@api_view(['GET', 'PATCH', 'DELETE'])
 @permission_classes([IsAdmin])
-def admin_update_user(request, user_id):
-    """Admin can edit user role, approval_status, is_active, and profile fields."""
+def manage_user(request, user_id):
+    """Admin: view, edit, or delete any user."""
     try:
-        target_user = User.objects.select_related('profile').get(id=user_id)
+        user = User.objects.select_related('profile').get(id=user_id)
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    changes = {}
-    for field in ['role', 'approval_status', 'is_active']:
+    if request.method == 'GET':
+        return Response(UserListSerializer(user).data)
+
+    if request.method == 'DELETE':
+        if user.is_superuser:
+            return Response({'error': 'Cannot delete superuser'}, status=400)
+        log_action(request.user, 'user_deleted', str(user.id), 'user', {'email': user.email})
+        user.delete()
+        return Response({'detail': 'User deleted'})
+
+    # PATCH — only update fields that actually exist on the User model
+    user_fields = ['email', 'role', 'approval_status', 'is_active']
+    for field in user_fields:
         if field in request.data:
-            old_val = getattr(target_user, field)
-            setattr(target_user, field, request.data[field])
-            changes[field] = {'old': str(old_val), 'new': str(request.data[field])}
-    target_user.save()
+            setattr(user, field, request.data[field])
+    user.save()
 
-    # Update profile fields
-    if hasattr(target_user, 'profile'):
-        profile = target_user.profile
-        for field in ['full_name', 'phone', 'avatar_url']:
-            if field in request.data:
-                setattr(profile, field, request.data[field])
-        profile.save()
+    # Profile fields (full_name, phone) live on the related Profile model
+    profile_updates = {}
+    if 'full_name' in request.data:
+        profile_updates['full_name'] = request.data['full_name']
+    if 'phone' in request.data:
+        profile_updates['phone'] = request.data['phone']
+    if profile_updates:
+        profile = getattr(user, 'profile', None)
+        if profile:
+            for k, v in profile_updates.items():
+                setattr(profile, k, v)
+            profile.save(update_fields=list(profile_updates.keys()))
 
-    log_action(request.user, 'admin_user_update', str(user_id), 'user', changes)
-    return Response(UserListSerializer(target_user).data)
-
-
-@api_view(['DELETE'])
-@permission_classes([IsAdmin])
-def admin_delete_user(request, user_id):
-    """Admin can deactivate (soft delete) a user."""
-    try:
-        target_user = User.objects.get(id=user_id)
-    except User.DoesNotExist:
-        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    # Prevent self-delete
-    if str(target_user.id) == str(request.user.id):
-        return Response({'error': 'Cannot deactivate your own account'}, status=status.HTTP_400_BAD_REQUEST)
-
-    target_user.is_active = False
-    target_user.save()
-    log_action(request.user, 'admin_user_deactivated', str(user_id), 'user', {})
-    return Response({'message': 'User deactivated'})
+    log_action(request.user, 'user_updated', str(user.id), 'user', request.data)
+    return Response(UserListSerializer(user).data)
 
 
-# ─── Admin Dashboard Stats ───
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def submit_contact(request):
+    serializer = ContactSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    data = serializer.validated_data
+    mode = data['mode']
+    
+    if mode == 'interest':
+        # Create user if not exists
+        user, user_created = User.objects.get_or_create(
+            email=data['email'],
+            defaults={
+                'role': 'candidate',
+                'approval_status': 'pending',
+            }
+        )
+        if user_created:
+            user.set_unusable_password()
+            user.save()
+        
+        # Create profile if not exists
+        from .models import Profile
+        Profile.objects.get_or_create(
+            user=user,
+            defaults={
+                'full_name': data['name'],
+                'phone': data.get('phone', ''),
+            }
+        )
+        
+        # Create/Update Candidate with status='lead'
+        candidate, cand_created = Candidate.objects.get_or_create(
+            user=user,
+            defaults={
+                'status': 'lead',
+                'university': data.get('university', ''),
+                'major': data.get('major', ''),
+                'visa_status': data.get('visa_status', ''),
+                'referral_source': data.get('referral_source', ''),
+            }
+        )
+        if not cand_created and candidate.status == 'pending_approval':
+            candidate.status = 'lead'
+            candidate.save(update_fields=['status'])
+
+        # Notify admin of new lead
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')
+        send_email(
+            to=admin_email,
+            subject=f'New Candidate Interest: {data["name"]}',
+            html=f'<p><strong>{data["name"]}</strong> ({data["email"]}) has expressed interest.</p>'
+                 f'<p>University: {data.get("university", "—")}</p>'
+                 f'<p>Major: {data.get("major", "—")}</p>'
+                 f'<p>Phone: {data.get("phone", "—")}</p>'
+                 f'<p><a href="{settings.SITE_URL}/admin-dashboard">View in Dashboard</a></p>',
+            email_type='admin_notification'
+        )
+        
+        # Notify candidate
+        send_email(
+            to=data['email'],
+            subject='Thank you for your interest in HYRIND!',
+            html=f'<p>Hi {data["name"]},</p>'
+                 f'<p>Thank you for expressing interest in HYRIND. Our team will review your submission and reach out within 24–48 hours to schedule a discovery call.</p>',
+            email_type='interest_confirmation'
+        )
+        
+        log_action(user, 'interest_form_submitted', str(user.id), 'user', data)
+        return Response({'message': 'Interest form submitted successfully.'}, status=status.HTTP_201_CREATED)
+
+    else:
+        # General Inquiry
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')
+        send_email(
+            to=admin_email,
+            subject=f'New General Inquiry: {data["name"]}',
+            html=f'<p><strong>Name:</strong> {data["name"]}</p>'
+                 f'<p><strong>Email:</strong> {data["email"]}</p>'
+                 f'<p><strong>Message:</strong><br/>{data["message"]}</p>',
+            email_type='admin_notification'
+        )
+        
+        send_email(
+            to=data['email'],
+            subject='We received your message – HYRIND',
+            html=f'<p>Hi {data["name"]},</p>'
+                 f'<p>Thank you for reaching out! We have received your message and will get back to you within 24–48 hours.</p>',
+            email_type='inquiry_confirmation'
+        )
+        
+        return Response({'message': 'General inquiry submitted successfully.'})
+
 
 @api_view(['GET'])
 @permission_classes([IsAdmin])
-def admin_dashboard_stats(request):
-    """Return all KPI metrics for the admin dashboard."""
-    from candidates.models import Candidate
-    from billing.models import Subscription, Payment
-    from recruiters.models import JobLinkEntry
+def admin_analytics(request):
+    """
+    Returns aggregated stats for Admin Dashboard charts:
+    - registrations_by_month: last 6 months user registrations
+    - logins_by_month: last 6 months login events (from audit)
+    - role_counts: user counts by role
+    - status_counts: candidate counts by status
+    """
+    from django.db.models import Count
+    from django.db.models.functions import TruncMonth
+    from django.utils import timezone
+    from datetime import timedelta
     from audit.models import AuditLog
 
-    total_users = User.objects.count()
-    total_candidates = User.objects.filter(role='candidate').count()
-    total_recruiters = User.objects.filter(role__in=['recruiter', 'team_lead', 'team_manager']).count()
-    total_admins = User.objects.filter(role='admin').count()
-    pending_approvals_count = User.objects.filter(approval_status='pending').count()
+    six_months_ago = timezone.now() - timedelta(days=180)
 
-    active_candidates = Candidate.objects.filter(status='active_marketing').count()
-    total_job_postings = JobLinkEntry.objects.count()
-    total_applications = JobLinkEntry.objects.filter(application_status='applied').count()
+    # Registrations per month
+    reg_qs = (
+        User.objects.filter(created_at__gte=six_months_ago)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(count=Count('id'))
+        .order_by('month')
+    )
+    registrations = [
+        {'month': r['month'].strftime('%b %Y'), 'count': r['count']}
+        for r in reg_qs
+    ]
 
-    # Revenue
-    from django.db.models import Sum
-    total_revenue = Payment.objects.filter(status='completed').aggregate(total=Sum('amount'))['total'] or 0
+    # Logins per month (from audit log)
+    login_qs = (
+        AuditLog.objects.filter(action='user_login', created_at__gte=six_months_ago)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(count=Count('id'))
+        .order_by('month')
+    )
+    logins = [
+        {'month': l['month'].strftime('%b %Y'), 'count': l['count']}
+        for l in login_qs
+    ]
 
-    # Pipeline counts
-    pipeline = {}
-    for s in ['pending_approval', 'approved', 'intake_submitted', 'roles_suggested', 'roles_confirmed',
-              'paid', 'credential_completed', 'active_marketing', 'paused', 'cancelled', 'placed']:
-        pipeline[s] = Candidate.objects.filter(status=s).count()
+    # Role counts
+    role_counts = list(User.objects.values('role').annotate(count=Count('id')))
 
-    # Billing alerts
-    billing_alerts = Subscription.objects.filter(status__in=['past_due', 'grace_period']).count()
-
-    # Recent registrations (last 7 days)
-    from datetime import timedelta
-    week_ago = timezone.now() - timedelta(days=7)
-    recent_registrations = User.objects.filter(created_at__gte=week_ago).count()
-
-    # Recent activity logs
-    recent_logs = AuditLog.objects.select_related('actor__profile').order_by('-created_at')[:10]
-    recent_activity = [{
-        'id': str(l.id),
-        'action': l.action,
-        'actor_name': l.actor.profile.full_name if l.actor and hasattr(l.actor, 'profile') else 'System',
-        'target_type': l.target_type,
-        'created_at': l.created_at.isoformat(),
-    } for l in recent_logs]
+    # Candidate status counts
+    from candidates.models import Candidate
+    status_counts = list(Candidate.objects.values('status').annotate(count=Count('id')))
 
     return Response({
-        'total_users': total_users,
-        'total_candidates': total_candidates,
-        'total_recruiters': total_recruiters,
-        'total_admins': total_admins,
-        'pending_approvals': pending_approvals_count,
-        'active_candidates': active_candidates,
-        'total_job_postings': total_job_postings,
-        'total_applications': total_applications,
-        'total_revenue': float(total_revenue),
-        'pipeline': pipeline,
-        'billing_alerts': billing_alerts,
-        'recent_registrations': recent_registrations,
-        'recent_activity': recent_activity,
+        'registrations_by_month': registrations,
+        'logins_by_month': logins,
+        'role_counts': role_counts,
+        'status_counts': status_counts,
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_request(request):
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    email = serializer.validated_data['email']
+
+    try:
+        user = User.objects.get(email=email)
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        reset_url = f"{settings.SITE_URL}/reset-password?uid={uid}&token={token}"
+        
+        send_email(
+            to=user.email,
+            subject='Password Reset Request – Hyrind',
+            html=f'<p>Hi,</p>'
+                 f'<p>You requested a password reset for your Hyrind account.</p>'
+                 f'<p>Click the link below to set a new password:</p>'
+                 f'<p><a href="{reset_url}">{reset_url}</a></p>'
+                 f'<p>This link will expire in 24 hours.</p>'
+                 f'<p>If you did not request this, please ignore this email.</p>',
+        )
+        log_action(user, 'password_reset_requested', str(user.id), 'user', {})
+    except User.DoesNotExist:
+        # We don't reveal if user exists for security
+        pass
+
+    return Response({'message': 'If an account exists with this email, a reset link has been sent.'})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_confirm(request):
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    uidb64 = serializer.validated_data['uidb64']
+    token = serializer.validated_data['token']
+    new_password = serializer.validated_data['new_password']
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({'error': 'Invalid reset link'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not default_token_generator.check_token(user, token):
+        return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+    
+    log_action(user, 'password_reset_completed', str(user.id), 'user', {})
+    
+    send_email(
+        to=user.email,
+        subject='Password Reset Successful',
+        html=f'<p>Hi,</p><p>Your password has been successfully reset. You can now log in with your new password.</p>',
+    )
+    
+    return Response({'message': 'Password has been reset successfully.'})

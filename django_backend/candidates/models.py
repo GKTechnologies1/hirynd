@@ -6,11 +6,11 @@ from users.models import User
 class Candidate(models.Model):
     STATUS_CHOICES = [
         ('pending_approval', 'Pending Approval'),
+        ('lead', 'Lead'),
         ('approved', 'Approved'),
         ('intake_submitted', 'Intake Submitted'),
         ('roles_published', 'Roles Published'),
-        ('roles_candidate_responded', 'Roles Candidate Responded'),
-        ('payment_pending', 'Payment Pending'),
+        ('roles_confirmed', 'Roles Confirmed'),
         ('payment_completed', 'Payment Completed'),
         ('credentials_submitted', 'Credentials Submitted'),
         ('active_marketing', 'Active Marketing'),
@@ -37,7 +37,17 @@ class Candidate(models.Model):
     referral_source = models.CharField(max_length=255, blank=True, null=True)
     referral_friend_name = models.CharField(max_length=255, blank=True, null=True)
     current_location = models.CharField(max_length=255, blank=True, null=True)
+    github_url = models.URLField(blank=True, null=True)
+    opt_end_date = models.DateField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+
+    # Cal.com scheduling URLs (Admin-configurable)
+    cal_training_url = models.URLField(blank=True, null=True)
+    cal_mock_practice_url = models.URLField(blank=True, null=True)
+    cal_interview_training_url = models.URLField(blank=True, null=True)
+    cal_interview_support_url = models.URLField(blank=True, null=True)
+    cal_operations_call_url = models.URLField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

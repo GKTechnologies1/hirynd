@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { billingApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/badge";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Play, Eye, AlertTriangle } from "lucide-react";
@@ -16,17 +16,8 @@ const AdminBillingRunPage = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState("");
 
-  const runCheck = async (dryRun: boolean) => {
-    setRunning(true);
-    setResult(null);
-    try {
-      const { data } = await billingApi.runBillingChecks(dryRun);
-      setResult(data);
-      toast({ title: dryRun ? "Dry run complete" : "Billing checks executed" });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
-    }
-    setRunning(false);
+  const runCheck = async (_dryRun: boolean) => {
+    toast({ title: "Feature not available", description: "Automated billing runs require a scheduled task configuration.", variant: "destructive" });
   };
 
   const handleExecuteClick = () => {
@@ -93,39 +84,43 @@ const AdminBillingRunPage = () => {
               {affected.length > 0 && (
                 <Card>
                   <CardHeader><CardTitle className="text-base">Affected Candidates</CardTitle></CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Candidate</TableHead>
-                          <TableHead>Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {affected.map((a: any, i: number) => (
-                          <TableRow key={i}>
-                            <TableCell className="text-sm">{a.candidate_name || a.candidate_id?.slice(0, 8) + "..."}</TableCell>
-                            <TableCell>
-                              <Badge className={
-                                a.action === "pause_expired_grace" ? "bg-destructive/10 text-destructive" :
-                                a.action === "create_overdue_invoice" ? "bg-primary/10 text-primary" :
-                                "bg-secondary/10 text-secondary"
-                              }>
-                                {(a.action || "").replace(/_/g, " ")}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <CardContent className="p-0">
+                    <DataTable
+                      data={affected}
+                      isLoading={false}
+                      searchPlaceholder="Filter candidate ID..."
+                      searchKey="candidate_id"
+                      emptyMessage="No candidates affected."
+                      columns={[
+                        { 
+                          header: "Candidate ID", 
+                          render: (a: any) => <span className="text-sm font-mono pl-6">{a.candidate_id?.slice(0, 8)}...</span>
+                        },
+                        { 
+                          header: "Action", 
+                          className: "pr-6 text-right",
+                          render: (a: any) => (
+                            <Badge className={
+                              a.action === "pause_expired_grace" ? "bg-destructive/10 text-destructive" :
+                              a.action === "create_overdue_invoice" ? "bg-primary/10 text-primary" :
+                              "bg-secondary/10 text-secondary"
+                            }>
+                              {a.action.replace(/_/g, " ")}
+                            </Badge>
+                          )
+                        }
+                      ]}
+                    />
                   </CardContent>
                 </Card>
               )}
+
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Confirmation Modal */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent>
           <DialogHeader>
@@ -137,10 +132,20 @@ const AdminBillingRunPage = () => {
               This will process expired grace periods, create overdue invoices, and send notifications. These changes cannot be undone. Type <strong>RUN</strong> to confirm.
             </DialogDescription>
           </DialogHeader>
-          <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder='Type "RUN" to confirm' />
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder='Type "RUN" to confirm'
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleConfirmExecute} disabled={confirmText !== "RUN"}>Execute Billing Checks</Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmExecute}
+              disabled={confirmText !== "RUN"}
+            >
+              Execute Billing Checks
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

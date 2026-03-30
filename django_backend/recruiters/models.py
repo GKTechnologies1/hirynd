@@ -10,7 +10,20 @@ class RecruiterProfile(models.Model):
     city = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)
     country = models.CharField(max_length=100, blank=True, null=True)
+    university = models.CharField(max_length=255, blank=True, null=True)
+    major = models.CharField(max_length=255, blank=True, null=True)
+    graduation_date = models.DateField(blank=True, null=True)
     linkedin_url = models.URLField(blank=True, null=True)
+    social_profile_url = models.URLField(blank=True, null=True)
+    
+    # New fields from legacy RecruiterRegister.jsx
+    company_name = models.CharField(max_length=255, blank=True, null=True)
+    employee_id = models.CharField(max_length=100, blank=True, null=True)
+    date_of_joining = models.DateField(blank=True, null=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
+    specialization = models.CharField(max_length=100, blank=True, null=True)
+    max_clients = models.IntegerField(default=3)
+
     prior_recruitment_experience = models.TextField(blank=True, null=True)
     work_type_preference = models.CharField(max_length=50, blank=True, null=True)
     documents_url = models.URLField(blank=True, null=True)

@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { useToast } from "@/hooks/use-toast";
+
 import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Send } from "lucide-react";
 
 const navItems = [
@@ -39,12 +40,12 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
 
   const fetchReferrals = async () => {
     if (!candidate?.id) return;
-    const { data } = await supabase
-      .from("referrals")
-      .select("*")
-      .eq("referrer_id", candidate.id)
-      .order("created_at", { ascending: false });
-    setReferrals(data || []);
+    try {
+      const { data } = await candidatesApi.getReferrals(candidate.id);
+      setReferrals(data || []);
+    } catch {
+      setReferrals([]);
+    }
     setLoading(false);
   };
 
@@ -59,42 +60,18 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
       toast({ title: "Enter a valid email", variant: "destructive" }); return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from("referrals").insert({
-      referrer_id: candidate.id,
-      friend_name: friendName.trim(),
-      friend_email: friendEmail.trim(),
-      friend_phone: friendPhone.trim(),
-      referral_note: referralNote.trim(),
-    });
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      // Notify admins
-      const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
-      if (adminRoles) {
-        for (const admin of adminRoles) {
-          await supabase.from("notifications").insert({
-            user_id: admin.user_id,
-            title: "New Referral",
-            message: `${friendName} was referred by a candidate. Email: ${friendEmail}`,
-            link: "/admin-dashboard/referrals",
-          });
-        }
-      }
-
-      // Send referral email to friend (non-blocking)
-      supabase.functions.invoke("send-email", {
-        body: {
-          type: "referral_email",
-          to: friendEmail.trim(),
-          data: { friend_name: friendName.trim(), referrer_name: "A HYRIND candidate", referral_note: referralNote.trim() },
-        },
-      }).catch(() => {});
-
+    try {
+      await candidatesApi.submitReferral(candidate.id, {
+        friend_name: friendName.trim(),
+        friend_email: friendEmail.trim(),
+        friend_phone: friendPhone.trim(),
+        referral_note: referralNote.trim(),
+      });
       toast({ title: "Referral submitted! Thank you." });
       setFriendName(""); setFriendEmail(""); setFriendPhone(""); setReferralNote("");
       fetchReferrals();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSubmitting(false);
   };
@@ -122,34 +99,41 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
         {/* Referral History */}
         <Card>
           <CardHeader><CardTitle>My Referrals</CardTitle></CardHeader>
-          <CardContent>
-            {loading ? <p className="text-muted-foreground">Loading...</p> :
-              referrals.length === 0 ? <p className="text-muted-foreground">No referrals yet.</p> : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {referrals.map((r: any) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.friend_name}</TableCell>
-                        <TableCell>{r.friend_email}</TableCell>
-                        <TableCell>{r.friend_phone || "—"}</TableCell>
-                        <TableCell><StatusBadge status={r.status} /></TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+          <CardContent className="p-0">
+            <DataTable
+              data={referrals}
+              isLoading={loading}
+              searchPlaceholder="Search friend name..."
+              searchKey="friend_name"
+              emptyMessage="No referrals yet."
+              columns={[
+                { 
+                  header: "Name", 
+                  accessorKey: "friend_name",
+                  className: "font-medium text-sm pl-6"
+                },
+                { 
+                  header: "Email", 
+                  accessorKey: "friend_email",
+                  className: "text-sm"
+                },
+                { 
+                  header: "Phone", 
+                  render: (r: any) => <span className="text-sm">{r.friend_phone || "—"}</span>
+                },
+                { 
+                  header: "Status", 
+                  render: (r: any) => <StatusBadge status={r.status} />
+                },
+                { 
+                  header: "Date", 
+                  render: (r: any) => <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+                }
+              ]}
+            />
           </CardContent>
         </Card>
+
       </div>
     </DashboardLayout>
   );

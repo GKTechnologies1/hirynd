@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/layout/Header";
 import SEO from "@/components/SEO";
 import Footer from "@/components/layout/Footer";
 import { motion } from "framer-motion";
+import { authApi } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 const Contact = () => {
   const [wantsMarketing, setWantsMarketing] = useState<string | null>(null);
   const [referralSource, setReferralSource] = useState("");
+  const [visaStatus, setVisaStatus] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const { toast } = useToast();
 
@@ -25,128 +26,137 @@ const Contact = () => {
       return;
     }
 
-    // Try sending emails via edge function (non-blocking)
-    if (wantsMarketing === "yes") {
-      const form = e.target as HTMLFormElement;
-      const formData = new FormData(form);
-      const name = formData.get("name") as string || "";
-      const email = formData.get("email") as string || "";
-      const phone = formData.get("phone") as string || "";
-      const university = formData.get("university") as string || "";
-      const visaStatus = formData.get("visa_status") as string || "";
+    const formData = new FormData(e.target as HTMLFormElement);
+    const data = Object.fromEntries(formData.entries());
+    
+    const payload = {
+      ...data,
+      mode: wantsMarketing === "yes" ? "interest" : "general",
+      referral_source: referralSource || (data.referral_source as string) || "",
+      visa_status: visaStatus,
+    };
 
-      // Send confirmation to user
-      supabase.functions.invoke("send-transactional-email", {
-        body: { type: "interest_confirmation", payload: { name, email } },
-      }).catch(() => {});
-
-      // Notify admin
-      supabase.functions.invoke("send-transactional-email", {
-        body: { type: "interest_admin_notification", payload: { name, email, phone, university, visa_status: visaStatus, referral_source: referralSource } },
-      }).catch(() => {});
+    try {
+      await authApi.submitContact(payload);
+      toast({
+        title: "Form Submitted Successfully!",
+        description: wantsMarketing === "yes"
+          ? "Thank you for your interest! Our team will review your submission and reach out within 24–48 hours to schedule a discovery call."
+          : "Thank you for reaching out! We'll get back to you within 24–48 hours.",
+      });
+      
+      // Reset form
+      (e.target as HTMLFormElement).reset();
+      setWantsMarketing(null);
+      setReferralSource("");
+      setVisaStatus("");
+      setTermsAccepted(false);
+    } catch (error: any) {
+      toast({
+        title: "Submission Failed",
+        description: error.response?.data?.message || "Something went wrong. Please try again later.",
+        variant: "destructive",
+      });
     }
-
-    toast({
-      title: "Form Submitted Successfully!",
-      description: wantsMarketing === "yes"
-        ? "Thank you for your interest! Our team will review your submission and reach out within 24–48 hours to schedule a discovery call."
-        : "Thank you for reaching out! We'll get back to you within 24–48 hours.",
-    });
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-neutral-50">
       <SEO title="Contact Us" description="Reach out to HYRIND for questions, partnerships, or to submit your interest in our profile marketing and career support services." path="/contact" />
       <Header />
-      <main>
-        <section className="hero-gradient py-20 lg:py-28">
-          <div className="container">
+      <main className="flex-1">
+        <section className="bg-white border-b border-neutral-200 pt-32 pb-16 lg:pt-40 lg:pb-24">
+          <div className="container px-4 md:px-6">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-3xl text-center">
-              <h1 className="text-4xl font-bold text-primary-foreground sm:text-5xl">Contact Us</h1>
-              <p className="mt-6 text-lg text-primary-foreground/70">
+              <h1 className="text-4xl font-bold tracking-tight text-[#0d47a1] sm:text-5xl">Contact Us</h1>
+              <p className="mt-6 text-lg text-neutral-600">
                 Reach out for questions, partnerships, or career support. Whether you're ready to get started or just want to learn more, we're here to help.
               </p>
             </motion.div>
           </div>
         </section>
 
-        <section className="py-20">
-          <div className="container">
+        <section className="py-20 lg:py-28">
+          <div className="container px-4 md:px-6">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-8 card-elevated lg:p-10"
+              className="mx-auto max-w-2xl rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm lg:p-12 mb-12"
             >
               {/* Primary question */}
               {wantsMarketing === null && (
-                <div className="text-center">
-                  <h2 className="mb-6 text-xl font-semibold text-card-foreground">
+                <div className="text-center py-6">
+                  <h2 className="mb-8 text-2xl font-bold text-neutral-900 tracking-tight">
                     Are you looking to get your profile marketed through HYRIND?
                   </h2>
                   <div className="flex justify-center gap-4">
-                    <Button variant="hero" size="lg" onClick={() => setWantsMarketing("yes")}>Yes</Button>
-                    <Button variant="outline" size="lg" onClick={() => setWantsMarketing("no")}>No</Button>
+                    <Button className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90 rounded-xl h-12 px-8 text-base font-bold shadow-sm" onClick={() => setWantsMarketing("yes")}>Yes</Button>
+                    <Button variant="outline" className="rounded-xl h-12 px-8 text-base font-bold text-neutral-600 border-neutral-200 hover:bg-neutral-50" onClick={() => setWantsMarketing("no")}>No</Button>
                   </div>
                 </div>
               )}
 
               {/* General inquiry form */}
               {wantsMarketing === "no" && (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <h2 className="mb-4 text-xl font-semibold text-card-foreground">General Inquiry</h2>
-                  <p className="mb-4 text-sm text-muted-foreground">Have a question about our services, partnerships, or anything else? Send us a message and we'll respond promptly.</p>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div><Label>Name *</Label><Input required placeholder="Your full name" /></div>
-                    <div><Label>Email *</Label><Input required type="email" placeholder="you@email.com" /></div>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-neutral-900 tracking-tight">General Inquiry</h2>
+                    <p className="mt-2 text-sm text-neutral-500">Have a question about our services, partnerships, or anything else? Send us a message and we'll respond promptly.</p>
                   </div>
-                  <div><Label>Phone</Label><Input placeholder="+1 (555) 000-0000" /></div>
-                  <div><Label>Message *</Label><Textarea required placeholder="How can we help you?" rows={4} /></div>
-                  <div className="flex gap-3">
-                    <Button variant="hero" type="submit">Send Message</Button>
-                    <Button variant="ghost" type="button" onClick={() => setWantsMarketing(null)}>Back</Button>
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Name *</Label><Input required placeholder="Your full name" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
+                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label><Input required type="email" placeholder="you@email.com" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
+                  </div>
+                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone</Label><Input placeholder="+1 (555) 000-0000" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Message *</Label><Textarea required placeholder="How can we help you?" rows={5} className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none" /></div>
+                  <div className="flex gap-3 pt-4 border-t border-neutral-100">
+                    <Button type="submit" className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90 rounded-xl h-11 px-6 font-bold shadow-sm">Send Message</Button>
+                    <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => setWantsMarketing(null)}>Back</Button>
                   </div>
                 </form>
               )}
 
               {/* Candidate interest form */}
               {wantsMarketing === "yes" && (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <h2 className="mb-2 text-xl font-semibold text-card-foreground">Candidate Interest Form</h2>
-                  <p className="mb-4 text-sm text-muted-foreground">Tell us about yourself so we can match you with the right recruiter and career strategy. All fields marked * are required.</p>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div><Label>Full Name *</Label><Input name="name" required placeholder="Your full name" /></div>
-                    <div><Label>Email *</Label><Input name="email" required type="email" placeholder="you@email.com" /></div>
-                  </div>
-                  <div><Label>Phone *</Label><Input name="phone" required placeholder="+1 (555) 000-0000" /></div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label>University</Label>
-                      <Input name="university" placeholder="University name (if applicable)" />
-                      <p className="mt-1 text-xs text-muted-foreground">Leave blank if not applicable</p>
-                    </div>
-                    <div>
-                      <Label>Major / Field of Study</Label>
-                      <Input placeholder="e.g., Computer Science" />
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label>Degree</Label>
-                      <Input placeholder="e.g., Master's, Bachelor's" />
-                      <p className="mt-1 text-xs text-muted-foreground">Your highest degree or current program</p>
-                    </div>
-                    <div>
-                      <Label>Graduation Year</Label>
-                      <Input placeholder="e.g., 2025" />
-                      <p className="mt-1 text-xs text-muted-foreground">Expected or completed graduation year</p>
-                    </div>
-                  </div>
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
-                    <Label>Visa Status</Label>
-                    <Select>
-                      <SelectTrigger><SelectValue placeholder="Select your visa status" /></SelectTrigger>
+                    <h2 className="text-2xl font-bold text-neutral-900 tracking-tight">Candidate Interest Form</h2>
+                    <p className="mt-2 text-sm text-neutral-500">Tell us about yourself so we can match you with the right recruiter and career strategy. All fields marked * are required.</p>
+                  </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Full Name *</Label><Input name="name" required placeholder="Your full name" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label><Input name="email" required type="email" placeholder="you@email.com" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                  </div>
+                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label><Input name="phone" required placeholder="+1 (555) 000-0000" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University</Label>
+                      <Input name="university" placeholder="University name (if applicable)" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <p className="mt-1 text-[10px] text-neutral-400 font-medium">Leave blank if not applicable</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Major / Field of Study</Label>
+                      <Input name="major" placeholder="e.g., Computer Science" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                    </div>
+                  </div>
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree</Label>
+                      <Input placeholder="e.g., Master's, Bachelor's" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <p className="mt-1 text-[10px] text-neutral-400 font-medium">Your highest degree or current program</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year</Label>
+                      <Input placeholder="e.g., 2025" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <p className="mt-1 text-[10px] text-neutral-400 font-medium">Expected or completed graduation year</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Visa Status</Label>
+                    <Select value={visaStatus} onValueChange={setVisaStatus}>
+                      <SelectTrigger className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11"><SelectValue placeholder="Select your visa status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="us-citizen">US Citizen</SelectItem>
                         <SelectItem value="green-card">Green Card / Permanent Resident</SelectItem>
@@ -158,17 +168,17 @@ const Contact = () => {
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="mt-1 text-xs text-muted-foreground">This helps us tailor our approach to your situation</p>
+                    <p className="mt-1 text-[10px] text-neutral-400 font-medium">This helps us tailor our approach to your situation</p>
                   </div>
-                  <div>
-                    <Label>Resume Upload (Optional)</Label>
-                    <Input type="file" accept=".pdf,.doc,.docx" />
-                    <p className="mt-1 text-xs text-muted-foreground">PDF or Word document preferred</p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Resume Upload (Optional)</Label>
+                    <Input type="file" accept=".pdf,.doc,.docx" className="file:rounded-lg file:border-0 file:bg-neutral-100 file:text-neutral-700 cursor-pointer pt-2 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 file:mr-4 file:px-4 file:text-xs file:font-semibold" />
+                    <p className="mt-1 text-[10px] text-neutral-400 font-medium">PDF or Word document preferred</p>
                   </div>
-                  <div>
-                    <Label>How did you hear about us?</Label>
-                    <Select onValueChange={setReferralSource}>
-                      <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">How did you hear about us?</Label>
+                    <Select value={referralSource} onValueChange={setReferralSource}>
+                      <SelectTrigger className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11"><SelectValue placeholder="Select source" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="google">Google Search</SelectItem>
                         <SelectItem value="linkedin">LinkedIn</SelectItem>
@@ -180,31 +190,31 @@ const Contact = () => {
                     </Select>
                   </div>
                   {referralSource === "friend" && (
-                    <div>
-                      <Label>Friend's Name</Label>
-                      <Input placeholder="Who referred you to HYRIND?" />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Friend's Name</Label>
+                      <Input placeholder="Who referred you to HYRIND?" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
                     </div>
                   )}
 
                   {/* Terms & Privacy */}
-                  <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-5 mt-8">
                     <Checkbox
                       id="terms"
                       checked={termsAccepted}
                       onCheckedChange={(checked) => setTermsAccepted(checked === true)}
-                      className="mt-0.5"
+                      className="mt-0.5 border-neutral-300 data-[state=checked]:bg-[#0d47a1] data-[state=checked]:text-white rounded"
                     />
-                    <label htmlFor="terms" className="text-sm text-muted-foreground leading-relaxed">
+                    <label htmlFor="terms" className="text-sm text-neutral-600 leading-relaxed font-medium">
                       I agree to HYRIND's{" "}
-                      <a href="/terms" className="font-medium text-secondary underline-offset-4 hover:underline">Terms & Conditions</a>{" "}
+                      <a href="/terms" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</a>{" "}
                       and{" "}
-                      <a href="/privacy-policy" className="font-medium text-secondary underline-offset-4 hover:underline">Privacy Policy</a>.
+                      <a href="/privacy-policy" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</a>.
                     </label>
                   </div>
 
-                  <div className="flex gap-3">
-                    <Button variant="hero" type="submit">Submit Interest</Button>
-                    <Button variant="ghost" type="button" onClick={() => { setWantsMarketing(null); setTermsAccepted(false); }}>Back</Button>
+                  <div className="flex gap-3 pt-4 border-t border-neutral-100">
+                    <Button type="submit" className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90 rounded-xl h-11 px-6 font-bold shadow-sm">Submit Interest</Button>
+                    <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => { setWantsMarketing(null); setTermsAccepted(false); }}>Back</Button>
                   </div>
                 </form>
               )}

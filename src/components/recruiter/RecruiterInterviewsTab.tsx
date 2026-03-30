@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { candidatesApi } from "@/services/api";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,16 +9,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
+
 import { useToast } from "@/hooks/use-toast";
 import { Phone, Plus } from "lucide-react";
 
 const LOG_TYPES = [
   { value: "screening_call", label: "Screening Call" },
-  { value: "interview", label: "Interview" },
+  { value: "technical_interview", label: "Technical Interview" },
+  { value: "hr_interview", label: "HR Interview" },
+  { value: "client_round", label: "Client Round" },
+  { value: "final_round", label: "Final Round" },
+  { value: "mock_interview", label: "Mock Interview" },
+  { value: "support_call", label: "Support Call" },
 ];
 const ROUNDS = ["Round 1", "Round 2", "Tech", "Behavioral", "Final"];
-const OUTCOMES = ["Scheduled", "Completed", "No Show", "Rejected", "Next Round", "Offer"];
+const OUTCOMES = ["scheduled", "completed", "selected", "rejected", "follow_up_needed", "rescheduled", "no_show"];
 
 interface RecruiterInterviewsTabProps {
   candidateId: string;
@@ -45,12 +51,12 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
   const [saving, setSaving] = useState(false);
 
   const fetchLogs = async () => {
-    const { data } = await supabase
-      .from("interview_logs")
-      .select("*")
-      .eq("candidate_id", candidateId)
-      .order("interview_date", { ascending: false });
-    setLogs(data || []);
+    try {
+      const { data } = await candidatesApi.getInterviews(candidateId);
+      setLogs(data || []);
+    } catch {
+      setLogs([]);
+    }
     setLoading(false);
   };
 
@@ -61,40 +67,31 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
       toast({ title: "Fill required fields", variant: "destructive" }); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("interview_logs").insert({
-      candidate_id: candidateId,
-      submitted_by: user!.id,
-      log_type: logType,
-      company_name: companyName.trim(),
-      role_title: roleTitle.trim(),
-      interview_date: interviewDate,
-      round, outcome,
-      notes: notes.trim(),
-      difficult_questions: difficultQuestions.trim(),
-      support_needed: supportNeeded,
-      support_notes: supportNotes.trim(),
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      // Notify candidate
-      await supabase.from("notifications").insert({
-        user_id: candidateUserId,
-        title: "Interview Logged",
-        message: `Your recruiter logged a ${logType === "interview" ? "interview" : "screening call"} with ${companyName}`,
-        link: "/candidate-dashboard/interviews",
+    try {
+      await candidatesApi.submitInterview(candidateId, {
+        interview_type: logType,
+        company_name: companyName.trim(),
+        role_title: roleTitle.trim(),
+        interview_date: interviewDate,
+        stage_round: round,
+        outcome,
+        feedback_notes: notes.trim(),
+        difficult_questions: difficultQuestions.trim(),
+        support_needed: supportNeeded ? (supportNotes.trim() || "Yes") : "",
       });
       toast({ title: "Log saved" });
       setShowForm(false);
       resetForm();
       fetchLogs();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSaving(false);
   };
 
   const resetForm = () => {
     setLogType("screening_call"); setCompanyName(""); setRoleTitle(""); setInterviewDate("");
-    setRound(""); setOutcome("Scheduled"); setNotes(""); setDifficultQuestions("");
+    setRound(""); setOutcome("scheduled"); setNotes(""); setDifficultQuestions("");
     setSupportNeeded(false); setSupportNotes("");
   };
 
@@ -138,29 +135,45 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Interview History</CardTitle></CardHeader>
-        <CardContent>
-          {logs.length === 0 ? <p className="text-muted-foreground">No logs yet.</p> : (
-            <Table>
-              <TableHeader><TableRow>
-                <TableHead>Date</TableHead><TableHead>Type</TableHead><TableHead>Company</TableHead>
-                <TableHead>Role</TableHead><TableHead>Round</TableHead><TableHead>Outcome</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                {logs.map((l: any) => (
-                  <TableRow key={l.id}>
-                    <TableCell>{l.interview_date ? new Date(l.interview_date).toLocaleDateString() : "—"}</TableCell>
-                    <TableCell className="capitalize">{l.log_type?.replace("_", " ")}</TableCell>
-                    <TableCell className="font-medium">{l.company_name || "—"}</TableCell>
-                    <TableCell>{l.role_title || "—"}</TableCell>
-                    <TableCell>{l.round || "—"}</TableCell>
-                    <TableCell><StatusBadge status={l.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+        <CardContent className="p-0">
+          <DataTable
+            data={logs}
+            isLoading={loading}
+            searchPlaceholder="Search company..."
+            searchKey="company_name"
+            emptyMessage="No logs yet."
+            columns={[
+              { 
+                header: "Date", 
+                render: (l: any) => <span className="text-sm pl-6">{l.interview_date ? new Date(l.interview_date).toLocaleDateString() : "—"}</span>
+              },
+              { 
+                header: "Type", 
+                render: (l: any) => <span className="text-sm capitalize">{l.log_type?.replace(/_/g, " ")}</span>
+              },
+              { 
+                header: "Company", 
+                accessorKey: "company_name",
+                className: "text-sm font-medium"
+              },
+              { 
+                header: "Role", 
+                render: (l: any) => <span className="text-sm">{l.role_title || "—"}</span>
+              },
+              { 
+                header: "Round", 
+                render: (l: any) => <span className="text-xs">{l.round || "—"}</span>
+              },
+              { 
+                header: "Outcome", 
+                className: "pr-6 text-right",
+                render: (l: any) => <StatusBadge status={l.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} />
+              }
+            ]}
+          />
         </CardContent>
       </Card>
+
     </div>
   );
 };

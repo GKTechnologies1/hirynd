@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { candidatesApi } from "@/services/api";
+import { candidatesApi, recruitersApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, XCircle } from "lucide-react";
 
@@ -19,35 +19,33 @@ const AdminQAChecklist = ({ candidateId, candidateStatus }: AdminQAChecklistProp
 
   useEffect(() => {
     const run = async () => {
-      try {
-        const { data } = await candidatesApi.qaChecklist(candidateId);
-        if (data && data.checks) {
-          setChecks(data.checks);
-        } else {
-          // Fallback: derive from status
-          const statusOrder = ["lead", "pending_approval", "approved", "intake_submitted", "roles_suggested", "roles_confirmed", "paid", "credential_completed", "active_marketing", "paused", "cancelled", "placed"];
-          const idx = statusOrder.indexOf(candidateStatus);
-          setChecks([
-            { label: "Intake complete", done: idx >= 3 },
-            { label: "Roles confirmed", done: idx >= 5 },
-            { label: "Payment received", done: idx >= 6 },
-            { label: "Credentials submitted", done: idx >= 7 },
-            { label: "Marketing started", done: idx >= 8 || candidateStatus === "placed" },
-            { label: "Placement closed", done: candidateStatus === "placed" },
-          ]);
-        }
-      } catch {
-        const statusOrder = ["lead", "pending_approval", "approved", "intake_submitted", "roles_suggested", "roles_confirmed", "paid", "credential_completed", "active_marketing", "paused", "cancelled", "placed"];
-        const idx = statusOrder.indexOf(candidateStatus);
-        setChecks([
-          { label: "Intake complete", done: idx >= 3 },
-          { label: "Roles confirmed", done: idx >= 5 },
-          { label: "Payment received", done: idx >= 6 },
-          { label: "Credentials submitted", done: idx >= 7 },
-          { label: "Marketing started", done: idx >= 8 || candidateStatus === "placed" },
-          { label: "Placement closed", done: candidateStatus === "placed" },
-        ]);
-      }
+      const statusOrder = ["pending_approval", "lead", "approved", "intake_submitted", "roles_published", "roles_confirmed", "payment_completed", "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due", "cancelled", "placed_closed"];
+      const idx = statusOrder.indexOf(candidateStatus);
+
+      const [credRes, assignRes, logRes, interviewRes, placementRes] = await Promise.all([
+        candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
+        recruitersApi.assignments(candidateId).catch(() => ({ data: [] })),
+        recruitersApi.getDailyLogs(candidateId).catch(() => ({ data: [] })),
+        candidatesApi.getInterviews(candidateId).catch(() => ({ data: [] })),
+        candidatesApi.getPlacement(candidateId).catch(() => ({ data: null })),
+      ]);
+      const credCount = (credRes.data || []).length;
+      const assignCount = (assignRes.data || []).length;
+      const logCount = (logRes.data || []).length;
+      const interviewCount = (interviewRes.data || []).length;
+      const placementCount = placementRes.data && Object.keys(placementRes.data).length > 0 ? 1 : 0;
+
+      setChecks([
+        { label: "Intake complete", done: idx >= 3 },
+        { label: "Roles confirmed", done: idx >= 5 },
+        { label: "Payment received", done: idx >= 6 },
+        { label: "Credentials submitted", done: (credCount || 0) > 0 || idx >= 7 },
+        { label: "Recruiter assigned", done: (assignCount || 0) > 0 },
+        { label: "Marketing started", done: idx >= 8 || candidateStatus === "placed_closed" },
+        { label: "Applications logged", done: (logCount || 0) > 0 },
+        { label: "Interviews logged", done: (interviewCount || 0) > 0 },
+        { label: "Placement closed", done: (placementCount || 0) > 0 },
+      ]);
       setLoading(false);
     };
     run();

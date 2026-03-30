@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -7,53 +7,112 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import ForgotPasswordDialog from "@/components/auth/ForgotPasswordDialog";
-import { Eye, EyeOff } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import PasswordField from "@/components/auth/PasswordField";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast({ title: "Please enter email and password", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
-    const { error } = await signIn(email, password);
-    setSubmitting(false);
+    const { error, user: loggedUser } = await signIn(email, password);
+
     if (error) {
-      toast({ title: "Login failed", description: typeof error === 'string' ? error : 'Invalid credentials', variant: "destructive" });
+      setSubmitting(false);
+      const msg = typeof error === "string" ? error : (error.error || error.detail || "Invalid email or password.");
+      toast({
+        title: "Login failed",
+        description: msg,
+        variant: "destructive",
+      });
+    } else if (loggedUser?.role !== "admin") {
+      await signOut();
+      setSubmitting(false);
+      toast({ title: "Access denied", description: "Insufficient permissions.", variant: "destructive" });
     } else {
+      setSubmitting(false);
       navigate("/admin-dashboard");
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-neutral-50 flex flex-col">
       <Header />
-      <main className="flex items-center justify-center py-20">
-        <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-card p-8 card-elevated">
-          <h1 className="mb-2 text-2xl font-bold text-card-foreground">Admin Login</h1>
-          <p className="mb-6 text-sm text-muted-foreground">Internal access only</p>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div><Label>Email</Label><Input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
-            <div>
-              <Label>Password</Label>
-              <div className="relative">
-                <Input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required />
-                <button type="button" className="absolute right-3 top-2.5 text-muted-foreground" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+      <main className="flex-grow flex items-center justify-center pt-24 pb-12 px-4">
+        <div className="mx-auto w-full max-w-md animate-in">
+          <div className="bg-white p-10 rounded-2xl border border-neutral-200 shadow-xl shadow-neutral-100/50">
+            <div className="text-center mb-10">
+              <div className="flex justify-center mb-6">
+                <div className="h-16 w-16 bg-neutral-50 rounded-2xl flex items-center justify-center border border-neutral-200">
+                  <ShieldCheck className="h-8 w-8 text-primary" />
+                </div>
               </div>
+              <h1 className="text-3xl font-bold tracking-tight text-neutral-900 mb-2">Admin Portal</h1>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-400">Authorized Access Only</p>
             </div>
-            <div className="flex justify-end">
-              <ForgotPasswordDialog />
+
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Admin Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="admin@hyrind.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="h-12 rounded-xl bg-neutral-50 border-neutral-200 text-neutral-900 focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <PasswordField
+                  id="password"
+                  label="Password"
+                  value={password}
+                  onChange={setPassword}
+                  show={showPassword}
+                  onToggle={() => setShowPassword(p => !p)}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  required
+                  className="h-12 rounded-xl bg-neutral-50 border-neutral-200 text-neutral-900 focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                />
+              </div>
+
+              <div className="pt-4">
+                <Button
+                  type="submit"
+                  variant="hero"
+                  className="w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+                  disabled={submitting}
+                >
+                  {submitting ? "Authenticating..." : "Admin Sign In"}
+                </Button>
+              </div>
+            </form>
+
+            <div className="mt-8 pt-8 border-t border-neutral-100 text-center">
+              <p className="text-xs text-neutral-400 font-medium">
+                Protected by Hyrind Security Protocols
+              </p>
             </div>
-            <Button variant="hero" className="w-full" disabled={submitting}>{submitting ? "Signing in..." : "Sign In"}</Button>
-          </form>
+          </div>
+
+          <div className="mt-8 flex justify-center gap-6">
+          </div>
         </div>
       </main>
       <Footer />
@@ -62,3 +121,4 @@ const AdminLogin = () => {
 };
 
 export default AdminLogin;
+

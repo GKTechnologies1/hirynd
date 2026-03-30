@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { recruitersApi, authApi } from "@/services/api";
+import { recruitersApi, candidatesApi, authApi } from "@/services/api";
+import { DataTable } from "@/components/ui/DataTable";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -36,11 +38,15 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
     try {
       const [assignRes, recruiterRes] = await Promise.all([
         recruitersApi.assignments(candidateId),
-        authApi.allUsers({ role: 'recruiter', status: 'approved' }),
+        authApi.allUsers({ role: 'recruiter' }),
       ]);
       setAssignments(assignRes.data || []);
-      setRecruiters(recruiterRes.data || []);
-    } catch { /* ignore */ }
+      // backend returns { results: [], total: 0 }
+      const recruiterList = Array.isArray(recruiterRes.data) ? recruiterRes.data : recruiterRes.data?.results || [];
+      setRecruiters(recruiterList);
+    } catch {
+      setAssignments([]); setRecruiters([]);
+    }
     setLoading(false);
   };
 
@@ -50,18 +56,14 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
     if (!selectedRecruiter || !selectedRole) return;
     setAssigning(true);
     try {
-      await recruitersApi.assign({
-        candidate: candidateId,
-        recruiter: selectedRecruiter,
-        role_type: selectedRole,
-      });
+      await recruitersApi.assign({ candidate: candidateId, recruiter: selectedRecruiter, role_type: selectedRole });
       toast({ title: "Recruiter assigned" });
       setSelectedRecruiter("");
       setSelectedRole("");
       fetchData();
       onRefresh();
-    } catch (e: any) {
-      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setAssigning(false);
   };
@@ -72,60 +74,78 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
       toast({ title: "Recruiter unassigned" });
       fetchData();
       onRefresh();
-    } catch (e: any) {
-      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
   };
 
   const handleStartMarketing = async () => {
     setStartingMarketing(true);
     try {
-      await recruitersApi.startMarketing(candidateId);
+      await candidatesApi.updateStatus(candidateId, "active_marketing");
       toast({ title: "Marketing started!" });
       onRefresh();
-    } catch (e: any) {
-      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setStartingMarketing(false);
   };
 
   if (loading) return <p className="text-muted-foreground">Loading assignments...</p>;
 
-  const canAssign = ["paid", "credential_completed", "active_marketing"].includes(candidateStatus);
-  const canStartMarketing = ["paid", "credential_completed"].includes(candidateStatus) && hasCredentials && assignments.length > 0;
+  const canAssign = ["payment_completed", "credentials_submitted", "active_marketing"].includes(candidateStatus);
+  const canStartMarketing = ["payment_completed", "credentials_submitted"].includes(candidateStatus) && hasCredentials && assignments.length > 0;
 
   return (
     <div className="space-y-4">
+      {/* Current Assignments */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Active Assignments</CardTitle>
           <CardDescription>{assignments.length} recruiter(s) assigned</CardDescription>
         </CardHeader>
-        <CardContent>
-          {assignments.length === 0 ? (
-            <p className="text-muted-foreground">No recruiters assigned yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {assignments.map((a: any) => (
-                <div key={a.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                  <div>
-                    <p className="font-medium text-card-foreground">{a.recruiter_name || a.profile?.full_name || "Unknown"}</p>
-                    <p className="text-sm text-muted-foreground">{a.recruiter_email || a.profile?.email || ""}</p>
+        <CardContent className="p-0">
+          <DataTable
+            data={assignments}
+            isLoading={loading}
+            searchPlaceholder="Search recruiters..."
+            searchKey="recruiter_name"
+            emptyMessage="No recruiters assigned yet."
+            columns={[
+              { 
+                header: "Recruiter", 
+                render: (a: any) => (
+                  <div className="pl-6">
+                    <p className="font-medium text-sm text-card-foreground">{a.recruiter_name || "Unknown"}</p>
+                    <p className="text-xs text-muted-foreground">{a.recruiter_email}</p>
                   </div>
+                )
+              },
+              { 
+                header: "Designation", 
+                render: (a: any) => (
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={a.role_type === "primary_recruiter" ? "active" : "pending"} className="text-xs" />
-                    <span className="text-xs text-muted-foreground capitalize">{(a.role_type || "").replace(/_/g, " ")}</span>
-                    <Button variant="ghost" size="sm" onClick={() => handleUnassign(a.id)}>
-                      <XCircle className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <StatusBadge status={a.role_type === "primary_recruiter" ? "active" : "pending"} className="text-[10px]" />
+                    <span className="text-xs text-muted-foreground capitalize">{a.role_type?.replace(/_/g, " ")}</span>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                )
+              },
+              { 
+                header: "Actions", 
+                className: "pr-6 text-right",
+                render: (a: any) => (
+                  <Button variant="ghost" size="sm" onClick={() => handleUnassign(a.id)} className="h-8 w-8 p-0 hover:bg-destructive/10">
+                    <XCircle className="h-4 w-4 text-destructive" />
+                  </Button>
+                )
+              }
+            ]}
+          />
         </CardContent>
       </Card>
 
+
+      {/* Assign New */}
       {canAssign && (
         <Card>
           <CardHeader>
@@ -163,6 +183,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
         </Card>
       )}
 
+      {/* Start Marketing */}
       {canStartMarketing && (
         <Card className="border-secondary/30">
           <CardContent className="flex items-center justify-between p-4">
@@ -179,7 +200,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
       {!canAssign && (
         <p className="text-sm text-muted-foreground">
-          Recruiter assignment is available when candidate status is paid, credential_completed, or active_marketing.
+          Recruiter assignment is available when candidate status is payment_completed, credentials_submitted, or active_marketing.
         </p>
       )}
     </div>

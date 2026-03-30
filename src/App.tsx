@@ -15,10 +15,11 @@ import ScanConnect from "./pages/ScanConnect";
 import CandidateLogin from "./pages/CandidateLogin";
 import RecruiterLogin from "./pages/RecruiterLogin";
 import AdminLogin from "./pages/AdminLogin";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import CandidateDashboard from "./pages/CandidateDashboard";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
-import ResetPassword from "./pages/ResetPassword";
 import ProfileMarketing from "./pages/services/ProfileMarketing";
 import InterviewTraining from "./pages/services/InterviewTraining";
 import SkillsTraining from "./pages/services/SkillsTraining";
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/candidate-login" element={<CandidateLogin />} />
             <Route path="/recruiter-login" element={<RecruiterLogin />} />
             <Route path="/admin-login" element={<AdminLogin />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/candidate-dashboard/*" element={<ProtectedRoute requiredRole="candidate"><CandidateDashboard /></ProtectedRoute>} />
             <Route path="/recruiter-dashboard/*" element={<ProtectedRoute requiredRole="recruiter"><RecruiterDashboard /></ProtectedRoute>} />

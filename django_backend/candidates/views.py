@@ -6,17 +6,34 @@ from django.utils import timezone
 from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
 from audit.utils import log_action
 from .models import (
-    Candidate, ClientIntake, RoleSuggestion, CredentialVersion,
-    Referral, InterviewLog, PlacementClosure,
+    Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, CredentialVersion,
+    Referral, InterviewLog, PlacementClosure, Payment,
 )
 from .serializers import (
     CandidateSerializer, CandidateListSerializer, ClientIntakeSerializer,
     RoleSuggestionSerializer, CredentialVersionSerializer,
     ReferralSerializer, InterviewLogSerializer, PlacementClosureSerializer,
+    PaymentSerializer,
 )
 
 
 # ─── Candidate CRUD ───
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def candidate_me(request):
+    """Return the Candidate record for the logged-in user, creating it lazily if needed."""
+    if request.user.role != 'candidate':
+        return Response({'error': 'Not a candidate user'}, status=status.HTTP_403_FORBIDDEN)
+    candidate, created = Candidate.objects.get_or_create(
+        user=request.user,
+        defaults={'status': 'approved'},
+    )
+    if not created and candidate.status == 'pending_approval':
+        candidate.status = 'approved'
+        candidate.save(update_fields=['status'])
+    return Response(CandidateSerializer(candidate).data)
+
 
 @api_view(['GET'])
 @permission_classes([IsApproved])
@@ -35,7 +52,24 @@ def candidate_list(request):
     if status_filter:
         qs = qs.filter(status=status_filter)
 
-    return Response(CandidateListSerializer(qs.order_by('-created_at'), many=True).data)
+    search = request.query_params.get('search', '').strip()
+    if search:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(user__email__icontains=search) |
+            Q(user__profile__full_name__icontains=search)
+        )
+
+    qs = qs.order_by('-created_at')
+    total = qs.count()
+    page = int(request.query_params.get('page', 0))
+    page_size = int(request.query_params.get('page_size', 0))
+    if page > 0 and page_size > 0:
+        start = (page - 1) * page_size
+        data = CandidateListSerializer(qs[start:start + page_size], many=True).data
+        return Response({'total': total, 'results': data})
+
+    return Response(CandidateListSerializer(qs, many=True).data)
 
 
 @api_view(['GET'])
@@ -73,7 +107,7 @@ def update_candidate_status(request, candidate_id):
 @permission_classes([IsApproved])
 def intake(request, candidate_id):
     try:
-        candidate = Candidate.objects.get(id=candidate_id)
+        candidate = Candidate.objects.select_related('user__profile').get(id=candidate_id)
     except Candidate.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -82,14 +116,38 @@ def intake(request, candidate_id):
             intake = ClientIntake.objects.get(candidate=candidate)
             return Response(ClientIntakeSerializer(intake).data)
         except ClientIntake.DoesNotExist:
-            return Response({})
+            # Fallback: Pre-populate from Candidate + User Profile for initial form load
+            initial_data = {
+                'full_name': candidate.user.profile.full_name,
+                'phone': candidate.user.profile.phone,
+                'email': candidate.user.email,
+                'university': candidate.university,
+                'major': candidate.major,
+                'degree': candidate.degree,
+                'graduation_year': candidate.graduation_year or (str(candidate.graduation_date.year) if candidate.graduation_date else ""),
+                'visa_status': candidate.visa_status,
+                'linkedin_url': candidate.linkedin_url,
+                'portfolio_url': candidate.portfolio_url,
+                'current_location': candidate.current_location,
+                'notes': candidate.notes,
+            }
+            return Response({'candidate': str(candidate_id), 'data': initial_data, 'is_locked': False})
 
-    data = request.data.get('data', {})
+    # Check lock
+    try:
+        existing = ClientIntake.objects.get(candidate=candidate)
+        if existing.is_locked:
+            return Response({'error': 'Intake is locked. Contact admin to reopen.'}, status=status.HTTP_403_FORBIDDEN)
+    except ClientIntake.DoesNotExist:
+        pass
+
+    # Accept both { data: {...} } (legacy) and flat field submission
+    payload = request.data.get('data') if 'data' in request.data else request.data
     intake, created = ClientIntake.objects.update_or_create(
         candidate=candidate,
-        defaults={'data': data, 'submitted_at': timezone.now()},
+        defaults={'data': payload, 'submitted_at': timezone.now(), 'is_locked': True},
     )
-    if candidate.status == 'approved':
+    if candidate.status in ('approved', 'intake_pending', 'lead'):
         candidate.status = 'intake_submitted'
         candidate.save()
     log_action(request.user, 'intake_submitted', str(candidate.id), 'candidate', {})
@@ -120,23 +178,70 @@ def add_role(request, candidate_id):
 @api_view(['POST'])
 @permission_classes([IsCandidate])
 def confirm_roles(request, candidate_id):
-    decisions = request.data.get('decisions', {})
-    for role_id, confirmed in decisions.items():
+    payload = request.data
+    decisions = payload.get('decisions', {})
+    notes = payload.get('notes', {})
+    custom_role = payload.get('custom_role')
+    
+    for role_id, decision in decisions.items():
+        status_val = True if decision == 'accepted' else False if decision == 'declined' else None
         RoleSuggestion.objects.filter(id=role_id, candidate_id=candidate_id).update(
-            candidate_confirmed=confirmed, confirmed_at=timezone.now()
+            candidate_confirmed=status_val,
+            confirmed_at=timezone.now(),
+            change_request_note=notes.get(role_id, '') if decision == 'change_requested' else None
         )
+    
+    if custom_role and custom_role.get('title'):
+        RoleConfirmation.objects.create(
+            candidate_id=candidate_id,
+            response='change_requested',
+            custom_role_title=custom_role['title'],
+            custom_reason=custom_role['reason']
+        )
+
     candidate = Candidate.objects.get(id=candidate_id)
-    if candidate.status == 'roles_suggested':
+    if candidate.status in ('roles_suggested', 'roles_published'):
         candidate.status = 'roles_confirmed'
         candidate.save()
     return Response({'message': 'Roles confirmed'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def reopen_intake(request, candidate_id):
+    try:
+        intake = ClientIntake.objects.get(candidate_id=candidate_id)
+        intake.is_locked = False
+        intake.save()
+        log_action(request.user, 'intake_reopened', str(candidate_id), 'intake', {})
+        return Response({'message': 'Intake reopened'})
+    except ClientIntake.DoesNotExist:
+        return Response({'error': 'Not found'}, status=404)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def reopen_roles(request, candidate_id):
+    try:
+        RoleSuggestion.objects.filter(candidate_id=candidate_id).update(
+            candidate_confirmed=None,
+            confirmed_at=None,
+            change_request_note=None
+        )
+        candidate = Candidate.objects.get(id=candidate_id)
+        candidate.status = 'intake_submitted'
+        candidate.save()
+        log_action(request.user, 'roles_reopened', str(candidate_id), 'roles', {})
+        return Response({'message': 'Roles reopened and status reset'})
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Not found'}, status=404)
 
 
 # ─── Credentials ───
 
 @api_view(['GET'])
 @permission_classes([IsApproved])
-def credential_list(request, candidate_id):
+def credentials(request, candidate_id):
     versions = CredentialVersion.objects.filter(candidate_id=candidate_id).select_related('edited_by__profile')
     return Response(CredentialVersionSerializer(versions, many=True).data)
 
@@ -144,15 +249,28 @@ def credential_list(request, candidate_id):
 @api_view(['POST'])
 @permission_classes([IsApproved])
 def upsert_credential(request, candidate_id):
-    last_version = CredentialVersion.objects.filter(candidate_id=candidate_id).order_by('-version').first()
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Accept both { data: {...} } and flat submission
+    payload = request.data.get('data') if 'data' in request.data else request.data
+
+    last_version = CredentialVersion.objects.filter(candidate=candidate).order_by('-version').first()
     new_version = (last_version.version + 1) if last_version else 1
     cred = CredentialVersion.objects.create(
-        candidate_id=candidate_id,
-        data=request.data.get('data', {}),
+        candidate=candidate,
+        data=payload,
         edited_by=request.user,
         version=new_version,
     )
-    log_action(request.user, 'credential_edit', str(candidate_id), 'credential', {'version': new_version})
+
+    if candidate.status in ('payment_completed', 'roles_confirmed', 'pending_payment'):
+        candidate.status = 'credentials_submitted'
+        candidate.save(update_fields=['status'])
+
+    log_action(request.user, 'credential_edit', str(candidate.id), 'credential', {'version': new_version})
     return Response(CredentialVersionSerializer(cred).data, status=status.HTTP_201_CREATED)
 
 
@@ -166,10 +284,9 @@ def referrals(request, candidate_id):
         return Response(ReferralSerializer(refs, many=True).data)
 
     data = request.data.copy()
-    data['referrer'] = candidate_id
     serializer = ReferralSerializer(data=data)
     serializer.is_valid(raise_exception=True)
-    serializer.save()
+    serializer.save(referrer_id=candidate_id)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -184,11 +301,58 @@ def interviews(request, candidate_id):
 
     data = request.data.copy()
     data['candidate'] = candidate_id
-    data['submitted_by'] = request.user.id
     serializer = InterviewLogSerializer(data=data)
     serializer.is_valid(raise_exception=True)
-    serializer.save()
+    serializer.save(submitted_by=request.user)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+# ─── Candidate Payments ───
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def candidate_payments(request, candidate_id):
+    payments = Payment.objects.filter(candidate_id=candidate_id).order_by('-due_date')
+    return Response(PaymentSerializer(payments, many=True).data)
+
+
+# ─── Admin Referrals ───
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_referrals(request):
+    refs = Referral.objects.select_related('referrer__user__profile').all().order_by('-created_at')
+    data = []
+    for ref in refs:
+        row = ReferralSerializer(ref).data
+        try:
+            row['referrer_name'] = ref.referrer.user.profile.full_name
+        except Exception:
+            row['referrer_name'] = 'Unknown'
+        data.append(row)
+    return Response(data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdmin])
+def update_referral(request, referral_id):
+    try:
+        ref = Referral.objects.get(id=referral_id)
+    except Referral.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    ref_status = request.data.get('status')
+    notes_val = request.data.get('notes')
+    if ref_status:
+        ref.status = ref_status
+    if notes_val is not None:
+        ref.notes = notes_val
+    ref.save()
+    row = ReferralSerializer(ref).data
+    try:
+        row['referrer_name'] = ref.referrer.user.profile.full_name
+    except Exception:
+        row['referrer_name'] = 'Unknown'
+    return Response(row)
 
 
 # ─── Placement ───
@@ -205,54 +369,10 @@ def placement(request, candidate_id):
 
     data = request.data.copy()
     data['candidate'] = candidate_id
-    data['closed_by'] = request.user.id
     serializer = PlacementClosureSerializer(data=data)
     serializer.is_valid(raise_exception=True)
-    serializer.save()
+    serializer.save(closed_by=request.user)
 
-    Candidate.objects.filter(id=candidate_id).update(status='placed')
+    Candidate.objects.filter(id=candidate_id).update(status='placed_closed')
     log_action(request.user, 'placement_closed', str(candidate_id), 'candidate', data)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-@api_view(['GET'])
-@permission_classes([IsApproved])
-def candidate_payments(request, candidate_id):
-    from billing.models import Payment
-    from billing.serializers import PaymentSerializer
-    pays = Payment.objects.filter(candidate_id=candidate_id).order_by('-created_at')
-    return Response(PaymentSerializer(pays, many=True).data)
-
-
-@api_view(['GET'])
-@permission_classes([IsApproved])
-def qa_checklist(request, candidate_id):
-    try:
-        cand = Candidate.objects.get(id=candidate_id)
-    except Candidate.DoesNotExist:
-        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    status_order = ['lead', 'pending_approval', 'approved', 'intake_submitted', 'roles_suggested',
-                    'roles_confirmed', 'paid', 'credential_completed', 'active_marketing',
-                    'paused', 'cancelled', 'placed']
-    idx = status_order.index(cand.status) if cand.status in status_order else -1
-
-    cred_count = CredentialVersion.objects.filter(candidate=cand).count()
-    from recruiters.models import RecruiterAssignment, DailySubmissionLog
-    assign_count = RecruiterAssignment.objects.filter(candidate=cand, is_active=True).count()
-    log_count = DailySubmissionLog.objects.filter(candidate=cand).count()
-    interview_count = InterviewLog.objects.filter(candidate=cand).count()
-    placement_count = PlacementClosure.objects.filter(candidate=cand).count()
-
-    checks = [
-        {'label': 'Intake complete', 'done': idx >= 3},
-        {'label': 'Roles confirmed', 'done': idx >= 5},
-        {'label': 'Payment received', 'done': idx >= 6},
-        {'label': 'Credentials submitted', 'done': cred_count > 0},
-        {'label': 'Recruiter assigned', 'done': assign_count > 0},
-        {'label': 'Marketing started', 'done': idx >= 8 or cand.status == 'placed'},
-        {'label': 'Applications logged', 'done': log_count > 0},
-        {'label': 'Interviews logged', 'done': interview_count > 0},
-        {'label': 'Placement closed', 'done': placement_count > 0},
-    ]
-    return Response({'checks': checks})

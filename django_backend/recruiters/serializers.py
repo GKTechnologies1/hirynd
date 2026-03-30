@@ -12,6 +12,8 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
 
 class RecruiterAssignmentSerializer(serializers.ModelSerializer):
     recruiter_name = serializers.SerializerMethodField()
+    recruiter_email = serializers.SerializerMethodField()
+    recruiter_phone = serializers.SerializerMethodField()
     candidate_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -21,6 +23,12 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
 
     def get_recruiter_name(self, obj):
         return obj.recruiter.profile.full_name if hasattr(obj.recruiter, 'profile') else ''
+
+    def get_recruiter_email(self, obj):
+        return obj.recruiter.email if obj.recruiter else ''
+
+    def get_recruiter_phone(self, obj):
+        return obj.recruiter.profile.phone if hasattr(obj.recruiter, 'profile') else ''
 
     def get_candidate_name(self, obj):
         return obj.candidate.user.profile.full_name if hasattr(obj.candidate.user, 'profile') else ''

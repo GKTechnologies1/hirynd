@@ -22,17 +22,26 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   const [showForm, setShowForm] = useState(false);
 
   const [form, setForm] = useState({
-    company_name: "", role_title: "", start_date: "", salary: "",
-    hr_email: "", offer_letter_url: "", interviewer_email: "",
-    bgv_company_name: "", notes: "",
+    company_name: "",
+    role_title: "",
+    start_date: "",
+    salary: "",
+    hr_email: "",
+    offer_letter_url: "",
+    interviewer_email: "",
+    bgv_company_name: "",
+    notes: "",
   });
 
   useEffect(() => {
     candidatesApi.getPlacement(candidateId)
-      .then(({ data }) => { setPlacement(data); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then(({ data }) => { 
+        setPlacement(data && Object.keys(data).length > 0 ? data : null); 
+        setLoading(false); 
+      })
+      .catch(() => setLoading(false));
   }, [candidateId]);
+
 
   const handleSubmit = async () => {
     if (!form.company_name.trim() || !form.role_title.trim() || !form.start_date || !form.salary.trim() || !form.hr_email.trim()) {
@@ -41,18 +50,28 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
     }
     setSubmitting(true);
     try {
-      await candidatesApi.closePlacement(candidateId, form);
+      await candidatesApi.closePlacement(candidateId, {
+        company_name: form.company_name.trim(),
+        role_title: form.role_title.trim(),
+        start_date: form.start_date,
+        salary: form.salary.trim(),
+        hr_email: form.hr_email.trim(),
+        offer_letter_url: form.offer_letter_url,
+        interviewer_email: form.interviewer_email,
+        bgv_company_name: form.bgv_company_name,
+        notes: form.notes,
+      });
       toast({ title: "Case closed successfully!" });
       onRefresh();
-    } catch (e: any) {
-      toast({ title: "Error", description: e.response?.data?.error || "Failed", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSubmitting(false);
   };
 
   if (loading) return <p className="text-muted-foreground p-4">Loading...</p>;
 
-  if (placement && placement.id) {
+  if (placement) {
     return (
       <Card>
         <CardHeader>
@@ -104,7 +123,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
           <div><Label>Company Name *</Label><Input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} /></div>
           <div><Label>Role Title *</Label><Input value={form.role_title} onChange={e => setForm(p => ({ ...p, role_title: e.target.value }))} /></div>
           <div><Label>Start Date *</Label><Input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} /></div>
-          <div><Label>Salary *</Label><Input value={form.salary} onChange={e => setForm(p => ({ ...p, salary: e.target.value }))} placeholder="e.g. ₹85,000/year" /></div>
+          <div><Label>Salary *</Label><Input value={form.salary} onChange={e => setForm(p => ({ ...p, salary: e.target.value }))} placeholder="e.g. $85,000/year" /></div>
           <div><Label>HR Email *</Label><Input type="email" value={form.hr_email} onChange={e => setForm(p => ({ ...p, hr_email: e.target.value }))} /></div>
           <div><Label>Offer Letter URL</Label><Input value={form.offer_letter_url} onChange={e => setForm(p => ({ ...p, offer_letter_url: e.target.value }))} placeholder="https://..." /></div>
           <div><Label>Interviewer Email</Label><Input type="email" value={form.interviewer_email} onChange={e => setForm(p => ({ ...p, interviewer_email: e.target.value }))} /></div>

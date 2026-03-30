@@ -18,5 +18,18 @@ def global_audit_logs(request):
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def candidate_audit_logs(request, candidate_id):
-    qs = AuditLog.objects.filter(target_id=str(candidate_id)).select_related('actor__profile')[:100]
+    # Security: Admin can see all. Recruiters/TLs can only see assigned. Candidates can only see their own.
+    user = request.user
+    if user.role != 'admin':
+        from recruiters.models import RecruiterAssignment
+        is_assigned = RecruiterAssignment.objects.filter(candidate_id=candidate_id, recruiter=user, is_active=True).exists()
+        
+        # Also check if user IS the candidate
+        from candidates.models import Candidate
+        is_self = Candidate.objects.filter(id=candidate_id, user=user).exists()
+        
+        if not (is_assigned or is_self or user.role in ('team_lead', 'team_manager')):
+            return Response({'error': 'Forbidden'}, status=403)
+
+    qs = AuditLog.objects.filter(target_id=str(candidate_id)).select_related('actor__profile').order_by('-created_at')[:100]
     return Response(AuditLogSerializer(qs, many=True).data)

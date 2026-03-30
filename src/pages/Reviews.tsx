@@ -39,23 +39,23 @@ const testimonials = [
 
 const Reviews = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-neutral-50">
       <SEO title="Reviews" description="Hear from candidates who landed jobs through HYRIND's recruiter-led profile marketing and interview support." path="/reviews" />
       <Header />
-      <main>
-        <section className="hero-gradient py-20 lg:py-28">
-          <div className="container">
+      <main className="flex-1">
+        <section className="bg-white border-b border-neutral-200 pt-32 pb-16 lg:pt-40 lg:pb-24">
+          <div className="container px-4 md:px-6">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-3xl text-center">
-              <h1 className="text-4xl font-bold text-primary-foreground sm:text-5xl">What Our Candidates Say</h1>
-              <p className="mt-6 text-lg text-primary-foreground/70">
+              <h1 className="text-4xl font-bold tracking-tight text-[#0d47a1] sm:text-5xl">What Our Candidates Say</h1>
+              <p className="mt-6 text-lg text-neutral-600">
                 Real feedback from job seekers who trusted HYRIND with their career journey. Our candidates value the transparency, recruiter support, and real results.
               </p>
             </motion.div>
           </div>
         </section>
 
-        <section className="py-20">
-          <div className="container">
+        <section className="py-20 lg:py-28">
+          <div className="container px-4 md:px-6">
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {testimonials.map((t, i) => (
                 <motion.div
@@ -64,18 +64,18 @@ const Reviews = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.08 }}
-                  className="card-elevated rounded-xl border border-border bg-card p-6"
+                  className="rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm transition-shadow hover:shadow-md flex flex-col"
                 >
-                  <Quote className="mb-4 h-6 w-6 text-secondary/40" />
-                  <p className="mb-6 text-sm leading-relaxed text-muted-foreground">{t.text}</p>
-                  <div className="flex items-center justify-between">
+                  <Quote className="mb-5 h-8 w-8 text-[#0d47a1]/20" />
+                  <p className="mb-8 text-sm leading-relaxed text-neutral-700">{t.text}</p>
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-neutral-100">
                     <div>
-                      <p className="font-semibold text-card-foreground">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}</p>
+                      <p className="font-bold text-neutral-900">{t.name}</p>
+                      <p className="text-xs font-medium text-neutral-500">{t.role}</p>
                     </div>
-                    <div className="flex gap-0.5">
+                    <div className="flex gap-1">
                       {[...Array(5)].map((_, j) => (
-                        <Star key={j} className="h-3.5 w-3.5 fill-accent text-accent" />
+                        <Star key={j} className="h-4 w-4 fill-amber-400 text-amber-400" />
                       ))}
                     </div>
                   </div>
