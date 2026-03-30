@@ -384,3 +384,19 @@ class ContactSerializer(serializers.Serializer):
         # but for interest form (leads) we should probably link to existing user if possible,
         # but to keep it simple and consistent with registration, we block duplicates for now.
         return value.lower()
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(min_length=8)
+    confirm_new_password = serializers.CharField()
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_new_password']:
+            raise serializers.ValidationError({'confirm_new_password': 'Passwords do not match.'})
+        return data

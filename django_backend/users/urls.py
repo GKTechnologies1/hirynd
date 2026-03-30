@@ -16,4 +16,6 @@ urlpatterns = [
     path('analytics/', views.admin_analytics, name='admin_analytics'),
     path('change-password/', views.change_password, name='change_password'),
     path('contact/', views.submit_contact, name='submit_contact'),
+    path('password-reset/', views.password_reset_request, name='password_reset_request'),
+    path('password-reset/confirm/', views.password_reset_confirm, name='password_reset_confirm'),
 ]

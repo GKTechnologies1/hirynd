@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const isStaging = window.location.href.includes("staging.hyrind.com") || window.location.href.includes("staging.hrind.com");
+
+const STAGING_URL = import.meta.env.VITE_STAGING_API || 'https://api-staging.hyrind.com';
+const LOCAL_URL = import.meta.env.VITE_LOCAL_API || 'http://localhost:8000';
+
+const DEFAULT_URL = isStaging ? STAGING_URL : LOCAL_URL;
+
+const VITE_API_URL = import.meta.env.VITE_API_URL || DEFAULT_URL;
+const API_BASE_URL = `${VITE_API_URL.replace(/\/$/, "")}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -58,6 +66,8 @@ export const authApi = {
   changePassword: (data: { current_password: string; new_password: string; confirm_new_password: string }) =>
     api.post('/auth/change-password/', data),
   pendingApprovals: () => api.get('/auth/pending-approvals/'),
+  requestPasswordReset: (email: string) => api.post('/auth/password-reset/', { email }),
+  resetPassword: (data: any) => api.post('/auth/password-reset/confirm/', data),
   approveUser: (user_id: string, action: 'approved' | 'rejected') =>
     api.post('/auth/approve-user/', { user_id, action }),
   allUsers: (params?: { role?: string; search?: string; page?: number; page_size?: number }) =>

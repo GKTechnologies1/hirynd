@@ -10,10 +10,15 @@ from candidates.models import Candidate
 from .serializers import (
     RegisterSerializer, UserSerializer, ApproveUserSerializer,
     UserListSerializer, ChangePasswordSerializer, ContactSerializer,
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
 )
 from .permissions import IsAdmin
 from audit.utils import log_action
 from notifications.utils import send_email
+
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 
 
 @api_view(['POST'])
@@ -420,3 +425,68 @@ def admin_analytics(request):
         'role_counts': role_counts,
         'status_counts': status_counts,
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_request(request):
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    email = serializer.validated_data['email']
+
+    try:
+        user = User.objects.get(email=email)
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        reset_url = f"{settings.SITE_URL}/reset-password?uid={uid}&token={token}"
+        
+        send_email(
+            to=user.email,
+            subject='Password Reset Request – Hyrind',
+            html=f'<p>Hi,</p>'
+                 f'<p>You requested a password reset for your Hyrind account.</p>'
+                 f'<p>Click the link below to set a new password:</p>'
+                 f'<p><a href="{reset_url}">{reset_url}</a></p>'
+                 f'<p>This link will expire in 24 hours.</p>'
+                 f'<p>If you did not request this, please ignore this email.</p>',
+        )
+        log_action(user, 'password_reset_requested', str(user.id), 'user', {})
+    except User.DoesNotExist:
+        # We don't reveal if user exists for security
+        pass
+
+    return Response({'message': 'If an account exists with this email, a reset link has been sent.'})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_confirm(request):
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    uidb64 = serializer.validated_data['uidb64']
+    token = serializer.validated_data['token']
+    new_password = serializer.validated_data['new_password']
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({'error': 'Invalid reset link'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not default_token_generator.check_token(user, token):
+        return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+    
+    log_action(user, 'password_reset_completed', str(user.id), 'user', {})
+    
+    send_email(
+        to=user.email,
+        subject='Password Reset Successful',
+        html=f'<p>Hi,</p><p>Your password has been successfully reset. You can now log in with your new password.</p>',
+    )
+    
+    return Response({'message': 'Password has been reset successfully.'})

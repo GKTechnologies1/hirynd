@@ -264,6 +264,15 @@ const RecruiterLogin = () => {
                   autoComplete="current-password"
                 />
                 
+                <div className="flex justify-end pr-1">
+                  <Link 
+                    to="/forgot-password" 
+                    className="text-xs font-semibold text-primary hover:underline underline-offset-4 decoration-primary/30"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                
                 <div className="pt-2">
                   <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] transition-all" disabled={submitting}>
                     {submitting ? "Signing in..." : "Sign In"}
