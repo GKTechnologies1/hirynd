@@ -475,6 +475,7 @@ export default function Header() {
               </Link>
 
               {!user ? (
+                <>
                 <div className="login-container">
                   <button onClick={toggleLoginDropdown} className="register-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span>Login / Register</span>
