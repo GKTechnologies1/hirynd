@@ -3,7 +3,7 @@ import axios from 'axios';
 const isStaging = window.location.href.includes("staging.hyrind.com") || window.location.href.includes("staging.hrind.com");
 
 const STAGING_URL = import.meta.env.VITE_STAGING_API || 'https://api-staging.hyrind.com';
-const LOCAL_URL = import.meta.env.VITE_LOCAL_API || 'http://localhost:8000';
+const LOCAL_URL = import.meta.env.VITE_LOCAL_API || 'http://127.0.0.1:8000';
 
 const DEFAULT_URL = isStaging ? STAGING_URL : LOCAL_URL;
 

@@ -23,7 +23,7 @@ def _user_name(user):
 
 from audit.utils import log_action
 from candidates.models import Candidate
-from notifications.utils import send_email, create_notification
+from notifications.utils import send_email, create_notification, get_styled_email_html
 from users.permissions import IsAdmin, IsApproved
 
 from .models import (
@@ -199,9 +199,13 @@ def assign_plan(request, candidate_id):
     )
     send_email(
         candidate.user.email, 'Action Required: Complete Your Payment',
-        f'<p>Hi {_user_name(candidate.user)},</p>'
-        f'<p>Your Hyrind plan <strong>{plan.name}</strong> (${plan.amount}) has been assigned. '
-        f'Please log in and complete the payment to proceed.</p>',
+        get_styled_email_html(
+            _user_name(candidate.user),
+            f'<p>Your Hyrind plan <strong>{plan.name}</strong> ({plan.currency} {plan.amount}) has been assigned. '
+            f'Please log in and complete the payment to proceed.</p>',
+            action_label="Pay Now",
+            action_url="/candidate-dashboard/payments"
+        )
     )
     return Response(SubscriptionSerializer(sub).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
@@ -396,37 +400,38 @@ def verify_razorpay_payment(request, candidate_id):
             candidate.status = 'payment_completed'
         candidate.save(update_fields=['status'])
 
-    # Create Invoice and PDF
-    invoice = Invoice.objects.create(
-        subscription=sub, candidate=candidate,
-        amount=rp_order.amount, currency=rp_order.currency,
-        period_start=timezone.now().date(),
-        period_end=sub.next_billing_at if sub else (timezone.now().date() + relativedelta(months=1)),
-        status='paid', paid_at=timezone.now(),
-        payment_reference=rz_payment_id
-    )
+    # Fulfillment: Create Invoice and PDF (Non-critical to the payment itself)
+    try:
+        invoice = Invoice.objects.create(
+            subscription=sub, candidate=candidate,
+            amount=rp_order.amount, currency=rp_order.currency,
+            period_start=timezone.now().date(),
+            period_end=sub.next_billing_at if sub else (timezone.now().date() + relativedelta(months=1)),
+            status='paid', paid_at=timezone.now(),
+            payment_reference=rz_payment_id
+        )
 
-    pdf_bytes = generate_invoice_pdf(invoice)
-    attachments = [{
-        "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
-        "content": list(pdf_bytes)
-    }]
+        pdf_bytes = generate_invoice_pdf(invoice)
+        attachments = [{
+            "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
+            "content": list(pdf_bytes)
+        }]
 
-    log_action(candidate.user, 'payment_verified', str(candidate_id), 'payment', {
-        'payment_id': rz_payment_id, 'amount': float(rp_order.amount),
-    })
-    create_notification(
-        candidate.user, 'Payment Successful',
-        f'Your payment of ${rp_order.amount} has been received. Your subscription is now active.',
-        link='/candidate-dashboard/payments',
-    )
-    send_email(
-        candidate.user.email, 'Payment Confirmed & Invoice - Hyrind',
-        f'<p>Hi {_user_name(candidate.user)},</p>'
-        f'<p>We received your payment of <strong>${rp_order.amount}</strong>. '
-        f'Your subscription is now <strong>Active</strong>. Please find your receipt attached.</p>',
-        attachments=attachments,
-    )
+        send_email(
+            candidate.user.email, 'Payment Confirmed & Invoice - Hyrind',
+            get_styled_email_html(
+                _user_name(candidate.user),
+                f'<p>We received your payment of <strong>{rp_order.currency} {rp_order.amount}</strong>. '
+                f'Your subscription is now <strong>Active</strong>. Please find your receipt attached.</p>',
+                action_label="Go to Dashboard",
+                action_url="/candidate-dashboard"
+            ),
+            attachments=attachments,
+        )
+    except Exception as e:
+        logger.error("Non-critical fulfillment failed after successful payment: %s", str(e))
+        # We don't return 500 here because the payment was actually successful
+
     return Response({
         'detail': 'Payment verified successfully',
         'payment_id': str(payment.id),

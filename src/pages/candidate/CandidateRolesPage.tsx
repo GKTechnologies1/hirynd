@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { candidatesApi } from "@/services/api";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { useNavigate } from "react-router-dom";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Briefcase, Check, X, MessageSquare, Plus, LayoutDashboard, FileText, KeyRound, DollarSign, CreditCard, ClipboardList, Phone, UserPlus, Settings } from "lucide-react";
+import { Lock, Briefcase, Check, X, MessageSquare, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ interface CandidateRolesPageProps {
 
 const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPageProps) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -242,7 +243,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
               {isConfirmed && (
                 <div className="mt-4 rounded-lg bg-secondary/5 p-4 text-center">
                   <p className="text-sm text-muted-foreground">Your role selections have been confirmed. Complete your payment to proceed.</p>
-                  <Button variant="hero" className="mt-3" onClick={() => window.location.href = "/candidate-dashboard"}>
+                  <Button variant="hero" className="mt-3" onClick={() => navigate("/candidate-dashboard")}>
                     Back to Dashboard
                   </Button>
                 </div>

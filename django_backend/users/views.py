@@ -14,7 +14,7 @@ from .serializers import (
 )
 from .permissions import IsAdmin
 from audit.utils import log_action
-from notifications.utils import send_email
+from notifications.utils import send_email, get_styled_email_html
 
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -53,9 +53,13 @@ def register(request):
     send_email(
         to=user.email,
         subject='Registration Received – Hyrind',
-        html=f'<p>Hi {name},</p>'
-             f'<p>Thank you for registering with Hyrind. Your account is under review.</p>'
-             f'<p>Expected review time: 24–48 hours.</p>',
+        html=get_styled_email_html(
+            name,
+            '<p>Thank you for registering with Hyrind. Your account is under review.</p>'
+            '<p>Expected review time: 24–48 hours. Our team will notify you once your profile is live.</p>',
+            action_label="Visit Hyrind",
+            action_url="/"
+        ),
     )
 
     # Email to admin
@@ -194,14 +198,21 @@ def approve_user(request):
         send_email(
             to=user.email,
             subject='Your Hyrind Profile Has Been Approved',
-            html=f'<p>Hi {name},</p><p>Your account has been approved. You can now log in to the portal.</p>'
-                 f'<p><a href="{settings.SITE_URL}/{user.role}-login">Login here</a></p>',
+            html=get_styled_email_html(
+                name,
+                '<p>Great news! Your account has been approved. You can now log in to the portal and complete your intake form.</p>',
+                action_label="Login Now",
+                action_url=f"/{user.role}-login"
+            ),
         )
     else:
         send_email(
             to=user.email,
             subject='Update on Your Hyrind Registration',
-            html=f'<p>Hi {name},</p><p>Your registration has been reviewed and was not approved at this time.</p>',
+            html=get_styled_email_html(
+                name,
+                '<p>Your registration has been reviewed and was not approved at this time. If you have questions, please contact our support team.</p>'
+            ),
         )
 
     return Response({'message': f'User {action}'})
@@ -344,8 +355,12 @@ def submit_contact(request):
         send_email(
             to=data['email'],
             subject='Thank you for your interest in HYRIND!',
-            html=f'<p>Hi {data["name"]},</p>'
-                 f'<p>Thank you for expressing interest in HYRIND. Our team will review your submission and reach out within 24–48 hours to schedule a discovery call.</p>',
+            html=get_styled_email_html(
+                data['name'],
+                '<p>Thank you for expressing interest in HYRIND. Our team will review your submission and reach out within 24–48 hours to schedule a discovery call.</p>',
+                action_label="Explore Services",
+                action_url="/services"
+            ),
             email_type='interest_confirmation'
         )
         
@@ -451,12 +466,13 @@ def password_reset_request(request):
         send_email(
             to=user.email,
             subject='Password Reset Request – Hyrind',
-            html=f'<p>Hi,</p>'
-                 f'<p>You requested a password reset for your Hyrind account.</p>'
-                 f'<p>Click the link below to set a new password:</p>'
-                 f'<p><a href="{reset_url}">{reset_url}</a></p>'
-                 f'<p>This link will expire in 24 hours.</p>'
-                 f'<p>If you did not request this, please ignore this email.</p>',
+            html=get_styled_email_html(
+                getattr(user.profile, 'full_name', user.email),
+                '<p>You requested a password reset for your Hyrind account.</p>'
+                '<p>Click the button below to set a new password. This link will expire in 24 hours.</p>',
+                action_label="Reset Password",
+                action_url=reset_url
+            ),
         )
         log_action(user, 'password_reset_requested', str(user.id), 'user', {})
     except User.DoesNotExist:

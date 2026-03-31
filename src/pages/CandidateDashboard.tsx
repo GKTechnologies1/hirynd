@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { candidatesApi, notificationsApi, recruitersApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -38,7 +38,6 @@ const navItems = [
   { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
 ];
 
-// Status pipeline gating per spec Section 4.1
 const STATUS_TAB_ACCESS: Record<string, string[]> = {
   pending_approval:      ["overview"],
   lead:                  ["overview"],
@@ -69,22 +68,23 @@ const LOCKED_MESSAGES: Record<string, { title: string; reason: string; action?: 
 };
 
 const LockedTab = ({ tab }: { tab: string }) => {
+  const navigate = useNavigate();
   const info = LOCKED_MESSAGES[tab] || { title: "Locked", reason: "This section is not available yet." };
   return (
-    <DashboardLayout title={info.title} navItems={navItems}>
-      <Card className="max-w-lg mx-auto mt-12 glass-card animate-in">
-        <CardContent className="py-12 text-center">
-          <Lock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold text-card-foreground">{info.title}</h3>
-          <p className="text-sm text-muted-foreground mt-2">{info.reason}</p>
-          {info.action && info.actionPath && (
-            <Button variant="hero" className="mt-4" onClick={() => window.location.href = info.actionPath!}>
-              {info.action}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-    </DashboardLayout>
+    <Card className="max-w-lg mx-auto mt-12 glass-card animate-in border-none shadow-2xl">
+      <CardContent className="py-16 text-center">
+        <div className="mx-auto h-20 w-20 bg-muted/20 rounded-3xl flex items-center justify-center mb-6">
+          <Lock className="h-10 w-10 text-muted-foreground" />
+        </div>
+        <h3 className="text-2xl font-bold text-card-foreground">{info.title}</h3>
+        <p className="text-muted-foreground mt-3 text-base max-w-[280px] mx-auto leading-relaxed">{info.reason}</p>
+        {info.action && info.actionPath && (
+          <Button variant="hero" className="mt-8 scale-110" onClick={() => navigate(info.actionPath!)}>
+            {info.action}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
@@ -98,8 +98,8 @@ const TrainingButton = ({ candidate, type, label }: { candidate: any; type: stri
     window.open(url || "https://cal.com/hyrind", "_blank");
   };
   return (
-    <Button variant="outline" className="justify-start" onClick={handleClick} disabled={!candidate}>
-      <Calendar className="mr-2 h-4 w-4" /> {label}
+    <Button variant="outline" className="justify-start h-12 rounded-xl group hover:border-secondary/50 transition-all font-semibold" onClick={handleClick} disabled={!candidate}>
+      <Calendar className="mr-3 h-4 w-4 text-secondary group-hover:scale-110 transition-transform" /> {label}
     </Button>
   );
 };
@@ -107,6 +107,7 @@ const TrainingButton = ({ candidate, type, label }: { candidate: any; type: stri
 const CandidateDashboard = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [candidate, setCandidate] = useState<any>(null);
   const [team, setTeam] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -118,15 +119,14 @@ const CandidateDashboard = () => {
       const { data: cand } = await candidatesApi.me();
       setCandidate(cand);
       
-      // Fetch team assignments
       try {
         const { data: assignments } = await recruitersApi.assignments(cand.id);
         const teamData = assignments
           .filter((a: any) => a.is_active)
           .map((a: any) => ({
-            id: a.id, // Added id for key
+            id: a.id,
             recruiter_name: a.recruiter_name || "Team Member",
-            role: a.role_type || "Recruiter" // Changed role_type to role
+            role: a.role_type || "Recruiter"
           }));
         setTeam(teamData);
       } catch { /* ignore team error */ }
@@ -141,39 +141,17 @@ const CandidateDashboard = () => {
 
   useEffect(() => { fetchData(); }, [user]);
 
-  if (loading) return <DashboardLayout title="Dashboard" navItems={navItems}><p>Loading...</p></DashboardLayout>;
+  const subPath = useMemo(() => {
+    return location.pathname.replace("/candidate-dashboard", "").replace(/^\//, "") || "overview";
+  }, [location.pathname]);
 
   const status = candidate?.status || "pending_approval";
   const allowedTabs = STATUS_TAB_ACCESS[status] || ["overview"];
-  const subPath = location.pathname.replace("/candidate-dashboard", "").replace(/^\//, "") || "overview";
-
-  if (!candidate && user?.role !== 'admin') {
-    return <DashboardLayout title="No Profile" navItems={navItems}><p className="py-20 text-center text-muted-foreground">Your candidate profile is being created...</p></DashboardLayout>;
-  }
-
-  // Check if the tab is accessible
   const tabKey = subPath === "" ? "overview" : subPath;
   const isBillingTab = tabKey === "payments" || tabKey === "billing";
   const hasPendingSub = ["pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status);
 
-  if (tabKey !== "overview" && !allowedTabs.includes(tabKey)) {
-    // Override: Allow access to payments/billing if payment is required
-    if (!(isBillingTab && hasPendingSub)) {
-      return <LockedTab tab={tabKey} />;
-    }
-  }
-
-  // Sub-routing
-  if (subPath === "intake") return <CandidateIntakePage candidate={candidate} onStatusChange={fetchData} />;
-  if (subPath === "roles") return <CandidateRolesPage candidate={candidate} onStatusChange={fetchData} />;
-  if (subPath === "credentials") return <CandidateCredentialsPage candidate={candidate} onStatusChange={fetchData} />;
-  if (subPath === "payments") return <CandidatePaymentsPage candidate={candidate} onStatusChange={fetchData} />;
-  if (subPath === "billing") return <CandidateBillingPage candidate={candidate} />;
-  if (subPath === "applications") return <CandidateApplicationsPage candidate={candidate} />;
-  if (subPath === "interviews") return <CandidateInterviewsPage candidate={candidate} />;
-  if (subPath === "referrals") return <CandidateReferralsPage candidate={candidate} />;
-  if (subPath === "settings") return <CandidateSettingsPage />;
-  if (subPath === "messages") return <CandidateMessagesPage />;
+  const isLocked = tabKey !== "overview" && !allowedTabs.includes(tabKey) && !(isBillingTab && hasPendingSub);
 
   const getNextAction = () => {
     switch (status) {
@@ -196,11 +174,9 @@ const CandidateDashboard = () => {
   };
 
   const getNextActionCTA = () => {
-    // If payment is pending, prioritize that regardless of status
     if (["pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status)) {
       return { label: "Pay Now →", path: "/candidate-dashboard/payments" };
     }
-
     switch (status) {
       case "approved":          return { label: "Complete Intake Sheet →", path: "/candidate-dashboard/intake" };
       case "roles_published":   return { label: "Review Suggested Roles →", path: "/candidate-dashboard/roles" };
@@ -222,173 +198,192 @@ const CandidateDashboard = () => {
 
   const cta = getNextActionCTA();
 
-  return (
-    <DashboardLayout title="Dashboard" navItems={navItems}>
-      <div className="space-y-8 animate-in">
-        {/* Hero Header */}
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 py-4 border-b border-border/40 pb-6 mb-2">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-card-foreground">Welcome back, {user?.profile?.full_name?.split(" ")[0] || "Candidate"}!</h1>
-            <p className="text-muted-foreground mt-2 text-lg">Here is the latest update on your marketing journey.</p>
-          </div>
-          <div className="flex items-center gap-3">
-             <StatusBadge status={status} />
-          </div>
-        </header>
+  const renderContent = () => {
+    if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground animate-pulse font-medium">Loading your profile...</p></div>;
+    if (!candidate && user?.role !== 'admin') return <p className="py-20 text-center text-muted-foreground">Your candidate profile is being created...</p>;
+    if (isLocked) return <LockedTab tab={tabKey} />;
 
-        {/* Timeline Visualization */}
-        <div className="glass-card rounded-3xl p-8 shadow-sm border border-border/30 bg-card/40 backdrop-blur-md">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Journey Progress</h2>
-            <div className="h-1.5 w-32 rounded-full bg-muted overflow-hidden">
-               <div className="h-full bg-secondary transition-all" style={{ width: '45%' }} />
+    switch (subPath) {
+      case "intake": return <CandidateIntakePage candidate={candidate} onStatusChange={fetchData} />;
+      case "roles": return <CandidateRolesPage candidate={candidate} onStatusChange={fetchData} />;
+      case "credentials": return <CandidateCredentialsPage candidate={candidate} onStatusChange={fetchData} />;
+      case "payments": return <CandidatePaymentsPage candidate={candidate} onStatusChange={fetchData} />;
+      case "billing": return <CandidateBillingPage candidate={candidate} />;
+      case "applications": return <CandidateApplicationsPage candidate={candidate} />;
+      case "interviews": return <CandidateInterviewsPage candidate={candidate} />;
+      case "referrals": return <CandidateReferralsPage candidate={candidate} />;
+      case "settings": return <CandidateSettingsPage />;
+      case "messages": return <CandidateMessagesPage />;
+      default: return (
+        <div className="space-y-8 animate-in">
+          {/* Hero Header */}
+          <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 py-4 border-b border-border/40 pb-6 mb-2">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-card-foreground">Welcome back, {user?.profile?.full_name?.split(" ")[0] || "Candidate"}!</h1>
+              <p className="text-muted-foreground mt-2 text-lg">Here is the latest update on your marketing journey.</p>
             </div>
-          </div>
-          <CandidateTimeline currentStatus={status} />
-        </div>
+            <div className="flex items-center gap-3">
+               <StatusBadge status={status} />
+            </div>
+          </header>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Main Column */}
-          <div className="lg:col-span-2 space-y-8">
-            
-            {/* Status-specific Banners */}
-            {status === "placed_closed" && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                <Card className="border-secondary/40 bg-secondary/5 border-l-8 border-l-secondary shadow-lg">
-                  <CardContent className="p-8 flex items-center gap-6">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-secondary/15">
-                      <Award className="h-8 w-8 text-secondary" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-card-foreground">Congratulations! You've been placed! 🎉</h3>
-                      <p className="text-muted-foreground mt-1">Your marketing journey has successfully concluded. We are proud to have been part of your career growth.</p>
-                    </div>
+          {/* Timeline Visualization */}
+          <div className="glass-card rounded-3xl p-8 shadow-sm border border-border/30 bg-card/40 backdrop-blur-md">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Journey Progress</h2>
+              <div className="h-1.5 w-32 rounded-full bg-muted overflow-hidden">
+                 <div className="h-full bg-secondary transition-all" style={{ width: '45%' }} />
+              </div>
+            </div>
+            <CandidateTimeline currentStatus={status} />
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Main Column */}
+            <div className="lg:col-span-2 space-y-8">
+              
+              {status === "placed_closed" && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                  <Card className="border-secondary/40 bg-secondary/5 border-l-8 border-l-secondary shadow-lg">
+                    <CardContent className="p-8 flex items-center gap-6">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-secondary/15">
+                        <Award className="h-8 w-8 text-secondary" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-card-foreground">Congratulations! You've been placed! 🎉</h3>
+                        <p className="text-muted-foreground mt-1">Your marketing journey has successfully concluded. We are proud to have been part of your career growth.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {["paused", "cancelled", "on_hold", "past_due"].includes(status) && (
+                <Card className="border-destructive/30 bg-destructive/5 shadow-sm">
+                  <CardContent className="p-6 flex items-center gap-4">
+                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                    <p className="font-semibold text-card-foreground italic leading-relaxed">
+                      Status: <span className="capitalize">{status.replace("_", " ")}</span> — {getNextAction()}
+                    </p>
                   </CardContent>
                 </Card>
-              </motion.div>
-            )}
+              )}
 
-            {["paused", "cancelled", "on_hold", "past_due"].includes(status) && (
-              <Card className="border-destructive/30 bg-destructive/5 shadow-sm">
-                <CardContent className="p-6 flex items-center gap-4">
-                  <AlertTriangle className="h-6 w-6 text-destructive" />
-                  <p className="font-semibold text-card-foreground italic leading-relaxed">
-                    Status: <span className="capitalize">{status.replace("_", " ")}</span> — {getNextAction()}
+              <Card className="glass-card shadow-2xl border-none overflow-hidden group hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-500">
+                 <div className="absolute top-0 right-0 p-12 -mr-8 -mt-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                  <Briefcase className="h-48 w-48 text-secondary" />
+                </div>
+                <CardHeader className="pb-4 px-10 pt-10">
+                  <CardTitle className="text-2xl font-bold flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-secondary animate-pulse" />
+                    What's Next?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-10 pb-10 relative z-10">
+                  <p className="text-xl text-card-foreground/90 leading-relaxed font-medium mb-8">
+                    {getNextAction()}
                   </p>
+                  {cta && (
+                    <Button variant="hero" className="w-full sm:w-auto h-14 px-12 rounded-2xl shadow-hero text-lg font-bold hover:scale-[1.02] transition-transform active:scale-95" onClick={() => navigate(cta.path)}>
+                      {cta.label}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
-            )}
 
-            {/* Action Card */}
-            <Card className="glass-card shadow-2xl border-none overflow-hidden group hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-500">
-               <div className="absolute top-0 right-0 p-12 -mr-8 -mt-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                <Briefcase className="h-48 w-48 text-secondary" />
-              </div>
-              <CardHeader className="pb-4 px-10 pt-10">
-                <CardTitle className="text-2xl font-bold flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-secondary animate-pulse" />
-                  What's Next?
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-10 pb-10 relative z-10">
-                <p className="text-xl text-card-foreground/90 leading-relaxed font-medium mb-8">
-                  {getNextAction()}
-                </p>
-                {cta && (
-                  <Button variant="hero" className="w-full sm:w-auto h-14 px-12 rounded-2xl shadow-hero text-lg font-bold hover:scale-[1.02] transition-transform active:scale-95" onClick={() => window.location.href = cta.path}>
-                    {cta.label}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+              {notifications.length > 0 && (
+                <section className="space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1">Recent Activity</h3>
+                  <Card className="border-border/40 shadow-sm overflow-hidden bg-card/30">
+                    <div className="divide-y divide-border/20">
+                      {notifications.map((n: any) => (
+                        <div key={n.id} className="flex items-start justify-between p-6 hover:bg-muted/10 transition-colors group">
+                          <div className="flex gap-4">
+                            <div className="mt-1 h-2 w-2 rounded-full bg-secondary shrink-0" />
+                            <div className="space-y-1">
+                              <p className="font-bold text-card-foreground text-base group-hover:text-primary transition-colors">{n.title}</p>
+                              <p className="text-sm text-muted-foreground leading-relaxed">{n.message}</p>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-muted-foreground hover:text-secondary opacity-0 group-hover:opacity-100 transition-all font-bold rounded-xl" onClick={() => markNotifRead(n.id)}>✓</Button>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </section>
+              )}
+            </div>
 
-            {/* Notifications Feed */}
-            {notifications.length > 0 && (
+            {/* Sidebar Cards */}
+            <div className="space-y-8">
               <section className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1">Recent Activity</h3>
-                <Card className="border-border/40 shadow-sm overflow-hidden bg-card/30">
+                <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1 flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Your Support Team
+                </h3>
+                <Card className="glass-card border-none shadow-md overflow-hidden">
                   <div className="divide-y divide-border/20">
-                    {notifications.map((n: any) => (
-                      <div key={n.id} className="flex items-start justify-between p-6 hover:bg-muted/10 transition-colors group">
-                        <div className="flex gap-4">
-                          <div className="mt-1 h-2 w-2 rounded-full bg-secondary shrink-0" />
-                          <div className="space-y-1">
-                            <p className="font-bold text-card-foreground text-base group-hover:text-primary transition-colors">{n.title}</p>
-                            <p className="text-sm text-muted-foreground leading-relaxed">{n.message}</p>
+                    {team.length > 0 ? (
+                      team.map((member: any) => (
+                        <div key={member.id} className="flex items-center gap-5 p-5 hover:bg-secondary/5 transition-colors">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary/10 text-secondary font-bold text-base shadow-inner">
+                            {member.recruiter_name?.[0]}
+                          </div>
+                          <div className="overflow-hidden">
+                            <p className="text-base font-bold truncate">{member.recruiter_name}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mt-0.5 opacity-70">
+                              {member.role?.replace("_", " ") || "Member"}
+                            </p>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-muted-foreground hover:text-secondary opacity-0 group-hover:opacity-100 transition-all font-bold rounded-xl" onClick={() => markNotifRead(n.id)}>✓</Button>
+                      ))
+                    ) : (
+                      <div className="p-12 text-center space-y-4">
+                        <div className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-muted/20">
+                          <Users className="h-8 w-8 text-muted-foreground/20" />
+                        </div>
+                        <p className="text-xs text-muted-foreground italic max-w-[200px] mx-auto leading-relaxed">A dedicated support team will be assigned once your marketing profile is finalized.</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </Card>
               </section>
-            )}
-          </div>
 
-          {/* Sidebar */}
-          <div className="space-y-8">
-            {/* Support Team */}
-            <section className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1 flex items-center gap-2">
-                <Users className="h-4 w-4" /> Your Support Team
-              </h3>
-              <Card className="glass-card border-none shadow-md overflow-hidden">
-                <div className="divide-y divide-border/20">
-                  {team.length > 0 ? (
-                    team.map((member: any) => (
-                      <div key={member.id} className="flex items-center gap-5 p-5 hover:bg-secondary/5 transition-colors">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary/10 text-secondary font-bold text-base shadow-inner">
-                          {member.recruiter_name?.[0]}
-                        </div>
-                        <div className="overflow-hidden">
-                          <p className="text-base font-bold truncate">{member.recruiter_name}</p>
-                          <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mt-0.5 opacity-70">
-                            {member.role?.replace("_", " ") || "Member"}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-12 text-center space-y-4">
-                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-muted/20">
-                        <Users className="h-8 w-8 text-muted-foreground/20" />
-                      </div>
-                      <p className="text-xs text-muted-foreground italic max-w-[200px] mx-auto leading-relaxed">A dedicated support team will be assigned once your marketing profile is finalized.</p>
-                    </div>
-                  )}
-                </div>
+              <section className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" /> Training & Calls
+                </h3>
+                <Card className="border-border/40 bg-card/30 p-2">
+                  <div className="grid gap-2">
+                    <TrainingButton candidate={candidate} type="training_practice" label="Training Practice" />
+                    <TrainingButton candidate={candidate} type="mock_practice" label="Mock Practice Call" />
+                    <TrainingButton candidate={candidate} type="interview_training" label="Interview Training" />
+                    <TrainingButton candidate={candidate} type="interview_support" label="Interview Support" />
+                    <TrainingButton candidate={candidate} type="operations_call" label="Operations Call" />
+                  </div>
+                </Card>
+              </section>
+
+              <Card className="border-border/40 bg-gradient-to-br from-card to-muted/20 shadow-sm overflow-hidden border-none shadow-lg">
+                <CardContent className="p-8 text-center space-y-5">
+                  <p className="text-sm font-bold text-muted-foreground leading-relaxed">Questions about your journey?</p>
+                  <Button variant="hero" className="w-full h-11 px-0" onClick={() => navigate('/contact')}>
+                    Message Support
+                  </Button>
+                </CardContent>
               </Card>
-            </section>
-
-            {/* Quick Access */}
-            <section className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1 flex items-center gap-2">
-                <Calendar className="h-4 w-4" /> Training & Calls
-              </h3>
-              <Card className="border-border/40 bg-card/30 p-2">
-                <div className="grid gap-2">
-                  <TrainingButton candidate={candidate} type="training_practice" label="Training Practice" />
-                  <TrainingButton candidate={candidate} type="mock_practice" label="Mock Practice Call" />
-                  <TrainingButton candidate={candidate} type="interview_training" label="Interview Training" />
-                  <TrainingButton candidate={candidate} type="interview_support" label="Interview Support" />
-                  <TrainingButton candidate={candidate} type="operations_call" label="Operations Call" />
-                </div>
-              </Card>
-            </section>
-
-             {/* Help Card */}
-            <Card className="border-border/40 bg-gradient-to-br from-card to-muted/20 shadow-sm overflow-hidden">
-              <CardContent className="p-6 text-center space-y-4">
-                <p className="text-sm font-medium text-muted-foreground leading-relaxed">Questions about your journey?</p>
-                <Button variant="outline" className="w-full rounded-xl border-secondary/30 text-secondary hover:bg-secondary hover:text-white transition-all font-bold" onClick={() => window.location.href='/contact'}>
-                  Message Support Center
-                </Button>
-              </CardContent>
-            </Card>
+            </div>
           </div>
         </div>
-      </div>
+      );
+    }
+  };
+
+  return (
+    <DashboardLayout 
+      title={subPath === "overview" ? "Dashboard" : subPath.charAt(0).toUpperCase() + subPath.slice(1)} 
+      navItems={navItems}
+    >
+      {renderContent()}
     </DashboardLayout>
   );
 };

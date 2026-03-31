@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { candidatesApi, filesApi } from "@/services/api";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, FileText, LayoutDashboard, Briefcase, KeyRound, DollarSign, CreditCard, ClipboardList, Phone, UserPlus, MessageSquare, Settings } from "lucide-react";
+import { Lock, FileText } from "lucide-react";
 
 interface CandidateIntakePageProps {
   candidate: any;
@@ -125,14 +124,14 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
 
   if (!statusAllowed) {
     return (
-      <DashboardLayout title="Intake Form" navItems={CANDIDATE_NAV}>
+      <div className="max-w-4xl mx-auto space-y-6">
         <Card>
           <CardContent className="p-8 text-center">
             <Lock className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
             <p className="text-muted-foreground">Your account needs to be approved before you can access the intake form.</p>
           </CardContent>
         </Card>
-      </DashboardLayout>
+      </div>
     );
   }
 
