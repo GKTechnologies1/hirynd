@@ -47,14 +47,27 @@ def send_email(to: str, subject: str, html: str, email_type: str = 'transactiona
             email_params['attachments'] = attachments
 
         result = resend.Emails.send(email_params)
+        
+        # If result is empty or has an error field (depends on SDK version)
+        if not result or hasattr(result, 'error'):
+            error_msg = getattr(result, 'error', 'Unknown Error')
+            logger.error(f"Resend Send Failed: {error_msg}")
+            EmailLog.objects.create(recipient_email=to, email_type=email_type, status='failed', error_message=str(error_msg))
+            return None
+
         EmailLog.objects.create(recipient_email=to, email_type=email_type, status='sent')
         return result
     except Exception as exc:
-        logger.error('Resend failed to %s (%s): %s', to, email_type, exc)
+        # Capture full error details for debugging
+        error_detail = str(exc)
+        if "403" in error_detail or "422" in error_detail:
+            error_detail += " (Note: This often means the domain is unverified. Use onboarding@resend.dev for testing.)"
+            
+        logger.error('Resend failed to %s (%s): %s', to, email_type, error_detail)
         try:
             EmailLog.objects.create(
                 recipient_email=to, email_type=email_type,
-                status='failed', error_message=str(exc),
+                status='failed', error_message=error_detail,
             )
         except Exception:
             pass
