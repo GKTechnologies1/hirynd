@@ -7,6 +7,39 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 
+interface PasswordInputProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  onToggle: () => void;
+  error?: string;
+  id: string;
+}
+
+const PasswordInput = ({ label, value, onChange, show, onToggle, error, id }: PasswordInputProps) => (
+  <div className="space-y-2">
+    <Label htmlFor={id}>{label}</Label>
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+        onClick={onToggle}
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+    {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+  </div>
+);
+
 export const ChangePasswordCard = () => {
   const { toast } = useToast();
   const [newPassword, setNewPassword] = useState("");
@@ -37,7 +70,6 @@ export const ChangePasswordCard = () => {
       });
       toast({ title: "Password updated successfully" });
       setNewPassword("");
-      setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
       toast({ 
@@ -49,39 +81,18 @@ export const ChangePasswordCard = () => {
     setSubmitting(false);
   };
 
-  const PasswordInput = ({ label, value, onChange, show, onToggle, error }: {
-    label: string; value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; error?: string;
-  }) => (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="relative">
-        <Input 
-          type={show ? "text" : "password"} 
-          value={value} 
-          onChange={e => onChange(e.target.value)} 
-          className="pr-10"
-        />
-        <button 
-          type="button" 
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" 
-          onClick={onToggle}
-        >
-          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
-      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
-    </div>
-  );
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Change Password</CardTitle>
+        <CardTitle className="text-base font-bold">Change Password</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-xs text-muted-foreground mb-4 italic">Update your security credentials. Current password is not required while logged in.</p>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <p className="text-xs text-muted-foreground mb-6 italic border-l-2 border-secondary/30 pl-3 py-1">
+          Update your security credentials. Current password is not required while logged in.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-5">
           <PasswordInput 
+            id="new-password"
             label="New Password" 
             value={newPassword} 
             onChange={setNewPassword} 
@@ -90,6 +101,7 @@ export const ChangePasswordCard = () => {
             error={errors.newPassword} 
           />
           <PasswordInput 
+            id="confirm-password"
             label="Confirm New Password" 
             value={confirmPassword} 
             onChange={setConfirmPassword} 
@@ -99,10 +111,10 @@ export const ChangePasswordCard = () => {
           />
           <Button 
             variant="hero" 
-            className="w-full mt-2" 
+            className="w-full mt-4 h-11 font-bold shadow-lg shadow-primary/10" 
             disabled={submitting}
           >
-            {submitting ? "Updating..." : "Update Password"}
+            {submitting ? "Updating Security..." : "Update Password"}
           </Button>
         </form>
       </CardContent>
