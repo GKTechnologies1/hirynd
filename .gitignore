@@ -31,3 +31,4 @@ django_backend/.env
 *.sw?
 *.pyc
 django_backend/.venv
+*__pycache__*
