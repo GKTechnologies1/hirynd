@@ -41,6 +41,7 @@ interface EditUserForm {
   role: string;
   approval_status: string;
   is_active: boolean;
+  password?: string;
 }
 
 const AdminUsersPage = () => {
@@ -54,7 +55,7 @@ const AdminUsersPage = () => {
   // Edit dialog
   const [editUser, setEditUser] = useState<any>(null);
   const [editForm, setEditForm] = useState<EditUserForm>({
-    full_name: "", phone: "", email: "", role: "", approval_status: "", is_active: true,
+    full_name: "", phone: "", email: "", role: "", approval_status: "", is_active: true, password: ""
   });
   const [saving, setSaving] = useState(false);
 
@@ -100,6 +101,7 @@ const AdminUsersPage = () => {
       role: user.role || "candidate",
       approval_status: user.approval_status || "pending",
       is_active: user.is_active !== false,
+      password: "",
     });
   };
 
@@ -325,6 +327,10 @@ const AdminUsersPage = () => {
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>New Password (Optional)</Label>
+              <Input type="password" value={editForm.password || ""} onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))} placeholder="Leave blank to keep current password" />
             </div>
           </div>
           <DialogFooter>

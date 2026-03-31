@@ -1,0 +1,21 @@
+
+Traceback (most recent call last):
+  File "D:\gk_tech\new_project\hirynd\django_backend\manage.py", line 19, in <module>
+    main()
+  File "D:\gk_tech\new_project\hirynd\django_backend\manage.py", line 16, in main
+    execute_from_command_line(sys.argv)
+  File "D:\gk_tech\new_project\hirynd\django_backend\.venv\lib\site-packages\django\core\management\__init__.py", line 442, in execute_from_command_line
+    utility.execute()
+  File "D:\gk_tech\new_project\hirynd\django_backend\.venv\lib\site-packages\django\core\management\__init__.py", line 436, in execute
+    self.fetch_command(subcommand).run_from_argv(self.argv)
+  File "D:\gk_tech\new_project\hirynd\django_backend\.venv\lib\site-packages\django\core\management\base.py", line 412, in run_from_argv
+    self.execute(*args, **cmd_options)
+  File "D:\gk_tech\new_project\hirynd\django_backend\.venv\lib\site-packages\django\core\management\base.py", line 458, in execute
+    output = self.handle(*args, **options)
+  File "D:\gk_tech\new_project\hirynd\django_backend\.venv\lib\site-packages\django\core\management\base.py", line 106, in wrapper
+    res = handle_func(*args, **kwargs)
+  File "D:\gk_tech\new_project\hirynd\django_backend\.venv\lib\site-packages\django\core\management\commands\migrate.py", line 120, in handle
+    executor.loader.check_consistent_history(connection)
+  File "D:\gk_tech\new_project\hirynd\django_backend\.venv\lib\site-packages\django\db\migrations\loader.py", line 327, in check_consistent_history
+    raise InconsistentMigrationHistory(
+django.db.migrations.exceptions.InconsistentMigrationHistory: Migration admin.0001_initial is applied before its dependency users.0001_initial on database 'default'.

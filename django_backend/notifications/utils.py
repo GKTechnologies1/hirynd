@@ -5,7 +5,7 @@ from .models import EmailLog
 logger = logging.getLogger(__name__)
 
 
-def send_email(to: str, subject: str, html: str, email_type: str = 'transactional'):
+def send_email(to: str, subject: str, html: str, email_type: str = 'transactional', attachments: list = None):
     """
     Send via Resend SDK.  Falls back silently to console logging if the API key
     is missing / a placeholder — so the backend never crashes on email errors.
@@ -18,7 +18,7 @@ def send_email(to: str, subject: str, html: str, email_type: str = 'transactiona
 
     if is_placeholder:
         # Dev / CI: just log so the rest of the request continues normally
-        logger.info('[EMAIL fallback] To=%s | Subject=%s | Type=%s', to, subject, email_type)
+        logger.info('[EMAIL fallback] To=%s | Subject=%s | Type=%s | Attachments=%s', to, subject, email_type, bool(attachments))
         try:
             EmailLog.objects.create(recipient_email=to, email_type=email_type, status='skipped')
         except Exception:
@@ -28,12 +28,17 @@ def send_email(to: str, subject: str, html: str, email_type: str = 'transactiona
     try:
         import resend  # pip install resend
         resend.api_key = api_key
-        result = resend.Emails.send({
+        
+        email_params = {
             'from': from_email,
             'to': [to],
             'subject': subject,
             'html': html,
-        })
+        }
+        if attachments:
+            email_params['attachments'] = attachments
+
+        result = resend.Emails.send(email_params)
         EmailLog.objects.create(recipient_email=to, email_type=email_type, status='sent')
         return result
     except Exception as exc:

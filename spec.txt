@@ -1,0 +1,1981 @@
+HYRIND
+PORTAL DASHBOARD
+Complete Development Requirement Specification
+Version
+v4.0
+Date
+March 13, 2026
+Scope
+Candidate · Recruiter · Admin · Billing · Chat · Audit
+Classification
+CONFIDENTIAL – Dev Team Only
+1. SYSTEM ARCHITECTURE OVERVIEW
+HYRIND is an operations-driven recruitment platform. The following principles drive all development decisions:
+Admin-controlled pipeline with strict status-gating
+Multi-recruiter assignment (up to 4 recruiters per candidate)
+Versioned credential system with diff tracking
+Daily recruiter submission logging tied to job link entries
+Interview tracking with outcome management
+Referral tracking with status progression
+Monthly subscription billing with grace period controls
+Placement closure workflow locking the profile on success
+Email + in-app notifications for all major lifecycle events
+Strict role-based access control (RLS enforced at DB level)
+Internal group chat per candidate profile – no personal contact exposure
+⚑  All security must be enforced at the database level via Supabase RLS. No frontend-only gate is acceptable as a security boundary.
+2. ROLE SYSTEM
+2.1 Defined Roles
+#
+Role
+Registration Path
+Portal Access
+1
+Candidate
+Self-register via website
+Post admin approval only
+2
+Recruiter
+Self-register via website
+Post admin approval only
+3
+Team Lead
+Admin-created account
+Immediate upon creation
+4
+Team Manager
+Admin-created account
+Immediate upon creation
+5
+Admin
+System provisioned
+Full access always
+6
+Finance Admin
+Admin-created (future phase)
+Billing module only
+2.2 Permission Matrix
+Feature
+Candidate
+Recruiter
+Team Lead
+Team Manager
+Admin
+Signup
+✅ Self
+✅ Self
+❌
+❌
+✅ Creates all
+Portal Approval
+❌
+❌
+❌
+❌
+✅ Full control
+Client Intake Submit
+✅ Once
+❌
+❌
+❌
+Unlock only
+Role Suggestion
+❌
+❌
+View only
+View only
+✅ Full
+Role Confirmation
+✅ Own
+❌
+View only
+View only
+✅ Reopen only
+Credential Edit
+✅ Own
+✅ Assigned only
+View only
+View only
+✅ Full
+Daily Logs Create
+❌
+✅ Assigned
+View only
+View only
+View only
+Daily Logs View
+Own profile
+Assigned only
+Team profiles
+Team profiles
+Global
+Billing/Card View
+Own masked
+Status badge only
+Status only
+Status only
+Full unmasked
+Placement Closure
+❌
+❌
+❌
+❌
+✅ Full
+Audit Viewer
+Own events
+Assigned only
+Team assigned
+Team assigned
+Global
+Recruiter Bank Details
+❌
+Own only
+❌
+❌
+View only
+Group Chat
+Own profile
+Assigned profiles
+Team profiles
+Team profiles
+All profiles
+Admin Config
+❌
+❌
+❌
+❌
+✅ Full
+3. REGISTRATION & APPROVAL WORKFLOW
+3.1 Candidate Registration Form
+Section A – Required Identity Fields
+Field Name
+Type
+Validation Rules
+Notes
+first_name
+Text
+Required, max 60 chars, no numerics
+Trim whitespace
+last_name
+Text
+Required, max 60 chars, no numerics
+Trim whitespace
+email
+Email
+Required, unique, valid format
+Lowercase normalize
+phone_number
+Tel
+Required, E.164 or local format
+Allow +, -, (, ), spaces
+password
+Password
+Min 8 chars, 1 upper, 1 lower, 1 number, 1 special
+Masked with eye toggle
+confirm_password
+Password
+Must match password exactly
+Independent eye toggle
+university_name
+Text
+Required, max 120 chars
+major_degree
+Text
+Required, max 120 chars
+graduation_date
+Date
+Required, valid date, future allowed for students
+Standardized format
+Section B – Source / Discovery Fields
+Field Name
+Type
+Allowed Values
+Notes
+how_did_you_hear_about_us
+Dropdown
+LinkedIn, Google, University, Friend, Social Media, Other
+Required
+friend_name
+Text
+Free text, max 120 chars
+Conditional – shown only when Friend is selected. Required when shown.
+linkedin_url
+URL
+Valid URL format
+Optional at registration
+portfolio_url
+URL
+Valid URL format
+Optional at registration
+visa_status
+Dropdown
+H1B, OPT, CPT, Green Card, US Citizen, Other
+Optional at registration
+current_location
+Text
+City/State/Country
+Optional at registration
+Password UI Requirements
+Both password and confirm_password must be masked by default (dot characters)
+Eye icon on right side of each field – clicking toggles visible/masked state
+Toggle state for password and confirm_password must be independent
+Show inline validation in real time or on blur (not only on form submit)
+Inline Validation Messages
+Field
+Validation Message
+email
+Email is required / Enter a valid email address
+phone_number
+Phone number is required / Invalid format
+password
+Password must be at least 8 characters / Must contain uppercase, lowercase, number, and special character
+confirm_password
+Passwords do not match
+graduation_date
+Graduation date is required / Invalid date
+friend_name
+Friend name is required when source is Friend
+3.2 Recruiter Registration Form
+Recruiter registration follows the same structure as candidate with the following additions:
+Field Name
+Required?
+Notes
+first_name, last_name, email, phone, password
+Yes
+Same rules as candidate
+university_name, major_degree, graduation_date
+Yes
+Same rules as candidate
+linkedin_url or social_profile
+Yes (one of)
+Must provide at least one professional link
+source_selection
+Yes
+Same dropdown as candidate
+city, state, country
+Optional
+Location context
+prior_recruitment_experience
+Optional
+Free text, max 500 chars
+work_type_preference
+Optional
+Full-time, Part-time, Contract, Remote
+3.3 Registration Submit Flow
+Validate all fields (client-side + server-side)
+Create Supabase auth user
+Create profile record in profiles table
+Assign role = candidate or recruiter in user_roles
+Set approval_status = pending_approval
+Set portal_access = false
+Insert audit_log event: registration_created
+Send Registration Received Email (see Section 6.1)
+Sign user out immediately after submission
+On next login, show Pending Approval Screen only
+3.4 Pending Approval Screen
+After registration and before admin approval, user sees ONLY this screen:
+Pending Approval Screen – Required Elements
+Heading
+Thank you for registering with Hyrind
+Subtext
+Your registration has been received and is under review
+Timeline text
+Expected review time: 24–48 hours
+Instruction
+You will receive an email once your profile is approved
+Support link
+Optional – contact support if needed
+Logout button
+Visible and functional
+Hidden elements
+ALL dashboard tabs, forms, navigation, recruiter info, chat
+3.5 Admin Approval Queue
+Admin Dashboard must show an Approvals Queue with:
+Candidate/Recruiter name
+Email address
+Registration date and time
+Source selection (how they heard about Hyrind)
+Approve button → triggers approval email + sets status = approved + portal_access = true
+Reject button → triggers rejection email + sets status = rejected
+⚑  All approval/rejection actions must be audit logged with admin user ID and timestamp.
+4. MASTER STATUS PIPELINE
+4.1 Status Definitions & Tab Gating
+Status
+Color
+Meaning
+Unlocked Tabs
+Blocked Tabs
+pending_approval
+Grey
+Awaiting admin review
+Overview (limited)
+All others
+approved / intake_pending
+Blue
+Portal approved, intake needed
+Overview, Intake
+Roles, Credentials, Payment, Applications
+intake_submitted
+Teal
+Intake done, awaiting roles
+Overview, Intake (RO)
+Credentials, Payment
+roles_published
+Amber
+Roles ready for candidate
+Overview, Intake, Roles
+Credentials, Payment
+roles_candidate_responded
+Yellow
+Candidate responded to roles with yes or no selections and add other roles option to candidate
+Above + Credentials (msg)
+Credentials form locked
+payment_pending
+Orange
+Payment required
+Above + Payment
+Credentials form
+payment_completed
+Green
+Paid – credentials open
+Above + Credentials
+credentials_submitted
+Cyan
+Credentials done
+All above + Applications, Interviews
+active_marketing
+Green
+Being marketed
+All tabs
+paused
+Orange
+Temporarily paused
+Read-only all
+Edit actions disabled
+on_hold
+Grey
+On hold pending review
+Read-only all
+Edit actions disabled
+past_due
+Red
+Payment failed
+All but banner shown
+Marketing restricted
+cancelled
+Red
+Cancelled
+Read-only archive
+All mutations
+placed_closed
+Purple
+Placed – case closed
+Read-only, success banner
+All mutations
+⚑  Locked tabs must never show a broken/empty screen. Always display a clear message explaining WHY the tab is locked and what action unlocks it.
+5. CANDIDATE DASHBOARD
+5.1 Dashboard Shell
+Route: /candidate-dashboard
+Left Sidebar – Required Navigation Items
+Branding
+Hyrind logo + 'HYRIND' text at top left
+Menu Item 1
+Overview
+Menu Item 2
+Intake Sheet
+Menu Item 3
+Roles
+Menu Item 4
+Credentials
+Menu Item 5
+Payments
+Menu Item 6
+Billing
+Menu Item 7
+Applications
+Menu Item 8
+Interviews
+Menu Item 9
+Referral
+Menu Item 10
+Messages (Group Chat)
+Menu Item 11
+Settings
+Bottom of sidebar
+Help Desk / Support link
+5.2 Overview Page
+Route: /candidate-dashboard/overview
+Component A – Status Banner
+Display current status label with color-coded badge
+One-line meaning text (e.g. 'Your intake is pending review')
+Next Action CTA button (e.g. 'Complete Intake Sheet →')
+Component B – Journey Timeline / Stepper
+Step #
+Label
+Completion Trigger
+State Colors
+1
+Registration Submitted
+On form submit
+Grey → Green on complete
+2
+Profile Approved
+Admin approves
+Grey → Green on complete
+3
+Intake Submitted
+Candidate submits intake
+Grey → Green on complete
+4
+Roles Reviewed
+Candidate responds to roles
+Grey → Green on complete
+5
+Payment Completed
+Admin records payment
+Grey → Green on complete
+6
+Credentials Submitted
+Credential form submitted
+Grey → Green on complete
+7
+Active Marketing
+Admin starts marketing
+Grey → Green on complete
+8
+Placement Closed
+Admin logs placement
+Grey → Gold/Purple on complete
+Completed step = check mark + green fill
+Current step = highlighted dot (blue/green)
+Future steps = grey
+Show date alongside step if event date is available
+Component C – Pending Tasks Widget
+Show dynamically based on current status. Examples:
+Complete Intake Sheet (shown when status = intake_pending)
+Review Suggested Roles (shown when status = roles_published)
+Complete Payment (shown when status = payment_pending)
+Review Upcoming Interview (shown when interview is scheduled within 48 hrs)
+Update Billing Method (shown when billing status = past_due)
+Component D – Assigned Team Card
+Show all assigned team members by role
+Display: first name + last name + role label only
+Do NOT expose phone number, personal email, or external contact details
+Component E – Scheduling / Training Card
+Show 4 scheduling buttons. Each redirects to admin-configured Cal.com URL:
+Button Label
+DB Config Key
+Tracking Fields
+Schedule Training Practice
+cal_training_url
+candidate_id, clicked_at, schedule_type
+Schedule Mock Practice Call
+cal_mock_practice_url
+candidate_id, clicked_at, schedule_type
+Schedule Interview Training
+cal_interview_training_url
+candidate_id, clicked_at, schedule_type
+Schedule Interview Support
+cal_interview_support_url
+candidate_id, clicked_at, schedule_type
+Schedule Operations Call
+cal_operations_call_url
+candidate_id, clicked_at, schedule_type
+Component F – Notifications Panel
+Show last 10 system notifications for the candidate
+Each notification: icon, message text, timestamp, read/unread state
+Mark as read on click
+Types: registration_approved, intake_reviewed, roles_published, payment_due, recruiter_assigned, training_reminder, placement_closed
+5.3 Intake Sheet Page
+Route: /candidate-dashboard/intake
+Access rule: Visible after admin approval. Editable until submitted. Read-only after submit. Admin can reopen (audit logged).Mentioned sample fields and validation but please make sure we pull all the fields from the client intake sheet form link shared
+Section A – Personal Details
+Field
+Type
+Required?
+Validation
+first_name
+Text
+Yes
+Max 60 chars
+last_name
+Text
+Yes
+Max 60 chars
+date_of_birth
+Date
+Yes
+Must be valid past date
+phone_number
+Tel
+Yes
+Valid phone format
+alternate_phone
+Tel
+No
+Valid phone format if provided
+email
+Email
+Yes
+Pre-filled from registration
+current_address
+Text
+Yes
+Max 200 chars
+city
+Text
+Yes
+Max 80 chars
+state
+Text
+Yes
+Max 80 chars
+country
+Dropdown
+Yes
+Country list
+zip_code
+Text
+Yes
+Format varies by country
+Section B – Education
+Field
+Type
+Required?
+Validation
+university_name
+Text
+Yes
+Pre-filled, editable
+degree
+Dropdown
+Yes
+Bachelor's, Master's, PhD, Associate, Other
+major
+Text
+Yes
+Max 120 chars
+graduation_date
+Date
+Yes
+Valid date
+additional_certifications
+Text Area
+No
+Max 500 chars
+academic_projects
+Text Area
+No
+Max 1000 chars
+Section C – Work Authorization
+Field
+Type
+Required?
+Notes
+visa_type
+Dropdown
+Yes
+H1B, OPT, CPT, Green Card, US Citizen, EAD, TN, Other
+visa_expiry_date
+Date
+Conditional
+Required if visa_type is not US Citizen or Green Card
+work_authorization_status
+Dropdown
+Yes
+Authorized, Requires Sponsorship, Pending
+sponsorship_required
+Boolean
+Yes
+Yes / No toggle
+country_of_work_authorization
+Dropdown
+Yes
+Country list
+Section D – Job Preferences
+Field
+Type
+Required?
+Notes
+target_roles
+Multi-text
+Yes
+Can add multiple roles
+preferred_locations
+Multi-text
+Yes
+City/State or Remote
+remote_preference
+Dropdown
+Yes
+Remote, Hybrid, On-site, Any
+salary_expectation
+Number
+Yes
+Annual USD amount
+relocation_preference
+Boolean
+Yes
+Willing to relocate: Yes / No
+industry_preference
+Multi-select
+No
+Tech, Finance, Healthcare, etc.
+shift_preference
+Dropdown
+No
+Day, Night, Any
+Section E – Professional Background
+Field
+Type
+Required?
+Notes
+years_of_experience
+Number
+Yes
+0–50, integer
+recent_employer
+Text
+No
+Max 120 chars
+current_job_title
+Text
+No
+Max 120 chars
+technologies_or_skills
+Text Area
+Yes
+Max 2000 chars
+linkedin_url
+URL
+Yes
+Valid URL format
+github_url
+URL
+No
+Valid URL format
+portfolio_url
+URL
+No
+Valid URL format
+resume_upload
+File
+Yes
+PDF or DOCX, max 10 MB
+Section F – Marketing Inputs
+Field
+Type
+Required?
+Notes
+ready_to_start_date
+Date
+Yes
+Must be today or future
+preferred_employment_type
+Dropdown
+Yes
+Full-time, Part-time, Contract, C2C
+job_search_priority
+Dropdown
+No
+Active, Passive, Not looking
+additional_notes
+Text Area
+No
+Max 1000 chars for candidate to communicate any special context
+Intake Submit Logic
+Client-side validation of all required fields
+Server RPC call (SECURITY DEFINER) to save intake
+Set candidate status = intake_submitted
+Create notification to admin: new intake submitted
+Send email to admin: intake received
+Send confirmation email to candidate
+Lock form from candidate editing
+Show success banner on overview
+Insert audit_log: intake_submitted
+Intake Reopen Logic (Admin Only)
+Admin clicks Reopen Intake in admin candidate view
+System sets intake_locked = false
+Stores: reopened_by (admin_id), reopened_at (timestamp), reopen_reason (text)
+Sends notification + email to candidate
+Inserts audit_log: intake_reopened
+Candidate sees banner: 'Your intake has been reopened by admin for updates'
+5.4 Roles Page
+Route: /candidate-dashboard/roles
+Before Admin Publishes Roles
+Show placeholder message:
+"Role suggestions will appear here once your intake has been reviewed. Please allow 24–48 hours after intake submission."
+Role Suggestion Card Fields (Admin Published)
+Field
+Source
+Visible to Candidate?
+Notes
+role_title
+Admin input
+Yes
+e.g. 'Software Engineer'
+recommended_by
+Auto (admin name)
+Yes
+Display name + role
+recommended_by
+Client ( By using Add others option)
+Yes
+Display name + role
+created_at
+System
+Yes
+Format: Month DD, YYYY
+admin_note
+Admin input
+Yes
+Optional context from admin
+Candidate Response Options Per Role
+Accept (Yes) – marks the role as accepted
+Decline (No) – marks the role as rejected
+Request Change – shows text input for change_request_note (required when selected)
+Candidate may also propose a custom role:
+custom_role_title (text, max 120 chars)
+custom_reason (text area, max 500 chars)
+Role Submit Behavior
+Validate all roles have a response (no empty selections allowed)
+Save all responses via SECURITY DEFINER RPC
+Set status = roles_candidate_responded
+Send notification + email to admin + confirmation to client
+Insert audit_log: roles_responded
+Lock form after submission (admin must reopen to allow changes)
+5.5 Credentials Page
+Route: /candidate-dashboard/credentials
+Access Gate
+Credential Tab Access Rules
+Stage 1 – Blocked
+If roles not yet confirmed → show: 'Complete your role confirmation step to unlock credentials'
+Stage 2 – Blocked
+If payment required and not completed → show: 'Complete your payment step to access credential onboarding'
+Stage 3 – Open
+Both conditions met → credential form is accessible
+Credential FieldsTHESE ARE THE SAMPLE FIELDS BUT PLEASE PROCEED WITH THE FIELDS MENTIONED IN THE CREDENTIAL INTAKE SHEET FORM LINK
+Field
+Type
+Editable By
+Sensitive?
+full_name_as_resume
+Text
+Candidate, Recruiter, Admin
+No
+primary_resume
+File Upload
+Candidate, Recruiter, Admin
+No
+alternate_resume_versions
+Multi-file
+Candidate, Recruiter, Admin
+No
+linkedin_url
+URL
+Candidate, Recruiter, Admin
+No
+github_url
+URL
+Candidate, Recruiter, Admin
+No
+portfolio_url
+URL
+Candidate, Recruiter, Admin
+No
+work_history_summary
+Text Area
+Candidate, Recruiter, Admin
+No
+skills_summary
+Text Area
+Candidate, Recruiter, Admin
+No
+tools_and_technologies
+Text Area
+Candidate, Recruiter, Admin
+No
+certifications
+Text Area
+Candidate, Recruiter, Admin
+No
+visa_details
+Text
+Candidate, Admin only
+YES – mask in diffs
+relocation_preference
+Dropdown
+Candidate, Recruiter, Admin
+No
+references_if_needed
+Text Area
+Candidate, Admin only
+YES – mask in diffs
+recruiter_notes
+Text Area
+Recruiter, Admin only
+No
+formatting_notes
+Text Area
+Recruiter, Admin only
+No
+Versioning System
+Every save creates a new version row in credential_intake_versions:
+Column
+Type
+Description
+id
+UUID
+Primary key
+candidate_id
+UUID FK
+Reference to profiles
+version_number
+Integer
+Auto-increment per candidate
+updated_by
+UUID FK
+User who made the change
+updated_at
+Timestamp
+UTC timestamp of save
+source_role
+Enum
+candidate / recruiter / admin
+changed_fields
+JSON Array
+List of field names changed
+diff_summary
+JSON
+Before/after values – sensitive fields omitted
+full_snapshot
+JSON
+Full credential state at this version
+Version History UI
+Show Version History accordion below the form
+Each entry: version number, updated_by name + role, timestamp, fields changed
+Sensitive fields shown as '[REDACTED]' in diff view
+Admin can view all versions; recruiter sees own versions only
+5.6 Payments Page
+Route: /candidate-dashboard/payments
+Purpose: Candidate views service charges, mock practice fees, and scheduled payment obligations set by admin.
+Payment Line Item Fields
+Field
+Type
+Admin Sets?
+Candidate Sees?
+charge_name
+Text
+Yes
+Yes
+charge_type
+Dropdown
+Yes
+Yes – display label
+amount
+Decimal
+Yes- adjustable
+Yes
+currency
+Dropdown
+Yes
+Yes (USD default)
+due_date
+Date
+Yes – adjustable
+Yes
+payment_status
+Enum
+Auto + Admin
+Yes
+payment_notes
+Text
+Yes
+Yes if not internal
+pay_button
+Action
+N/A
+Yes if integration active
+Charge Types
+Monthly Service Fee - $ 400
+Mock Practice Fee – Dynamic Pricing
+Interview Support Fee – Dynamic Pricing
+Operations Support Fee – Dynamic Pricing
+Payment Status Values
+Status
+Badge Color
+Meaning
+pending
+Yellow
+Payment not yet due or in progress
+paid
+Green
+Payment confirmed
+overdue
+Red
+Due date passed without payment
+waived
+Grey
+Admin waived this charge
+partially_paid
+Orange
+Partial payment received
+cancelled
+Dark Grey
+Charge cancelled by admin
+Due Date Change Logic (Admin)
+Admin can adjust due date by specifying number of days/weeks to move forward or backward
+System stores: previous_due_date, new_due_date, changed_by, change_reason, changed_at
+Insert audit_log: payment_due_date_changed
+Notify candidate via in-app + email when due date changes
+5.7 Billing Page
+Route: /candidate-dashboard/billing
+Display Fields
+Field
+Display Format
+Notes
+plan_name
+Text label
+e.g. 'Standard Marketing Plan'
+recurring_amount
+Currency
+e.g. '$599 / month'
+subscription_status
+Badge
+See status table below
+next_billing_date
+Date
+Format: Month DD, YYYY
+last_payment_date
+Date
+Format: Month DD, YYYY
+billing_method_summary
+Masked card
+e.g. 'Visa ending in 4242 – Exp 08/26'
+invoice_history
+Table
+Date, amount, status, download link
+payment_history
+Table
+Date, amount, method, transaction ref
+Billing Status Badges
+Status
+Badge Color
+Candidate Banner
+Active
+Green
+No banner – normal state
+Past Due
+Red
+"Payment failed. Update your billing method to continue uninterrupted service."
+Paused
+Orange
+"Your billing is currently paused. Contact support for more information."
+Cancelled
+Dark Red
+"Your subscription has been cancelled. Contact us to reactivate."
+Trial
+Blue
+"You are on a trial period until [date]."
+Grace Period
+Yellow
+"You are within a grace period. Update billing to avoid interruption."
+Billing Actions
+Update Card → redirect to payment provider portal
+Retry Payment → available only when status = past_due
+View Invoice → opens invoice detail
+Download Invoice → generates PDF download
+⚑  NEVER display full card number. Only show: card brand, last 4 digits, expiry month/year.
+5.8 Applications Page
+Route: /candidate-dashboard/applications
+Summary Bar
+Metric
+Calculation
+Total Applications This Week
+Sum of applications_count across daily_submission_logs for last 7 days
+Applications Today
+Sum for today's date
+Screening Stage
+Count of job entries with status = Screening
+Interview Stage
+Count of job entries with status = Interview
+Offer Stage
+Count of job entries with status = Offer
+Daily Log Table
+Column
+Type
+Notes
+Date
+Date display
+Formatted: Weekday, Month DD, YYYY
+Recruiter Name
+Text
+Who submitted the log
+Applications Count
+Integer
+Total for that day
+Screening Count
+Integer
+Applications in screening
+Interview Count
+Integer
+Interviews scheduled
+Offer Count
+Integer
+Offers received
+Expand Button
+Action
+Opens per-job detail rows below
+Expanded Job Entry Fields
+Field
+Type
+Who Can Edit?
+Notes
+company_name
+Text
+Recruiter, Admin
+Required
+role_title
+Text
+Recruiter, Admin
+Required
+job_url
+URL
+Recruiter, Admin
+Valid URL, opens in new tab
+job_description
+Text Area / Fetched
+Auto-fetch or manual
+If URL fetch fails, allow manual
+resume_used
+Dropdown/Text
+( Link or file supported)
+Recruiter, Admin
+Reference known resumes
+application_status
+Dropdown
+Candidate, Recruiter, Team Lead, Admin
+Applied, Screening, Interview, Rejected, Offer
+notes
+Text Area
+Recruiter, Admin
+Internal notes
+submitted_by
+System
+System auto-filled
+Actor name + role
+submitted_at
+System
+System auto-filled
+UTC timestamp
+Job Description Auto-Fetch
+When job_url is entered, system attempts to retrieve job title, company, description, location
+If fetch succeeds: pre-fill fields, mark fetch_status = success
+If fetch fails: do not block form submission, mark fetch_status = failed, allow manual entry
+Job links should be stored for potential public-facing redirect and JD display (admin config)
+5.9 Interviews Page
+Route: /candidate-dashboard/interviews
+Interview Log Fields
+Field
+Type
+Required?
+Who Can Set?
+interview_type
+Dropdown
+Yes
+All roles
+stage_round
+Text/Number
+Yes
+All roles
+company_name
+Text
+Yes
+All roles
+role_title
+Text
+Yes
+All roles
+interview_date
+Date
+Yes
+All roles
+interview_time
+Time
+Yes
+All roles
+time_zone
+Dropdown
+Yes
+All roles
+interviewer_name
+Text
+No
+All roles
+interview_mode
+Dropdown
+Yes
+All roles
+meeting_link
+URL
+Conditional
+All roles – required if mode = video
+outcome
+Dropdown
+Yes
+All roles after interview
+difficult_questions
+Text Area
+No
+Candidate + Admin
+feedback_notes
+Text Area
+No
+All roles
+support_needed
+Text Area
+No
+Candidate
+next_round_date
+Date
+No
+All roles
+created_by
+System
+Auto
+System
+updated_by
+System
+Auto
+System
+Interview Types
+Screening Call
+Technical Interview
+HR Interview
+Client Round
+Final Round
+Mock Interview
+Support Call
+Outcome Values
+Outcome
+Badge Color
+Next Action Suggestion
+Scheduled
+Blue
+Prepare for interview
+Completed
+Grey
+Log feedback
+Selected / Passed
+Green
+Await next round or offer
+Rejected
+Red
+Review feedback, continue marketing
+Follow-up Needed
+Yellow
+Schedule support call
+Rescheduled
+Orange
+Update date/time
+No Show
+Dark Red
+Investigate and log reason
+5.10 Referral Page
+Route: /candidate-dashboard/referral
+Referral Submission Form
+Field
+Type
+Required?
+Validation
+friend_name
+Text
+Yes
+Max 120 chars
+friend_email
+Email
+Yes
+Valid email format
+friend_phone
+Tel
+No
+Valid phone format
+referred_for
+Dropdown/Text
+No
+Job search, General membership, etc.
+note_from_candidate
+Text Area
+No
+Max 500 chars
+Referral Status Flow
+Sent → Contacted → Onboarded → Closed
+Or: Sent → Rejected (if admin decides not to move forward)
+On Submit Triggers
+Create referral_entry record
+Notify admin via in-app notification
+Send optional email to referred friend
+Send email to admin with referral details
+Insert audit_log: referral_submitted
+Show success confirmation to candidate
+Candidate Visibility
+Candidate can see: name of person they referred, current status, date submitted
+Candidate cannot see admin notes on referral
+5.11 Settings Page
+Route: /candidate-dashboard/settings
+Change Password
+Field
+Validation
+current_password
+Required – must match stored password
+new_password
+Min 8 chars, 1 upper, 1 lower, 1 number, 1 special
+confirm_new_password
+Must match new_password exactly
+All password fields must have eye icon toggles for show/hide.
+Profile Preferences (Optional Phase 2)
+Notification preferences (email, in-app, both)
+Timezone selection
+Language preference
+Profile image upload
+Help Desk
+FAQ accordion or link
+Support ticket submission form or chatbot
+Must NOT expose direct personal contact information automatically
+6. INTERNAL GROUP CHAT SYSTEM
+Each candidate profile has exactly one internal group chat room. This enables collaborative communication among all assigned team members without exposing personal contact details.
+6.1 Chat Room Structure
+Chat Room Configuration
+Room Identifier
+candidate_[candidate_id]_group_chat
+Participants
+Candidate + all assigned Recruiters + Team Lead + Team Manager + Admin
+Auto-assignment
+Participants added/removed automatically when recruiter assignment changes
+History on unassign
+Chat history retained for audit – recruiter loses active access but history preserved
+6.2 Visibility & Access Rules
+Role
+Can See
+Cannot See
+Candidate
+Own profile chat only, team member names + role labels
+Personal contacts of team, other candidate chats
+Recruiter
+Assigned profile chats only, candidate first name + last name
+Non-assigned candidate profiles, leadership personal contacts
+Team Lead
+All assigned team profile chats
+Admin personal contact, non-team profiles
+Team Manager
+All assigned team profile chats
+Admin personal contact, non-team profiles
+Admin
+All profile group chats, audit/moderation tools
+N/A – full access
+6.3 Message Schema
+Column
+Type
+Notes
+message_id
+UUID PK
+Primary key
+candidate_profile_id
+UUID FK
+Which candidate this chat belongs to
+sender_user_id
+UUID FK
+Auth user who sent the message
+sender_role
+Enum
+candidate / recruiter / team_lead / team_manager / admin
+message_text
+Text
+Max 2000 chars
+attachment_url
+Text
+Optional file attachment URL
+sent_at
+Timestamp
+UTC timestamp of send
+edited_at
+Timestamp
+UTC timestamp of last edit (null if not edited)
+deleted_at
+Timestamp
+Soft delete timestamp (null if not deleted)
+is_system_message
+Boolean
+True for automated system notices
+6.4 System-Generated Messages
+The following events auto-post a system message in the relevant group chat:
+Recruiter [Name] has been assigned to this profile
+Recruiter [Name] has been removed from this profile
+Profile status changed to [New Status]
+Intake submitted by candidate
+Interview scheduled for [Date]
+Placement closed – case successfully completed
+6.5 UI Placement
+Dedicated 'Messages' tab in the left sidebar navigation
+Optional: floating right-side drawer accessible from any profile page
+Support/Help chatbot is separate from the profile group chat
+Admin sees a list of all candidate chat rooms and can click into any
+6.6 Moderation & Audit
+Admin can search all chat messages by keyword, date, or sender
+Admin can flag/archive messages
+All messages retained per data retention policy
+Chat access changes (add/remove participant) must be audit logged
+7. RECRUITER DASHBOARD
+7.1 Recruiter Home
+If recruiter is assigned to multiple candidates: show filterable candidate list.
+If recruiter is assigned to only one candidate: auto-open that candidate profile.
+Candidate List Filters
+Status (dropdown multi-select)
+Visa type
+Last updated date range
+Search by name
+Recruiter Stats Widget
+Applications logged today
+Applications logged this week
+Interviews scheduled this week
+Offers received this week
+7.2 Candidate Profile Tabs (Recruiter View)
+Tab
+Access Level
+Notes
+Overview
+Read only
+Same as candidate but no edit CTAs
+Intake
+Read only
+Cannot edit intake
+Roles
+Read only
+Cannot suggest or edit roles
+Credentials
+Edit allowed
+Can update credential fields, must create audit record
+Applications
+Create + Edit
+Can submit daily logs, edit application status
+Interviews
+Create + Edit
+Can log and update interview rounds ( same as candidates)
+Messages
+Full participant
+Can chat in assigned profile group chat
+Audit
+Assigned only
+Can see audit events for assigned profiles only
+7.3 Daily Submission Log
+This is the core recruiter function. Every working day, recruiters must log application activity.
+Log Header Fields
+Field
+Type
+Notes
+log_date
+Date
+Auto-filled to today. Admin can retroactively edit.
+candidate_id
+FK
+Auto-set by context (which profile is open)
+applications_count
+Integer
+Total applications submitted this day
+recruiter_id
+FK
+Auto-set from logged-in recruiter
+Per-Job Entry Fields
+Field
+Type
+Required?
+Notes
+company_name
+Text
+Yes
+Max 120 chars
+role_title
+Text
+Yes
+Max 120 chars
+job_url
+URL
+Yes
+Valid URL – triggers JD fetch attempt
+job_description
+Text Area
+Auto/Manual
+Auto-fetched or manually entered
+resume_used
+Text/Dropdown( Link or file supported)
+Yes
+Which resume version was submitted
+application_status
+Dropdown
+Yes
+Applied, Screening, Interview, Rejected, Offer
+notes
+Text Area
+No
+Internal recruiter notes
+7.4 Recruiter Profile & Payroll
+Recruiter Profile Fields (Editable)
+First name, Last name
+Email address
+Phone number
+City, State, Country
+LinkedIn URL
+Bank Details (Sensitive)
+Stored in separate recruiter_bank_details table
+Only recruiter can set/update their own bank details
+Admin can view (read-only) via admin panel
+Masked after save – show only last 4 digits of account number
+Email to admin when bank details are updated
+Insert audit_log: bank_details_updated
+8. ADMIN DASHBOARD
+8.1 Admin Home Widgets
+Widget
+Data Source
+Action Available
+Pending Approvals
+profiles WHERE approval_status = pending_approval
+Quick Approve / Reject
+Intake Submitted
+candidates WHERE status = intake_submitted
+View intake
+Roles Awaiting Confirmation
+candidates WHERE status = roles_published
+Remind candidate
+Awaiting Payment
+candidates WHERE status = payment_pending
+Send reminder
+Credential Completed
+candidates WHERE status = credentials_submitted
+Start marketing
+Active Marketing
+candidates WHERE status = active_marketing
+View count
+Past Due Billing
+subscriptions WHERE status = past_due
+Trigger reminder email
+Interest Form Submissions
+New leads / intake form website submissions
+Review + assign
+Training Sessions Scheduled
+training_clicks table aggregated
+View detail
+Placement Ready
+candidates flagged as placement_ready
+Initiate closure
+8.2 Candidate Management Actions
+Action
+Trigger
+Effect
+Audit?
+Approve Registration
+Admin clicks Approve
+status = approved, email sent
+Yes
+Reject Registration
+Admin clicks Reject
+status = rejected, email sent
+Yes
+Suggest Roles
+Admin adds roles + publishes
+status = roles_published, notify candidate email sent
+Yes
+Reopen Intake
+Admin reopens intake form
+Intake unlocked, candidate notified email sent
+Yes
+Reopen Roles
+Admin reopens role confirmation
+Roles form unlocked, candidate notified email sent
+Yes
+Assign Recruiter
+Admin selects from recruiter list
+recruiter_assignments record created email sent
+Yes
+Record Payment
+Admin marks payment received
+status = payment_completed email sent
+Yes
+Start Marketing
+Admin activates marketing
+status = active_marketing 
+Yes
+Pause Marketing
+Admin pauses profile
+status = paused email sent
+Yes
+Resume Marketing
+Admin resumes paused profile
+status = active_marketing
+Yes
+Cancel Profile
+Admin cancels
+status = cancelled, billing action triggered
+Yes
+Close Placement
+Admin submits placement form
+status = placed_closed, locks profile
+Yes
+8.3 Placement Closure Form
+Required Fields
+Field
+Type
+Required?
+employer_name
+Text
+Yes
+role_placed_into
+Text
+Yes
+start_date
+Date
+Yes
+salary
+Decimal
+Yes
+currency
+Dropdown
+Yes – USD default
+offer_letter_upload
+File (PDF)
+Yes
+hr_contact_email
+Email
+Yes
+placement_notes
+Text Area
+No
+After Placement Submit
+Set status = placed_closed
+Lock all editing actions on the profile
+Show success banner across all profile views
+Notify all assigned team members
+Send placement congratulations email to candidate
+Send placement confirmation to admin team
+Insert audit_log: placement_closed
+9. EMAIL SYSTEM – FULL EVENT MAP
+Event
+Trigger
+Recipients
+Subject Line
+Registration Received
+Candidate submits registration
+Candidate
+Registration Received – Hyrind
+Registration Approved
+Admin approves profile
+Candidate
+Your Hyrind Profile Has Been Approved
+Registration Rejected
+Admin rejects profile
+Candidate
+Update on Your Hyrind Registration
+Intake Submitted
+Candidate submits intake
+Admin
+New Intake Submitted – Action Required
+Roles Suggested
+Admin publishes roles
+Candidate
+Your Role Suggestions Are Ready for Review
+Roles Confirmed
+Candidate responds to roles
+Admin
+Candidate Has Responded to Role Suggestions
+Payment Success
+Admin records payment / webhook
+Candidate
+Payment Confirmed – Hyrind
+Payment Failed
+Billing webhook failure
+Candidate + Admin
+Action Required: Payment Could Not Be Processed
+Recruiter Assigned
+Admin assigns recruiter
+Candidate + Recruiter
+Your Recruiter Has Been Assigned
+Referral Submitted
+Candidate submits referral
+Admin + Friend (optional)
+New Referral Received
+Placement Closed
+Admin closes placement
+Candidate + Admin team
+Congratulations – Your Placement Has Been Confirmed
+Subscription Renewal Reminder
+7 days before billing date
+Candidate
+Upcoming Billing Reminder – Hyrind
+Subscription Failed
+Billing webhook failure
+Candidate
+Action Required: Subscription Payment Failed
+Bank Details Updated
+Recruiter updates bank info
+Admin
+Recruiter Bank Details Updated – Hyrind
+Intake Reopened
+Admin reopens intake
+Candidate
+Your Intake Form Has Been Reopened
+Roles Reopened
+Admin reopens roles
+Candidate
+Your Role Selection Has Been Reopened
+⚑  All emails must be logged in email_logs table with: event_type, recipient_user_id, sent_at, status (sent/failed), resend_message_id.
+10. DATABASE TABLES & RELATIONSHIPS
+Table
+Primary Key
+Key Foreign Keys
+Purpose
+profiles
+id (UUID)
+auth.users.id
+Core user record for all roles
+user_roles
+id
+user_id → profiles
+Role assignments per user
+candidate_intake
+id
+candidate_id → profiles
+Onboarding intake form data
+credential_intake_versions
+id
+candidate_id, updated_by → profiles
+Versioned credential records
+role_suggestions
+id
+candidate_id, created_by → profiles
+Admin-suggested roles per candidate
+role_confirmations
+id
+candidate_id, suggestion_id
+Candidate responses to role suggestions
+recruiter_assignments
+id
+candidate_id, recruiter_id → profiles
+Recruiter-to-candidate assignment records
+team_lead_assignments
+id
+candidate_id, team_lead_id → profiles
+Team lead assignment records
+daily_submission_logs
+id
+candidate_id, recruiter_id
+Daily log header per recruiter per day
+job_link_entries
+id
+log_id → daily_submission_logs
+Individual job entries within a daily log
+interview_logs
+id
+candidate_id, created_by → profiles
+Individual interview events
+referral_entries
+id
+referred_by → profiles
+Friend referrals submitted by candidates
+payments
+id
+candidate_id → profiles
+Payment line items set by admin
+subscriptions
+id
+candidate_id → profiles
+Recurring subscription record
+invoices
+id
+subscription_id, candidate_id
+Individual invoice records
+placement_closures
+id
+candidate_id, closed_by → profiles
+Final placement records
+audit_logs
+id
+actor_user_id, target_record_id
+Immutable audit trail for all mutations
+notifications
+id
+user_id → profiles
+In-app notification records
+email_logs
+id
+recipient_user_id → profiles
+Outbound email records
+admin_config
+id
+—
+Admin-configurable platform settings
+recruiter_bank_details
+id
+recruiter_id → profiles
+Sensitive bank data – isolated table
+chat_rooms
+id
+candidate_id → profiles
+One room per candidate profile
+chat_room_participants
+id
+room_id, user_id → profiles
+Participants per chat room
+chat_messages
+id
+room_id, sender_user_id
+Individual chat messages
+training_schedule_clicks
+id
+candidate_id, clicked_by
+Tracking for Cal.com button clicks
+11. SECURITY REQUIREMENTS
+Requirement
+Implementation Detail
+RLS on all tables
+Every table must have Supabase Row Level Security policies. No table should be globally accessible.
+SECURITY DEFINER RPCs
+All mutations (inserts, updates, deletes) must go through named database functions with SECURITY DEFINER. No direct client-side table writes allowed.
+Bank data isolation
+recruiter_bank_details must have separate, restricted RLS. Only recruiter (own record) and admin can SELECT.
+admin_config protection
+admin_config must only be readable/writable by users with admin role. No recruiter or candidate access.
+Billing webhooks
+Billing lifecycle events (payment success, failure, subscription changes) must be handled via secure edge functions, not client calls.
+Sensitive field masking
+visa_details, bank details, full card numbers must never appear in plain text in logs, diffs, or non-admin views.
+Chat privacy
+Personal phone numbers and emails must never be included in chat room metadata or messages automatically.
+Password storage
+Passwords managed by Supabase Auth. Never store plaintext passwords.
+Audit immutability
+audit_logs must be INSERT-only via RPC. No UPDATE or DELETE allowed on audit records.
+Token validation
+All API calls must validate the authenticated session before processing. Reject unauthenticated requests.
+12. AUDIT LOGGING – REQUIRED EVENTS
+Event Code
+Trigger
+Logged Fields
+registration_created
+New user registers
+actor, role, timestamp
+registration_approved
+Admin approves
+admin_id, candidate_id, timestamp
+registration_rejected
+Admin rejects
+admin_id, candidate_id, reason, timestamp
+intake_submitted
+Candidate submits intake
+candidate_id, submitted_at
+intake_reopened
+Admin reopens intake
+admin_id, candidate_id, reason, timestamp
+roles_published
+Admin publishes roles
+admin_id, candidate_id, roles_count, timestamp
+roles_responded
+Candidate submits role responses
+candidate_id, response_summary, timestamp
+roles_reopened
+Admin reopens roles
+admin_id, candidate_id, reason, timestamp
+recruiter_assigned
+Admin assigns recruiter
+admin_id, recruiter_id, candidate_id, timestamp
+recruiter_unassigned
+Admin removes recruiter
+admin_id, recruiter_id, candidate_id, timestamp
+credential_updated
+Any role updates credentials
+actor_id, actor_role, version_number, changed_fields, timestamp
+payment_recorded
+Admin marks payment
+admin_id, candidate_id, amount, timestamp
+payment_due_date_changed
+Admin adjusts due date
+admin_id, candidate_id, old_date, new_date, reason
+billing_status_changed
+Admin or webhook changes billing
+actor, old_status, new_status, candidate_id, timestamp
+placement_closed
+Admin closes placement
+admin_id, candidate_id, employer, role, salary, timestamp
+bank_details_updated
+Recruiter updates bank info
+recruiter_id, timestamp (no bank data in log)
+password_updated
+User changes password
+user_id, timestamp
+chat_participant_changed
+Participant added or removed from chat room
+actor_id, participant_id, room_id, action, timestamp
+status_changed
+Any status pipeline transition
+actor_id, candidate_id, old_status, new_status, timestamp
+13. RECOMMENDED BUILD ORDER
+Phase
+Module
+Dependencies
+Priority
+1
+Roles + RLS + Permission Matrix
+None
+CRITICAL – must be first
+2
+Registration Forms + Validation
+Phase 1
+CRITICAL
+3
+Approval Gating + Pending Screen
+Phase 2
+CRITICAL
+4
+Email System (Resend)
+Phase 2
+HIGH
+5
+Dashboard Shell + Navigation
+Phase 3
+HIGH
+6
+Status Pipeline Engine
+Phase 4
+HIGH
+7
+Overview Page + Timeline
+Phase 5, 6
+HIGH
+8
+Intake Form + Submission Lock
+Phase 6
+HIGH
+9
+Roles Page + Candidate Response
+Phase 8
+HIGH
+10
+Credential Versioning System
+Phase 9
+HIGH
+11
+Recruiter Assignment System
+Phase 3
+MEDIUM
+12
+Daily Submission Logs + Job Links
+Phase 11
+MEDIUM
+13
+Applications Visibility (Candidate)
+Phase 12
+MEDIUM
+14
+Payments Page (Admin-controlled)
+Phase 6
+MEDIUM
+15
+Billing Page + Subscription Display
+Phase 14
+MEDIUM
+16
+Interview Logs Module
+Phase 12
+MEDIUM
+17
+Referral Module
+Phase 5
+MEDIUM
+18
+Settings + Password Change
+Phase 5
+MEDIUM
+19
+Internal Group Chat System
+Phase 11
+MEDIUM
+20
+Admin Dashboard + Audit Viewer
+All prior phases
+HIGH
+21
+Placement Closure Workflow
+Phase 20
+MEDIUM
+22
+Billing Webhooks (Edge Functions)
+Phase 15
+HIGH when billing goes live
+23
+Audit Log Viewer
+Phase 20
+MEDIUM
+24
+Admin Config Panel
+Phase 20
+MEDIUM
+14. EDGE CASES & HANDLING
+Edge Case
+Correct Handling
+Candidate logs in before approval
+Show pending approval screen only. No dashboard tabs visible.
+Candidate approved but intake not submitted
+Overview prominently shows incomplete intake CTA. Intake tab is accessible.
+Candidate opens Roles tab before roles published
+Show placeholder: 'Suggestions will appear here within 24–48 hours of intake review.'
+Candidate opens Credentials too early
+Show gated message with specific reason and required next step.
+Admin reopens intake or roles
+Show banner on that tab, create notification, audit log event.
+Payment failed (billing webhook)
+Show past_due banner, update subscription status, restrict future-gated actions per policy.
+Recruiter unassigned from candidate
+Recruiter loses access to profile data and chat. Chat history preserved for audit.
+Candidate has multiple recruiters (up to 4)
+All shown on Assigned Team card. All appear in group chat. Applications show actor name.
+Profile paused
+Overview shows paused status. Edit actions disabled. Billing status noted.
+Profile on hold
+Same as paused – read-only with on_hold messaging.
+Profile cancelled
+Read-only archive. Billing stopped. All edits blocked.
+Profile placed
+Success banner shown everywhere. All editing locked. Historical data read-only.
+Job URL fetch fails
+Do not block form submission. Allow manual entry. Mark fetch_status = failed.
+Candidate submits referral for already-registered email
+Show error: 'This email is already registered in our system.'
+Admin changes billing due date
+Audit log required. Candidate notified. Old date stored.
+Recruiter tries to access non-assigned profile
+RLS blocks at DB level. Frontend should also not render the profile in their list.
+15. UI / UX REQUIREMENTS
+15.1 General Principles
+Clean left sidebar navigation with branding at top
+Role-based tab visibility – never show tabs the user cannot access
+No dead-end screens – every locked section must explain why and what action unlocks it
+Every next step must be obvious – the candidate should never wonder what to do
+Mobile-responsive layout wherever possible
+Clear status color coding consistent throughout the application
+Activity timeline should feel guided, structured, and professional
+15.2 Locked Tab Message Pattern
+Every locked section must follow this pattern:
+Icon: lock symbol or relevant illustration
+Headline: Short description of what this section is
+Reason message: Exact explanation of why it is locked
+Next action button: Specific CTA pointing to what they must do first
+Example: Credentials tab locked message:
+"Credentials will unlock after you complete your role confirmation and the required payment step is completed. Go to Payments →"
+15.3 Admin Configurable UI Text
+Review timeline text (e.g. '24–48 hours' – updatable without code change)
+Locked tab explanations
+Cal.com scheduling links (all 5 buttons)
+Help desk support URL
+Grace period duration
+END OF SPECIFICATION
+HYRIND Portal – v4.0 – March 13, 2026
+CONFIDENTIAL – For Internal Development Use Only
+Total Sections: 15
+Total Build Phases: 24

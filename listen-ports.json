@@ -1,0 +1,202 @@
+[
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  49676
+    },
+    {
+        "LocalAddress":  "::1",
+        "LocalPort":  49669
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  49668
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  49667
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  49666
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  49665
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  49664
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  33060
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  17500
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  8080
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  7680
+    },
+    {
+        "LocalAddress":  "fe80::72d4:deed:28fc:51f8%13",
+        "LocalPort":  6881
+    },
+    {
+        "LocalAddress":  "2409:40f0:118c:2303:8b89:505d:6777:4bb5",
+        "LocalPort":  6881
+    },
+    {
+        "LocalAddress":  "2409:40f0:118c:2303:81a2:df:9189:debf",
+        "LocalPort":  6881
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  3306
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  445
+    },
+    {
+        "LocalAddress":  "::",
+        "LocalPort":  135
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  65073
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  65058
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  65051
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  65050
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  65049
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  61220
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  60499
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  56304
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  56301
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  52180
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  51355
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  49676
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  49668
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  49667
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  49666
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  49665
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  49664
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  27017
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  19577
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  19576
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  19575
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  17600
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  17500
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  9222
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  8000
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  6881
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  6646
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  5040
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  4363
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  2015
+    },
+    {
+        "LocalAddress":  "127.0.0.1",
+        "LocalPort":  843
+    },
+    {
+        "LocalAddress":  "10.21.12.109",
+        "LocalPort":  139
+    },
+    {
+        "LocalAddress":  "0.0.0.0",
+        "LocalPort":  135
+    }
+]

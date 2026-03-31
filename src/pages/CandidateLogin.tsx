@@ -466,7 +466,7 @@ const CandidateLogin = () => {
                     <div className="space-y-2"><Label className="text-sm font-medium ml-1">Current Location</Label><Input value={reg.current_location} onChange={e => updateReg("current_location", e.target.value)} placeholder="City, State, Country" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
                     
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium ml-1">Resume File (PDF/DOCX) *</Label>
+                      <Label className="text-sm font-medium ml-1">Resume File (PDF/DOCX) (Optional)</Label>
                       <Input 
                         type="file" 
                         accept=".pdf,.doc,.docx" 

@@ -35,6 +35,10 @@ from .serializers import (
     SubscriptionAddonSerializer, SubscriptionPlanSerializer, SubscriptionSerializer,
 )
 
+from .utils import generate_invoice_pdf
+from dateutil.relativedelta import relativedelta
+from django.http import HttpResponse
+
 logger = logging.getLogger(__name__)
 
 
@@ -364,7 +368,17 @@ def verify_razorpay_payment(request, candidate_id):
         sub.status = 'active'
         sub.last_payment_at = timezone.now()
         sub.start_date = timezone.now().date()
-        sub.save(update_fields=['status', 'last_payment_at', 'start_date'])
+        
+        if sub.billing_cycle == 'monthly':
+            sub.next_billing_at = timezone.now().date() + relativedelta(months=1)
+        elif sub.billing_cycle == 'quarterly':
+            sub.next_billing_at = timezone.now().date() + relativedelta(months=3)
+        elif sub.billing_cycle == 'annual':
+            sub.next_billing_at = timezone.now().date() + relativedelta(years=1)
+        else:
+            sub.next_billing_at = timezone.now().date() + relativedelta(months=1)
+            
+        sub.save(update_fields=['status', 'last_payment_at', 'start_date', 'next_billing_at'])
 
     payment = Payment.objects.create(
         candidate_id=candidate_id, subscription=sub, razorpay_order=rp_order,
@@ -382,6 +396,22 @@ def verify_razorpay_payment(request, candidate_id):
             candidate.status = 'payment_completed'
         candidate.save(update_fields=['status'])
 
+    # Create Invoice and PDF
+    invoice = Invoice.objects.create(
+        subscription=sub, candidate=candidate,
+        amount=rp_order.amount, currency=rp_order.currency,
+        period_start=timezone.now().date(),
+        period_end=sub.next_billing_at if sub else (timezone.now().date() + relativedelta(months=1)),
+        status='paid', paid_at=timezone.now(),
+        payment_reference=rz_payment_id
+    )
+
+    pdf_bytes = generate_invoice_pdf(invoice)
+    attachments = [{
+        "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
+        "content": list(pdf_bytes)
+    }]
+
     log_action(candidate.user, 'payment_verified', str(candidate_id), 'payment', {
         'payment_id': rz_payment_id, 'amount': float(rp_order.amount),
     })
@@ -391,10 +421,11 @@ def verify_razorpay_payment(request, candidate_id):
         link='/candidate-dashboard/payments',
     )
     send_email(
-        candidate.user.email, 'Payment Confirmed  Hyrind',
+        candidate.user.email, 'Payment Confirmed & Invoice - Hyrind',
         f'<p>Hi {_user_name(candidate.user)},</p>'
         f'<p>We received your payment of <strong>${rp_order.amount}</strong>. '
-        f'Your subscription is now <strong>Active</strong>.</p>',
+        f'Your subscription is now <strong>Active</strong>. Please find your receipt attached.</p>',
+        attachments=attachments,
     )
     return Response({
         'detail': 'Payment verified successfully',
@@ -518,6 +549,15 @@ def all_subscriptions(request):
         subs = subs.filter(status=s)
     return Response(SubscriptionSerializer(subs, many=True).data)
 
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def all_payments(request):
+    pays = Payment.objects.select_related('candidate__user', 'subscription').all()
+    s = request.query_params.get('status')
+    if s:
+        pays = pays.filter(status=s)
+    return Response(PaymentSerializer(pays, many=True).data)
+
 
 # ─── Manual subscription create (legacy admin billing tab) ────────
 @api_view(['POST'])
@@ -609,3 +649,42 @@ def manage_payment(request, payment_id):
         serializer.save()
         log_action(request.user, 'payment_updated', str(payment.candidate.id), 'payment', request.data)
         return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def candidate_overview(request, candidate_id):
+    """Aggregate Subscription, Invoices, and Payments for candidate dashboard."""
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
+        
+    try:
+        sub = Subscription.objects.select_related('plan').get(candidate_id=candidate_id)
+        sub_data = SubscriptionSerializer(sub).data
+    except Subscription.DoesNotExist:
+        sub_data = None
+        
+    invoices = Invoice.objects.filter(candidate_id=candidate_id).order_by('-period_start')
+    payments = Payment.objects.filter(candidate_id=candidate_id).order_by('-created_at')
+    
+    return Response({
+        'subscription': sub_data,
+        'invoices': InvoiceSerializer(invoices, many=True).data,
+        'payments': PaymentSerializer(payments, many=True).data,
+    })
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def download_invoice(request, invoice_id):
+    """Download PDF for a specific invoice."""
+    try:
+        invoice = Invoice.objects.select_related('subscription', 'candidate__user__profile').get(id=invoice_id)
+    except Invoice.DoesNotExist:
+        return Response({'error': 'Invoice not found'}, status=404)
+        
+    pdf_bytes = generate_invoice_pdf(invoice)
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="hyrind_invoice_{str(invoice.id).split("-")[0]}.pdf"'
+    return response
+

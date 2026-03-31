@@ -147,6 +147,8 @@ export const billingApi = {
   // Admin overviews
   allSubscriptions: (statusFilter?: string) =>
     api.get('/billing/subscriptions/', { params: statusFilter ? { status: statusFilter } : {} }),
+  allPayments: (params?: { status?: string }) =>
+    api.get('/billing/payments/all/', { params }),
   billingAlerts: () => api.get('/billing/alerts/'),
   billingAnalytics: () => api.get('/billing/analytics/'),
 
@@ -176,6 +178,11 @@ export const billingApi = {
   invoices: (candidateId: string) => api.get(`/billing/${candidateId}/invoices/`),
   updateInvoice: (invoiceId: string, data: Record<string, any>) =>
     api.patch(`/billing/invoices/${invoiceId}/update/`, data),
+
+  // New endpoints for Frontend Candidate Billing
+  candidateOverview: (candidateId: string) => api.get(`/billing/${candidateId}/overview/`),
+  downloadInvoice: (invoiceId: string) => 
+    api.get(`/billing/invoices/${invoiceId}/download/`, { responseType: 'blob' }),
 
   // Legacy compat — used by AdminBillingTab manual form
   createSubscription: (candidateId: string, data: Record<string, any>) =>

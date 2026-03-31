@@ -253,6 +253,12 @@ def manage_user(request, user_id):
     for field in user_fields:
         if field in request.data:
             setattr(user, field, request.data[field])
+            
+    # Check if admin is trying to update the user's password
+    new_password = request.data.get('password')
+    if new_password:
+        user.set_password(new_password)
+        
     user.save()
 
     # Profile fields (full_name, phone) live on the related Profile model

@@ -29,10 +29,10 @@ const AdminPaymentsPage = () => {
     setLoading(true);
     try {
       const [sumRes, payRes, subRes, planRes] = await Promise.all([
-        billingApi.paymentSummary(),
+        billingApi.billingAnalytics(),
         billingApi.allPayments(statusFilter ? { status: statusFilter } : undefined),
         billingApi.allSubscriptions(),
-        billingApi.plans(),
+        billingApi.listPlans(),
       ]);
       setSummary(sumRes.data);
       setPayments(payRes.data || []);
