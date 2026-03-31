@@ -1,25 +1,21 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { chatApi } from "@/services/api";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, CreditCard, ClipboardList, Phone, UserPlus, MessageSquare, Settings, Send } from "lucide-react";
-
-const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
-  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
-  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
-  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
-  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
-  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
-  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
-  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
-];
+import { 
+  MessageSquare, 
+  Send,
+  Loader2,
+  AlertTriangle
+} from "lucide-react";
 
 interface ChatRoom {
   id: string;
@@ -75,72 +71,102 @@ const CandidateMessagesPage = () => {
   };
 
   if (loading) {
-    return <DashboardLayout title="Messages" navItems={CANDIDATE_NAV}><p>Loading...</p></DashboardLayout>;
+    return <div className="py-20 text-center"><p className="text-muted-foreground animate-pulse font-medium">Loading messages...</p></div>;
   }
 
   if (rooms.length === 0) {
     return (
-      <DashboardLayout title="Messages" navItems={CANDIDATE_NAV}>
-        <Card>
-          <CardContent className="py-12 text-center">
-            <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold text-card-foreground">No Messages Yet</h3>
-            <p className="text-sm text-muted-foreground mt-2">Your group chat will be available once a recruiter is assigned to your profile.</p>
-          </CardContent>
-        </Card>
-      </DashboardLayout>
+      <Card className="max-w-lg mx-auto mt-12 glass-card border-none shadow-2xl overflow-hidden animate-in">
+        <CardContent className="py-16 text-center">
+          <div className="mx-auto h-20 w-20 bg-muted/20 rounded-3xl flex items-center justify-center mb-6">
+            <MessageSquare className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+          <h3 className="text-2xl font-bold text-card-foreground">No Messages Yet</h3>
+          <p className="text-muted-foreground mt-3 text-base max-w-[280px] mx-auto leading-relaxed">Your group chat will be available once a recruiter is assigned to your profile.</p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <DashboardLayout title="Messages" navItems={CANDIDATE_NAV}>
-      <Card className="flex flex-col h-[calc(100vh-200px)]">
-        <CardHeader className="border-b border-border pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-secondary" />
-            {rooms.find(r => r.id === activeRoom)?.room_name || "Group Chat"}
-          </CardTitle>
-          <div className="flex gap-2 mt-1 flex-wrap">
-            {rooms.find(r => r.id === activeRoom)?.participants.map((p, i) => (
-              <span key={i} className="text-[11px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">
-                {p.full_name} · {p.user_role}
-              </span>
-            ))}
+    <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col gap-1 mb-2">
+        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          Messages
+        </h1>
+        <p className="text-muted-foreground">
+          Communicate with your assigned support team.
+        </p>
+      </div>
+
+      <Card className="flex flex-col h-[600px] border-none shadow-xl bg-card transition-all overflow-hidden">
+        <CardHeader className="border-b border-border/40 pb-4 bg-muted/20">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              {rooms.find(r => r.id === activeRoom)?.room_name || "Group Chat"}
+            </CardTitle>
+            <div className="flex gap-2 flex-wrap justify-end">
+              {rooms.find(r => r.id === activeRoom)?.participants.map((p, i) => (
+                <Badge key={i} variant="secondary" className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-primary/5 text-primary border-primary/10">
+                  {p.full_name} · {p.user_role}
+                </Badge>
+              ))}
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto p-4 space-y-3">
+        <CardContent className="flex-1 overflow-y-auto p-6 space-y-4 bg-background/50">
           {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex flex-col ${msg.is_system_message ? "items-center" : msg.sender_name === user?.profile?.full_name ? "items-end" : "items-start"}`}
             >
               {msg.is_system_message ? (
-                <div className="text-xs text-muted-foreground italic bg-muted/50 rounded-full px-3 py-1">{msg.message_text}</div>
+                <div className="text-[11px] text-muted-foreground/60 font-bold uppercase tracking-widest bg-muted/30 rounded-full px-4 py-1 mb-2 italic">
+                  {msg.message_text}
+                </div>
               ) : (
-                <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${msg.sender_name === user?.profile?.full_name ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                  <p className="text-[11px] font-medium opacity-70 mb-0.5">{msg.sender_name} · {msg.sender_role}</p>
-                  <p className="text-sm">{msg.message_text}</p>
-                  <p className="text-[10px] opacity-50 mt-1">{new Date(msg.sent_at).toLocaleTimeString()}</p>
+                <div className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm ${msg.sender_name === user?.profile?.full_name ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card border border-border/50 rounded-tl-none"}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className={`text-[10px] font-black uppercase tracking-wider ${msg.sender_name === user?.profile?.full_name ? "text-primary-foreground/70" : "text-primary"}`}>
+                      {msg.sender_name}
+                    </p>
+                    <span className="text-[9px] opacity-40 font-bold">•</span>
+                    <p className="text-[9px] opacity-40 font-bold uppercase tracking-tighter italic">
+                      {msg.sender_role}
+                    </p>
+                  </div>
+                  <p className="text-sm leading-relaxed">{msg.message_text}</p>
+                  <p className={`text-[9px] mt-2 font-medium opacity-40 text-right`}>
+                    {new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
               )}
             </div>
           ))}
           <div ref={messagesEndRef} />
         </CardContent>
-        <div className="border-t border-border p-3 flex gap-2">
+        <div className="border-t border-border/40 p-4 bg-muted/10 flex gap-3 items-center">
           <Input
             value={newMessage}
             onChange={e => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
+            placeholder="Write your message..."
+            className="flex-1 bg-background/80 border-border/50 h-12 rounded-xl px-4 focus-visible:ring-primary/20"
             onKeyDown={e => e.key === "Enter" && handleSend()}
             maxLength={2000}
           />
-          <Button variant="hero" size="sm" onClick={handleSend} disabled={!newMessage.trim()}>
-            <Send className="h-4 w-4" />
+          <Button 
+            variant="hero" 
+            size="icon" 
+            className="h-12 w-12 rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+            onClick={handleSend} 
+            disabled={!newMessage.trim()}
+          >
+            <Send className="h-5 w-5" />
           </Button>
         </div>
       </Card>
-    </DashboardLayout>
+    </div>
   );
 };
 
