@@ -196,7 +196,7 @@ def confirm_roles(request, candidate_id):
             candidate_id=candidate_id,
             response='change_requested',
             custom_role_title=custom_role['title'],
-            custom_reason=custom_role['reason']
+            custom_reason=custom_role.get('reason')
         )
 
     candidate = Candidate.objects.get(id=candidate_id)

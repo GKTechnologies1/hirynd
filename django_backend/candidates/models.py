@@ -93,7 +93,7 @@ class RoleSuggestion(models.Model):
 class RoleConfirmation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='role_confirmations')
-    suggestion = models.ForeignKey(RoleSuggestion, on_delete=models.CASCADE, related_name='confirmations')
+    suggestion = models.ForeignKey(RoleSuggestion, on_delete=models.CASCADE, related_name='confirmations', null=True, blank=True)
     response = models.CharField(max_length=20, choices=[('accepted', 'Accepted'), ('declined', 'Declined'), ('change_requested', 'Change Requested')])
     change_request_note = models.TextField(blank=True, null=True)
     custom_role_title = models.CharField(max_length=255, blank=True, null=True)
