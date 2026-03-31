@@ -475,6 +475,7 @@ export default function Header() {
               </Link>
 
               {!user ? (
+                <>
                 <div className="login-container">
                   <button onClick={toggleLoginDropdown} className="register-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span>Login / Register</span>
@@ -512,6 +513,10 @@ export default function Header() {
                     </div>
                   )}
                 </div>
+                <Link to="/admin-login" className="nav-link" style={{ fontSize: '12px', opacity: 0.7, padding: '6px 12px' }}>
+                  🔒 Admin
+                </Link>
+                </>
               ) : (
                 <div className="profile-container">
                   <button onClick={toggleProfileDropdown} className="profile-button">
@@ -581,11 +586,12 @@ export default function Header() {
              <Link to="/reviews" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Reviews</Link>
              <Link to="/contact" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Contact Us</Link>
              
-             {!user ? (
-               <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
-                  <Link to="/candidate-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Candidate Login</Link>
-                  <Link to="/recruiter-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Recruiter Login</Link>
-               </div>
+              {!user ? (
+                <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
+                   <Link to="/candidate-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Candidate Login</Link>
+                   <Link to="/recruiter-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Recruiter Login</Link>
+                   <Link to="/admin-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px', fontSize: '13px', opacity: 0.7}}>🔒 Admin Portal</Link>
+                </div>
              ) : (
                <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
                   <button onClick={handleLogout} className="nav-link" style={{color: '#dc2626', background: 'none', border: 'none', width: '100%', textAlign: 'left'}}>Logout</button>
