@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle, Clock, XCircle, Info, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+
 const CANDIDATE_NAV = [
   { label: "Overview", path: "/candidate-dashboard", icon: <span className="h-4 w-4">📋</span> },
   { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
@@ -236,6 +237,7 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
           )}
         </CardContent>
       </Card>
+
     </DashboardLayout>
   );
 };

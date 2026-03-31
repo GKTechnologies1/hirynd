@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.local
+.env.*.local
+.venv
+django_backend/.venv
+
+django_backend/.env
 
 # Editor directories and files
 .vscode/*
