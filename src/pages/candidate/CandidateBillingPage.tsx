@@ -10,15 +10,6 @@ import { DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle, Clock, XC
 import { useToast } from "@/hooks/use-toast";
 
 
-const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <span className="h-4 w-4">📋</span> },
-  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <span className="h-4 w-4">💼</span> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <span className="h-4 w-4">🔑</span> },
-  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
-  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
-];
-
 interface CandidateBillingPageProps {
   candidate: any;
 }
@@ -95,7 +86,7 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
   const isPendingPayment = subscription && ["past_due", "grace_period", "pending_payment", "unpaid"].includes(subscription.status);
 
   return (
-    <DashboardLayout title="Billing & Subscription" navItems={CANDIDATE_NAV}>
+    <div className="max-w-5xl mx-auto space-y-6 pb-12">
       {/* Alert Banners */}
       {isPendingPayment && (
         <Card className="mb-6 border-red-200 bg-red-50">
@@ -238,7 +229,7 @@ const CandidateBillingPage = ({ candidate }: CandidateBillingPageProps) => {
         </CardContent>
       </Card>
 
-    </DashboardLayout>
+    </div>
   );
 };
 

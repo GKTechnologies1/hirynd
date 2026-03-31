@@ -11,20 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Lock, FileText, History, Clock, User, X, LayoutDashboard, Briefcase, KeyRound, DollarSign, CreditCard, ClipboardList, Phone, UserPlus, MessageSquare, Settings } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
-  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
-  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
-  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
-  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
-  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
-  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
-  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
-];
-
 interface CandidateCredentialsPageProps {
   candidate: any;
   onStatusChange: () => void;
@@ -78,14 +64,14 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
 
   if (!isPaid) {
     return (
-      <DashboardLayout title="Credential Intake" navItems={CANDIDATE_NAV}>
+      <div className="max-w-4xl mx-auto space-y-6 pb-12">
         <Card>
           <CardContent className="p-8 text-center">
             <Lock className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
             <p className="text-muted-foreground">Complete your payment to access the Credential Intake Sheet.</p>
           </CardContent>
         </Card>
-      </DashboardLayout>
+      </div>
     );
   }
 
@@ -123,7 +109,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   };
 
   if (loading) {
-    return <DashboardLayout title="Credential Intake" navItems={CANDIDATE_NAV}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
+    return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading credentials...</p></div>;
   }
 
   const SENSITIVE_FIELDS = ["visa_details", "references_if_needed"];
@@ -135,7 +121,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   const latestVersion = versions[0];
 
   return (
-    <DashboardLayout title="Credential Intake Sheet" navItems={CANDIDATE_NAV}>
+    <div className="max-w-5xl mx-auto space-y-6 pb-12">
       <div className="space-y-6">
         {/* Current version info */}
         {latestVersion && (
@@ -266,7 +252,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
           </Card>
         )}
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

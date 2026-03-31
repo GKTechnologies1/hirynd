@@ -7,12 +7,13 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import RecruiterCandidateDetail from "@/pages/recruiter/RecruiterCandidateDetail";
 import DailyLogPage from "@/pages/recruiter/DailyLogPage";
 import RecruiterProfilePage from "@/pages/recruiter/RecruiterProfilePage";
+import RecruiterSettingsPage from "@/pages/recruiter/RecruiterSettingsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, Award, TrendingUp } from "lucide-react";
+import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, Award, TrendingUp, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 
 
@@ -20,6 +21,7 @@ const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
   { label: "Daily Log", path: "/recruiter-dashboard/daily-log", icon: <ClipboardList className="h-4 w-4" /> },
   { label: "My Profile", path: "/recruiter-dashboard/profile", icon: <User className="h-4 w-4" /> },
+  { label: "Settings", path: "/recruiter-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
 ];
 
 const RecruiterHome = () => {
@@ -231,6 +233,7 @@ const RecruiterDashboard = () => {
         <Route path="/candidates/:candidateId" element={<CandidateDetailWrapper />} />
         <Route path="/daily-log" element={<DailyLogPage />} />
         <Route path="/profile" element={<RecruiterProfilePage />} />
+        <Route path="/settings" element={<RecruiterSettingsPage />} />
       </Routes>
     </DashboardLayout>
   );

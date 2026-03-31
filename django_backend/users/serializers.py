@@ -358,7 +358,7 @@ class UserListSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    current_password = serializers.CharField(required=True)
+    current_password = serializers.CharField(required=False, allow_blank=True)
     new_password = serializers.CharField(min_length=8, required=True)
     confirm_new_password = serializers.CharField(required=True)
 

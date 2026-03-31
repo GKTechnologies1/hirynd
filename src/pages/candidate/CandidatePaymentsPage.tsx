@@ -17,20 +17,6 @@ declare global {
   }
 }
 
-const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
-  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
-  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
-  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
-  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
-  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
-  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
-  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
-];
-
 interface Props {
   candidate: any;
   onStatusChange?: () => void;
@@ -136,7 +122,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
   };
 
   return (
-    <DashboardLayout title="Payments" navItems={CANDIDATE_NAV}>
+    <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div className="space-y-6">
         {/* Subscription plan card */}
         {loading ? (
@@ -273,7 +259,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
           </Card>
         )}
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

@@ -1,11 +1,10 @@
-import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, CreditCard, ClipboardList, Phone, UserPlus, MessageSquare, Settings, HelpCircle } from "lucide-react";
+import { Users, ClipboardList, User, Settings, HelpCircle } from "lucide-react";
 import { ChangePasswordCard } from "@/components/auth/ChangePasswordCard";
 
-const CandidateSettingsPage = () => {
+const RecruiterSettingsPage = () => {
   return (
     <div className="max-w-lg space-y-6">
       <ChangePasswordCard />
@@ -27,4 +26,4 @@ const CandidateSettingsPage = () => {
   );
 };
 
-export default CandidateSettingsPage;
+export default RecruiterSettingsPage;

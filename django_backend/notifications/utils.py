@@ -18,7 +18,14 @@ def send_email(to: str, subject: str, html: str, email_type: str = 'transactiona
 
     if is_placeholder:
         # Dev / CI: just log so the rest of the request continues normally
-        logger.info('[EMAIL fallback] To=%s | Subject=%s | Type=%s | Attachments=%s', to, subject, email_type, bool(attachments))
+        logger.info('--- [EMAIL DUMMY SEND] ---')
+        logger.info('To: %s', to)
+        logger.info('Subject: %s', subject)
+        logger.info('Type: %s', email_type)
+        logger.info('Body: %s', html)
+        if attachments:
+            logger.info('Attachments: %s', [a.get('filename') for a in attachments])
+        logger.info('--------------------------')
         try:
             EmailLog.objects.create(recipient_email=to, email_type=email_type, status='skipped')
         except Exception:

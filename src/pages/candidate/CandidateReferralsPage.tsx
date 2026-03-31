@@ -12,17 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 
 import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Send } from "lucide-react";
 
-const navItems = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: "Intake Form", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
-  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
-  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
-  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
-  { label: "Refer a Friend", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
-];
-
 interface CandidateReferralsPageProps {
   candidate: any;
 }
@@ -77,7 +66,7 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
   };
 
   return (
-    <DashboardLayout title="Refer a Friend" navItems={navItems}>
+    <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div className="space-y-6">
         <Card>
           <CardHeader>
@@ -135,7 +124,7 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
         </Card>
 
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

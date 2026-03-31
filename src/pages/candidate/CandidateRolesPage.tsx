@@ -11,20 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
-const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
-  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
-  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
-  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
-  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
-  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
-  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
-  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
-];
-
 interface CandidateRolesPageProps {
   candidate: any;
   onStatusChange: () => void;
@@ -75,14 +61,14 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
 
   if (!statusAllowed) {
     return (
-      <DashboardLayout title="Role Suggestions" navItems={CANDIDATE_NAV}>
+      <div className="max-w-4xl mx-auto space-y-6">
         <Card>
           <CardContent className="p-8 text-center">
             <Briefcase className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
             <p className="text-muted-foreground">Role suggestions will appear here once your intake form has been reviewed.</p>
           </CardContent>
         </Card>
-      </DashboardLayout>
+      </div>
     );
   }
 
@@ -119,11 +105,11 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   };
 
   if (loading) {
-    return <DashboardLayout title="Role Suggestions" navItems={CANDIDATE_NAV}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
+    return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading suggested roles...</p></div>;
   }
 
   return (
-    <DashboardLayout title="Role Suggestions" navItems={CANDIDATE_NAV}>
+    <div className="max-w-5xl mx-auto space-y-6 pb-12">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -265,7 +251,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
           )}
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </div>
   );
 };
 

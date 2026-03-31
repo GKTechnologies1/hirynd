@@ -81,8 +81,8 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   const monthCount = dailyLogs.filter(l => l.log_date >= monthAgo).reduce((s, l) => s + l.applications_count, 0);
 
   return (
-    <DashboardLayout title="My Applications" navItems={navItems}>
-      {loading ? <p className="text-muted-foreground">Loading...</p> : (
+    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+      {loading ? <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading applications...</p></div> : (
         <div className="space-y-6">
           {/* Summary Cards */}
           <div className="grid gap-4 sm:grid-cols-3">
@@ -212,7 +212,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           )}
         </div>
       )}
-    </DashboardLayout>
+    </div>
   );
 };
 

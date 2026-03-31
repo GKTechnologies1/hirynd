@@ -11,20 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Lock, FileText, LayoutDashboard, Briefcase, KeyRound, DollarSign, CreditCard, ClipboardList, Phone, UserPlus, MessageSquare, Settings } from "lucide-react";
 
-const CANDIDATE_NAV = [
-  { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
-  { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
-  { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
-  { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
-  { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
-  { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
-  { label: "Referral", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
-  { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
-  { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
-];
-
 interface CandidateIntakePageProps {
   candidate: any;
   onStatusChange: () => void;
@@ -182,11 +168,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
   };
 
   if (loading) {
-    return <DashboardLayout title="Intake Form" navItems={CANDIDATE_NAV}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
+    return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading intake form...</p></div>;
   }
 
   return (
-    <DashboardLayout title="Client Intake Sheet" navItems={CANDIDATE_NAV}>
+    <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -362,7 +348,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
           </form>
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </div>
   );
 };
 

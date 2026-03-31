@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,9 @@ import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
 import logo from "@/assets/image.png";
 
 const ForgotPassword = () => {
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get("returnTo") || "/candidate-login";
+  
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -97,7 +100,7 @@ const ForgotPassword = () => {
 
               <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
                 <Link 
-                  to="/candidate-login" 
+                  to={returnUrl} 
                   className="inline-flex items-center text-sm font-semibold text-neutral-500 hover:text-primary transition-colors group"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
@@ -127,7 +130,7 @@ const ForgotPassword = () => {
                 >
                   Resend Email
                 </Button>
-                <Link to="/candidate-login">
+                <Link to={returnUrl}>
                   <Button variant="ghost" className="w-full h-12 rounded-xl text-neutral-500 hover:text-foreground">
                     Return to Login
                   </Button>

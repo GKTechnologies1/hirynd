@@ -117,8 +117,8 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
   const offers = logs.filter(l => l.outcome === "selected").length;
 
   return (
-    <DashboardLayout title="Interviews & Calls" navItems={navItems}>
-      {loading ? <p className="text-muted-foreground">Loading...</p> : (
+    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+      {loading ? <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading interviews...</p></div> : (
         <div className="space-y-6">
           {/* Summary */}
           <div className="grid gap-4 sm:grid-cols-3">
@@ -260,7 +260,7 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
 
         </div>
       )}
-    </DashboardLayout>
+    </div>
   );
 };
 

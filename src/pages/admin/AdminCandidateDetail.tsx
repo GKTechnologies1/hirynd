@@ -195,8 +195,8 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
     }
   };
 
-  if (loading) return <DashboardLayout title="Candidate Detail" navItems={navItems}><p className="text-muted-foreground">Loading...</p></DashboardLayout>;
-  if (!candidate) return <DashboardLayout title="Candidate Detail" navItems={navItems}><p className="text-muted-foreground">Candidate not found.</p></DashboardLayout>;
+  if (loading) return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading candidate data...</p></div>;
+  if (!candidate) return <div className="p-8 text-center bg-muted/20 rounded-xl border border-dashed"><p className="text-muted-foreground">Candidate not found or internal system error.</p></div>;
 
   const intakeData = intake?.data as Record<string, string> | null;
   const status = candidate.status;
@@ -208,7 +208,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   ];
 
   return (
-    <DashboardLayout title={`Candidate: ${candidate?.profile?.full_name || candidate?.full_name || "Unknown"}`} navItems={navItems}>
+    <div className="space-y-6 pb-12">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <StatusBadge status={status} />
         {!isPlaced && (
@@ -824,7 +824,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           <AdminAuditTab candidateId={candidateId} />
         </TabsContent>
       </Tabs>
-    </DashboardLayout>
+    </div>
   );
 };
 

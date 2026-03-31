@@ -280,7 +280,7 @@ const CandidateLogin = () => {
                 
                 <div className="flex justify-end pr-1">
                   <Link 
-                    to="/forgot-password" 
+                    to="/forgot-password?returnTo=/candidate-login" 
                     className="text-xs font-semibold text-primary hover:underline underline-offset-4 decoration-primary/30"
                   >
                     Forgot password?
@@ -296,7 +296,8 @@ const CandidateLogin = () => {
             </TabsContent>
 
             <TabsContent value="register" className="mt-0 animate-in" style={{animationDelay: '0.1s'}}>
-              <form onSubmit={handleRegister} className="space-y-6 max-h-[55vh] overflow-y-auto pr-4 custom-scrollbar py-2">
+              <form onSubmit={handleRegister} className="space-y-6">
+                <div className="space-y-6 max-h-[52vh] overflow-y-auto pr-2 custom-scrollbar py-1">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-px bg-neutral-200 flex-grow" />
@@ -507,7 +508,9 @@ const CandidateLogin = () => {
                     {regErrors.consent_to_terms && <p className="text-[10px] text-destructive mt-1 font-medium ml-2">{regErrors.consent_to_terms}</p>}
                   </div>
 
-                <div className="pt-4 pb-2">
+                </div>{/* end scrollable fields */}
+
+                <div className="pt-3 pb-1 border-t border-neutral-100">
                   <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/10" disabled={submitting}>
                     {submitting ? "Processing Registration..." : "Create Account"}
                   </Button>

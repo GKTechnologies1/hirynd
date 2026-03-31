@@ -92,7 +92,16 @@ const AdminLogin = () => {
                 />
               </div>
 
-              <div className="pt-4">
+              <div className="flex justify-end pr-1">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-semibold text-primary hover:underline underline-offset-4 decoration-primary/30"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+
+              <div className="pt-2">
                 <Button
                   type="submit"
                   variant="hero"
