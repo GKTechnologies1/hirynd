@@ -1,0 +1,27 @@
+On branch main
+Your branch and 'origin/main' have diverged,
+and have 1 and 29 different commits each, respectively.
+  (use "git pull" if you want to integrate the remote branch with yours)
+
+No commands done.
+Next command to do (1 remaining command):
+   pick 1a77028 feat: implement end-to-end candidate lifecycle with billing and auth fixes
+  (use "git rebase --edit-todo" to view and edit)
+You are currently editing a commit while rebasing branch 'main' on 'ee74b89'.
+  (use "git commit --amend" to amend the current commit)
+  (use "git rebase --continue" once you are satisfied with your changes)
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    django_backend/.venv/Lib/site-packages/MySQLdb/__init__.py
+	deleted:    django_backend/.venv/Lib/site-packages/MySQLdb/__pycache__/__init__.cpython-310.pyc
+	deleted:    django_backend/.venv/Lib/site-packages/MySQLdb/__pycache__/_exceptions.cpython-310.pyc
+	deleted:    django_backend/.venv/Lib/site-packages/MySQLdb/__pycache__/connections.cpython-310.pyc
+	modified:   git_status.txt
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	status.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
