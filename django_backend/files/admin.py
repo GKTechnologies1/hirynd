@@ -1,3 +1,10 @@
 from django.contrib import admin
 from .models import UploadedFile
-admin.site.register(UploadedFile)
+
+@admin.register(UploadedFile)
+class UploadedFileAdmin(admin.ModelAdmin):
+    list_display = ('original_name', 'user', 'file_type', 'size_bytes', 'uploaded_at')
+    list_filter = ('file_type', 'uploaded_at')
+    search_fields = ('original_name', 'user__email', 'bucket_path')
+    readonly_fields = ('uploaded_at', 'size_bytes', 'bucket_path')
+

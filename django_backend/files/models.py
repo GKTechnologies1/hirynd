@@ -15,3 +15,6 @@ class UploadedFile(models.Model):
     class Meta:
         db_table = 'uploaded_files'
         ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"{self.original_name} ({self.user.email})"

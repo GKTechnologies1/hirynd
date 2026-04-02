@@ -33,6 +33,9 @@ class RecruiterProfile(models.Model):
     class Meta:
         db_table = 'recruiter_profiles'
 
+    def __str__(self):
+        return f"Recruiter: {self.user.profile.full_name or self.user.email}"
+
 
 class RecruiterBankDetails(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -49,6 +52,9 @@ class RecruiterBankDetails(models.Model):
     class Meta:
         db_table = 'recruiter_bank_details'
 
+    def __str__(self):
+        return f"Bank Details - {self.recruiter.email}"
+
 
 class RecruiterAssignment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -63,6 +69,9 @@ class RecruiterAssignment(models.Model):
     class Meta:
         db_table = 'recruiter_assignments'
 
+    def __str__(self):
+        return f"{self.recruiter.email} -> {self.candidate.user.email} ({self.role_type})"
+
 
 class TeamLeadAssignment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -74,6 +83,9 @@ class TeamLeadAssignment(models.Model):
 
     class Meta:
         db_table = 'team_lead_assignments'
+
+    def __str__(self):
+        return f"TL: {self.team_lead.email} for {self.candidate.user.email}"
 
 
 class DailySubmissionLog(models.Model):
@@ -91,6 +103,9 @@ class DailySubmissionLog(models.Model):
 
     class Meta:
         db_table = 'daily_submission_logs'
+
+    def __str__(self):
+        return f"Log {self.log_date} - {self.recruiter.email}"
 
 
 class JobLinkEntry(models.Model):
@@ -121,3 +136,6 @@ class JobLinkEntry(models.Model):
 
     class Meta:
         db_table = 'job_link_entries'
+
+    def __str__(self):
+        return f"{self.company_name} - {self.role_title} ({self.candidate.user.email})"

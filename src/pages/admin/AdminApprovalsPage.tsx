@@ -365,26 +365,42 @@ const AdminApprovalsPage = () => {
                 <Card className="border-teal-100 bg-teal-50/20 shadow-sm overflow-hidden">
                   <CardHeader className="bg-teal-600/5 pb-3 py-4 border-b border-teal-100">
                     <CardTitle className="text-xs font-bold uppercase tracking-widest text-teal-700 flex items-center gap-2">
-                      <Users className="h-4 w-4" /> Recruiter Details
+                      <Award className="h-4 w-4" /> Professional & Academic
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-5 space-y-4 text-sm">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Company Name</p>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">University</p>
+                        <p className="font-semibold text-teal-900">{selectedUser?.university || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Major</p>
+                        <p className="font-medium text-teal-900">{selectedUser?.major || "—"}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight mb-1">Professional Links</p>
+                        <div className="flex flex-wrap gap-2">
+                           {selectedUser?.linkedin_url && (
+                             <a href={selectedUser.linkedin_url} target="_blank" rel="noreferrer" className="text-xs font-bold bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg border border-teal-200 hover:bg-teal-200 transition-colors">
+                               LinkedIn Profile
+                             </a>
+                           )}
+                           {selectedUser?.social_profile_url && (
+                             <a href={selectedUser.social_profile_url} target="_blank" rel="noreferrer" className="text-xs font-bold bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg border border-teal-200 hover:bg-teal-200 transition-colors">
+                               Social Profile
+                             </a>
+                           )}
+                           {!selectedUser?.linkedin_url && !selectedUser?.social_profile_url && <p className="text-xs italic text-teal-600">No links provided</p>}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Internal Company</p>
                         <p className="font-semibold text-teal-900">{selectedUser?.company_name || "—"}</p>
                       </div>
-                      <div>
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Employee ID</p>
-                        <p className="font-medium text-teal-900">{selectedUser?.employee_id || "—"}</p>
-                      </div>
-                      <div>
+                       <div>
                         <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Experience</p>
-                        <p className="font-medium text-teal-900">{selectedUser?.prior_recruitment_experience || "None specified"}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Work Type Preference</p>
-                        <p className="font-medium text-teal-900">{selectedUser?.work_type_preference || "—"}</p>
+                        <p className="font-medium text-teal-900 line-clamp-2">{selectedUser?.prior_recruitment_experience || "None specified"}</p>
                       </div>
                     </div>
                   </CardContent>

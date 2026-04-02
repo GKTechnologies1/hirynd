@@ -1,0 +1,470 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { recruitersApi, authApi, auditApi } from "@/services/api";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  User, Mail, Phone, MapPin, Briefcase, Award, Calendar, 
+  BarChart3, TrendingUp, History, Save, ArrowLeft, Loader2,
+  Shield, CheckCircle2, XCircle, Clock
+} from "lucide-react";
+import AdminAuditTab from "@/components/admin/AdminAuditTab";
+
+interface AdminRecruiterDetailProps {
+  id?: string;
+}
+
+const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
+  const { id: paramId } = useParams<{ id: string }>();
+  const id = propId || paramId;
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [recruiter, setRecruiter] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  const [formData, setFormData] = useState({
+    full_name: "",
+    phone: "",
+    city: "",
+    state: "",
+    country: "",
+    university: "",
+    major: "",
+    graduation_date: "",
+    linkedin_url: "",
+    social_profile_url: "",
+    company_name: "",
+    employee_id: "",
+    date_of_joining: "",
+    department: "",
+    specialization: "",
+    max_clients: 3,
+    prior_recruitment_experience: "",
+    work_type_preference: ""
+  });
+
+  const fetchData = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const { data } = await recruitersApi.adminGetDetail(id);
+      setRecruiter(data);
+      setFormData({
+        full_name: data.full_name || "",
+        phone: data.phone || "",
+        city: data.city || "",
+        state: data.state || "",
+        country: data.country || "",
+        university: data.university || "",
+        major: data.major || "",
+        graduation_date: data.graduation_date || "",
+        linkedin_url: data.linkedin_url || "",
+        social_profile_url: data.social_profile_url || "",
+        company_name: data.company_name || "",
+        employee_id: data.employee_id || "",
+        date_of_joining: data.date_of_joining || "",
+        department: data.department || "",
+        specialization: data.specialization || "",
+        max_clients: data.max_clients || 3,
+        prior_recruitment_experience: data.prior_recruitment_experience || "",
+        work_type_preference: data.work_type_preference || ""
+      });
+      
+      // Fetch stats
+      setLoadingStats(true);
+      const { data: statsData } = await recruitersApi.stats({ user_id: id });
+      setStats(statsData);
+    } catch (err: any) {
+      toast({ title: "Error", description: "Failed to load recruiter data", variant: "destructive" });
+    } finally {
+      setLoading(false);
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, [id]);
+
+  const handleUpdate = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await recruitersApi.adminUpdateProfile(id, formData);
+      toast({ title: "Profile updated successfully" });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.response?.data?.error || "Check your input", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <Loader2 className="h-10 w-10 animate-spin text-primary opacity-60" />
+      <p className="text-sm font-bold text-muted-foreground animate-pulse">Retrieving recruiter profile...</p>
+    </div>
+  );
+
+  if (!recruiter) return (
+    <div className="p-12 text-center flex flex-col items-center gap-4">
+      <XCircle className="h-12 w-12 text-destructive opacity-40" />
+      <p className="text-lg font-bold text-muted-foreground">Recruiter profile not found.</p>
+      <Button variant="outline" onClick={() => navigate("/admin-dashboard/recruiters")}>Back to List</Button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 pb-12">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/admin-dashboard/recruiters")} className="h-10 w-10 p-0 rounded-xl border border-border/40">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary text-xl font-black shadow-sm ring-1 ring-primary/20">
+              {recruiter.full_name?.[0] || "?"}
+            </div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-foreground">{recruiter.full_name}</h2>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant="outline" className="h-5 px-2 text-[10px] uppercase font-bold tracking-widest border-primary/20 bg-primary/5 text-primary">
+                  {recruiter.role}
+                </Badge>
+                <div className={`h-1.5 w-1.5 rounded-full ${recruiter.approval_status === "approved" ? "bg-green-500" : "bg-amber-500"}`} />
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{recruiter.approval_status}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={handleUpdate} 
+            disabled={saving}
+            className="rounded-xl px-6 h-11 font-black tracking-tight shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Save Changes
+          </Button>
+        </div>
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="bg-card/50 p-1 border border-border/40 rounded-2xl mb-6">
+          <TabsTrigger value="overview" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overview</TabsTrigger>
+          <TabsTrigger value="professional" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Professional</TabsTrigger>
+          <TabsTrigger value="staff" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Staff Details</TabsTrigger>
+          <TabsTrigger value="performance" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Performance</TabsTrigger>
+          <TabsTrigger value="audit" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Audit Log</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+              <CardHeader className="bg-primary/5 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" /> Identity & Contact
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
+                  <Input 
+                    value={formData.full_name} 
+                    onChange={e => setFormData({...formData, full_name: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Email Address (Read Only)</Label>
+                  <Input 
+                    value={recruiter.email} 
+                    disabled
+                    className="h-11 rounded-xl bg-muted/40 opacity-70"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
+                  <Input 
+                    value={formData.phone} 
+                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">City</Label>
+                    <Input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">State</Label>
+                    <Input value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Country</Label>
+                    <Input value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+              <CardHeader className="bg-secondary/5 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Award className="h-4 w-4 text-secondary" /> Education Background
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">University / Institute</Label>
+                  <Input 
+                    value={formData.university} 
+                    onChange={e => setFormData({...formData, university: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Major / Degree</Label>
+                  <Input 
+                    value={formData.major} 
+                    onChange={e => setFormData({...formData, major: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Graduation Date</Label>
+                  <Input 
+                    type="date"
+                    value={formData.graduation_date} 
+                    onChange={e => setFormData({...formData, graduation_date: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Professional Tab */}
+        <TabsContent value="professional">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+              <CardHeader className="bg-primary/5 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-primary" /> Professional Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">LinkedIn URL</Label>
+                  <Input 
+                    type="url"
+                    value={formData.linkedin_url} 
+                    onChange={e => setFormData({...formData, linkedin_url: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                  {formData.linkedin_url && (
+                    <a href={formData.linkedin_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 ml-1">
+                      Open Profile Link
+                    </a>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Other Social Profile (GitHub/Portfolio)</Label>
+                  <Input 
+                    type="url"
+                    value={formData.social_profile_url} 
+                    onChange={e => setFormData({...formData, social_profile_url: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+              <CardHeader className="bg-muted/50 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" /> Preferences & Experience
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Work Type Preference</Label>
+                  <Input 
+                    value={formData.work_type_preference} 
+                    onChange={e => setFormData({...formData, work_type_preference: e.target.value})}
+                    placeholder="e.g. Full-time, Remote"
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Prior Recruitment Experience</Label>
+                  <Input 
+                    value={formData.prior_recruitment_experience} 
+                    onChange={e => setFormData({...formData, prior_recruitment_experience: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Staff Details Tab */}
+        <TabsContent value="staff">
+          <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+            <CardHeader className="bg-secondary/10 pb-4 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-secondary" /> Administrative Information
+                </CardTitle>
+                <CardDescription className="text-[10px] uppercase font-bold tracking-tight text-secondary/70">Internal metadata controlled by Admin</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 grid gap-6 md:grid-cols-2">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Company Name</Label>
+                  <Input 
+                    value={formData.company_name} 
+                    onChange={e => setFormData({...formData, company_name: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Employee ID</Label>
+                  <Input 
+                    value={formData.employee_id} 
+                    onChange={e => setFormData({...formData, employee_id: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Date of Joining</Label>
+                  <Input 
+                    type="date"
+                    value={formData.date_of_joining} 
+                    onChange={e => setFormData({...formData, date_of_joining: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
+                  <Input 
+                    value={formData.department} 
+                    onChange={e => setFormData({...formData, department: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Specialization</Label>
+                  <Input 
+                    value={formData.specialization} 
+                    onChange={e => setFormData({...formData, specialization: e.target.value})}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">System Limit (Max Clients)</Label>
+                  <Input 
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={formData.max_clients} 
+                    onChange={e => setFormData({...formData, max_clients: parseInt(e.target.value) || 3})}
+                    className="h-11 rounded-xl bg-muted/20 font-bold"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Performance Tab */}
+        <TabsContent value="performance">
+          {stats ? (
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="border-none bg-primary/5 shadow-none ring-1 ring-primary/10 overflow-hidden relative group rounded-3xl">
+                <TrendingUp className="absolute -right-4 -bottom-4 h-32 w-32 text-primary/5 group-hover:scale-110 transition-transform" />
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="p-2 rounded-xl bg-primary/20 text-primary">
+                      <Calendar className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-widest text-primary/70">Activity Overview</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <p className="text-4xl font-black text-foreground tracking-tighter">{stats.apps_today}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Apps Today</p>
+                    </div>
+                    <div>
+                      <p className="text-4xl font-black text-foreground tracking-tighter">{stats.apps_week}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">This Week</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="p-6 rounded-[2rem] bg-amber-500/5 ring-1 ring-amber-500/10 flex items-center justify-between group hover:bg-amber-500/10 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 shadow-sm ring-1 ring-amber-500/20 group-hover:rotate-12 transition-transform">
+                      <Briefcase className="h-7 w-7" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-amber-600/60 uppercase tracking-widest leading-tight">Pipeline</p>
+                      <p className="text-xl font-black text-foreground tracking-tight">Active Interviews</p>
+                    </div>
+                  </div>
+                  <span className="text-4xl font-black text-amber-600 pr-4">{stats.interviews_week}</span>
+                </div>
+
+                <div className="p-6 rounded-[2rem] bg-green-500/5 ring-1 ring-green-500/10 flex items-center justify-between group hover:bg-green-500/10 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-600 shadow-sm ring-1 ring-green-500/20 group-hover:rotate-12 transition-transform">
+                      <Award className="h-7 w-7" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-green-600/60 uppercase tracking-widest leading-tight">Success</p>
+                      <p className="text-xl font-black text-foreground tracking-tight">Confirmed Offers</p>
+                    </div>
+                  </div>
+                  <span className="text-4xl font-black text-green-600 pr-4">{stats.offers_week}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-20 text-center flex flex-col items-center gap-3">
+              <BarChart3 className="h-10 w-10 text-muted-foreground opacity-20" />
+              <p className="text-sm font-bold text-muted-foreground">No performance data available for this period.</p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Audit Tab */}
+        <TabsContent value="audit">
+          <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40 overflow-hidden rounded-3xl">
+            <AdminAuditTab targetId={id!} />
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default AdminRecruiterDetail;

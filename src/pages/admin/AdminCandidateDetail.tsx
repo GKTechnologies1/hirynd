@@ -852,7 +852,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
 
         {/* Audit Tab */}
         <TabsContent value="audit">
-          <AdminAuditTab candidateId={candidateId} />
+          <AdminAuditTab targetId={candidateId} />
         </TabsContent>
       </Tabs>
     </div>

@@ -16,6 +16,7 @@ import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminJobsPage from "@/pages/admin/AdminJobsPage";
 import AdminCandidatesPage from "@/pages/admin/AdminCandidatesPage";
 import AdminRecruitersPage from "@/pages/admin/AdminRecruitersPage";
+import AdminRecruiterDetail from "@/pages/admin/AdminRecruiterDetail";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -137,6 +138,10 @@ const AdminDashboard = () => {
     if (subPath.startsWith("candidates/")) {
       const candidateId = subPath.replace("candidates/", "");
       return <AdminCandidateDetail candidateId={candidateId} />;
+    }
+    if (subPath.startsWith("recruiters/")) {
+      const recruiterId = subPath.replace("recruiters/", "");
+      return <AdminRecruiterDetail id={recruiterId} />;
     }
     
     switch (subPath) {

@@ -112,6 +112,9 @@ class SubscriptionAddonAssignment(models.Model):
         db_table = 'subscription_addon_assignments'
         unique_together = [('subscription', 'addon')]
 
+    def __str__(self):
+        return f"{self.addon.name} for {self.subscription.candidate.user.email}"
+
 
 # ────────────────────────────────────────────────────────────────
 #  Razorpay Order   (tracks each checkout attempt)
@@ -145,6 +148,9 @@ class RazorpayOrder(models.Model):
         db_table = 'razorpay_orders'
         ordering = ['-created_at']
 
+    def __str__(self):
+        return f"Order {self.razorpay_order_id} - {self.candidate.user.email} (${self.amount})"
+
 
 # ────────────────────────────────────────────────────────────────
 #  Payment   (confirmed payment ledger entry)
@@ -175,6 +181,9 @@ class Payment(models.Model):
         db_table = 'billing_payments'
         ordering = ['-created_at']
 
+    def __str__(self):
+        return f"Payment {self.amount} {self.currency} - {self.candidate.user.email} ({self.status})"
+
 
 # ────────────────────────────────────────────────────────────────
 #  Invoice
@@ -197,3 +206,6 @@ class Invoice(models.Model):
     class Meta:
         db_table = 'invoices'
         ordering = ['-period_start']
+
+    def __str__(self):
+        return f"Invoice {self.period_start} to {self.period_end} - {self.candidate.user.email}"

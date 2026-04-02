@@ -28,6 +28,9 @@ class ChatRoomParticipant(models.Model):
         db_table = 'chat_room_participants'
         unique_together = ['room', 'user']
 
+    def __str__(self):
+        return f"{self.user.email} in {self.room.room_name}"
+
 
 class ChatMessage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -44,3 +47,6 @@ class ChatMessage(models.Model):
     class Meta:
         db_table = 'chat_messages'
         ordering = ['sent_at']
+
+    def __str__(self):
+        return f"Msg from {self.sender.email} at {self.sent_at.strftime('%Y-%m-%d %H:%M')}"

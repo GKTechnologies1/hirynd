@@ -13,7 +13,7 @@ from .models import RecruiterAssignment, DailySubmissionLog, JobLinkEntry
 from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
     RecruiterProfileSerializer, RecruiterBankDetailsSerializer,
-    AdminRecruiterProfileSerializer,
+    AdminRecruiterFullSerializer,
 )
 
 
@@ -184,18 +184,18 @@ def recruiter_profile(request):
 def admin_update_profile(request, user_id):
     from .models import RecruiterProfile
     try:
-        profile = RecruiterProfile.objects.get(user_id=user_id)
+        profile = RecruiterProfile.objects.select_related('user__profile').get(user_id=user_id)
     except RecruiterProfile.DoesNotExist:
         return Response({'error': 'Recruiter profile not found'}, status=404)
     
     if request.method == 'PATCH':
-        serializer = AdminRecruiterProfileSerializer(profile, data=request.data, partial=True)
+        serializer = AdminRecruiterFullSerializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         log_action(request.user, 'admin_updated_recruiter_profile', str(user_id), 'user', serializer.data)
         return Response(serializer.data)
 
-    return Response(AdminRecruiterProfileSerializer(profile).data)
+    return Response(AdminRecruiterFullSerializer(profile).data)
 
 
 @api_view(['GET', 'POST'])

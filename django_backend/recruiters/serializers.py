@@ -10,14 +10,41 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
 
-class AdminRecruiterProfileSerializer(serializers.ModelSerializer):
-    """Serializer for Admins to manage internal recruiter metadata."""
+class AdminRecruiterFullSerializer(serializers.ModelSerializer):
+    """Serializer for Admins to manage ALL recruiter data (Identity, Education, Staff)."""
+    full_name = serializers.CharField(source='user.profile.full_name', required=False)
+    phone = serializers.CharField(source='user.profile.phone', required=False)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    
     class Meta:
         model = RecruiterProfile
         fields = [
+            'id', 'email', 'full_name', 'phone',
+            'city', 'state', 'country',
+            'university', 'major', 'graduation_date', 
+            'linkedin_url', 'social_profile_url',
             'company_name', 'employee_id', 'date_of_joining', 
-            'department', 'specialization', 'max_clients'
+            'department', 'specialization', 'max_clients',
+            'prior_recruitment_experience', 'work_type_preference'
         ]
+
+    def update(self, instance, validated_data):
+        # Handle Profile updates (full_name, phone)
+        user_data = validated_data.pop('user', {})
+        profile_data = user_data.pop('profile', {})
+        
+        if profile_data:
+            profile = instance.user.profile
+            profile.full_name = profile_data.get('full_name', profile.full_name)
+            profile.phone = profile_data.get('phone', profile.phone)
+            profile.save()
+            
+        # Handle RecruiterProfile updates
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
 
 
 

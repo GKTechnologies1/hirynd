@@ -16,6 +16,9 @@ class Notification(models.Model):
         db_table = 'notifications'
         ordering = ['-created_at']
 
+    def __str__(self):
+        return f"{self.user.email}: {self.title}"
+
 
 class EmailLog(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -28,3 +31,6 @@ class EmailLog(models.Model):
     class Meta:
         db_table = 'email_logs'
         ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.recipient_email} - {self.email_type} ({self.status})"

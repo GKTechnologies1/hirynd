@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
 import { recruitersApi, authApi, candidatesApi } from "@/services/api";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Mail, Phone, MapPin, UserCheck, UserPlus, RefreshCw, BarChart3, TrendingUp, Calendar, Briefcase, Award, Loader2 } from "lucide-react";
+import { Search, Mail, Phone, MapPin, UserCheck, UserPlus, RefreshCw, BarChart3, TrendingUp, Calendar, Briefcase, Award, Loader2, Eye, Settings2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
 const AdminRecruitersPage = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [recruiters, setRecruiters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,19 +23,6 @@ const AdminRecruitersPage = () => {
   const [selectedRecruiter, setSelectedRecruiter] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
-  
-  // Staff Edit Modal State
-  const [editingRecruiter, setEditingRecruiter] = useState<any>(null);
-  const [editForm, setEditForm] = useState({
-    company_name: "",
-    employee_id: "",
-    date_of_joining: "",
-    department: "",
-    specialization: "",
-    max_clients: 3
-  });
-  const [loadingProfile, setLoadingProfile] = useState(false);
-  const [savingStaff, setSavingStaff] = useState(false);
 
   const fetchRecruiters = async () => {
     setLoading(true);
@@ -61,45 +50,6 @@ const AdminRecruitersPage = () => {
       toast({ title: "Failed to load stats", variant: "destructive" });
     } finally {
       setLoadingStats(false);
-    }
-  };
-  
-  const handleEditStaff = async (recruiter: any) => {
-    setEditingRecruiter(recruiter);
-    setLoadingProfile(true);
-    try {
-      const { data } = await recruitersApi.adminGetProfile(recruiter.id);
-      setEditForm({
-        company_name: data.company_name || "",
-        employee_id: data.employee_id || "",
-        date_of_joining: data.date_of_joining || "",
-        department: data.department || "",
-        specialization: data.specialization || "",
-        max_clients: data.max_clients || 3
-      });
-    } catch (err) {
-      toast({ title: "Failed to load profile", variant: "destructive" });
-    } finally {
-      setLoadingProfile(false);
-    }
-  };
-
-  const handleSaveStaff = async () => {
-    if (!editingRecruiter) return;
-    setSavingStaff(true);
-    try {
-      await recruitersApi.adminUpdateProfile(editingRecruiter.id, editForm);
-      toast({ title: "Staff details updated successfully" });
-      setEditingRecruiter(null);
-      fetchRecruiters();
-    } catch (err: any) {
-      toast({ 
-        title: "Update failed", 
-        description: err.response?.data?.error || "Could not update staff details", 
-        variant: "destructive" 
-      });
-    } finally {
-      setSavingStaff(false);
     }
   };
 
@@ -234,16 +184,16 @@ const AdminRecruitersPage = () => {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-9 w-9 p-0 rounded-xl hover:bg-secondary/10 text-secondary"
-                      onClick={() => handleEditStaff(r)}
-                      title="Edit Staff Info"
+                      className="h-9 w-9 p-0 rounded-xl hover:bg-primary/10 text-primary border border-transparent hover:border-primary/20"
+                      onClick={() => navigate(`/admin-dashboard/recruiters/${r.id}`)}
+                      title="View Full Profile"
                     >
-                      <Briefcase className="h-4 w-4" />
+                      <Eye className="h-4 w-4" />
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-9 px-4 text-xs font-bold gap-2 rounded-xl border border-transparent hover:bg-primary/5 hover:text-primary hover:border-primary/10 transition-all"
+                      className="h-9 px-4 text-xs font-bold gap-2 rounded-xl border border-transparent hover:bg-secondary/5 hover:text-secondary hover:border-secondary/10 transition-all font-black tracking-tighter"
                       onClick={() => handleViewPerformance(r)}
                     >
                       <BarChart3 className="h-3.5 w-3.5" />
@@ -358,117 +308,6 @@ const AdminRecruitersPage = () => {
             <div className="flex justify-end gap-3 pt-4 border-t border-border/20">
               <Button onClick={() => setSelectedRecruiter(null)} className="rounded-2xl px-8 h-12 font-black tracking-tighter shadow-lg shadow-primary/20">Close Analysis</Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Staff Details Edit Modal */}
-      <Dialog open={!!editingRecruiter} onOpenChange={() => setEditingRecruiter(null)}>
-        <DialogContent className="max-w-2xl bg-card/95 backdrop-blur-xl border-border/50 p-0 overflow-hidden rounded-[2rem]">
-          <div className="h-1.5 bg-gradient-to-r from-secondary via-primary to-secondary" />
-          <DialogHeader className="p-8 pb-4">
-            <div className="flex items-center flex-wrap gap-4 mb-2">
-              <div className="h-16 w-16 rounded-[1.5rem] bg-secondary/10 flex items-center justify-center text-secondary text-2xl font-black shadow-inner ring-1 ring-secondary/20">
-                <Briefcase className="h-8 w-8" />
-              </div>
-              <div className="flex flex-col">
-                <DialogTitle className="text-2xl font-black tracking-tighter text-foreground">Edit Staff Details</DialogTitle>
-                <DialogDescription className="font-medium text-muted-foreground">Manage internal metadata for {editingRecruiter?.full_name}.</DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="p-8 pt-0 space-y-4">
-            {loadingProfile ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-secondary opacity-60" />
-                <p className="text-sm font-bold text-muted-foreground animate-pulse">Loading recruiter profile...</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Company Name</Label>
-                    <Input 
-                      value={editForm.company_name} 
-                      onChange={e => setEditForm({...editForm, company_name: e.target.value})}
-                      placeholder="e.g. Hyrind"
-                      className="h-11 rounded-xl bg-muted/30 border-border/40"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Employee ID</Label>
-                    <Input 
-                      value={editForm.employee_id} 
-                      onChange={e => setEditForm({...editForm, employee_id: e.target.value})}
-                      placeholder="e.g. HY-101"
-                      className="h-11 rounded-xl bg-muted/30 border-border/40"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
-                    <Input 
-                      value={editForm.department} 
-                      onChange={e => setEditForm({...editForm, department: e.target.value})}
-                      placeholder="e.g. Talent Acquisition"
-                      className="h-11 rounded-xl bg-muted/30 border-border/40"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Specialization</Label>
-                    <Input 
-                      value={editForm.specialization} 
-                      onChange={e => setEditForm({...editForm, specialization: e.target.value})}
-                      placeholder="e.g. IT Recruitment"
-                      className="h-11 rounded-xl bg-muted/30 border-border/40"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Date of Joining</Label>
-                    <Input 
-                      type="date"
-                      value={editForm.date_of_joining} 
-                      onChange={e => setEditForm({...editForm, date_of_joining: e.target.value})}
-                      className="h-11 rounded-xl bg-muted/30 border-border/40"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Max Clients</Label>
-                    <Input 
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={editForm.max_clients} 
-                      onChange={e => setEditForm({...editForm, max_clients: parseInt(e.target.value) || 3})}
-                      className="h-11 rounded-xl bg-muted/30 border-border/40"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-secondary/5 rounded-2xl p-4 flex gap-3 text-xs text-secondary font-medium border border-secondary/10 mt-2">
-                  <Briefcase className="h-4 w-4 shrink-0" />
-                  <p>Changes to these fields are internal and will be reflected in the recruitment staff's administrative profile.</p>
-                </div>
-              </>
-            )}
-            
-            <DialogFooter className="pt-4 border-t border-border/20 mt-4">
-              <Button variant="ghost" onClick={() => setEditingRecruiter(null)} className="rounded-xl px-6 h-11 font-bold">Cancel</Button>
-              <Button 
-                onClick={handleSaveStaff} 
-                className="rounded-xl px-8 h-11 font-black tracking-tighter shadow-lg shadow-secondary/20 bg-secondary hover:bg-secondary/90"
-                disabled={savingStaff || loadingProfile}
-              >
-                {savingStaff ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Save Details
-              </Button>
-            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>

@@ -128,7 +128,7 @@ export const recruitersApi = {
   updateProfile: (data: any) => api.patch('/recruiters/profile/', data),
   getBankDetails: () => api.get('/recruiters/bank-details/'),
   updateBankDetails: (data: any) => api.post('/recruiters/bank-details/', data),
-  adminGetProfile: (userId: string) => api.get(`/recruiters/admin/profile/${userId}/`),
+  adminGetDetail: (userId: string) => api.get(`/recruiters/admin/profile/${userId}/`),
   adminUpdateProfile: (userId: string, data: any) => api.patch(`/recruiters/admin/profile/${userId}/`, data),
 };
 

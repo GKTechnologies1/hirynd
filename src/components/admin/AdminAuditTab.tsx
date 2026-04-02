@@ -8,7 +8,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Shield } from "lucide-react";
 
 interface AdminAuditTabProps {
-  candidateId: string;
+  targetId: string;
 }
 
 const ACTION_TYPES = [
@@ -24,7 +24,7 @@ const ACTION_TYPES = [
   { value: "interview", label: "Interviews" },
 ];
 
-const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
+const AdminAuditTab = ({ targetId }: AdminAuditTabProps) => {
   const [logs, setLogs] = useState<any[]>([]);
   const [actionFilter, setActionFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -35,7 +35,7 @@ const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
     const fetchLogs = async () => {
       setLoading(true);
       try {
-        const { data: allLogs } = await auditApi.candidateLogs(candidateId);
+        const { data: allLogs } = await auditApi.candidateLogs(targetId);
         let filtered = allLogs || [];
         if (actionFilter !== "all") {
           filtered = filtered.filter((l: any) => l.action?.toLowerCase().includes(actionFilter.toLowerCase()));
@@ -49,7 +49,7 @@ const AdminAuditTab = ({ candidateId }: AdminAuditTabProps) => {
       setLoading(false);
     };
     fetchLogs();
-  }, [candidateId, actionFilter, dateFrom, dateTo]);
+  }, [targetId, actionFilter, dateFrom, dateTo]);
 
   const renderDiff = (details: any) => {
     if (!details) return "—";

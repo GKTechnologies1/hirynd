@@ -16,3 +16,6 @@ class AuditLog(models.Model):
     class Meta:
         db_table = 'audit_logs'
         ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.actor.email if self.actor else 'System'} - {self.action} on {self.target_type} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"

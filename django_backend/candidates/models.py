@@ -55,7 +55,7 @@ class Candidate(models.Model):
         db_table = 'candidates'
 
     def __str__(self):
-        return f"Candidate({self.user.email})"
+        return f"{self.user.profile.full_name or self.user.email} ({self.status})"
 
 
 class ClientIntake(models.Model):
@@ -73,6 +73,9 @@ class ClientIntake(models.Model):
     class Meta:
         db_table = 'client_intake'
 
+    def __str__(self):
+        return f"Intake - {self.candidate.user.email}"
+
 
 class RoleSuggestion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -89,6 +92,9 @@ class RoleSuggestion(models.Model):
     class Meta:
         db_table = 'role_suggestions'
 
+    def __str__(self):
+        return f"{self.role_title} for {self.candidate.user.email}"
+
 
 class RoleConfirmation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -102,6 +108,9 @@ class RoleConfirmation(models.Model):
 
     class Meta:
         db_table = 'role_confirmations'
+
+    def __str__(self):
+        return f"{self.response} - {self.candidate.user.email}"
 
 
 class CredentialVersion(models.Model):
@@ -119,6 +128,9 @@ class CredentialVersion(models.Model):
     class Meta:
         db_table = 'credential_versions'
         ordering = ['-version']
+
+    def __str__(self):
+        return f"V{self.version} - {self.candidate.user.email}"
 
 
 class Referral(models.Model):
@@ -142,6 +154,9 @@ class Referral(models.Model):
 
     class Meta:
         db_table = 'referrals'
+
+    def __str__(self):
+        return f"Referral: {self.friend_name} by {self.referrer.user.email}"
 
 
 class InterviewLog(models.Model):
@@ -196,6 +211,9 @@ class InterviewLog(models.Model):
         db_table = 'interview_logs'
         ordering = ['-interview_date', '-created_at']
 
+    def __str__(self):
+        return f"{self.interview_type} at {self.company_name} ({self.candidate.user.email})"
+
 
 class PlacementClosure(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -215,6 +233,9 @@ class PlacementClosure(models.Model):
 
     class Meta:
         db_table = 'placement_closures'
+
+    def __str__(self):
+        return f"Placement: {self.company_name} - {self.candidate.user.email}"
 
 
 class Payment(models.Model):
@@ -252,6 +273,9 @@ class Payment(models.Model):
     class Meta:
         db_table = 'payments'
         ordering = ['-due_date']
+
+    def __str__(self):
+        return f"{self.charge_name} - ${self.amount} ({self.payment_status})"
 
 
 class TrainingScheduleClick(models.Model):
