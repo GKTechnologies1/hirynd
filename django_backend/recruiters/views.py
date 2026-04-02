@@ -12,6 +12,8 @@ from audit.utils import log_action
 from .models import RecruiterAssignment, DailySubmissionLog, JobLinkEntry
 from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
+    RecruiterProfileSerializer, RecruiterBankDetailsSerializer,
+    AdminRecruiterProfileSerializer,
 )
 
 
@@ -168,19 +170,32 @@ def recruiter_profile(request):
     profile, _ = RecruiterProfile.objects.get_or_create(user=request.user)
     
     if request.method in ('POST', 'PATCH'):
-        profile.city = request.data.get('city', profile.city)
-        profile.state = request.data.get('state', profile.state)
-        profile.country = request.data.get('country', profile.country)
-        profile.linkedin_url = request.data.get('linkedin_url', profile.linkedin_url)
-        profile.save()
-        return Response({'message': 'Profile updated'})
+        serializer = RecruiterProfileSerializer(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_action(request.user, 'recruiter_profile_updated', str(request.user.id), 'user', serializer.data)
+        return Response(serializer.data)
 
-    return Response({
-        'city': profile.city,
-        'state': profile.state,
-        'country': profile.country,
-        'linkedin_url': profile.linkedin_url
-    })
+    return Response(RecruiterProfileSerializer(profile).data)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAdmin])
+def admin_update_profile(request, user_id):
+    from .models import RecruiterProfile
+    try:
+        profile = RecruiterProfile.objects.get(user_id=user_id)
+    except RecruiterProfile.DoesNotExist:
+        return Response({'error': 'Recruiter profile not found'}, status=404)
+    
+    if request.method == 'PATCH':
+        serializer = AdminRecruiterProfileSerializer(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_action(request.user, 'admin_updated_recruiter_profile', str(user_id), 'user', serializer.data)
+        return Response(serializer.data)
+
+    return Response(AdminRecruiterProfileSerializer(profile).data)
 
 
 @api_view(['GET', 'POST'])
@@ -196,20 +211,16 @@ def bank_details(request):
         bank.bank_name = request.data.get('bank_name', bank.bank_name)
         if acc and not acc.startswith('****'):
             bank.account_number_last4 = acc[-4:]
-            bank.account_number_encrypted = acc # Simple storage for now
+            bank.account_number_encrypted = acc # In a real app, encrypt this properly
         if rtn and not rtn.startswith('****'):
             bank.routing_number_last4 = rtn[-4:]
             bank.routing_number_encrypted = rtn
         bank.save()
         
         log_action(request.user, 'bank_details_updated', str(request.user.id), 'recruiter_bank', {'bank_name': bank.bank_name})
-        return Response({'message': 'Bank details updated'})
+        return Response(RecruiterBankDetailsSerializer(bank).data)
 
-    return Response({
-        'bank_name': bank.bank_name,
-        'account_number_last4': bank.account_number_last4,
-        'routing_number_last4': bank.routing_number_last4
-    })
+    return Response(RecruiterBankDetailsSerializer(bank).data)
 
 
 @api_view(['POST'])

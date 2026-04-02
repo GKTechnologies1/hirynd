@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import RecruiterProfile, RecruiterAssignment, DailySubmissionLog, JobLinkEntry
+from .models import RecruiterProfile, RecruiterAssignment, DailySubmissionLog, JobLinkEntry, RecruiterBankDetails
 from users.serializers import ProfileSerializer
 
 
@@ -8,6 +8,24 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
         model = RecruiterProfile
         fields = '__all__'
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+
+class AdminRecruiterProfileSerializer(serializers.ModelSerializer):
+    """Serializer for Admins to manage internal recruiter metadata."""
+    class Meta:
+        model = RecruiterProfile
+        fields = [
+            'company_name', 'employee_id', 'date_of_joining', 
+            'department', 'specialization', 'max_clients'
+        ]
+
+
+
+class RecruiterBankDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecruiterBankDetails
+        fields = ['bank_name', 'account_number_last4', 'routing_number_last4']
+        read_only_fields = ['account_number_last4', 'routing_number_last4']
 
 
 class RecruiterAssignmentSerializer(serializers.ModelSerializer):

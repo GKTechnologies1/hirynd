@@ -67,7 +67,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'hyrind.wsgi.application'
 
 # Database — SQLite for local dev, MySQL for production
-USE_SQLITE = os.getenv('USE_SQLITE', 'True') == 'True'
+USE_SQLITE = os.getenv('USE_SQLITE', 'True').lower() == 'true'
 
 if USE_SQLITE:
     DATABASES = {

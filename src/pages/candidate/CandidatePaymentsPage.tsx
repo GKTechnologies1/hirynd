@@ -243,7 +243,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                           {a.addon_detail?.name}
                         </span>
                         <span className="font-medium text-foreground">
-                          {subscription.currency === 'INR' ? "₹" : "$"}{Number(a.addon_detail?.amount).toLocaleString()}
+                          {subscription.currency === 'INR' ? "₹" : "$"}{Number(a.amount || a.addon_detail?.amount || 0).toLocaleString()}
                         </span>
                       </div>
                     ))}

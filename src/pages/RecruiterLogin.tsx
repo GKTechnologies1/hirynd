@@ -35,8 +35,6 @@ const RecruiterLogin = () => {
     how_did_you_hear: "", friend_name: "",
     linkedin_url: "", social_profile: "",
     city: "", state: "", country: "",
-    company_name: "", employee_id: "", date_of_joining: "",
-    department: "", specialization: "", max_clients: 3,
     prior_recruitment_experience: "",
     work_type_preference: "",
     consent_to_terms: false,
@@ -72,8 +70,8 @@ const RecruiterLogin = () => {
     if (!reg.major_degree.trim()) errors.major_degree = "Major/degree is required";
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
 
-    if (!reg.linkedin_url.trim() && !reg.social_profile?.trim()) 
-      errors.linkedin_url = "Must provide at least one professional link (LinkedIn or Social Profile)";
+    if (!reg.linkedin_url.trim() && !reg.social_profile.trim()) 
+      errors.linkedin_url = "LinkedIn URL or Social Profile is required for recruiter registration";
 
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
     if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) errors.friend_name = "Friend name is required";
@@ -121,12 +119,6 @@ const RecruiterLogin = () => {
       last_name: reg.last_name.trim(),
       email: reg.email.toLowerCase().trim(),
       role: "recruiter",
-      company_name: reg.company_name.trim(),
-      employee_id: reg.employee_id.trim(),
-      date_of_joining: reg.date_of_joining || null,
-      department: reg.department.trim(),
-      specialization: reg.specialization.trim(),
-      max_clients: reg.max_clients,
       consent_to_terms: reg.consent_to_terms,
     };
 
@@ -367,38 +359,17 @@ const RecruiterLogin = () => {
                     {regErrors.graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.graduation_date}</p>}</div>
                 </div>
 
-                <div className="space-y-4 pt-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Recruitment Staff Information</span>
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">Company Name</Label><Input value={reg.company_name} onChange={e => updateReg("company_name", e.target.value)} placeholder="e.g. Hyrind" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" /></div>
-                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">Employee ID</Label><Input value={reg.employee_id} onChange={e => updateReg("employee_id", e.target.value)} placeholder="e.g. HY-101" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" /></div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">Department</Label><Input value={reg.department} onChange={e => updateReg("department", e.target.value)} placeholder="e.g. Talent Acquisition" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" /></div>
-                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">Specialization</Label><Input value={reg.specialization} onChange={e => updateReg("specialization", e.target.value)} placeholder="e.g. IT Recruitment" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" /></div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">Date of Joining</Label><Input type="date" value={reg.date_of_joining} onChange={e => updateReg("date_of_joining", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" /></div>
-                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">Max Clients</Label><Input type="number" min={1} max={10} value={reg.max_clients} onChange={e => updateReg("max_clients", parseInt(e.target.value) || 3)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" /></div>
-                  </div>
-                </div>
 
                 <div className="space-y-4 pt-2">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Professional Profile</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Professional Profile (One required *)</span>
                     <div className="h-px bg-neutral-200 flex-grow" />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">LinkedIn URL *</Label>
+                    <Label className="text-sm font-medium ml-1">LinkedIn URL</Label>
                     <Input 
                       type="url" 
                       value={reg.linkedin_url} 
@@ -410,7 +381,7 @@ const RecruiterLogin = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Other Social Profile (Optional)</Label>
+                    <Label className="text-sm font-medium ml-1">Social Profile (e.g. GitHub/Portfolio)</Label>
                     <Input 
                       type="url" 
                       value={reg.social_profile} 

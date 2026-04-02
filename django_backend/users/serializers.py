@@ -58,13 +58,7 @@ class RegisterSerializer(serializers.Serializer):
     additional_notes = serializers.CharField(max_length=1000, required=False, allow_blank=True)
     consent_to_terms = serializers.BooleanField(required=True)
 
-    # Recruiter-specific fields from legacy proj
-    company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
-    employee_id = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    date_of_joining = serializers.DateField(required=False, allow_null=True)
-    department = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    specialization = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    max_clients = serializers.IntegerField(required=False, default=3)
+    # Recruiter-specific fields (Handled by Admin later)
     prior_recruitment_experience = serializers.CharField(max_length=500, required=False, allow_blank=True)
     work_type_preference = serializers.ChoiceField(
         choices=['Full-time', 'Part-time', 'Contract', 'Remote'],
@@ -84,10 +78,12 @@ class RegisterSerializer(serializers.Serializer):
         if data.get('how_did_you_hear') == 'Friend' and not data.get('friend_name'):
             raise serializers.ValidationError({'friend_name': 'Friend name is required when source is Friend.'})
         
-        # Recruiter must provide at least one professional link
+        # Recruiter must provide LinkedIn URL as per spec Section B
         if data.get('role') == 'recruiter':
             if not data.get('linkedin_url') and not data.get('social_profile'):
-                raise serializers.ValidationError({'linkedin_url': 'LinkedIn URL or other social profile is required for recruiters.'})
+                raise serializers.ValidationError({
+                    'linkedin_url': 'LinkedIn Profile URL or Social Profile is required for recruiter registration.'
+                })
         return data
 
     def create(self, validated_data):
@@ -103,13 +99,7 @@ class RegisterSerializer(serializers.Serializer):
         resume_file = validated_data.pop('resume_file', None)
         additional_notes = validated_data.pop('additional_notes', '')
 
-        # Recruiter specific fields
-        company_name = validated_data.pop('company_name', '')
-        employee_id = validated_data.pop('employee_id', '')
-        date_of_joining = validated_data.pop('date_of_joining', None)
-        department = validated_data.pop('department', '')
-        specialization = validated_data.pop('specialization', '')
-        max_clients = validated_data.pop('max_clients', 3)
+        # Recruiter specific fields (Internal metadata removed from registration)
 
         # Common profile fields
         university_name = validated_data.pop('university_name', '')
@@ -169,12 +159,6 @@ class RegisterSerializer(serializers.Serializer):
                 university=university_name,
                 major=major_degree,
                 graduation_date=graduation_date,
-                company_name=company_name,
-                employee_id=employee_id,
-                date_of_joining=date_of_joining,
-                department=department,
-                specialization=specialization,
-                max_clients=max_clients,
                 linkedin_url=linkedin_url,
                 social_profile_url=social_profile,
                 prior_recruitment_experience=prior_recruitment_experience,

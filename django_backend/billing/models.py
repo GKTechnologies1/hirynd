@@ -104,6 +104,7 @@ class SubscriptionAddonAssignment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='addon_assignments')
     addon = models.ForeignKey(SubscriptionAddon, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='Actual price for this assignment')
     added_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name='added_addons')
     added_at = models.DateTimeField(auto_now_add=True)
 
@@ -135,7 +136,7 @@ class RazorpayOrder(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)          # in USD (not cents)
     currency = models.CharField(max_length=10, default='USD')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='created')
-    payment_type = models.CharField(max_length=50, default='subscription')  # subscription / addon
+    payment_type = models.CharField(max_length=50, default='monthly_service')  # type category
     notes = models.JSONField(default=dict, encoder=DjangoJSONEncoder, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     verified_at = models.DateTimeField(null=True, blank=True)
@@ -150,9 +151,11 @@ class RazorpayOrder(models.Model):
 # ────────────────────────────────────────────────────────────────
 class Payment(models.Model):
     PAYMENT_TYPE_CHOICES = [
-        ('subscription', 'Subscription'),
-        ('addon', 'Add-on'),
-        ('manual', 'Manual / Offline'),
+        ('monthly_service', 'Monthly Service Fee ($400)'),
+        ('mock_practice', 'Mock Practice Fee'),
+        ('interview_support', 'Interview Support Fee'),
+        ('operations_support', 'Operations Support Fee'),
+        ('manual', 'Manual / Other'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

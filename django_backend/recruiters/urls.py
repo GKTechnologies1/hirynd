@@ -14,5 +14,6 @@ urlpatterns = [
     path('fetch-job-details/', views.fetch_job_details, name='fetch_job_details'),
     path('stats/', views.recruiter_stats, name='recruiter_stats'),
     path('profile/', views.recruiter_profile, name='recruiter_profile'),
+    path('admin/profile/<uuid:user_id>/', views.admin_update_profile, name='admin_update_profile'),
     path('bank-details/', views.bank_details, name='bank_details'),
 ]

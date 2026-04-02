@@ -41,11 +41,11 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const [loading, setLoading] = useState(true);
 
   // Create/update form
-  const [formAmount, setFormAmount] = useState("");
+  const [formAmount, setFormAmount] = useState("400.00");
   const [formNextDate, setFormNextDate] = useState("");
   const [formGraceDays, setFormGraceDays] = useState("5");
   const [formStatus, setFormStatus] = useState("pending_payment");
-  const [formPlanName, setFormPlanName] = useState("Monthly Marketing");
+  const [formPlanName, setFormPlanName] = useState("Monthly Service Fee");
   const [saving, setSaving] = useState(false);
 
   // Record payment

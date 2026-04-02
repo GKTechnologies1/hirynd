@@ -161,10 +161,11 @@ def assign_plan(request, candidate_id):
     except SubscriptionPlan.DoesNotExist:
         return Response({'error': 'Plan not found or inactive'}, status=404)
 
+    sub_amount = request.data.get('amount', plan.amount)
     sub, created = Subscription.objects.get_or_create(
         candidate=candidate,
         defaults={
-            'plan': plan, 'plan_name': plan.name, 'amount': plan.amount,
+            'plan': plan, 'plan_name': plan.name, 'amount': sub_amount,
             'currency': plan.currency, 'billing_cycle': plan.billing_cycle,
             'status': 'pending_payment', 'assigned_by': request.user,
             'payment_initiated_at': timezone.now(),
@@ -173,7 +174,7 @@ def assign_plan(request, candidate_id):
     if not created:
         sub.plan = plan
         sub.plan_name = plan.name
-        sub.amount = plan.amount
+        sub.amount = sub_amount
         sub.currency = plan.currency
         sub.billing_cycle = plan.billing_cycle
         sub.status = 'pending_payment'
@@ -185,8 +186,11 @@ def assign_plan(request, candidate_id):
     for addon_id in addon_ids:
         try:
             addon = SubscriptionAddon.objects.get(id=addon_id, is_active=True)
+            # Default to addon amount if not specified
+            amt = request.data.get('addon_amounts', {}).get(str(addon_id), addon.amount)
             SubscriptionAddonAssignment.objects.get_or_create(
-                subscription=sub, addon=addon, defaults={'added_by': request.user},
+                subscription=sub, addon=addon, 
+                defaults={'added_by': request.user, 'amount': amt},
             )
         except SubscriptionAddon.DoesNotExist:
             pass
@@ -225,10 +229,17 @@ def add_addon_to_subscription(request, candidate_id):
     except SubscriptionAddon.DoesNotExist:
         return Response({'error': 'Addon not found'}, status=404)
     assignment, created = SubscriptionAddonAssignment.objects.get_or_create(
-        subscription=sub, addon=addon, defaults={'added_by': request.user},
+        subscription=sub, addon=addon, 
+        defaults={
+            'added_by': request.user,
+            'amount': request.data.get('amount', addon.amount)
+        },
     )
-    log_action(request.user, 'addon_added', str(candidate_id), 'subscription_addon', {'addon': addon.name})
-    return Response({'detail': 'Addon added', 'created': created})
+    if not created and 'amount' in request.data:
+        assignment.amount = request.data['amount']
+        assignment.save(update_fields=['amount'])
+    log_action(request.user, 'addon_added', str(candidate_id), 'subscription_addon', {'addon': addon.name, 'amount': float(assignment.amount)})
+    return Response({'detail': 'Addon added', 'created': created, 'amount': float(assignment.amount)})
 
 
 @api_view(['PATCH'])
@@ -264,7 +275,7 @@ def create_razorpay_order(request, candidate_id):
     if sub.status == 'active':
         return Response({'error': 'Subscription already active'}, status=400)
 
-    addons_total = sum(a.addon.amount for a in sub.addon_assignments.all())
+    addons_total = sum(a.amount for a in sub.addon_assignments.all())
     total_amount = float(sub.amount) + float(addons_total)
     total_paise = int(total_amount * 100)
 
@@ -456,7 +467,7 @@ def record_payment(request, candidate_id):
     serializer = PaymentSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     pay = serializer.save(recorded_by=request.user)
-    if pay.payment_type == 'subscription':
+    if pay.payment_type in ('subscription', 'monthly_service'):
         # Ensure subscription object exists and is synced with this payment
         sub, created = Subscription.objects.get_or_create(
             candidate_id=candidate_id,
@@ -464,10 +475,20 @@ def record_payment(request, candidate_id):
                 'amount': pay.amount,
                 'currency': pay.currency,
                 'status': 'pending_payment' if pay.status == 'pending' else 'active',
-                'plan_name': 'Hyrind Subscription',
+                'plan_name': 'Monthly Service Fee',
                 'assigned_by': request.user,
             }
         )
+        if not created and pay.status == 'completed':
+            sub.status = 'active'
+            sub.last_payment_at = pay.created_at
+            sub.save()
+            
+            # Simple fulfillment logic: move to payment_completed
+            candidate = sub.candidate
+            if candidate.status in ('roles_confirmed', 'payment_pending'):
+                candidate.status = 'payment_completed'
+                candidate.save()
         if not created:
             # Sync existing subscription if this is a newer/relevant payment
             if pay.status == 'completed':

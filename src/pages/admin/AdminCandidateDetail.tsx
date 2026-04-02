@@ -749,7 +749,19 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div><Label>Amount ($) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
-                  <div><Label>Type</Label><Select value={payType} onValueChange={setPayType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="initial">Initial</SelectItem><SelectItem value="subscription">Subscription</SelectItem><SelectItem value="refund">Refund</SelectItem><SelectItem value="adjustment">Adjustment</SelectItem></SelectContent></Select></div>
+                  <div><Label>Type</Label>
+                    <Select value={payType} onValueChange={setPayType}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly_service">Monthly Service Fee</SelectItem>
+                        <SelectItem value="mock_practice">Mock Practice Fee</SelectItem>
+                        <SelectItem value="interview_support">Interview Support Fee</SelectItem>
+                        <SelectItem value="operations_support">Operations Support Fee</SelectItem>
+                        <SelectItem value="manual">Manual / Other</SelectItem>
+                        <SelectItem value="refund">Refund</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div><Label>Status</Label><Select value={payStatus} onValueChange={setPayStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completed">Completed</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="refunded">Refunded</SelectItem></SelectContent></Select></div>
                 </div>
                 <div><Label>Notes</Label><Textarea value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Manual check, wire transfer, etc." /></div>
