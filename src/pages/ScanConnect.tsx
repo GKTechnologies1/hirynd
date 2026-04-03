@@ -1,11 +1,12 @@
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Instagram, Linkedin } from "lucide-react";
+import { WhatsAppIcon } from "@/components/layout/Footer";
 
 const links = [
-  { icon: Instagram, label: "Instagram", url: "https://instagram.com/hyrind", color: "bg-gradient-to-br from-pink-500 to-amber-500" },
+  { icon: Instagram, label: "Instagram", url: "https://www.instagram.com/hyrind_usa?igsh=NzZhcjJ1cmFzbXdu", color: "bg-gradient-to-br from-pink-500 to-amber-500" },
   { icon: Linkedin, label: "LinkedIn", url: "https://linkedin.com/company/hyrind", color: "bg-blue-600" },
-  { icon: MessageCircle, label: "WhatsApp Broadcast", url: "https://wa.me", color: "bg-green-600" },
+  { icon: WhatsAppIcon, label: "WhatsApp Broadcast", url: "https://Wa.me/+1-314-354-0634/", color: "bg-green-600" },
 ];
 
 const ScanConnect = () => {
