@@ -38,6 +38,12 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     visa_details: "",
     relocation_preference: "",
     references_if_needed: "",
+    shared_email: "",
+    gmail_password: "",
+    linkedin_password: "",
+    indeed_password: "",
+    dice_password: "",
+    foundit_password: "",
   });
 
   const isPaid = [
@@ -112,7 +118,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading credentials...</p></div>;
   }
 
-  const SENSITIVE_FIELDS = ["visa_details", "references_if_needed"];
+  const SENSITIVE_FIELDS = ["visa_details", "references_if_needed", "gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"];
   const maskSensitive = (key: string, value: string) => {
     if (SENSITIVE_FIELDS.includes(key) && value) return "******** (Sensitive Data Masked)";
     return value;
@@ -189,6 +195,67 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
               <div><Label>Certifications</Label><Textarea value={formData.certifications} onChange={e => handleChange("certifications", e.target.value)} rows={2} /></div>
 
               <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-4 sm:col-span-2">
+                  <div className="flex items-center gap-2 mb-4 text-amber-800">
+                    <KeyRound className="h-4 w-4" />
+                    <h3 className="font-bold text-sm uppercase tracking-wider">Account Credentials</h3>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <Label>Shared Email (Used for all platforms) *</Label>
+                      <Input 
+                        type="email"
+                        value={formData.shared_email} 
+                        onChange={e => handleChange("shared_email", e.target.value)} 
+                        required 
+                        placeholder="yourname@gmail.com"
+                      />
+                    </div>
+                    <div>
+                      <Label>Gmail Password *</Label>
+                      <Input 
+                        type="password" 
+                        value={formData.gmail_password} 
+                        onChange={e => handleChange("gmail_password", e.target.value)} 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <Label>LinkedIn Password *</Label>
+                      <Input 
+                        type="password" 
+                        value={formData.linkedin_password} 
+                        onChange={e => handleChange("linkedin_password", e.target.value)} 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <Label>Indeed Password (Optional)</Label>
+                      <Input 
+                        type="password" 
+                        value={formData.indeed_password} 
+                        onChange={e => handleChange("indeed_password", e.target.value)} 
+                      />
+                    </div>
+                    <div>
+                      <Label>Dice Password (Optional)</Label>
+                      <Input 
+                        type="password" 
+                        value={formData.dice_password} 
+                        onChange={e => handleChange("dice_password", e.target.value)} 
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Foundit Password (Optional)</Label>
+                      <Input 
+                        type="password" 
+                        value={formData.foundit_password} 
+                        onChange={e => handleChange("foundit_password", e.target.value)} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-4">
                   <Label className="text-amber-800">Visa / Immigration Details (Sensitive) *</Label>
                   <Textarea value={formData.visa_details} onChange={e => handleChange("visa_details", e.target.value)} rows={3} placeholder="Full details for internal use only" required />

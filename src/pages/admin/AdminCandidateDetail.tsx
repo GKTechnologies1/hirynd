@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, RefreshCw, Activity, Eye, AlertTriangle, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, RefreshCw, Activity, Eye, AlertTriangle, ClipboardList, KeyRound, Save } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -60,6 +60,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [payNotes, setPayNotes] = useState("");
   const [addingPayment, setAddingPayment] = useState(false);
 
+  const [isEditingCreds, setIsEditingCreds] = useState(false);
+  const [credForm, setCredForm] = useState<Record<string, string>>({});
+  const [savingCred, setSavingCred] = useState(false);
+
   const fetchAll = async () => {
     try {
       const { data: cand } = await candidatesApi.detail(candidateId);
@@ -76,6 +80,9 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         setIntake(intakeRes.data || null);
         setRoles(roleRes.data || []);
         setCredentials(credRes.data || []);
+        if (credRes.data && credRes.data.length > 0 && credRes.data[0].data) {
+          setCredForm(credRes.data[0].data as Record<string, string>);
+        }
         setPayments(payRes.data || []);
         setSubscription(subRes.data?.id ? subRes.data : null);
         setInterviewLogs(interviewRes.data || []);
@@ -173,6 +180,22 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
+  };
+
+  const handleSaveCredential = async () => {
+    if (!credForm.full_legal_name?.trim()) {
+      toast({ title: "Full legal name is required", variant: "destructive" }); return;
+    }
+    setSavingCred(true);
+    try {
+      await candidatesApi.upsertCredential(candidateId, credForm);
+      toast({ title: "Credentials updated by Admin" });
+      setIsEditingCreds(false);
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+    setSavingCred(false);
   };
 
   const handlePauseResume = async () => {
@@ -613,15 +636,67 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           )}
         </TabsContent>
 
-        {/* Credentials Tab */}
         <TabsContent value="credentials" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Credential Intake History</CardTitle>
-              <CardDescription>{credentials.length} version(s)</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Credential Intake History</CardTitle>
+                  <CardDescription>{credentials.length} version(s)</CardDescription>
+                </div>
+                {!isEditingCreds && (
+                  <Button variant="outline" size="sm" onClick={() => setIsEditingCreds(true)} className="gap-2">
+                    <Pencil className="h-3.5 w-3.5" /> Edit Current Credentials
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              {credentials.length === 0 ? <p className="text-muted-foreground py-8 text-center">No credential intake submitted yet.</p> : (
+              {isEditingCreds ? (
+                <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {["full_legal_name", "email", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
+                      <div key={field} className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800 flex items-center gap-2">
+                      <KeyRound className="h-3.5 w-3.5" /> Account Credentials
+                    </h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Shared Email (All Platforms) *</Label>
+                        <Input type="email" className="bg-white text-sm h-10 border-border/50" value={credForm["shared_email"] || ""} onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))} />
+                      </div>
+                      {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].map((field) => (
+                        <div key={field} className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")} {["gmail_password", "linkedin_password"].includes(field) ? "*" : "(Optional)"}</Label>
+                          <Input type="password" placeholder="••••••••" className="bg-white text-sm h-10 border-border/50" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Skills Summary & Keywords</Label>
+                    <Textarea rows={5} className="bg-muted/30 text-sm border-border/50 italic" value={credForm["skills_summary"] || ""} onChange={e => setCredForm(prev => ({ ...prev, ["skills_summary"]: e.target.value }))} />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Button variant="hero" className="flex-1 h-11 font-bold shadow-lg shadow-primary/10" onClick={handleSaveCredential} disabled={savingCred}>
+                      {savingCred ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                      Update Candidate Credentials
+                    </Button>
+                    <Button variant="outline" className="h-11" onClick={() => setIsEditingCreds(false)} disabled={savingCred}>Cancel</Button>
+                  </div>
+                </div>
+              ) : credentials.length === 0 ? (
+                <p className="text-muted-foreground py-8 text-center">No credential intake submitted yet.</p>
+              ) : (
                 <Accordion type="single" collapsible defaultValue={credentials[0]?.id}>
                   {credentials.map((v: any) => {
                     const cData = v.data as Record<string, string>;
@@ -659,20 +734,20 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                               {[
-                                { label: 'LinkedIn', id: 'linkedin_id', pw: 'linkedin_password' },
-                                { label: 'Indeed', id: 'indeed_id', pw: 'indeed_password' },
-                                { label: 'Dice', id: 'dice_id', pw: 'dice_password' },
-                                { label: 'Monster', id: 'monster_id', pw: 'monster_password' },
-                                { label: 'ZipRecruiter', id: 'ziprecruiter_id', pw: 'ziprecruiter_password' }
-                              ].map(portal => (
-                                <div key={portal.label} className="bg-white border rounded-lg p-3">
-                                  <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
-                                  <div className="space-y-1">
-                                    <p className="text-[11px] truncate">ID: <span className="font-medium">{cData[portal.id] || "N/A"}</span></p>
-                                    <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded">{cData[portal.pw] ? "••••••••" : "N/A"}</span></p>
-                                  </div>
-                                </div>
-                              ))}
+                                 { label: 'LinkedIn', id: 'linkedin_id', pw: 'linkedin_password' },
+                                 { label: 'Gmail', id: 'shared_email', pw: 'gmail_password' },
+                                 { label: 'Indeed', id: 'shared_email', pw: 'indeed_password' },
+                                 { label: 'Dice', id: 'shared_email', pw: 'dice_password' },
+                                 { label: 'Foundit', id: 'shared_email', pw: 'foundit_password' }
+                               ].map(portal => (
+                                 <div key={portal.label} className="bg-white border rounded-lg p-3">
+                                   <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
+                                   <div className="space-y-1">
+                                     <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cData[portal.id] || "N/A"}</span></p>
+                                     <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded">{cData[portal.pw] ? "••••••••" : "N/A"}</span></p>
+                                   </div>
+                                 </div>
+                               ))}
                             </div>
                           </div>
 

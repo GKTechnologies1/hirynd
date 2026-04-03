@@ -321,6 +321,25 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       </div>
                     ))}
                 </div>
+
+                <div className="bg-amber-50/30 border border-amber-100 rounded-xl p-4 space-y-4">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800 flex items-center gap-2">
+                    <KeyRound className="h-3.5 w-3.5" /> Account Credentials
+                  </h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Shared Email (All Platforms) *</Label>
+                      <Input type="email" className="bg-white text-sm h-10 border-border/50" value={credForm["shared_email"] || ""} onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))} />
+                    </div>
+                    {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].map((field) => (
+                      <div key={field} className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")} {["gmail_password", "linkedin_password"].includes(field) ? "*" : "(Optional)"}</Label>
+                        <Input type="password" className="bg-white text-sm h-10 border-border/50" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Skills Summary & Keywords</Label>
                     <Textarea rows={5} className="bg-background/50 text-sm border-border/50 italic" value={credForm["skills_summary"] || ""} onChange={e => setCredForm(prev => ({ ...prev, ["skills_summary"]: e.target.value }))} />
@@ -346,10 +365,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       </AccordionTrigger>
                       <AccordionContent className="pb-4">
                          <div className="space-y-3 pt-2">
-                            {Object.entries(v.data as Record<string, string>).slice(0, 5).map(([key, val]) => val && (
-                                <div key={key}>
+                            {Object.entries(v.data as Record<string, string>).map(([key, val]) => val && (
+                                <div key={key} className="border-b border-border/10 pb-1 last:border-0">
                                     <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter">{key.replace(/_/g, " ")}</p>
-                                    <p className="text-[11px] leading-relaxed truncate">{val}</p>
+                                    <p className="text-[11px] leading-relaxed truncate">
+                                      {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].includes(key) 
+                                        ? "••••••••" 
+                                        : val}
+                                    </p>
                                 </div>
                             ))}
                          </div>
@@ -501,7 +524,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         </TabsContent>
 
         <TabsContent value="audit">
-          <AdminAuditTab candidateId={candidateId} />
+          <AdminAuditTab targetId={candidateId} />
         </TabsContent>
       </Tabs>
     </div>

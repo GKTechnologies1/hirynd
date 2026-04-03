@@ -32,7 +32,7 @@ django_backend/.env
 *.pyc
 django_backend/.venv
 *__pycache__*
-__pycache__
+*/__pycache__
 venv
 .venv
 package-lock.json
