@@ -226,7 +226,7 @@ def approve_user(request):
 def all_users(request):
     role = request.query_params.get('role')
     search = request.query_params.get('search', '').strip()
-    qs = User.objects.select_related('profile').order_by('-created_at')
+    qs = User.objects.select_related('profile', 'candidate', 'recruiter_profile').order_by('-created_at')
     if role:
         qs = qs.filter(role=role)
     if search:

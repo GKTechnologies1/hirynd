@@ -187,6 +187,7 @@ class UserListSerializer(serializers.ModelSerializer):
     state = serializers.SerializerMethodField()
     country = serializers.SerializerMethodField()
     # Candidate specific
+    candidate_id = serializers.SerializerMethodField()
     opt_end_date = serializers.SerializerMethodField()
     github_url = serializers.SerializerMethodField()
     visa_status = serializers.SerializerMethodField()
@@ -194,6 +195,7 @@ class UserListSerializer(serializers.ModelSerializer):
     referral_friend_name = serializers.SerializerMethodField()
     notes = serializers.SerializerMethodField()
     # Recruiter specific
+    recruiter_id = serializers.SerializerMethodField()
     company_name = serializers.SerializerMethodField()
     employee_id = serializers.SerializerMethodField()
     date_of_joining = serializers.SerializerMethodField()
@@ -211,8 +213,8 @@ class UserListSerializer(serializers.ModelSerializer):
             'university', 'major', 'graduation_date', 
             'linkedin_url', 'social_profile_url', 
             'city', 'state', 'country',
-            'opt_end_date', 'github_url', 'visa_status', 'referral_source', 'referral_friend_name', 'notes',
-            'company_name', 'employee_id', 'date_of_joining', 'department', 'specialization', 'max_clients',
+            'candidate_id', 'opt_end_date', 'github_url', 'visa_status', 'referral_source', 'referral_friend_name', 'notes',
+            'recruiter_id', 'company_name', 'employee_id', 'date_of_joining', 'department', 'specialization', 'max_clients',
             'prior_recruitment_experience', 'work_type_preference'
         ]
 
@@ -298,7 +300,16 @@ class UserListSerializer(serializers.ModelSerializer):
         p = getattr(obj, 'candidate', None)
         return getattr(p, 'notes', '') or ''
 
+    def get_candidate_id(self, obj):
+        if obj.role != 'candidate': return None
+        p = getattr(obj, 'candidate', None)
+        return str(p.id) if p else None
+
     # Recruiter especific
+    def get_recruiter_id(self, obj):
+        if obj.role != 'recruiter': return None
+        p = getattr(obj, 'recruiter_profile', None)
+        return str(p.id) if p else None
     def get_company_name(self, obj):
         if obj.role != 'recruiter': return ''
         p = getattr(obj, 'recruiter_profile', None)

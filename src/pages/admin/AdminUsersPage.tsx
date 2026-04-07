@@ -166,9 +166,7 @@ const AdminUsersPage = () => {
         <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />Refresh
         </Button>
-        <Button variant="default" size="sm" onClick={bulkApprovePending}>
-          <ShieldCheck className="mr-2 h-4 w-4" />Approve All Pending
-        </Button>
+   
       </div>
 
       {/* Summary cards */}
@@ -278,7 +276,10 @@ const AdminUsersPage = () => {
                 render: (u: any) => (
                   <div className="flex justify-end gap-1.5">
                     {(u.role === 'candidate' || u.role === 'recruiter') && (
-                      <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={() => navigate(`/admin-dashboard/${u.role}s/${u.id}`)}>
+                      <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={() => {
+                        const detailId = u.role === 'candidate' ? u.candidate_id : u.id;
+                        navigate(`/admin-dashboard/${u.role}s/${detailId}`);
+                      }}>
                         <Eye className="h-3 w-3 mr-1" /> View Details
                       </Button>
                     )}
