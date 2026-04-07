@@ -723,8 +723,8 @@ def record_payment(request, candidate_id):
                 pass
     log_action(request.user, 'payment_recorded', str(candidate_id), 'payment', data)
 
-    # ── Create Invoice + send email with PDF receipt (if completed) ────────────
-    if pay.status == 'completed':
+    # ── Create Invoice + send email with PDF receipt (if success) ──────────────
+    if pay.status in ('completed', 'complete', 'paid'):
         try:
             from dateutil.relativedelta import relativedelta
             period_start = pay.payment_date or timezone.now().date()

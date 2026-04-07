@@ -92,7 +92,7 @@ const CandidateBillingPage = ({ candidate }: Props) => {
   // (avoids double-counting when an invoice exists for a payment)
   const invoicePaymentRefs = new Set(invoices.map((i: any) => i.payment_reference).filter(Boolean));
   const standalonePayments = payments.filter((p: any) => {
-    if (!["completed", "paid"].includes(p.status)) return false;
+    if (!["completed", "complete", "paid"].includes(p.status)) return false;
     const razorpayId = (p.notes || "").match(/Razorpay:\s*(\S+)/)?.[1];
     if (razorpayId && invoicePaymentRefs.has(razorpayId)) return false;
     return true;
