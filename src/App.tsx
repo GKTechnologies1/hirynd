@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import ScrollToTop from "@/components/layout/ScrollToTop";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import About from "./pages/About";
@@ -23,6 +24,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import ProfileMarketing from "./pages/services/ProfileMarketing";
 import InterviewTraining from "./pages/services/InterviewTraining";
 import SkillsTraining from "./pages/services/SkillsTraining";
+import Terms from "./pages/Terms";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +36,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Index />} />
@@ -44,6 +48,8 @@ const App = () => (
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/scan-connect" element={<ScanConnect />} />
             <Route path="/candidate-login" element={<CandidateLogin />} />
             <Route path="/recruiter-login" element={<RecruiterLogin />} />

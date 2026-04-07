@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import SEO from "@/components/SEO";
 import Footer from "@/components/layout/Footer";
@@ -11,43 +11,81 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Link, useSearchParams } from "react-router-dom";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const Contact = () => {
+  const [searchParams] = useSearchParams();
   const [wantsMarketing, setWantsMarketing] = useState<string | null>(null);
   const [referralSource, setReferralSource] = useState("");
   const [visaStatus, setVisaStatus] = useState("");
+  const [countryCode, setCountryCode] = useState("+1");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const type = searchParams.get("type");
+    if (type === "general") {
+      setWantsMarketing("no");
+    } else if (type === "interest") {
+      setWantsMarketing("yes");
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (wantsMarketing === "yes" && !termsAccepted) {
-      toast({ title: "Please accept the Terms & Conditions and Privacy Policy to continue.", variant: "destructive" });
-      return;
+    const formElement = e.target as HTMLFormElement;
+    const formData = new FormData(formElement);
+    
+    if (wantsMarketing === "yes") {
+      if (!termsAccepted) {
+        toast({ title: "Please accept the Terms & Conditions and Privacy Policy to continue.", variant: "destructive" });
+        return;
+      }
+      if (!visaStatus) {
+        toast({ title: "Please select your visa status.", variant: "destructive" });
+        return;
+      }
+      if (!referralSource) {
+        toast({ title: "Please select how you heard about us.", variant: "destructive" });
+        return;
+      }
+    }
+    
+    const firstName = formData.get("first_name") as string;
+    const lastName = formData.get("last_name") as string;
+    const phoneNum = formData.get("phone") as string;
+    
+    // Construct final payload as FormData to support file upload
+    const finalData = new FormData();
+    finalData.append("name", `${firstName || ""} ${lastName || ""}`.trim());
+    finalData.append("email", formData.get("email") as string);
+    finalData.append("phone", `${countryCode} ${phoneNum}`.trim());
+    finalData.append("mode", wantsMarketing === "yes" ? "interest" : "general");
+    
+    if (wantsMarketing === "yes") {
+      finalData.append("university", formData.get("university") as string || "");
+      finalData.append("graduation_year", formData.get("graduation_year") as string || "");
+      finalData.append("degree_major", formData.get("degree_major") as string || "");
+      finalData.append("visa_status", visaStatus);
+      finalData.append("referral_source", referralSource);
+      finalData.append("referral_friend", formData.get("referral_friend") as string || "");
+      
+      const resumeFile = formData.get("resume");
+      if (resumeFile && (resumeFile as File).name) {
+        finalData.append("resume", resumeFile);
+      }
+    } else {
+      finalData.append("message", formData.get("message") as string || "");
     }
 
-    const formData = new FormData(e.target as HTMLFormElement);
-    const data = Object.fromEntries(formData.entries());
-    
-    const payload = {
-      ...data,
-      mode: wantsMarketing === "yes" ? "interest" : "general",
-      referral_source: referralSource || (data.referral_source as string) || "",
-      visa_status: visaStatus,
-    };
-
     try {
-      await authApi.submitContact(payload);
-      toast({
-        title: "Form Submitted Successfully!",
-        description: wantsMarketing === "yes"
-          ? "Thank you for your interest! Our team will review your submission and reach out within 24–48 hours to schedule a discovery call."
-          : "Thank you for reaching out! We'll get back to you within 24–48 hours.",
-      });
+      await authApi.submitContact(finalData);
       
       // Reset form
-      (e.target as HTMLFormElement).reset();
-      setWantsMarketing(null);
+      formElement.reset();
+      setShowSuccessDialog(true);
       setReferralSource("");
       setVisaStatus("");
       setTermsAccepted(false);
@@ -105,11 +143,30 @@ const Contact = () => {
                     <p className="mt-2 text-sm text-neutral-500">Have a question about our services, partnerships, or anything else? Send us a message and we'll respond promptly.</p>
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Name *</Label><Input required placeholder="Your full name" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
-                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label><Input required type="email" placeholder="you@email.com" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
+                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label><Input name="first_name" required placeholder="First name" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
+                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label><Input name="last_name" required placeholder="Last name" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
                   </div>
-                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone</Label><Input placeholder="+1 (555) 000-0000" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
-                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Message *</Label><Textarea required placeholder="How can we help you?" rows={5} className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label><Input name="email" required type="email" placeholder="you@email.com" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
+                  
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
+                    <div className="flex gap-2">
+                      <Select value={countryCode} onValueChange={setCountryCode}>
+                        <SelectTrigger className="w-[100px] bg-neutral-50/50 border-neutral-200 rounded-xl h-11 focus-visible:ring-[#0d47a1]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                          <SelectItem value="+91">🇮🇳 +91</SelectItem>
+                          <SelectItem value="+44">🇬🇧 +44</SelectItem>
+                          <SelectItem value="+61">🇦🇺 +61</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input name="phone" required placeholder="(555) 000-0000" className="flex-1 bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Message *</Label><Textarea name="message" required placeholder="How can we help you?" rows={5} className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none" /></div>
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button type="submit" className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90 rounded-xl h-11 px-6 font-bold shadow-sm">Send Message</Button>
                     <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => setWantsMarketing(null)}>Back</Button>
@@ -126,10 +183,30 @@ const Contact = () => {
                   </div>
 
                   <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Full Name *</Label><Input name="name" required placeholder="Your full name" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
-                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label><Input name="email" required type="email" placeholder="you@email.com" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label><Input name="first_name" required placeholder="First name" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label><Input name="last_name" required placeholder="Last name" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
                   </div>
-                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label><Input name="phone" required placeholder="+1 (555) 000-0000" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                  
+                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label><Input name="email" required type="email" placeholder="you@email.com" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                  
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
+                    <div className="flex gap-2">
+                      <Select value={countryCode} onValueChange={setCountryCode}>
+                        <SelectTrigger className="w-[100px] bg-neutral-50/50 border-neutral-200 rounded-xl h-11 focus-visible:ring-[#0d47a1]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                          <SelectItem value="+91">🇮🇳 +91</SelectItem>
+                          <SelectItem value="+44">🇬🇧 +44</SelectItem>
+                          <SelectItem value="+61">🇦🇺 +61</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input name="phone" required placeholder="(555) 000-0000" className="flex-1 bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                    </div>
+                  </div>
+
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University</Label>
@@ -137,21 +214,15 @@ const Contact = () => {
                       <p className="mt-1 text-[10px] text-neutral-400 font-medium">Leave blank if not applicable</p>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Major / Field of Study</Label>
-                      <Input name="major" placeholder="e.g., Computer Science" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
-                    </div>
-                  </div>
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree</Label>
-                      <Input placeholder="e.g., Master's, Bachelor's" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
-                      <p className="mt-1 text-[10px] text-neutral-400 font-medium">Your highest degree or current program</p>
-                    </div>
-                    <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year</Label>
-                      <Input placeholder="e.g., 2025" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <Input name="graduation_year" placeholder="e.g., 2025" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
                       <p className="mt-1 text-[10px] text-neutral-400 font-medium">Expected or completed graduation year</p>
                     </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree & Major *</Label>
+                    <Input name="degree_major" required placeholder="e.g., Master's in Computer Science" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Visa Status</Label>
@@ -172,7 +243,7 @@ const Contact = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Resume Upload (Optional)</Label>
-                    <Input type="file" accept=".pdf,.doc,.docx" className="file:rounded-lg file:border-0 file:bg-neutral-100 file:text-neutral-700 cursor-pointer pt-2 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 file:mr-4 file:px-4 file:text-xs file:font-semibold" />
+                    <Input name="resume" type="file" accept=".pdf,.doc,.docx" className="file:rounded-lg file:border-0 file:bg-neutral-100 file:text-neutral-700 cursor-pointer pt-2 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 file:mr-4 file:px-4 file:text-xs file:font-semibold" />
                     <p className="mt-1 text-[10px] text-neutral-400 font-medium">PDF or Word document preferred</p>
                   </div>
                   <div className="space-y-1.5">
@@ -192,7 +263,7 @@ const Contact = () => {
                   {referralSource === "friend" && (
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Friend's Name</Label>
-                      <Input placeholder="Who referred you to HYRIND?" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <Input name="referral_friend" placeholder="Who referred you to HYRIND?" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
                     </div>
                   )}
 
@@ -206,9 +277,9 @@ const Contact = () => {
                     />
                     <label htmlFor="terms" className="text-sm text-neutral-600 leading-relaxed font-medium">
                       I agree to HYRIND's{" "}
-                      <a href="/terms" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</a>{" "}
+                      <Link to="/terms" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>{" "}
                       and{" "}
-                      <a href="/privacy-policy" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</a>.
+                      <Link to="/privacy-policy" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</Link>.
                     </label>
                   </div>
 
@@ -221,6 +292,34 @@ const Contact = () => {
             </motion.div>
           </div>
         </section>
+
+        <Dialog open={showSuccessDialog} onOpenChange={(open) => {
+          setShowSuccessDialog(open);
+          if (!open) {
+            setWantsMarketing(null);
+          }
+        }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-[#0d47a1]">
+                Form Submitted Successfully!
+              </DialogTitle>
+              <DialogDescription className="text-neutral-600 mt-2">
+                {wantsMarketing === "yes"
+                  ? "Thank you for your interest! Our team will review your submission and reach out within 24–48 hours to schedule a discovery call."
+                  : "Thank you for reaching out! We'll get back to you within 24–48 hours."}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-6">
+              <Button onClick={() => {
+                setShowSuccessDialog(false);
+                setWantsMarketing(null);
+              }} className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90">
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
       <Footer />
     </div>

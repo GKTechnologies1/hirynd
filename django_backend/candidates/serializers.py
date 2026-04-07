@@ -41,7 +41,11 @@ class CandidateListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Candidate
-        fields = ['id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at']
+        fields = [
+            'id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
+            'university', 'major', 'graduation_year', 'referral_source',
+            'referral_friend_name', 'current_location', 'notes'
+        ]
 
     def get_full_name(self, obj):
         return obj.user.profile.full_name if hasattr(obj.user, 'profile') else ''

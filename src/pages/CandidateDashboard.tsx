@@ -227,21 +227,21 @@ const CandidateDashboard = () => {
             </div>
           </header>
 
-          {/* Timeline Visualization */}
-          <div className="glass-card rounded-3xl p-8 shadow-sm border border-border/30 bg-card/40 backdrop-blur-md">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Journey Progress</h2>
-              <div className="h-1.5 w-32 rounded-full bg-muted overflow-hidden">
-                 <div className="h-full bg-secondary transition-all" style={{ width: '45%' }} />
-              </div>
-            </div>
-            <CandidateTimeline currentStatus={status} />
-          </div>
-
-          <div className="grid gap-8 lg:grid-cols-3">
-            {/* Main Column */}
-            <div className="lg:col-span-2 space-y-8">
+          <div className="grid gap-8 lg:grid-cols-12 items-start">
+            {/* Left Column (Main Journey) */}
+            <div className="lg:col-span-7 space-y-8">
               
+              {/* Timeline Visualization */}
+              <div className="glass-card rounded-3xl p-8 shadow-sm border border-border/30 bg-card/40 backdrop-blur-md">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Journey Progress</h2>
+                  <div className="h-1.5 w-32 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-secondary transition-all" style={{ width: '45%' }} />
+                  </div>
+                </div>
+                <CandidateTimeline currentStatus={status} />
+              </div>
+
               {status === "placed_closed" && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                   <Card className="border-secondary/40 bg-secondary/5 border-l-8 border-l-secondary shadow-lg">
@@ -251,28 +251,14 @@ const CandidateDashboard = () => {
                       </div>
                       <div>
                         <h3 className="text-xl font-bold text-card-foreground">Congratulations! You've been placed! 🎉</h3>
-                        <p className="text-muted-foreground mt-1">Your marketing journey has successfully concluded. We are proud to have been part of your career growth.</p>
+                        <p className="text-muted-foreground mt-1">Your marketing journey has successfully concluded.</p>
                       </div>
                     </CardContent>
                   </Card>
                 </motion.div>
               )}
 
-              {["paused", "cancelled", "on_hold", "past_due"].includes(status) && (
-                <Card className="border-destructive/30 bg-destructive/5 shadow-sm">
-                  <CardContent className="p-6 flex items-center gap-4">
-                    <AlertTriangle className="h-6 w-6 text-destructive" />
-                    <p className="font-semibold text-card-foreground italic leading-relaxed">
-                      Status: <span className="capitalize">{status.replace("_", " ")}</span> — {getNextAction()}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
               <Card className="glass-card shadow-2xl border-none overflow-hidden group hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-500">
-                 <div className="absolute top-0 right-0 p-12 -mr-8 -mt-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                  <Briefcase className="h-48 w-48 text-secondary" />
-                </div>
                 <CardHeader className="pb-4 px-10 pt-10">
                   <CardTitle className="text-2xl font-bold flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-secondary animate-pulse" />
@@ -314,8 +300,19 @@ const CandidateDashboard = () => {
               )}
             </div>
 
-            {/* Sidebar Cards */}
-            <div className="space-y-8">
+            {/* Right Column (Sidebar Support) */}
+            <div className="lg:col-span-5 space-y-8">
+              {["paused", "cancelled", "on_hold", "past_due"].includes(status) && (
+                <Card className="border-destructive/30 bg-destructive/5 shadow-sm">
+                  <CardContent className="p-6 flex items-center gap-4">
+                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                    <p className="font-semibold text-card-foreground italic leading-relaxed">
+                      Status: <span className="capitalize">{status.replace("_", " ")}</span>
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
               <section className="space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1 flex items-center gap-2">
                   <Users className="h-4 w-4" /> Your Support Team
@@ -341,33 +338,35 @@ const CandidateDashboard = () => {
                         <div className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-muted/20">
                           <Users className="h-8 w-8 text-muted-foreground/20" />
                         </div>
-                        <p className="text-xs text-muted-foreground italic max-w-[200px] mx-auto leading-relaxed">A dedicated support team will be assigned once your marketing profile is finalized.</p>
+                        <p className="text-xs text-muted-foreground italic max-w-[200px] mx-auto leading-relaxed text-center">A dedicated support team will be assigned once your marketing profile is finalized.</p>
                       </div>
                     )}
                   </div>
                 </Card>
               </section>
 
-              <section className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1 flex items-center gap-2">
-                  <Calendar className="h-4 w-4" /> Training & Calls
-                </h3>
-                <Card className="border-border/40 bg-card/30 p-2">
-                  <div className="grid gap-2">
-                    <TrainingButton candidate={candidate} type="training_practice" label="Training Practice" />
-                    <TrainingButton candidate={candidate} type="mock_practice" label="Mock Practice Call" />
-                    <TrainingButton candidate={candidate} type="interview_training" label="Interview Training" />
-                    <TrainingButton candidate={candidate} type="interview_support" label="Interview Support" />
-                    <TrainingButton candidate={candidate} type="operations_call" label="Operations Call" />
-                  </div>
-                </Card>
-              </section>
+              {status === "active_marketing" && (
+                <section className="space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground px-1 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" /> Training & Calls
+                  </h3>
+                  <Card className="border-border/40 bg-card/30 p-2">
+                    <div className="grid gap-2">
+                      <TrainingButton candidate={candidate} type="training_practice" label="Training Practice" />
+                      <TrainingButton candidate={candidate} type="mock_practice" label="Mock Practice Call" />
+                      <TrainingButton candidate={candidate} type="interview_training" label="Interview Training" />
+                      <TrainingButton candidate={candidate} type="interview_support" label="Interview Support" />
+                      <TrainingButton candidate={candidate} type="operations_call" label="Operations Call" />
+                    </div>
+                  </Card>
+                </section>
+              )}
 
               <Card className="border-border/40 bg-gradient-to-br from-card to-muted/20 shadow-sm overflow-hidden border-none shadow-lg">
                 <CardContent className="p-8 text-center space-y-5">
                   <p className="text-sm font-bold text-muted-foreground leading-relaxed">Questions about your journey?</p>
-                  <Button variant="hero" className="w-full h-11 px-0" onClick={() => navigate('/contact')}>
-                    Message Support
+                  <Button variant="hero" className="w-full h-11 px-0 shadow-lg shadow-primary/20" onClick={() => navigate('/contact?type=general')}>
+                    Message Support / Help Desk
                   </Button>
                 </CardContent>
               </Card>

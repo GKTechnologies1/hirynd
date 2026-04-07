@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { authApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Search, RefreshCw, ShieldCheck, UserX, Mail } from "lucide-react";
+import { Pencil, Trash2, Search, RefreshCw, ShieldCheck, UserX, Mail, Eye } from "lucide-react";
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-purple-100 text-purple-800",
@@ -45,6 +46,7 @@ interface EditUserForm {
 }
 
 const AdminUsersPage = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
@@ -215,11 +217,24 @@ const AdminUsersPage = () => {
             searchPlaceholder="Search by name..."
             searchKey="full_name" // Internal search will work on filtered list
             columns={[
+              {
+                header: "ID",
+                render: (u: any) => (
+                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
+                    {`${u.role === 'recruiter' ? 'HYRREC' : 'HYRCDT'}${u.id.toString().slice(-6).toUpperCase()}`}
+                  </span>
+                ),
+                sortable: true,
+                accessorKey: "id",
+                className: "text-xs pl-4"
+              },
               { 
                 header: "User", 
+                sortable: true,
+                accessorKey: "full_name",
                 render: (u: any) => (
                   <div>
-                    <p className="font-medium text-foreground">{u.full_name || "(name not set)"}</p>
+                    <p className="font-bold text-sm text-foreground">{u.full_name || u.profile?.full_name || "(name not set)"}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Mail className="h-3 w-3" />{u.email}
                     </p>
@@ -228,51 +243,50 @@ const AdminUsersPage = () => {
               },
               { 
                 header: "Role", 
+                sortable: true,
+                accessorKey: "role",
                 render: (u: any) => (
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${ROLE_COLORS[u.role] || "bg-gray-100"}`}>
+                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] || "bg-gray-100"}`}>
                     {u.role?.replace(/_/g, " ")}
                   </span>
                 )
               },
               { 
                 header: "Status", 
+                sortable: true,
+                accessorKey: "approval_status",
                 render: (u: any) => (
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${APPROVAL_COLORS[u.approval_status] || "bg-gray-100"}`}>
+                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${APPROVAL_COLORS[u.approval_status] || "bg-gray-100"}`}>
                     {u.approval_status}
                   </span>
                 )
               },
               { 
-                header: "Active", 
-                render: (u: any) => (
-                  <span className={`text-xs ${u.is_active !== false ? "text-green-600" : "text-red-500"}`}>
-                    {u.is_active !== false ? "Active" : "Inactive"}
-                  </span>
-                )
-              },
-              { 
                 header: "Joined", 
+                sortable: true,
+                accessorKey: "date_joined",
                 render: (u: any) => (
-                  <span className="text-xs text-muted-foreground">
-                    {u.date_joined ? new Date(u.date_joined).toLocaleDateString() : u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
-                  </span>
+                  <div className="text-[10px]">
+                    <p className="font-bold">{u.date_joined ? new Date(u.date_joined).toLocaleDateString() : u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</p>
+                    <p className="opacity-50">{u.date_joined ? new Date(u.date_joined).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
+                  </div>
                 )
               },
               { 
                 header: "Actions", 
-                className: "text-right",
+                className: "text-right pr-4",
                 render: (u: any) => (
-                  <div className="flex justify-end gap-1">
-                    {u.approval_status === "pending" && (
-                      <Button size="icon" variant="ghost" className="text-green-600" title="Quick Approve" onClick={() => quickApprove(u)}>
-                        <ShieldCheck className="h-4 w-4" />
+                  <div className="flex justify-end gap-1.5">
+                    {(u.role === 'candidate' || u.role === 'recruiter') && (
+                      <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={() => navigate(`/admin-dashboard/${u.role}s/${u.id}`)}>
+                        <Eye className="h-3 w-3 mr-1" /> View Details
                       </Button>
                     )}
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(u)}>
-                      <Pencil className="h-4 w-4" />
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(u)}>
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeleteTarget(u)}>
-                      <Trash2 className="h-4 w-4" />
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/5" onClick={() => setDeleteTarget(u)}>
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 )

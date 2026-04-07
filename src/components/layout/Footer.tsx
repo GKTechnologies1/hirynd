@@ -130,7 +130,9 @@ const Footer = () => {
             <div className="footer-link-custom"><Link to="/services">Services</Link></div>
             <div className="footer-link-custom"><Link to="/how-it-works">How it works</Link></div>
             <div className="footer-link-custom"><Link to="/reviews">Reviews</Link></div>
-            <div className="footer-link-custom"><Link to="/contact">Contact us</Link></div>
+            <div className="footer-link-custom"><Link to="/contact?type=general">Contact us</Link></div>
+            <div className="footer-link-custom font-bold" style={{ marginTop: '15px' }}><Link to="/privacy-policy">Privacy Policy</Link></div>
+            <div className="footer-link-custom font-bold"><Link to="/terms">Terms & Conditions</Link></div>
           </div>
 
           {/* Our Solutions */}
@@ -174,9 +176,9 @@ const Footer = () => {
               <a href="https://linkedin.com/company/hyrind" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
                 <Linkedin size={20} />
               </a>
-              {/* <a href="https://Wa.me/+1-314-354-0634/" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
+              <a href="https://Wa.me/+13143540634/" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
                 <WhatsAppIcon size={20} />
-              </a> */}
+              </a>
             </div>
           </div>
         </div>

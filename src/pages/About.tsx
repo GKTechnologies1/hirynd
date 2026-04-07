@@ -123,11 +123,29 @@ const About = () => {
 
         .serve-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          grid-template-columns: repeat(3, 1fr);
           gap: 30px;
           max-width: 1200px;
           margin: 0 auto;
           padding: 0 20px;
+        }
+
+        @media (min-width: 1024px) {
+          .serve-grid > *:last-child:nth-child(4) {
+             grid-column: 2;
+          }
+        }
+
+        @media (max-width: 1023px) {
+          .serve-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (max-width: 640px) {
+          .serve-grid {
+            grid-template-columns: 1fr;
+          }
         }
 
         .serve-card {
@@ -230,11 +248,29 @@ const About = () => {
 
         .approach-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          grid-template-columns: repeat(3, 1fr);
           gap: 30px;
           max-width: 1200px;
           margin: 0 auto;
           padding: 0 20px;
+        }
+
+        @media (min-width: 1024px) {
+          .approach-grid > *:last-child:nth-child(4) {
+             grid-column: 2;
+          }
+        }
+
+        @media (max-width: 1023px) {
+          .approach-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (max-width: 640px) {
+          .approach-grid {
+            grid-template-columns: 1fr;
+          }
         }
 
         .approach-card {

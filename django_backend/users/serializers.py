@@ -358,10 +358,15 @@ class ContactSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     university = serializers.CharField(max_length=120, required=False, allow_blank=True)
     major = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    degree_major = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    graduation_year = serializers.CharField(max_length=10, required=False, allow_blank=True)
     visa_status = serializers.CharField(max_length=50, required=False, allow_blank=True)
     referral_source = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    referral_friend = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    current_location = serializers.CharField(max_length=255, required=False, allow_blank=True)
     mode = serializers.ChoiceField(choices=['interest', 'general'])
     message = serializers.CharField(required=False, allow_blank=True)
+    resume = serializers.FileField(required=False, allow_null=True)
 
     def validate_email(self, value):
         # We don't block general inquiries if email exists, 

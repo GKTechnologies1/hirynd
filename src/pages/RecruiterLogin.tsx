@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { format, parse } from "date-fns";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -11,8 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/services/api";
-import { Clock, XCircle } from "lucide-react";
+import { Clock, XCircle, Search } from "lucide-react";
 import PasswordField from "@/components/auth/PasswordField";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 const SOURCE_OPTIONS = ["LinkedIn", "Google", "University", "Friend", "Social Media", "Other"];
 const WORK_TYPE_OPTIONS = ["Full-time", "Part-time", "Contract", "Remote"];
@@ -38,6 +40,7 @@ const RecruiterLogin = () => {
     prior_recruitment_experience: "",
     work_type_preference: "",
     consent_to_terms: false,
+    countryCode: "+1",
   });
   const [regErrors, setRegErrors] = useState<Record<string, string>>({});
 
@@ -58,6 +61,11 @@ const RecruiterLogin = () => {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reg.email)) errors.email = "Enter a valid email address";
 
     if (!reg.phone.trim()) errors.phone = "Phone number is required";
+    else if (!/^\d{10}$/.test(reg.phone.replace(/\D/g, ""))) errors.phone = "Phone must be exactly 10 digits";
+
+    if (!reg.city.trim()) errors.city = "City is required";
+    if (!reg.state.trim()) errors.state = "State is required";
+    if (!reg.country.trim()) errors.country = "Country is required";
 
     if (!reg.password) errors.password = "Password is required";
     else if (reg.password.length < 8) errors.password = "Min 8 chars required";
@@ -68,7 +76,10 @@ const RecruiterLogin = () => {
 
     if (!reg.university_name.trim()) errors.university_name = "University is required";
     if (!reg.major_degree.trim()) errors.major_degree = "Major/degree is required";
+    
+    const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
+    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-dd-yyyy format";
 
     if (!reg.linkedin_url.trim() && !reg.social_profile.trim()) 
       errors.linkedin_url = "LinkedIn URL or Social Profile is required for recruiter registration";
@@ -79,6 +90,15 @@ const RecruiterLogin = () => {
     if (!reg.consent_to_terms) errors.consent_to_terms = "You must agree to the Terms and Conditions";
 
     setRegErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.keys(errors)[0];
+      const element = document.getElementById(`reg-${firstError}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.focus();
+      }
+    }
     return Object.keys(errors).length === 0;
   };
 
@@ -118,8 +138,10 @@ const RecruiterLogin = () => {
       first_name: reg.first_name.trim(),
       last_name: reg.last_name.trim(),
       email: reg.email.toLowerCase().trim(),
+      phone: `${reg.countryCode}${reg.phone.replace(/\D/g, "")}`,
       role: "recruiter",
       consent_to_terms: reg.consent_to_terms,
+      graduation_date: reg.graduation_date ? format(parse(reg.graduation_date, "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "",
     };
 
     try {
@@ -165,8 +187,8 @@ const RecruiterLogin = () => {
             </div>
             
             <div className="flex flex-col gap-3">
-              <Button variant="hero" className="h-11 rounded-xl shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30" onClick={() => { setRegistrationComplete(false); setApprovalStatus(null); }}>
-                Logout
+              <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold" onClick={() => navigate("/")}>
+                Back to Home
               </Button>
               <p className="text-xs text-muted-foreground mt-2">
                 Need help? <Link to="/contact" className="underline decoration-muted-foreground/30 hover:text-primary transition-colors">Contact Support</Link>
@@ -276,17 +298,13 @@ const RecruiterLogin = () => {
             <TabsContent value="register" className="mt-0 animate-in" style={{animationDelay: '0.1s'}}>
               <form onSubmit={handleRegister} className="space-y-6">
                 <div className="space-y-6 max-h-[52vh] overflow-y-auto pr-2 custom-scrollbar py-1">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Personal Identity</span>
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                  </div>
                   
+                  {/* Identity Section */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">First Name *</Label>
                       <Input 
+                        id="reg-first_name"
                         value={reg.first_name} 
                         onChange={e => updateReg("first_name", e.target.value)} 
                         maxLength={60} 
@@ -297,6 +315,7 @@ const RecruiterLogin = () => {
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">Last Name *</Label>
                       <Input 
+                        id="reg-last_name"
                         value={reg.last_name} 
                         onChange={e => updateReg("last_name", e.target.value)} 
                         maxLength={60} 
@@ -309,6 +328,7 @@ const RecruiterLogin = () => {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Email *</Label>
                     <Input 
+                      id="reg-email"
                       type="email" 
                       value={reg.email} 
                       onChange={e => updateReg("email", e.target.value)} 
@@ -318,142 +338,125 @@ const RecruiterLogin = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Phone *</Label>
-                    <Input 
-                      type="tel" 
-                      value={reg.phone} 
-                      onChange={e => updateReg("phone", e.target.value)} 
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
-                    />
+                    <Label className="text-sm font-medium ml-1">Phone Number *</Label>
+                    <div className="flex gap-2">
+                      <Select value={reg.countryCode} onValueChange={(v) => updateReg("countryCode", v)}>
+                        <SelectTrigger className="w-[100px] h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                          <SelectItem value="+91">🇮🇳 +91</SelectItem>
+                          <SelectItem value="+44">🇬🇧 +44</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input 
+                        id="reg-phone"
+                        type="tel" 
+                        value={reg.phone} 
+                        onChange={e => updateReg("phone", e.target.value.replace(/\D/g, "").slice(0, 10))} 
+                        placeholder="1234567890"
+                        className="flex-1 h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
+                      />
+                    </div>
                     {regErrors.phone && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.phone}</p>}
                   </div>
                   
-                  <PasswordField 
-                    label="Password *" 
-                    value={reg.password} 
-                    onChange={v => updateReg("password", v)} 
-                    error={regErrors.password} 
-                    placeholder="Minimum 8 characters"
-                  />
-                  
-                  <PasswordField 
-                    label="Confirm Password *" 
-                    value={reg.confirm_password} 
-                    onChange={v => updateReg("confirm_password", v)} 
-                    error={regErrors.confirm_password} 
-                  />
-                </div>
+                  <PasswordField id="reg-password" label="Password *" value={reg.password} onChange={v => updateReg("password", v)} error={regErrors.password} placeholder="Minimum 8 characters" />
+                  <PasswordField id="reg-confirm_password" label="Confirm Password *" value={reg.confirm_password} onChange={v => updateReg("confirm_password", v)} error={regErrors.confirm_password} />
 
-                <div className="space-y-4 pt-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Background</span>
-                    <div className="h-px bg-neutral-200 flex-grow" />
+                  {/* Academic Section */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">University *</Label>
+                    <Input id="reg-university_name" value={reg.university_name} onChange={e => updateReg("university_name", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
+                    {regErrors.university_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.university_name}</p>}
                   </div>
-                  
-                  <div className="space-y-2"><Label className="text-sm font-medium ml-1">University *</Label><Input value={reg.university_name} onChange={e => updateReg("university_name", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm" />
-                    {regErrors.university_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.university_name}</p>}</div>
-                  <div className="space-y-2"><Label className="text-sm font-medium ml-1">Major / Degree *</Label><Input value={reg.major_degree} onChange={e => updateReg("major_degree", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm" />
-                    {regErrors.major_degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major_degree}</p>}</div>
-                  <div className="space-y-2"><Label className="text-sm font-medium ml-1">Graduation Date *</Label><Input type="date" value={reg.graduation_date} onChange={e => updateReg("graduation_date", e.target.value)} className="block w-full h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm" />
-                    {regErrors.graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.graduation_date}</p>}</div>
-                </div>
-
-
-
-                <div className="space-y-4 pt-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Professional Profile (One required *)</span>
-                    <div className="h-px bg-neutral-200 flex-grow" />
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">Degree & Major *</Label>
+                    <Input id="reg-major_degree" value={reg.major_degree} onChange={e => updateReg("major_degree", e.target.value)} placeholder="e.g., Master's in Computer Science" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
+                    {regErrors.major_degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major_degree}</p>}
                   </div>
-                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">Graduation Date *</Label>
+                    <DatePicker id="reg-graduation_date" value={reg.graduation_date} onChange={val => updateReg("graduation_date", val)} placeholder="MM-dd-yyyy" />
+                    {regErrors.graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.graduation_date}</p>}
+                  </div>
+
+                  {/* Professional Section */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">LinkedIn URL</Label>
-                    <Input 
-                      type="url" 
-                      value={reg.linkedin_url} 
-                      onChange={e => updateReg("linkedin_url", e.target.value)} 
-                      placeholder="https://linkedin.com/in/..."
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm"
-                    />
+                    <Input id="reg-linkedin_url" type="url" value={reg.linkedin_url} onChange={e => updateReg("linkedin_url", e.target.value)} placeholder="https://linkedin.com/in/..." className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
                     {regErrors.linkedin_url && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.linkedin_url}</p>}
                   </div>
-                  
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Social Profile (e.g. GitHub/Portfolio)</Label>
-                    <Input 
-                      type="url" 
-                      value={reg.social_profile} 
-                      onChange={e => updateReg("social_profile", e.target.value)} 
-                      placeholder="GitHub, Website, etc."
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm"
-                    />
+                    <Label className="text-sm font-medium ml-1">Social Profile (GitHub/Portfolio)</Label>
+                    <Input id="reg-social_profile" type="url" value={reg.social_profile} onChange={e => updateReg("social_profile", e.target.value)} placeholder="Website, GitHub etc." className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
                   </div>
-                  
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Discovery Source *</Label>
                     <Select value={reg.how_did_you_hear} onValueChange={v => updateReg("how_did_you_hear", v)}>
-                      <SelectTrigger className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger id="reg-how_did_you_hear" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>{SOURCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                     </Select>
                     {regErrors.how_did_you_hear && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.how_did_you_hear}</p>}
                   </div>
-                  
                   {reg.how_did_you_hear === "Friend" && (
-                    <div className="space-y-2 animate-in slide-in-from-top-1"><Label className="text-sm font-medium ml-1">Friend's Name *</Label><Input value={reg.friend_name} onChange={e => updateReg("friend_name", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm" />
-                      {regErrors.friend_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.friend_name}</p>}</div>
+                    <div className="space-y-2 animate-in slide-in-from-top-1">
+                      <Label className="text-sm font-medium ml-1">Friend's Name *</Label>
+                      <Input id="reg-friend_name" value={reg.friend_name} onChange={e => updateReg("friend_name", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
+                      {regErrors.friend_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.friend_name}</p>}
+                    </div>
                   )}
-                </div>
 
-                <div className="space-y-4 pt-2 pb-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">Location & Preferences</span>
-                    <div className="h-px bg-neutral-200 flex-grow" />
-                  </div>
-                  
+                  {/* Location Section */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">City</Label><Input value={reg.city} onChange={e => updateReg("city", e.target.value)} placeholder="e.g. Dallas" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm" /></div>
-                    <div className="space-y-2"><Label className="text-sm font-medium ml-1">State</Label><Input value={reg.state} onChange={e => updateReg("state", e.target.value)} placeholder="e.g. TX" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm" /></div>
-                    <div className="col-span-2 space-y-2"><Label className="text-sm font-medium ml-1">Country</Label><Input value={reg.country} onChange={e => updateReg("country", e.target.value)} placeholder="e.g. USA" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm" /></div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium ml-1">City *</Label>
+                      <Input id="reg-city" value={reg.city} onChange={e => updateReg("city", e.target.value)} placeholder="e.g. Dallas" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
+                      {regErrors.city && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.city}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium ml-1">State *</Label>
+                      <Input id="reg-state" value={reg.state} onChange={e => updateReg("state", e.target.value)} placeholder="e.g. TX" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
+                      {regErrors.state && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.state}</p>}
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label className="text-sm font-medium ml-1">Country *</Label>
+                      <Input id="reg-country" value={reg.country} onChange={e => updateReg("country", e.target.value)} placeholder="e.g. USA" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
+                      {regErrors.country && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.country}</p>}
+                    </div>
                   </div>
                   
-                  <div className="space-y-2"><Label className="text-sm font-medium ml-1">Prior Recruitment Experience</Label><Textarea value={reg.prior_recruitment_experience} onChange={e => updateReg("prior_recruitment_experience", e.target.value)} maxLength={500} placeholder="Briefly describe your experience" className="rounded-lg bg-white/50 border-white/40 min-h-[100px]" /></div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">Prior Recruitment Experience</Label>
+                    <Textarea value={reg.prior_recruitment_experience} onChange={e => updateReg("prior_recruitment_experience", e.target.value)} maxLength={500} placeholder="Briefly describe your experience" className="rounded-lg bg-neutral-50 min-h-[100px]" />
+                  </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Work Type Preference</Label>
                     <Select value={reg.work_type_preference} onValueChange={v => updateReg("work_type_preference", v)}>
-                      <SelectTrigger className="h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectTrigger className="h-10 rounded-lg bg-neutral-50 shadow-sm"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>{WORK_TYPE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  </div>
 
                   <div className="pt-2 px-1">
-                    <div className="flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 shadow-sm transition-all hover:bg-white">
+                    <div className="flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 transition-all hover:bg-white shadow-sm">
                       <div className="pt-0.5">
-                        <input
-                          type="checkbox"
-                          id="consent_to_terms"
-                          checked={reg.consent_to_terms}
-                          onChange={e => updateReg("consent_to_terms", e.target.checked)}
-                          className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary"
-                        />
+                        <input type="checkbox" id="reg-consent_to_terms" checked={reg.consent_to_terms} onChange={e => updateReg("consent_to_terms", e.target.checked)} className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary" />
                       </div>
-                      <Label htmlFor="consent_to_terms" className="text-xs text-muted-foreground leading-normal cursor-pointer select-none">
+                      <Label htmlFor="reg-consent_to_terms" className="text-xs text-muted-foreground leading-normal cursor-pointer select-none">
                         I hereby confirm that all information provided is accurate and agree to the{" "}
-                        <a href="https://merchant.razorpay.com/policy/Rn2giKHxuBBdz0/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline">Terms of Service</a>
-                         {" "}and{" "}
-                        <a href="https://merchant.razorpay.com/policy/Rn2giKHxuBBdz0/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline">Privacy Policy</a>. *
+                        <Link to="/terms" className="text-primary font-bold hover:underline">Terms of Service</Link>
+                        {" "}and{" "}
+                        <Link to="/privacy-policy" className="text-primary font-bold hover:underline">Privacy Policy</Link>. *
                       </Label>
                     </div>
                     {regErrors.consent_to_terms && <p className="text-[10px] text-destructive mt-1 font-medium ml-2">{regErrors.consent_to_terms}</p>}
                   </div>
-
-                </div>{/* end scrollable fields */}
+                </div>
 
                 <div className="pt-3 pb-1 border-t border-neutral-100">
-                  <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold" disabled={submitting}>
+                  <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/20" disabled={submitting}>
                     {submitting ? "Processing Application..." : "Create Recruiter Account"}
                   </Button>
                 </div>

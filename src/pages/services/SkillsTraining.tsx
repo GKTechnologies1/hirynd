@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { motion } from "framer-motion";
@@ -16,6 +17,13 @@ const features = [
 ];
 
 const SkillsTraining = () => {
+  useEffect(() => {
+    document.body.style.paddingTop = '80px';
+    return () => {
+      document.body.style.paddingTop = '0px';
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />

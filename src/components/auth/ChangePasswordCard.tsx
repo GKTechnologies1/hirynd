@@ -67,15 +67,16 @@ export const ChangePasswordCard = () => {
       await authApi.changePassword({
         new_password: newPassword,
         confirm_new_password: confirmPassword,
+        current_password: ""
       });
       toast({ title: "Password updated successfully" });
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      toast({ 
-        title: "Error", 
-        description: err.response?.data?.error || "Failed to update password", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: err.response?.data?.error || "Failed to update password",
+        variant: "destructive"
       });
     }
     setSubmitting(false);
@@ -91,27 +92,27 @@ export const ChangePasswordCard = () => {
           Update your security credentials. Current password is not required while logged in.
         </p>
         <form onSubmit={handleSubmit} className="space-y-5">
-          <PasswordInput 
+          <PasswordInput
             id="new-password"
-            label="New Password" 
-            value={newPassword} 
-            onChange={setNewPassword} 
-            show={showNew} 
-            onToggle={() => setShowNew(!showNew)} 
-            error={errors.newPassword} 
+            label="New Password"
+            value={newPassword}
+            onChange={setNewPassword}
+            show={showNew}
+            onToggle={() => setShowNew(!showNew)}
+            error={errors.newPassword}
           />
-          <PasswordInput 
+          <PasswordInput
             id="confirm-password"
-            label="Confirm New Password" 
-            value={confirmPassword} 
-            onChange={setConfirmPassword} 
-            show={showConfirm} 
-            onToggle={() => setShowConfirm(!showConfirm)} 
-            error={errors.confirmPassword} 
+            label="Confirm New Password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            show={showConfirm}
+            onToggle={() => setShowConfirm(!showConfirm)}
+            error={errors.confirmPassword}
           />
-          <Button 
-            variant="hero" 
-            className="w-full mt-4 h-11 font-bold shadow-lg shadow-primary/10" 
+          <Button
+            variant="hero"
+            className="w-full mt-4 h-11 font-bold shadow-lg shadow-primary/10"
             disabled={submitting}
           >
             {submitting ? "Updating Security..." : "Update Password"}

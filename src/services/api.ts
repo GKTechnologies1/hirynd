@@ -76,7 +76,8 @@ export const authApi = {
   updateUser: (userId: string, data: Record<string, any>) => api.patch(`/auth/users/${userId}/`, data),
   deleteUser: (userId: string) => api.delete(`/auth/users/${userId}/`),
   analytics: () => api.get('/auth/analytics/'),
-  submitContact: (data: any) => api.post('/auth/contact/', data),
+  submitContact: (data: any) => 
+    api.post('/auth/contact/', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
 };
 
 // ─── Candidates ───

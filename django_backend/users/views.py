@@ -1,9 +1,12 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .models import User
 from candidates.models import Candidate
@@ -290,8 +293,10 @@ def manage_user(request, user_id):
     return Response(UserListSerializer(user).data)
 
 
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 def submit_contact(request):
     serializer = ContactSerializer(data=request.data)
     if not serializer.is_valid():
@@ -323,20 +328,57 @@ def submit_contact(request):
             }
         )
         
+        # Handle Resume File
+        resume_url = ''
+        resume_file = data.get('resume')
+        if resume_file:
+            import uuid
+            ext = resume_file.name.split('.')[-1] if '.' in resume_file.name else 'bin'
+            file_path = f'leads/resumes/{uuid.uuid4()}.{ext}'
+            saved_path = default_storage.save(file_path, ContentFile(resume_file.read()))
+            resume_url = saved_path
+
         # Create/Update Candidate with status='lead'
         candidate, cand_created = Candidate.objects.get_or_create(
             user=user,
             defaults={
                 'status': 'lead',
                 'university': data.get('university', ''),
-                'major': data.get('major', ''),
+                'major': data.get('major') or data.get('degree_major', ''),
+                'graduation_year': data.get('graduation_year', ''),
                 'visa_status': data.get('visa_status', ''),
+                'current_location': data.get('current_location', ''),
                 'referral_source': data.get('referral_source', ''),
+                'referral_friend_name': data.get('referral_friend', ''),
+                'notes': data.get('message', ''),
+                'resume_url': resume_url,
             }
         )
-        if not cand_created and candidate.status == 'pending_approval':
-            candidate.status = 'lead'
-            candidate.save(update_fields=['status'])
+        if not cand_created:
+            if candidate.status == 'pending_approval':
+                candidate.status = 'lead'
+            
+            # Also update fields if they were blank
+            fields_to_update = []
+            updates = {
+                'university': data.get('university'),
+                'major': data.get('major') or data.get('degree_major'),
+                'graduation_year': data.get('graduation_year'),
+                'visa_status': data.get('visa_status'),
+                'current_location': data.get('current_location'),
+                'referral_source': data.get('referral_source'),
+                'referral_friend_name': data.get('referral_friend'),
+                'notes': data.get('message', ''),
+                'resume_url': resume_url,
+            }
+            for field, value in updates.items():
+                if value and not getattr(candidate, field):
+                    setattr(candidate, field, value)
+                    fields_to_update.append(field)
+            
+            if 'status' not in fields_to_update:
+                fields_to_update.append('status')
+            candidate.save(update_fields=fields_to_update)
 
         # Notify admin of new lead
         admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')
@@ -364,7 +406,10 @@ def submit_contact(request):
             email_type='interest_confirmation'
         )
         
-        log_action(user, 'interest_form_submitted', str(user.id), 'user', data)
+        log_data = data.copy()
+        if 'resume' in log_data:
+            log_data.pop('resume')
+        log_action(user, 'interest_form_submitted', str(user.id), 'user', log_data)
         return Response({'message': 'Interest form submitted successfully.'}, status=status.HTTP_201_CREATED)
 
     else:

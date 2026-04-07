@@ -73,7 +73,7 @@ const ForgotPassword = () => {
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium ml-1">Account Email</Label>
                   <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-primary transition-colors z-10" />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 z-10" />
                     <Input
                       id="email"
                       type="email"

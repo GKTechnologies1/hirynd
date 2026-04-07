@@ -470,7 +470,7 @@ export default function Header() {
               <Link to="/reviews" className={`nav-link ${isActive("/reviews") ? "active" : ""}`}>
                 Reviews
               </Link>
-              <Link to="/contact" className={`nav-link ${isActive("/contact") ? "active" : ""}`}>
+              <Link to="/contact?type=general" className={`nav-link ${isActive("/contact") ? "active" : ""}`}>
                 Contact Us
               </Link>
 
@@ -507,15 +507,9 @@ export default function Header() {
                       <Link to="/recruiter-login" onClick={closeLoginDropdown} className="dropdown-item">
                         Recruiter Login / Register
                       </Link>
-                      <Link to="/admin-login" onClick={closeLoginDropdown} className="dropdown-item">
-                        Admin Portal
-                      </Link>
                     </div>
                   )}
                 </div>
-                <Link to="/admin-login" className="nav-link" style={{ fontSize: '12px', opacity: 0.7, padding: '6px 12px' }}>
-                  🔒 Admin
-                </Link>
                 </>
               ) : (
                 <div className="profile-container">
@@ -590,7 +584,6 @@ export default function Header() {
                 <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
                    <Link to="/candidate-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Candidate Login</Link>
                    <Link to="/recruiter-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Recruiter Login</Link>
-                   <Link to="/admin-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px', fontSize: '13px', opacity: 0.7}}>🔒 Admin Portal</Link>
                 </div>
              ) : (
                <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>

@@ -235,7 +235,7 @@ export default function HowItWorks() {
            </div>
         </section>
 
-        <div className="text-center py-20 italic text-gray-500 font-semibold text-xl">
+        <div className="text-center py-20 italic text-gray-500 font-bold text-2xl">
            <p>“We believe in doing the right things, the right way, at the right time to deliver the right results.”</p>
         </div>
       </main>

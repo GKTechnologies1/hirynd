@@ -18,6 +18,7 @@ import AdminCandidatesPage from "@/pages/admin/AdminCandidatesPage";
 import AdminRecruitersPage from "@/pages/admin/AdminRecruitersPage";
 import AdminRecruiterDetail from "@/pages/admin/AdminRecruiterDetail";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
+import AdminInterestedCandidatesPage from "@/pages/admin/AdminInterestedCandidatesPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
@@ -38,6 +39,7 @@ const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
   { label: "Approvals", path: "/admin-dashboard/approvals", icon: <Shield className="h-4 w-4" /> },
   { label: "All Users", path: "/admin-dashboard/users", icon: <Users className="h-4 w-4" /> },
+  { label: "Interested Candidates", path: "/admin-dashboard/interested-candidates", icon: <UserPlus className="h-4 w-4" /> },
   { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Users className="h-4 w-4" /> },
   { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
   { label: "Jobs", path: "/admin-dashboard/jobs", icon: <Briefcase className="h-4 w-4" /> },
@@ -98,12 +100,8 @@ const AdminDashboard = () => {
     } catch {}
 
     try {
-      const [analyticsRes, revenueRes] = await Promise.all([
-        authApi.analytics(),
-        billingApi.billingAnalytics(),
-      ]);
-      setAnalytics(analyticsRes.data);
-      setRevenueData(revenueRes.data?.revenue_by_month || []);
+      const { data: pending } = await authApi.pendingApprovals();
+      setPendingApprovals(Array.isArray(pending) ? pending.length : 0);
     } catch {}
 
     if (user) {
@@ -155,6 +153,7 @@ const AdminDashboard = () => {
       case "users": return <AdminUsersPage />;
       case "jobs": return <AdminJobsPage />;
       case "candidates": return <AdminCandidatesPage />;
+      case "interested-candidates": return <AdminInterestedCandidatesPage />;
       case "recruiters": return <AdminRecruitersPage />;
       case "payments": return <AdminPaymentsPage />;
       case "notifications": return <AdminNotificationsPage />;
@@ -245,73 +244,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Analytics Charts */}
-        {analytics && (
-          <div className="dashboard-section">
-            <p className="dashboard-section-title">Analytics</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Registrations trend */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">User Registrations (6 months)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={analytics.registrations_by_month || []}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="count" stroke="hsl(var(--secondary))" strokeWidth={2} dot={{ r: 3 }} name="Registrations" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Revenue trend */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Revenue (6 months)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <ReBarChart data={revenueData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(v: any) => [`$${Number(v).toLocaleString("en-US")}`, "Revenue"]} />
-                      <Bar dataKey="revenue" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} name="Revenue" />
-                    </ReBarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Pipeline bar chart */}
-              <Card className="md:col-span-2">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Pipeline Stage Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <ReBarChart
-                      layout="vertical"
-                      data={Object.entries(pipelineCounts)
-                        .filter(([, v]) => v > 0)
-                        .map(([k, v]) => ({ stage: k.replace(/_/g, " "), count: v }))
-                      }
-                    >
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <YAxis type="category" dataKey="stage" tick={{ fontSize: 10 }} width={130} />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="hsl(var(--secondary))" radius={[0, 4, 4, 0]} />
-                    </ReBarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
 
         {activeFilter && (
           <div className="mb-4 flex items-center gap-2">
@@ -332,12 +264,36 @@ const AdminDashboard = () => {
               searchKey="full_name"
               searchPlaceholder="Search candidates by name..."
               columns={[
-                { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold" },
-                { header: "Email", accessorKey: "email", className: "text-xs font-semibold" },
+                { 
+                  header: "ID", 
+                  render: (c: any) => (
+                    <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
+                      {`HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
+                    </span>
+                  ),
+                  sortable: true,
+                  accessorKey: "id",
+                  className: "text-xs pl-4" 
+                },
+                { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold", sortable: true },
+                { header: "Email", accessorKey: "email", className: "text-xs font-semibold", sortable: true },
                 { 
                   header: "Status", 
                   render: (c: any) => <StatusBadge status={c.status} />,
-                  className: "text-xs font-semibold"
+                  className: "text-xs font-semibold",
+                  sortable: true,
+                  accessorKey: "status"
+                },
+                {
+                  header: "Joined",
+                  render: (c: any) => (
+                    <div className="text-[10px]">
+                      <p className="font-bold">{c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}</p>
+                      <p className="opacity-50">{c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
+                    </div>
+                  ),
+                  sortable: true,
+                  accessorKey: "created_at"
                 },
                 { 
                   header: "Change Status", 
@@ -354,11 +310,11 @@ const AdminDashboard = () => {
                 { 
                   header: "Actions", 
                   render: (c: any) => (
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
-                      <Eye className="mr-1 h-3.5 w-3.5" /> View
+                    <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
+                      <Eye className="mr-1.5 h-3.5 w-3.5" /> View Detail
                     </Button>
                   ),
-                  className: "text-xs font-semibold"
+                  className: "text-xs font-semibold text-right pr-4"
                 }
               ]}
             />
@@ -373,7 +329,9 @@ const AdminDashboard = () => {
       title={subPath === "" ? "Admin Operations" : subPath.charAt(0).toUpperCase() + subPath.slice(1).replace(/-/g, " ")} 
       navItems={navItems}
     >
-      {getContent()}
+      <div key={location.pathname} className="animate-in fade-in duration-500">
+        {getContent()}
+      </div>
     </DashboardLayout>
   );
 };

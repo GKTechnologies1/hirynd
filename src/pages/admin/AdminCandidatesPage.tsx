@@ -16,13 +16,17 @@ const STATUSES = [
   "roles_confirmed", "payment_completed", "credentials_submitted", "active_marketing", "paused", "cancelled", "placed_closed"
 ];
 
-const AdminCandidatesPage = () => {
+interface AdminCandidatesPageProps {
+  statusFilter?: string;
+}
+
+const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [pipelineCounts, setPipelineCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string | null>(statusFilter || null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -124,12 +128,36 @@ const AdminCandidatesPage = () => {
             searchPlaceholder="Search candidates by name..."
             emptyMessage="No candidates found in this stage."
             columns={[
-              { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold" },
-              { header: "Email", accessorKey: "email", className: "text-xs font-semibold" },
+              { 
+                header: "ID", 
+                render: (c: any) => (
+                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
+                    {`HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
+                  </span>
+                ),
+                sortable: true,
+                accessorKey: "id",
+                className: "text-xs pl-4"
+              },
+              { header: "Name", accessorKey: "full_name", className: "text-xs font-bold", sortable: true },
+              { header: "Email", accessorKey: "email", className: "text-xs", sortable: true },
               { 
                 header: "Status", 
                 render: (c: any) => <StatusBadge status={c.status} />,
-                className: "text-xs font-semibold"
+                className: "text-xs",
+                sortable: true,
+                accessorKey: "status"
+              },
+              {
+                header: "Submission Date",
+                render: (c: any) => (
+                  <div className="text-[10px]">
+                    <p className="font-bold">{c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}</p>
+                    <p className="opacity-50">{c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
+                  </div>
+                ),
+                sortable: true,
+                accessorKey: "created_at"
               },
               { 
                 header: "Update Status", 
@@ -143,7 +171,7 @@ const AdminCandidatesPage = () => {
                     </SelectContent>
                   </Select>
                 ),
-                className: "text-xs font-semibold"
+                className: "text-xs"
               },
               { 
                 header: "Actions", 
@@ -152,7 +180,7 @@ const AdminCandidatesPage = () => {
                     <Eye className="mr-1.5 h-3.5 w-3.5" /> View Detail
                   </Button>
                 ),
-                className: "text-xs font-semibold text-right"
+                className: "text-xs text-right pr-4"
               }
             ]}
           />

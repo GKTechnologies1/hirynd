@@ -16,7 +16,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Search } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface DataTableProps<T> {
   data: T[];
@@ -25,6 +26,7 @@ interface DataTableProps<T> {
     accessorKey?: keyof T;
     render?: (row: T) => React.ReactNode;
     className?: string;
+    sortable?: boolean;
   }[];
   searchPlaceholder?: string;
   searchKey?: keyof T;
@@ -46,20 +48,52 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [sortConfig, setSortConfig] = React.useState<{ key: keyof T | null; direction: 'asc' | 'desc' | null }>({ key: null, direction: null });
 
-  const filteredData = React.useMemo(() => {
-    if (!searchTerm || !searchKey) return data;
-    return data.filter((item) => {
-      const val = item[searchKey];
-      if (typeof val === "string") {
-        return val.toLowerCase().includes(searchTerm.toLowerCase());
-      }
-      return false;
-    });
-  }, [data, searchTerm, searchKey]);
+  const handleSort = (key: keyof T) => {
+    let direction: 'asc' | 'desc' | null = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = null;
+    }
+    setSortConfig({ key: direction ? key : null, direction });
+  };
 
-  const totalPages = Math.ceil(filteredData.length / pageSize);
-  const paginatedData = filteredData.slice(
+  const filteredAndSortedData = React.useMemo(() => {
+    let result = [...data];
+
+    // Filter
+    if (searchTerm && searchKey) {
+      result = result.filter((item) => {
+        const val = item[searchKey];
+        if (typeof val === "string") {
+          return val.toLowerCase().includes(searchTerm.toLowerCase());
+        }
+        return false;
+      });
+    }
+
+    // Sort
+    if (sortConfig.key && sortConfig.direction) {
+      result.sort((a, b) => {
+        const aVal = a[sortConfig.key!];
+        const bVal = b[sortConfig.key!];
+
+        if (aVal === bVal) return 0;
+        if (aVal === null || aVal === undefined) return 1;
+        if (bVal === null || bVal === undefined) return -1;
+
+        const comparison = aVal < bVal ? -1 : 1;
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return result;
+  }, [data, searchTerm, searchKey, sortConfig]);
+
+  const totalPages = Math.ceil(filteredAndSortedData.length / pageSize);
+  const paginatedData = filteredAndSortedData.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
@@ -77,7 +111,7 @@ export function DataTable<T>({
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9"
           />
         </div>
       )}
@@ -85,12 +119,34 @@ export function DataTable<T>({
       <div className="rounded-xl border border-border overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              {columns.map((col, i) => (
-                <TableHead key={i} className={col.className}>
-                  {col.header}
-                </TableHead>
-              ))}
+            <TableRow className="bg-muted/40 hover:bg-muted/40 border-b">
+              {columns.map((col, i) => {
+                const isSortable = col.sortable && col.accessorKey;
+                const isSorted = sortConfig.key === col.accessorKey;
+                
+                return (
+                  <TableHead 
+                    key={i} 
+                    className={cn(
+                      "h-10 px-4 text-left align-middle font-bold text-muted-foreground [&:has([role=checkbox])]:pr-0",
+                      col.className,
+                      isSortable && "cursor-pointer select-none transition-colors hover:text-foreground"
+                    )}
+                    onClick={() => isSortable && handleSort(col.accessorKey!)}
+                  >
+                    <div className="flex items-center gap-2">
+                       {col.header}
+                       {isSortable && (
+                         <div className="flex flex-col opacity-40 group-hover:opacity-100">
+                           {isSorted && sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-secondary" /> : 
+                            isSorted && sortConfig.direction === 'desc' ? <ArrowDown className="h-3 w-3 text-secondary" /> :
+                            <ArrowUpDown className="h-3 w-3" />}
+                         </div>
+                       )}
+                    </div>
+                  </TableHead>
+                );
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -100,7 +156,10 @@ export function DataTable<T>({
                   colSpan={columns.length}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Loading...
+                  <div className="flex items-center justify-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </div>
                 </TableCell>
               </TableRow>
             ) : paginatedData.length === 0 ? (
@@ -116,16 +175,19 @@ export function DataTable<T>({
               paginatedData.map((row, i) => (
                 <TableRow
                   key={i}
-                  className={onRowClick ? "cursor-pointer hover:bg-muted/20 transition-colors" : "hover:bg-muted/20 transition-colors"}
+                  className={cn(
+                    "group border-b last:border-0 transition-colors hover:bg-muted/30",
+                    onRowClick && "cursor-pointer"
+                  )}
                   onClick={() => onRowClick && onRowClick(row)}
                 >
                   {columns.map((col, j) => (
-                    <TableCell key={j} className={col.className}>
+                    <TableCell key={j} className={cn("px-4 py-3 align-middle", col.className)}>
                       {col.render
                         ? col.render(row)
                         : col.accessorKey
                         ? (row[col.accessorKey] as React.ReactNode)
-                        : null}
+                        : "—"}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -137,19 +199,21 @@ export function DataTable<T>({
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-2">
-            <p className="text-sm text-muted-foreground">
-                Showing {Math.min((currentPage - 1) * pageSize + 1, filteredData.length)} to {Math.min(currentPage * pageSize, filteredData.length)} of {filteredData.length} entries
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
+                Showing {Math.min((currentPage - 1) * pageSize + 1, filteredAndSortedData.length)}–{Math.min(currentPage * pageSize, filteredAndSortedData.length)} of {filteredAndSortedData.length}
             </p>
           <Pagination className="justify-end w-auto mx-0">
             <PaginationContent>
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className={currentPage === 1 ? "pointer-events-none opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                  className={cn(
+                    "cursor-pointer h-8 w-8 p-0 rounded-lg",
+                    currentPage === 1 && "pointer-events-none opacity-50 cursor-not-allowed"
+                  )}
                 />
               </PaginationItem>
               
-              {/* Simple page numbers */}
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
                 .map((p, i, arr) => (
@@ -161,7 +225,10 @@ export function DataTable<T>({
                             <PaginationLink
                                 isActive={currentPage === p}
                                 onClick={() => setCurrentPage(p)}
-                                className="cursor-pointer"
+                                className={cn(
+                                    "cursor-pointer h-8 w-8 p-0 rounded-lg text-xs font-bold transition-all",
+                                    currentPage === p ? "bg-secondary text-secondary-foreground shadow-sm" : "hover:bg-muted"
+                                )}
                             >
                                 {p}
                             </PaginationLink>
@@ -173,7 +240,10 @@ export function DataTable<T>({
               <PaginationItem>
                 <PaginationNext
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className={currentPage === totalPages ? "pointer-events-none opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                  className={cn(
+                     "cursor-pointer h-8 w-8 p-0 rounded-lg",
+                     currentPage === totalPages && "pointer-events-none opacity-50 cursor-not-allowed"
+                  )}
                 />
               </PaginationItem>
             </PaginationContent>

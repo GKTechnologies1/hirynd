@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, FileText } from "lucide-react";
+import { Lock, FileText, Calendar as CalendarIcon, CheckCircle } from "lucide-react";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 interface CandidateIntakePageProps {
   candidate: any;
@@ -39,6 +40,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     // Section B - Education
     university_name: "",
     degree: "",
+    degree_other: "",
     major: "",
     graduation_date: "",
     additional_certifications: "",
@@ -135,8 +137,14 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     );
   }
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const formatSalary = (val: string) => {
+    const numeric = val.replace(/\D/g, "");
+    if (!numeric) return "";
+    return new Intl.NumberFormat("en-US").format(parseInt(numeric));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -147,6 +155,9 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     try {
       await candidatesApi.submitIntake(candidate.id, formData);
       toast({ title: "Intake form submitted!", description: "Your form has been locked and submitted for review." });
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
       onStatusChange();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -193,7 +204,16 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               <div className="grid gap-4 sm:grid-cols-2">
                 <div><Label>First Name *</Label><Input value={formData.first_name} onChange={e => handleChange("first_name", e.target.value)} disabled={isLocked} required /></div>
                 <div><Label>Last Name *</Label><Input value={formData.last_name} onChange={e => handleChange("last_name", e.target.value)} disabled={isLocked} required /></div>
-                <div><Label>Date of Birth *</Label><Input type="date" value={formData.date_of_birth} onChange={e => handleChange("date_of_birth", e.target.value)} disabled={isLocked} required /></div>
+                <div>
+                  <Label>Date of Birth *</Label>
+                  <DatePicker 
+                    id="intake-date_of_birth"
+                    value={formData.date_of_birth} 
+                    onChange={val => handleChange("date_of_birth", val)} 
+                    placeholder="MM-DD-YYYY"
+                    className={isLocked ? "opacity-50 pointer-events-none" : ""}
+                  />
+                </div>
                 <div><Label>Phone Number *</Label><Input type="tel" value={formData.phone_number} onChange={e => handleChange("phone_number", e.target.value)} disabled={isLocked} required /></div>
                 <div><Label>Alternate Phone</Label><Input type="tel" value={formData.alternate_phone} onChange={e => handleChange("alternate_phone", e.target.value)} disabled={isLocked} /></div>
                 <div><Label>Email *</Label><Input type="email" value={formData.email} onChange={e => handleChange("email", e.target.value)} disabled required /></div>
@@ -223,8 +243,23 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     </SelectContent>
                   </Select>
                 </div>
+                {formData.degree === "other" && (
+                  <div className="animate-in slide-in-from-top-1">
+                    <Label>Please Specify Degree *</Label>
+                    <Input value={formData.degree_other} onChange={e => handleChange("degree_other", e.target.value)} disabled={isLocked} required />
+                  </div>
+                )}
                 <div><Label>Major *</Label><Input value={formData.major} onChange={e => handleChange("major", e.target.value)} disabled={isLocked} required /></div>
-                <div><Label>Graduation Date *</Label><Input type="date" value={formData.graduation_date} onChange={e => handleChange("graduation_date", e.target.value)} disabled={isLocked} required /></div>
+                <div>
+                  <Label>Graduation Date *</Label>
+                  <DatePicker 
+                    id="intake-graduation_date"
+                    value={formData.graduation_date} 
+                    onChange={val => handleChange("graduation_date", val)} 
+                    placeholder="MM-dd-yyyy"
+                    className={isLocked ? "opacity-50 pointer-events-none" : ""}
+                  />
+                </div>
                 <div className="sm:col-span-2"><Label>Additional Certifications</Label><Textarea value={formData.additional_certifications} onChange={e => handleChange("additional_certifications", e.target.value)} disabled={isLocked} /></div>
                 <div className="sm:col-span-2"><Label>Academic Projects</Label><Textarea value={formData.academic_projects} onChange={e => handleChange("academic_projects", e.target.value)} disabled={isLocked} /></div>
               </div>
@@ -248,7 +283,16 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Visa Expiry Date</Label><Input type="date" value={formData.visa_expiry_date} onChange={e => handleChange("visa_expiry_date", e.target.value)} disabled={isLocked} /></div>
+                <div>
+                  <Label>Visa Expiry Date</Label>
+                  <DatePicker 
+                    id="intake-visa_expiry_date"
+                    value={formData.visa_expiry_date} 
+                    onChange={val => handleChange("visa_expiry_date", val)} 
+                    placeholder="MM-DD-YYYY"
+                    className={isLocked ? "opacity-50 pointer-events-none" : ""}
+                  />
+                </div>
                 <div>
                   <Label>Work Authorization Status *</Label>
                   <Select value={formData.work_authorization_status} onValueChange={v => handleChange("work_authorization_status", v)} disabled={isLocked}>
@@ -288,7 +332,17 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Salary Expectation (USD) *</Label><Input type="number" value={formData.salary_expectation} onChange={e => handleChange("salary_expectation", e.target.value)} disabled={isLocked} required /></div>
+                <div>
+                  <Label>Salary Expectation (USD) *</Label>
+                  <Input 
+                    type="text" 
+                    value={formData.salary_expectation} 
+                    onChange={e => handleChange("salary_expectation", formatSalary(e.target.value))} 
+                    placeholder="e.g. 80,000"
+                    disabled={isLocked} 
+                    required 
+                  />
+                </div>
                 <div>
                   <Label>Willing to Relocate? *</Label>
                   <div className="flex items-center gap-4 py-2">
@@ -313,7 +367,16 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 <div className="sm:col-span-2">
                   <Label>Resume Upload (PDF/DOCX) *</Label>
                   <Input type="file" onChange={handleFileUpload} disabled={isLocked} accept=".pdf,.doc,.docx" required={!formData.resume_url} />
-                  {formData.resume_url && <p className="mt-1 text-xs text-green-600 font-medium">✓ File uploaded: <a href={formData.resume_url} target="_blank" className="underline">View Resume</a></p>}
+                  {formData.resume_url && (
+                    <div className="mt-2 flex items-center gap-3">
+                      <p className="text-xs text-green-600 font-medium flex items-center gap-1.5">
+                        <CheckCircle className="h-3.5 w-3.5" /> File uploaded:
+                      </p>
+                      <Button variant="outline" size="sm" asChild className="h-7 text-[10px] px-2">
+                        <a href={formData.resume_url} target="_blank" rel="noreferrer">Preview / Download Resume</a>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -322,7 +385,16 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
             <div className="space-y-4">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1">Section F – Marketing Inputs</h3>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div><Label>Ready to Start Date *</Label><Input type="date" value={formData.ready_to_start_date} onChange={e => handleChange("ready_to_start_date", e.target.value)} disabled={isLocked} required /></div>
+                <div>
+                  <Label>Ready to Start Date *</Label>
+                  <DatePicker 
+                    id="intake-ready_to_start_date"
+                    value={formData.ready_to_start_date} 
+                    onChange={val => handleChange("ready_to_start_date", val)} 
+                    placeholder="MM-DD-YYYY"
+                    className={isLocked ? "opacity-50 pointer-events-none" : ""}
+                  />
+                </div>
                 <div>
                   <Label>Preferred Employment Type *</Label>
                   <Select value={formData.preferred_employment_type} onValueChange={v => handleChange("preferred_employment_type", v)} disabled={isLocked}>
@@ -340,7 +412,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
             </div>
 
             {canSubmit && (
-              <Button type="submit" variant="hero" className="w-full h-12 text-base" disabled={submitting}>
+              <Button 
+                type="submit" 
+                variant="hero" 
+                className={`w-full h-12 text-base shadow-xl ${!submitting ? 'hover:scale-[1.01]' : ''} transition-all duration-300`} 
+                disabled={submitting}
+              >
                 {submitting ? "Submitting..." : "Submit & Lock Intake Form"}
               </Button>
             )}

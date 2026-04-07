@@ -298,13 +298,17 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
       <Tabs defaultValue="overview">
         <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="intake">Intake</TabsTrigger>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="credentials">Credentials</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
+          {status !== 'lead' && (
+            <>
+              <TabsTrigger value="intake">Intake</TabsTrigger>
+              <TabsTrigger value="roles">Roles</TabsTrigger>
+              <TabsTrigger value="credentials">Credentials</TabsTrigger>
+              <TabsTrigger value="payments">Payments</TabsTrigger>
+              <TabsTrigger value="billing">Billing</TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="placement">Placement</TabsTrigger>
+          {status !== 'lead' && <TabsTrigger value="placement">Placement</TabsTrigger>}
           <TabsTrigger value="audit">Audit</TabsTrigger>
         </TabsList>
 
@@ -315,7 +319,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
             <Card className="border-none shadow-sm flex flex-col">
               <CardHeader className="bg-muted/30 pb-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-primary" /> Registration Profile
+                  <Activity className="h-4 w-4 text-primary" /> {status === 'lead' ? 'Interest Snapshot' : 'Registration Profile'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
@@ -334,9 +338,21 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     <p className="font-medium text-foreground">{subscription?.currency || "USD"}</p>
                   </div>
                   <div>
-                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Date Joined</Label>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">{status === 'lead' ? 'Submitted At' : 'Date Joined'}</Label>
                     <p className="font-medium text-foreground">{new Date(candidate.created_at).toLocaleDateString()}</p>
                   </div>
+                </div>
+                <div className="pt-2 border-t mt-2">
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">{status === 'lead' ? 'Submitted Resume' : 'Registered Resume'}</Label>
+                    {candidate?.resume_file ? (
+                      <Button variant="outline" size="sm" className="h-9 w-full justify-start gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary" asChild>
+                        <a href={candidate.resume_file} target="_blank" rel="noreferrer">
+                          <FileText className="h-4 w-4" /> View {status === 'lead' ? 'Lead' : 'Registration'} Resume
+                        </a>
+                      </Button>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground italic">No resume uploaded during registration</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -431,7 +447,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Source / Referral</Label>
-                  <p className="font-medium text-foreground">{candidate?.referral_source || "Organic Registration"}</p>
+                  <p className="font-medium text-foreground">{candidate?.referral_source || "Direct"}</p>
                   {candidate?.referral_friend_name && <p className="text-xs text-muted-foreground mt-0.5 font-medium">Referred by: {candidate.referral_friend_name}</p>}
                 </div>
               </CardContent>
@@ -496,20 +512,26 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Personal & Contact</h4>
                       <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Full Name</p><p className="font-semibold">{(intakeData.first_name && intakeData.last_name) ? `${intakeData.first_name} ${intakeData.last_name}` : (intakeData.full_name || "—")}</p></div>
-                        <div><p className="text-muted-foreground mb-1">DOB</p><p className="font-semibold">{intakeData.date_of_birth || intakeData.dob || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Primary Phone</p><p className="font-semibold">{intakeData.phone_number || intakeData.marketing_contact_number || intakeData.marketingPhone || "—"}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Current Address</p><p className="font-semibold">{intakeData.current_address || intakeData.currentAddress || "—"}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Email</p><p className="font-semibold">{intakeData.email || "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Full Name</p><p className="font-semibold text-sm">{(intakeData.first_name && intakeData.last_name) ? `${intakeData.first_name} ${intakeData.last_name}` : (intakeData.full_name || "—")}</p></div>
+                        <div><p className="text-muted-foreground mb-1">DOB</p><p className="font-semibold">{intakeData.date_of_birth || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Primary Phone</p><p className="font-semibold">{intakeData.phone_number || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Alternate Phone</p><p className="font-semibold">{intakeData.alternate_phone || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Email</p><p className="font-semibold">{intakeData.email || "—"}</p></div>
+                        <div className="col-span-2 space-y-1">
+                          <p className="text-muted-foreground mb-1">Address</p>
+                          <p className="font-semibold">{intakeData.current_address || "—"}</p>
+                          <p className="font-semibold">{intakeData.city}{intakeData.city && intakeData.state ? ", " : ""}{intakeData.state} {intakeData.zip_code} {intakeData.country}</p>
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Immigration Details</h4>
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Immigration & Eligibility</h4>
                       <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div><p className="text-muted-foreground mb-1">Visa Type</p><p className="font-semibold">{intakeData.visa_type || intakeData.visa_status || intakeData.visaStatus || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Visa Type</p><p className="font-semibold">{intakeData.visa_type === "Other" ? intakeData.visa_other : (intakeData.visa_type || "—")}</p></div>
                         <div><p className="text-muted-foreground mb-1">Visa Expiry</p><p className="font-semibold">{intakeData.visa_expiry_date || "—"}</p></div>
                         <div><p className="text-muted-foreground mb-1">Auth Status</p><p className="font-semibold">{intakeData.work_authorization_status || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Years in US</p><p className="font-semibold">{intakeData.years_of_experience || intakeData.total_years_in_us || intakeData.totalYearsUS || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Sponsorship Required</p><p className="font-semibold">{intakeData.sponsorship_required?.toString() === "true" ? "Yes" : intakeData.sponsorship_required?.toString() === "false" ? "No" : "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Country of Auth</p><p className="font-semibold">{intakeData.country_of_work_authorization || "—"}</p></div>
                       </div>
                     </div>
                   </div>
@@ -521,60 +543,73 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Education</h4>
                       <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Degree</p><p className="font-semibold">{intakeData.degree || intakeData.highest_degree || intakeData.highestDegree || "—"} in {intakeData.major || intakeData.fieldOfStudy || intakeData.highest_field_of_study || ""}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">University</p><p className="font-medium">{intakeData.university_name || intakeData.universityName || intakeData.highest_university || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Graduation Date</p><p className="font-medium">{intakeData.graduation_date || intakeData.highest_graduation_date || intakeData.gradMonthYear || "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Degree</p><p className="font-semibold text-sm">{intakeData.degree === "other" ? intakeData.degree_other : (intakeData.degree || "—")}{intakeData.major ? ` in ${intakeData.major}` : ""}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">University</p><p className="font-medium text-sm">{intakeData.university_name || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Graduation Date</p><p className="font-medium">{intakeData.graduation_date || "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Certifications</p><p className="font-medium whitespace-pre-wrap">{intakeData.additional_certifications || "—"}</p></div>
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Career & Goals</h4>
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Job Preferences</h4>
                       <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Target Roles</p><p className="font-semibold text-primary">{intakeData.target_roles || intakeData.desired_job_role || intakeData.desiredJobRoles || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Salary Expectation</p><p className="font-medium">{intakeData.salary_expectation ? `$${intakeData.salary_expectation}` : "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Location Pref</p><p className="font-medium">{intakeData.preferred_locations || "—"}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">LinkedIn Profile</p><a href={intakeData.linkedin_url || intakeData.linkedin_profile || intakeData.linkedinProfile} target="_blank" rel="noreferrer" className="text-blue-600 truncate block font-medium hover:underline">View Profile</a></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1 text-sm">Target Roles</p><p className="font-bold text-primary text-sm">{intakeData.target_roles || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Salary Expectation</p><p className="font-bold text-sm">{intakeData.salary_expectation ? `$${intakeData.salary_expectation}` : "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Remote Preference</p><p className="font-medium">{intakeData.remote_preference || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Relocate?</p><p className="font-medium">{intakeData.relocation_preference?.toString() === "true" ? "Yes" : intakeData.relocation_preference?.toString() === "false" ? "No" : "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Preferred Locations</p><p className="font-medium">{intakeData.preferred_locations || "—"}</p></div>
                       </div>
                     </div>
                   </div>
 
                   <Separator />
 
-                  {/* Skills & Technical */}
-                  <div className="grid gap-6 md:grid-cols-2">
+                  {/* Professional Background */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Professional Background</h4>
+                    <div className="grid gap-4 md:grid-cols-3 text-xs">
+                      <div><p className="text-muted-foreground mb-1">Experience</p><p className="font-semibold">{intakeData.years_of_experience || "—"} Years</p></div>
+                      <div><p className="text-muted-foreground mb-1">Recent Employer</p><p className="font-semibold">{intakeData.recent_employer || "—"}</p></div>
+                      <div><p className="text-muted-foreground mb-1">Current Title</p><p className="font-semibold">{intakeData.current_job_title || "—"}</p></div>
+                      <div className="md:col-span-3"><p className="text-muted-foreground mb-1">Skills Summary</p><p className="bg-muted p-3 rounded font-medium leading-relaxed">{intakeData.technologies_or_skills || "—"}</p></div>
+                      <div className="md:col-span-3"><p className="text-muted-foreground mb-1">Academic Projects</p><p className="bg-muted/30 p-3 rounded font-medium italic">{intakeData.academic_projects || "No projects listed"}</p></div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2 pt-2">
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Technical Skills</h4>
-                      <div className="space-y-3 text-xs">
-                        <div><p className="text-muted-foreground mb-1">Core Technologies</p><p className="font-medium bg-muted/50 p-2 rounded">{intakeData.technologies_or_skills || intakeData.skilled_in || intakeData.skilledIn || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Recent Employer</p><p className="font-medium">{intakeData.recent_employer || "—"}</p></div>
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Social & Portfolio</h4>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>LinkedIn</span>{intakeData.linkedin_url ? <a href={intakeData.linkedin_url} target="_blank" className="text-blue-600 underline">View Profile</a> : <span>—</span>}</div>
+                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>GitHub</span>{intakeData.github_url ? <a href={intakeData.github_url} target="_blank" className="text-blue-600 underline">View GitHub</a> : <span>—</span>}</div>
+                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>Portfolio</span>{intakeData.portfolio_url ? <a href={intakeData.portfolio_url} target="_blank" className="text-blue-600 underline">View Portfolio</a> : <span>—</span>}</div>
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Marketing Inputs</h4>
-                      <div className="space-y-3 text-xs">
-                        <div><p className="text-muted-foreground mb-1">Ready to Start</p><p className="font-medium">{intakeData.ready_to_start_date || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Employment Type</p><p className="font-medium">{intakeData.preferred_employment_type || "—"}</p></div>
-                        {intakeData.additional_notes && <div><p className="text-muted-foreground mb-1">Additional Notes</p><p className="font-medium italic">{intakeData.additional_notes}</p></div>}
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Marketing & Availability</h4>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div><p className="text-muted-foreground mb-1">Ready to Start</p><p className="font-semibold">{intakeData.ready_to_start_date || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Emp Type</p><p className="font-semibold">{intakeData.preferred_employment_type || "—"}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Notes</p><p className="font-medium italic">{intakeData.additional_notes || "—"}</p></div>
                       </div>
                     </div>
                   </div>
 
                   {intakeData.resume_url && (
                     <div className="pt-4">
-                      <Button variant="outline" className="w-full" asChild>
+                      <Button variant="outline" className="w-full flex items-center gap-2 border-primary/20 bg-primary/5 text-primary" asChild>
                         <a href={intakeData.resume_url} target="_blank" rel="noreferrer">
-                          <FileText className="mr-2 h-4 w-4" /> View Submitted Resume
+                          <FileText className="h-4 w-4" /> Download / Preview Submitted Resume
                         </a>
                       </Button>
                     </div>
                   )}
-
                 </div>
               ) : (
-                <div className="text-center py-8 w-full">
-                  <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground/20 mb-4" />
-                  <p className="text-foreground font-semibold">Intake Form Not Submitted</p>
-                  <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-                    The candidate has access to their portal but has not yet finalized and submitted the intake questionnaire.
+                <div className="text-center py-12 w-full border-2 border-dashed rounded-2xl bg-muted/5">
+                  <ClipboardList className="mx-auto h-16 w-16 text-muted-foreground/20 mb-4" />
+                  <p className="text-lg font-bold text-card-foreground">Intake Form Pending</p>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+                    The candidate has not yet submitted their professional intake questionnaire.
                   </p>
                 </div>
               )}
