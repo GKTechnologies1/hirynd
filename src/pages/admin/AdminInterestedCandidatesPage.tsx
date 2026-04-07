@@ -1,15 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { candidatesApi, authApi } from "@/services/api";
-import StatusBadge from "@/components/dashboard/StatusBadge";
+import { candidatesApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
-import { 
-  Eye, Mail, Phone, Calendar, School, MapPin, 
-  Linkedin, Github, Layout, FileText, Download, 
-  Users, Activity, CheckCircle, Clock 
-} from "lucide-react";
+import { Eye, FileText, Download, Users, Activity, CheckCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
@@ -23,32 +18,15 @@ const AdminInterestedCandidatesPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [candRes, usersRes] = await Promise.all([
-        candidatesApi.list().catch(() => ({ data: [] })),
-        authApi.allUsers({ role: 'candidate' }).catch(() => ({ data: [] }))
-      ]);
-
-      const cands = Array.isArray(candRes.data) ? candRes.data : 
-                    Array.isArray(candRes.data?.results) ? candRes.data.results : [];
-      const users = Array.isArray(usersRes.data) ? usersRes.data : 
-                    Array.isArray(usersRes.data?.results) ? usersRes.data.results : [];
-
-      const candEmails = new Set(cands.map((c: any) => c.email));
-      const pendingUsers = users.filter((u: any) => !candEmails.has(u.email));
-      
-      const merged = [
-        ...cands.filter((c: any) => c.status === "lead" || c.referral_source || c.how_did_you_hear),
-        ...pendingUsers.map((u: any) => ({
-          ...u,
-          full_name: u.full_name || u.profile?.full_name,
-          status: "lead",
-          is_user_only: true
-        }))
-      ];
-
-      setCandidates(merged);
+      const response = await candidatesApi.interestedList();
+      const data = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.results)
+          ? response.data.results
+          : [];
+      setCandidates(data);
     } catch (err: any) {
-      toast({ title: "Error fetching leads", description: err.message, variant: "destructive" });
+      toast({ title: "Error fetching leads", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setLoading(false);
   };
@@ -116,7 +94,7 @@ const AdminInterestedCandidatesPage = () => {
           <DataTable
             data={candidates}
             isLoading={loading}
-            searchKey="full_name"
+            searchKey="name"
             searchPlaceholder="Search leads..."
             emptyMessage="No interested candidates found."
             columns={[
@@ -133,12 +111,12 @@ const AdminInterestedCandidatesPage = () => {
               },
               { 
                 header: "Name", 
-                accessorKey: "full_name",
+                accessorKey: "name",
                 className: "text-xs font-bold",
                 sortable: true,
                 render: (c: any) => (
                   <div className="flex flex-col">
-                    <span className="font-bold">{c.full_name || "—"}</span>
+                    <span className="font-bold">{c.name || "—"}</span>
                     <span className="text-[10px] text-muted-foreground font-normal">{c.email}</span>
                   </div>
                 )
@@ -199,7 +177,7 @@ const AdminInterestedCandidatesPage = () => {
               { 
                 header: "Actions", 
                 render: (c: any) => (
-                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => navigate(`/admin-dashboard/interested-candidates/${c.id}`)}>
                     <Eye className="mr-1.5 h-3.5 w-3.5" /> View Lead
                   </Button>
                 ),

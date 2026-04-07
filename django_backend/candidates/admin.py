@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, 
-    CredentialVersion, Referral, InterviewLog, PlacementClosure, Payment, TrainingScheduleClick
+    CredentialVersion, Referral, InterviewLog, PlacementClosure, Payment, TrainingScheduleClick,
+    InterestedCandidate,
 )
 
 class ClientIntakeInline(admin.StackedInline):
@@ -47,6 +48,28 @@ class CandidateAdmin(admin.ModelAdmin):
     
     def email(self, obj):
         return obj.user.email
+
+
+@admin.register(InterestedCandidate)
+class InterestedCandidateAdmin(admin.ModelAdmin):
+    list_display = ('name', 'email', 'university', 'visa_status', 'created_at')
+    list_filter = ('visa_status', 'referral_source', 'created_at')
+    search_fields = ('name', 'email', 'university', 'degree_major', 'referral_source', 'referral_friend_name')
+    ordering = ('-created_at',)
+
+    fieldsets = (
+        ('Lead Information', {
+            'fields': ('name', 'email', 'phone', 'status', 'user')
+        }),
+        ('Interest Details', {
+            'fields': ('university', 'degree_major', 'graduation_year', 'visa_status', 'referral_source', 'referral_friend_name', 'current_location', 'notes', 'resume_url')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+        }),
+    )
+    readonly_fields = ('created_at', 'updated_at')
+
 
 @admin.register(ClientIntake)
 class ClientIntakeAdmin(admin.ModelAdmin):

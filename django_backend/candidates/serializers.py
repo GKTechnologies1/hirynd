@@ -2,9 +2,16 @@ from rest_framework import serializers
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation,
     CredentialVersion, Referral, InterviewLog, PlacementClosure,
-    Payment, TrainingScheduleClick,
+    Payment, TrainingScheduleClick, InterestedCandidate,
 )
 from users.serializers import ProfileSerializer
+
+
+class InterestedCandidateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InterestedCandidate
+        fields = '__all__'
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
 
 class CandidateSerializer(serializers.ModelSerializer):

@@ -58,6 +58,38 @@ class Candidate(models.Model):
         return f"{self.user.profile.full_name or self.user.email} ({self.status})"
 
 
+class InterestedCandidate(models.Model):
+    STATUS_CHOICES = [
+        ('lead', 'Lead'),
+        ('reviewed', 'Reviewed'),
+        ('converted', 'Converted'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='interest_leads')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='lead')
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    phone = models.CharField(max_length=30, blank=True, null=True)
+    university = models.CharField(max_length=255, blank=True, null=True)
+    degree_major = models.CharField(max_length=255, blank=True, null=True)
+    graduation_year = models.CharField(max_length=10, blank=True, null=True)
+    visa_status = models.CharField(max_length=50, blank=True, null=True)
+    referral_source = models.CharField(max_length=255, blank=True, null=True)
+    referral_friend_name = models.CharField(max_length=255, blank=True, null=True)
+    current_location = models.CharField(max_length=255, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    resume_url = models.URLField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'interested_candidates'
+
+    def __str__(self):
+        return f"{self.name} ({self.email})"
+
+
 class ClientIntake(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.OneToOneField(Candidate, on_delete=models.CASCADE, related_name='intake')

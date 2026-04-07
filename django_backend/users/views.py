@@ -9,7 +9,6 @@ from django.core.files.base import ContentFile
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .models import User
-from candidates.models import Candidate
 from .serializers import (
     RegisterSerializer, UserSerializer, ApproveUserSerializer,
     UserListSerializer, ChangePasswordSerializer, ContactSerializer,
@@ -306,28 +305,11 @@ def submit_contact(request):
     mode = data['mode']
     
     if mode == 'interest':
-        # Create user if not exists
-        user, user_created = User.objects.get_or_create(
-            email=data['email'],
-            defaults={
-                'role': 'candidate',
-                'approval_status': 'pending',
-            }
-        )
-        if user_created:
-            user.set_unusable_password()
-            user.save()
-        
-        # Create profile if not exists
-        from .models import Profile
-        Profile.objects.get_or_create(
-            user=user,
-            defaults={
-                'full_name': data['name'],
-                'phone': data.get('phone', ''),
-            }
-        )
-        
+        # Save interest submissions in a separate lead table
+        from candidates.models import InterestedCandidate
+
+        existing_user = User.objects.filter(email=data['email']).first()
+
         # Handle Resume File
         resume_url = ''
         resume_file = data.get('resume')
@@ -338,47 +320,21 @@ def submit_contact(request):
             saved_path = default_storage.save(file_path, ContentFile(resume_file.read()))
             resume_url = saved_path
 
-        # Create/Update Candidate with status='lead'
-        candidate, cand_created = Candidate.objects.get_or_create(
-            user=user,
-            defaults={
-                'status': 'lead',
-                'university': data.get('university', ''),
-                'major': data.get('major') or data.get('degree_major', ''),
-                'graduation_year': data.get('graduation_year', ''),
-                'visa_status': data.get('visa_status', ''),
-                'current_location': data.get('current_location', ''),
-                'referral_source': data.get('referral_source', ''),
-                'referral_friend_name': data.get('referral_friend', ''),
-                'notes': data.get('message', ''),
-                'resume_url': resume_url,
-            }
+        InterestedCandidate.objects.create(
+            user=existing_user,
+            name=data['name'],
+            email=data['email'],
+            phone=data.get('phone', ''),
+            university=data.get('university', ''),
+            degree_major=data.get('major') or data.get('degree_major', ''),
+            graduation_year=data.get('graduation_year', ''),
+            visa_status=data.get('visa_status', ''),
+            current_location=data.get('current_location', ''),
+            referral_source=data.get('referral_source', ''),
+            referral_friend_name=data.get('referral_friend', ''),
+            notes=data.get('message', ''),
+            resume_url=resume_url,
         )
-        if not cand_created:
-            if candidate.status == 'pending_approval':
-                candidate.status = 'lead'
-            
-            # Also update fields if they were blank
-            fields_to_update = []
-            updates = {
-                'university': data.get('university'),
-                'major': data.get('major') or data.get('degree_major'),
-                'graduation_year': data.get('graduation_year'),
-                'visa_status': data.get('visa_status'),
-                'current_location': data.get('current_location'),
-                'referral_source': data.get('referral_source'),
-                'referral_friend_name': data.get('referral_friend'),
-                'notes': data.get('message', ''),
-                'resume_url': resume_url,
-            }
-            for field, value in updates.items():
-                if value and not getattr(candidate, field):
-                    setattr(candidate, field, value)
-                    fields_to_update.append(field)
-            
-            if 'status' not in fields_to_update:
-                fields_to_update.append('status')
-            candidate.save(update_fields=fields_to_update)
 
         # Notify admin of new lead
         admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')

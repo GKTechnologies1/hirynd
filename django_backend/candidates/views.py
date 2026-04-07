@@ -7,13 +7,13 @@ from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
 from audit.utils import log_action
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, CredentialVersion,
-    Referral, InterviewLog, PlacementClosure, Payment,
+    Referral, InterviewLog, PlacementClosure, Payment, InterestedCandidate,
 )
 from .serializers import (
     CandidateSerializer, CandidateListSerializer, ClientIntakeSerializer,
     RoleSuggestionSerializer, CredentialVersionSerializer,
     ReferralSerializer, InterviewLogSerializer, PlacementClosureSerializer,
-    PaymentSerializer,
+    PaymentSerializer, InterestedCandidateSerializer,
 )
 
 
@@ -80,6 +80,39 @@ def candidate_detail(request, candidate_id):
     except Candidate.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
     return Response(CandidateSerializer(candidate).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsRecruiter])
+def interested_candidate_list(request):
+    qs = InterestedCandidate.objects.all().order_by('-created_at')
+    search = request.query_params.get('search', '').strip()
+    if search:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(name__icontains=search) |
+            Q(email__icontains=search) |
+            Q(university__icontains=search) |
+            Q(referral_source__icontains=search)
+        )
+    return Response(InterestedCandidateSerializer(qs, many=True).data)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsRecruiter])
+def interested_candidate_detail(request, lead_id):
+    try:
+        lead = InterestedCandidate.objects.get(id=lead_id)
+    except InterestedCandidate.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'PATCH':
+        serializer = InterestedCandidateSerializer(lead, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    return Response(InterestedCandidateSerializer(lead).data)
 
 
 @api_view(['POST'])

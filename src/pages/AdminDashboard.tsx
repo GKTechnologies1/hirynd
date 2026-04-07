@@ -19,6 +19,7 @@ import AdminRecruitersPage from "@/pages/admin/AdminRecruitersPage";
 import AdminRecruiterDetail from "@/pages/admin/AdminRecruiterDetail";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminInterestedCandidatesPage from "@/pages/admin/AdminInterestedCandidatesPage";
+import AdminInterestedCandidateDetail from "@/pages/admin/AdminInterestedCandidateDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
@@ -133,6 +134,10 @@ const AdminDashboard = () => {
   const subPath = location.pathname.replace("/admin-dashboard", "").replace(/^\//, "");
 
   const getContent = () => {
+    if (subPath.startsWith("interested-candidates/")) {
+      const leadId = subPath.replace("interested-candidates/", "");
+      return <AdminInterestedCandidateDetail leadId={leadId} />;
+    }
     if (subPath.startsWith("candidates/")) {
       const candidateId = subPath.replace("candidates/", "");
       return <AdminCandidateDetail candidateId={candidateId} />;
