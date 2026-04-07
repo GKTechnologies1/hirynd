@@ -69,8 +69,8 @@ def send_email(to: str, subject: str, html: str, email_type: str = 'transactiona
                 recipient_email=to, email_type=email_type,
                 status='failed', error_message=error_detail,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error('CRITICAL: Failed to create EmailLog: %s', str(e))
         return None  # Never propagate — email is non-critical
 
 
@@ -90,8 +90,8 @@ def get_styled_email_html(user_name: str, content_html: str, action_label: str =
     if action_label and action_url:
         full_url = action_url if action_url.startswith('http') else f"{site_url.rstrip('/')}/{action_url.lstrip('/')}"
         action_button = f"""
-            <div style="margin: 30px 0; text-align: center;">
-                <a href="{full_url}" style="background-color: #0d47a1; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+            <div style="margin: 40px 0; text-align: center;">
+                <a href="{full_url}" class="action-btn">
                     {action_label}
                 </a>
             </div>
@@ -103,13 +103,14 @@ def get_styled_email_html(user_name: str, content_html: str, action_label: str =
     <head>
         <meta charset="utf-8">
         <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; }}
-            .header {{ text-align: center; padding-bottom: 20px; border-bottom: 2px solid #f0f0f0; }}
-            .logo {{ font-size: 24px; font-weight: bold; color: #0d47a1; letter-spacing: -0.5px; }}
-            .content {{ padding: 30px 0; }}
-            .footer {{ text-align: center; font-size: 12px; color: #888; padding-top: 20px; border-top: 1px solid #f0f0f0; }}
-            p {{ margin-bottom: 15px; }}
+            body {{ font-family: 'Inter', 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc; }}
+            .container {{ max-width: 600px; margin: 40px auto; padding: 40px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }}
+            .header {{ text-align: center; padding-bottom: 32px; border-bottom: 1px solid #f1f5f9; }}
+            .logo {{ font-size: 28px; font-weight: 800; color: #2563eb; letter-spacing: -1px; text-transform: uppercase; }}
+            .content {{ padding: 32px 0; font-size: 16px; }}
+            .footer {{ text-align: center; font-size: 12px; color: #64748b; padding-top: 32px; border-top: 1px solid #f1f5f9; }}
+            p {{ margin-bottom: 20px; }}
+            .action-btn {{ background-color: #2563eb; color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 10px; font-weight: 600; display: inline-block; transition: background-color 0.2s; }}
         </style>
     </head>
     <body>

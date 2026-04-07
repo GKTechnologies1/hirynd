@@ -167,11 +167,17 @@ export const billingApi = {
   addAddonToSubscription: (candidateId: string, addon_id: string) =>
     api.post(`/billing/${candidateId}/subscription/addon/`, { addon_id }),
 
-  // Razorpay checkout
+  // Razorpay checkout (subscription-level)
   createOrder: (candidateId: string) =>
     api.post(`/billing/${candidateId}/payment/create-order/`),
   verifyPayment: (candidateId: string, data: Record<string, any>) =>
     api.post(`/billing/${candidateId}/payment/verify/`, data),
+
+  // Razorpay checkout for individual pending billing.Payment records
+  initiatePayment: (candidateId: string, paymentId: string) =>
+    api.post(`/billing/${candidateId}/payments/${paymentId}/pay/`),
+  verifyIndividualPayment: (candidateId: string, paymentId: string, data: Record<string, any>) =>
+    api.post(`/billing/${candidateId}/payments/${paymentId}/verify/`, data),
 
   // Payment history
   payments: (candidateId: string) => api.get(`/billing/${candidateId}/payments/`),

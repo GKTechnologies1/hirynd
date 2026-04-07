@@ -1,38 +1,86 @@
+# .gitignore for Hyrind (Django + React)
+
+# Dependency directories
+node_modules/
+jspm_packages/
+.npm
+.yarn-integrity
+node_modules
+dist
+dist-ssr
+build/
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv
+venv/
+ENV/
+
+# Database / Storage
+*.sqlite3
+db.sqlite3-journal
+db.sqlite3
+django_backend/db.sqlite3
+django_backend/media/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+django_backend/.env
+
 # Logs
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-.env
-.env.local
-.env.*.local
-.venv
-django_backend/.venv
-
-django_backend/.env
-
-# Editor directories and files
-.vscode/*
+# Editor / OS
+.vscode/
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-*.pyc
-django_backend/.venv
-*__pycache__*
-*/__pycache__
-venv
-.venv
-package-lock.json
+
+# Testing
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Local build artifacts
+backfill_invoices.py
+C:\tmp\*
+backfill_invoices.py
+billing/backfill_invoices.py
+django_backend/backfill_invoices.py
+/tmp/

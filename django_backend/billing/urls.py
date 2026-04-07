@@ -33,6 +33,8 @@ urlpatterns = [
     # Payment history
     path('<uuid:candidate_id>/payments/', views.payments, name='payments'),
     path('<uuid:candidate_id>/payments/record/', views.record_payment, name='record_payment'),
+    path('<uuid:candidate_id>/payments/<uuid:payment_id>/pay/', views.initiate_payment, name='initiate_payment'),
+    path('<uuid:candidate_id>/payments/<uuid:payment_id>/verify/', views.verify_individual_payment, name='verify_individual_payment'),
     path('payments/<uuid:payment_id>/manage/', views.manage_payment, name='manage_payment'),
     path('<uuid:candidate_id>/invoices/', views.invoices, name='invoices'),
     

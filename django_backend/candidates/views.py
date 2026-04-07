@@ -7,14 +7,16 @@ from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
 from audit.utils import log_action
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, CredentialVersion,
-    Referral, InterviewLog, PlacementClosure, Payment, InterestedCandidate,
+    Referral, InterviewLog, PlacementClosure, CandidateLegacyPayment, InterestedCandidate,
 )
+from billing.models import Payment
 from .serializers import (
     CandidateSerializer, CandidateListSerializer, ClientIntakeSerializer,
     RoleSuggestionSerializer, CredentialVersionSerializer,
     ReferralSerializer, InterviewLogSerializer, PlacementClosureSerializer,
     PaymentSerializer, InterestedCandidateSerializer,
 )
+from billing.utils import ensure_default_subscription
 
 
 # ─── Candidate CRUD ───
@@ -233,9 +235,13 @@ def confirm_roles(request, candidate_id):
         )
 
     candidate = Candidate.objects.get(id=candidate_id)
-    if candidate.status in ('roles_suggested', 'roles_published'):
-        candidate.status = 'roles_confirmed'
+    if candidate.status in ('roles_suggested', 'roles_published', 'intake_submitted'):
+        candidate.status = 'pending_payment'
         candidate.save()
+        
+    # AUTOMATION: Ensure the $400 subscription exists
+    ensure_default_subscription(candidate)
+    
     return Response({'message': 'Roles confirmed'})
 
 
@@ -345,7 +351,8 @@ def interviews(request, candidate_id):
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def candidate_payments(request, candidate_id):
-    payments = Payment.objects.filter(candidate_id=candidate_id).order_by('-due_date')
+    # USE THE UPDATED BILLING PAYMENT MODEL INSTEAD OF LEGACY
+    payments = Payment.objects.filter(candidate_id=candidate_id).order_by('-created_at')
     return Response(PaymentSerializer(payments, many=True).data)
 
 

@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'storages',
+    'drf_spectacular',
     # Local apps
     'users',
     'candidates',
@@ -51,7 +52,7 @@ ROOT_URLCONF = 'hyrind.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'hyrind' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -106,6 +107,30 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# API Documentation (Swagger / ReDoc via drf-spectacular)
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Hyrind Platform API',
+    'DESCRIPTION': (
+        'The Hyrind backend powers candidate lifecycle management, billing, recruitment, '
+        'notifications, and job tracking. All endpoints require JWT authentication unless noted.'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'CONTACT': {'name': 'Hyrind Ops', 'email': 'ops@hyrind.com'},
+    'LICENSE': {'name': 'Proprietary'},
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'Login, register, token refresh, profile'},
+        {'name': 'Candidates', 'description': 'Candidate lifecycle management'},
+        {'name': 'Billing', 'description': 'Subscriptions, payments, invoices, Razorpay'},
+        {'name': 'Recruiters', 'description': 'Recruiter assignments and daily logs'},
+        {'name': 'Jobs', 'description': 'Job listings and submissions'},
+        {'name': 'Notifications', 'description': 'In-app and email notifications'},
+        {'name': 'Files', 'description': 'File upload and download'},
+        {'name': 'Audit', 'description': 'Audit logs and activity tracking'},
     ],
 }
 

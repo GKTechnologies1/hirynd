@@ -270,7 +270,7 @@ class PlacementClosure(models.Model):
         return f"Placement: {self.company_name} - {self.candidate.user.email}"
 
 
-class Payment(models.Model):
+class CandidateLegacyPayment(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('paid', 'Paid'),

@@ -1,5 +1,6 @@
 import io
 from django.utils import timezone
+from django.db import transaction
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -86,3 +87,45 @@ def generate_invoice_pdf(invoice):
     pdf_value = buffer.getvalue()
     buffer.close()
     return pdf_value
+
+
+def ensure_default_subscription(candidate):
+    """
+    Ensures the candidate has a default $400 monthly subscription.
+    Called when roles are confirmed.
+    """
+    from .models import Subscription, SubscriptionPlan
+    
+    with transaction.atomic():
+        # 1. Get or create the default plan
+        plan, _ = SubscriptionPlan.objects.get_or_create(
+            name="Monthly Service Fee",
+            defaults={
+                'amount': 400.00,
+                'currency': 'USD',
+                'billing_cycle': 'monthly',
+                'description': 'Standard monthly marketing & support fee',
+                'is_active': True,
+                'is_base': True
+            }
+        )
+
+        # 2. Get or create the subscription for this candidate
+        sub, created = Subscription.objects.get_or_create(
+            candidate=candidate,
+            defaults={
+                'plan': plan,
+                'plan_name': plan.name,
+                'amount': plan.amount,
+                'currency': plan.currency,
+                'billing_cycle': plan.billing_cycle,
+                'status': 'pending_payment',
+            }
+        )
+        
+        # If it already existed but was canceled/unpaid, we might want to reactivate it as pending
+        if not created and sub.status in ('canceled', 'unpaid'):
+            sub.status = 'pending_payment'
+            sub.save(update_fields=['status'])
+            
+    return sub

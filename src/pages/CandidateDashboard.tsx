@@ -45,6 +45,7 @@ const STATUS_TAB_ACCESS: Record<string, string[]> = {
   intake_submitted:      ["overview", "intake"],
   roles_published:       ["overview", "intake", "roles"],
   roles_confirmed:       ["overview", "intake", "roles", "payments"],
+  pending_payment:       ["overview", "intake", "roles", "payments"],   // ← NEW: allows payment after role confirmation
   payment_completed:     ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
   credentials_submitted: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
   active_marketing:      ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],

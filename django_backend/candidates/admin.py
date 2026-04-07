@@ -1,8 +1,8 @@
 from django.contrib import admin
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, 
-    CredentialVersion, Referral, InterviewLog, PlacementClosure, Payment, TrainingScheduleClick,
-    InterestedCandidate,
+    CredentialVersion, Referral, InterviewLog, PlacementClosure, 
+    CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate,
 )
 
 class ClientIntakeInline(admin.StackedInline):
@@ -111,8 +111,8 @@ class PlacementClosureAdmin(admin.ModelAdmin):
     list_display = ('candidate', 'company_name', 'role_title', 'salary', 'start_date')
     search_fields = ('company_name', 'candidate__user__email')
 
-@admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
+@admin.register(CandidateLegacyPayment)
+class CandidateLegacyPaymentAdmin(admin.ModelAdmin):
     list_display = ('charge_name', 'candidate', 'amount', 'due_date', 'payment_status')
     list_filter = ('payment_status', 'charge_type', 'due_date')
     search_fields = ('charge_name', 'candidate__user__email')

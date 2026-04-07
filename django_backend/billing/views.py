@@ -140,6 +140,30 @@ def subscription_detail(request, candidate_id):
         ).get(candidate_id=candidate_id)
         return Response(SubscriptionSerializer(sub).data)
     except Subscription.DoesNotExist:
+        # ── Auto-provision the $400 default plan for role-confirmed candidates ──
+        # This handles candidates who confirmed roles before the automation was deployed,
+        # or whose subscription was never manually created by admin.
+        try:
+            candidate = Candidate.objects.get(id=candidate_id)
+            ELIGIBLE_FOR_DEFAULT = (
+                'roles_confirmed', 'pending_payment',
+                'roles_suggested', 'roles_published',
+            )
+            if candidate.status in ELIGIBLE_FOR_DEFAULT:
+                from .utils import ensure_default_subscription
+                sub = ensure_default_subscription(candidate)
+                if sub:
+                    logger.info(
+                        "Auto-provisioned default subscription for candidate %s (status=%s)",
+                        candidate_id, candidate.status,
+                    )
+                    # Re-fetch with all relations to ensure serialization works correctly
+                    sub = Subscription.objects.select_related('plan', 'candidate__user').prefetch_related(
+                        'addon_assignments__addon'
+                    ).get(id=sub.id)
+                    return Response(SubscriptionSerializer(sub).data)
+        except Candidate.DoesNotExist:
+            pass
         return Response({})
 
 
@@ -451,12 +475,186 @@ def verify_razorpay_payment(request, candidate_id):
     })
 
 
+
 #  Manual / Admin Payments 
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def payments(request, candidate_id):
     pays = Payment.objects.filter(candidate_id=candidate_id).select_related('subscription', 'razorpay_order')
     return Response(PaymentSerializer(pays, many=True).data)
+
+
+# ─── Initiate Razorpay order for a specific pending billing.Payment ───────────
+@api_view(['POST'])
+@permission_classes([IsApproved])
+def initiate_payment(request, candidate_id, payment_id):
+    """Create a Razorpay order for a specific pending billing.Payment record."""
+    try:
+        candidate = Candidate.objects.select_related('user').get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
+
+    if request.user.role == 'candidate' and str(candidate.user.id) != str(request.user.id):
+        return Response({'error': 'Forbidden'}, status=403)
+
+    try:
+        pay = Payment.objects.get(id=payment_id, candidate=candidate)
+    except Payment.DoesNotExist:
+        return Response({'error': 'Payment not found'}, status=404)
+
+    if pay.status != 'pending':
+        return Response({'error': f'Payment is already {pay.status}'}, status=400)
+
+    total_amount = float(pay.amount)
+    currency     = pay.currency or 'USD'
+    total_paise  = int(total_amount * 100)
+    description  = pay.payment_type.replace('_', ' ').title()
+
+    razorpay_client, key_id = _get_razorpay_client()
+    is_mock_key = key_id and str(key_id).startswith('rzp_test_mock')
+
+    if razorpay_client is None or is_mock_key:
+        if not getattr(settings, 'DEBUG', False) and not is_mock_key:
+            return Response({'error': 'Payment gateway not configured'}, status=500)
+        import time
+        mock_order_id = f"order_mock_pay_{str(payment_id)[:8]}_{int(time.time())}"
+        RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
+        rp_order = RazorpayOrder.objects.create(
+            candidate=candidate, subscription=pay.subscription,
+            razorpay_order_id=mock_order_id,
+            amount=total_amount, currency=currency,
+            payment_type=pay.payment_type,
+            notes={'billing_payment_id': str(pay.id), 'mode': 'mock'},
+        )
+        return Response({
+            'mode': 'mock', 'order_id': mock_order_id,
+            'amount': total_paise, 'currency': currency, 'key_id': 'rzp_test_mock',
+            'internal_order_id': str(rp_order.id), 'billing_payment_id': str(pay.id),
+            'description': f'Hyrind | {description}',
+            'prefill': {'name': _user_name(candidate.user), 'email': candidate.user.email},
+        })
+
+    try:
+        rz_order = razorpay_client.order.create({
+            'amount': total_paise, 'currency': currency,
+            'receipt': f'hyrind_pay_{str(payment_id)[:8]}',
+            'notes': {'payment_type': pay.payment_type, 'candidate': str(candidate_id)},
+        })
+    except Exception as e:
+        logger.error("Razorpay order creation (individual payment) failed: %s", str(e))
+        return Response({'error': f'Failed to create Razorpay order: {str(e)}'}, status=500)
+
+    RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
+    rp_order = RazorpayOrder.objects.create(
+        candidate=candidate, subscription=pay.subscription,
+        razorpay_order_id=rz_order['id'],
+        amount=total_amount, currency=currency,
+        payment_type=pay.payment_type, notes={'billing_payment_id': str(pay.id)},
+    )
+    return Response({
+        'order_id': rz_order['id'], 'amount': total_paise, 'currency': currency, 'key_id': key_id,
+        'internal_order_id': str(rp_order.id), 'billing_payment_id': str(pay.id),
+        'description': f'Hyrind | {description}',
+        'prefill': {
+            'name': _user_name(candidate.user), 'email': candidate.user.email,
+            'contact': getattr(candidate.user.profile, 'phone', '') if hasattr(candidate.user, 'profile') else '',
+        },
+    })
+
+
+# ─── Verify individual payment via Razorpay ───────────────────────────────────
+@api_view(['POST'])
+@permission_classes([IsApproved])
+def verify_individual_payment(request, candidate_id, payment_id):
+    """Verify a Razorpay payment for an individual billing.Payment and mark it completed."""
+    rz_order_id   = request.data.get('razorpay_order_id')
+    rz_payment_id = request.data.get('razorpay_payment_id')
+    rz_signature  = request.data.get('razorpay_signature', '')
+    is_mock       = request.data.get('mode') == 'mock'
+
+    try:
+        candidate = Candidate.objects.select_related('user').get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
+
+    try:
+        pay = Payment.objects.get(id=payment_id, candidate=candidate)
+    except Payment.DoesNotExist:
+        return Response({'error': 'Payment not found'}, status=404)
+
+    try:
+        rp_order = RazorpayOrder.objects.get(razorpay_order_id=rz_order_id, candidate=candidate)
+    except RazorpayOrder.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=404)
+
+    if not is_mock:
+        client, _ = _get_razorpay_client()
+        if client:
+            try:
+                client.utility.verify_payment_signature({
+                    'razorpay_order_id': rz_order_id,
+                    'razorpay_payment_id': rz_payment_id,
+                    'razorpay_signature': rz_signature,
+                })
+            except Exception as e:
+                logger.warning("Signature verification failed (individual payment): %s", str(e))
+                return Response({'error': 'Payment verification failed'}, status=400)
+
+    rp_order.razorpay_payment_id = rz_payment_id
+    rp_order.razorpay_signature  = rz_signature
+    rp_order.status              = 'paid'
+    rp_order.verified_at         = timezone.now()
+    rp_order.save()
+
+    pay.status         = 'completed'
+    pay.payment_date   = timezone.now().date()
+    pay.razorpay_order = rp_order
+    pay.notes          = (pay.notes or '') + f' | Razorpay: {rz_payment_id}'
+    pay.save(update_fields=['status', 'payment_date', 'razorpay_order', 'notes'])
+
+    log_action(request.user, 'payment_completed', str(candidate_id), 'payment',
+               {'payment_id': str(payment_id), 'razorpay_id': rz_payment_id})
+
+    # ── Create Invoice + send email with PDF receipt (non-critical) ────────────
+    try:
+        period_start = timezone.now().date()
+        period_end   = period_start + relativedelta(months=1)
+
+        invoice = Invoice.objects.create(
+            subscription=pay.subscription,   # may be None for add-on payments
+            candidate=candidate,
+            amount=pay.amount,
+            currency=pay.currency,
+            period_start=period_start,
+            period_end=period_end,
+            status='paid',
+            paid_at=timezone.now(),
+            payment_reference=rz_payment_id,
+        )
+
+        pdf_bytes = generate_invoice_pdf(invoice)
+        description = pay.payment_type.replace('_', ' ').title()
+        attachments = [{
+            "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
+            "content": list(pdf_bytes),
+        }]
+
+        send_email(
+            candidate.user.email,
+            f'Payment Confirmed — {description} — Hyrind',
+            get_styled_email_html(
+                _user_name(candidate.user),
+                f'<p>Your payment of <strong>{pay.currency} {pay.amount}</strong> '
+                f'for <strong>{description}</strong> has been received and confirmed. '
+                f'Please find your receipt attached.</p>',
+                action_label='View Payments', action_url='/candidate-dashboard/payments',
+            ),
+            attachments=attachments,
+        )
+    except Exception as e:
+        logger.error("Invoice/email after individual payment failed: %s", str(e))
+
+    return Response({'detail': 'Payment verified successfully', 'payment_id': str(pay.id), 'status': pay.status})
 
 
 @api_view(['POST'])
@@ -484,10 +682,13 @@ def record_payment(request, candidate_id):
             sub.last_payment_at = pay.created_at
             sub.save()
             
-            # Simple fulfillment logic: move to payment_completed
+            # Simple fulfillment logic: move to payment_completed or credentials_submitted
             candidate = sub.candidate
-            if candidate.status in ('roles_confirmed', 'payment_pending'):
-                candidate.status = 'payment_completed'
+            if candidate.status in ('roles_confirmed', 'pending_payment', 'intake_submitted'):
+                if candidate.credentials.exists():
+                    candidate.status = 'credentials_submitted'
+                else:
+                    candidate.status = 'payment_completed'
                 candidate.save()
         if not created:
             # Sync existing subscription if this is a newer/relevant payment
@@ -521,6 +722,48 @@ def record_payment(request, candidate_id):
             except Candidate.DoesNotExist:
                 pass
     log_action(request.user, 'payment_recorded', str(candidate_id), 'payment', data)
+
+    # ── Create Invoice + send email with PDF receipt (if completed) ────────────
+    if pay.status == 'completed':
+        try:
+            from dateutil.relativedelta import relativedelta
+            period_start = pay.payment_date or timezone.now().date()
+            period_end   = period_start + relativedelta(months=1)
+
+            invoice = Invoice.objects.create(
+                subscription=getattr(pay, 'subscription', None),
+                candidate=pay.candidate,
+                amount=pay.amount,
+                currency=pay.currency,
+                period_start=period_start,
+                period_end=period_end,
+                status='paid',
+                paid_at=timezone.now(),
+                payment_reference=f"ADMIN-{pay.id}",
+            )
+
+            pdf_bytes = generate_invoice_pdf(invoice)
+            description = pay.payment_type.replace('_', ' ').title()
+            attachments = [{
+                "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
+                "content": list(pdf_bytes),
+            }]
+
+            send_email(
+                pay.candidate.user.email,
+                f'Payment Recorded — {description} — Hyrind',
+                get_styled_email_html(
+                    _user_name(pay.candidate.user),
+                    f'<p>A payment of <strong>{pay.currency} {pay.amount}</strong> '
+                    f'for <strong>{description}</strong> has been recorded and confirmed for your account. '
+                    f'Please find your receipt attached.</p>',
+                    action_label='View Invoices', action_url='/candidate-dashboard/billing',
+                ),
+                attachments=attachments,
+            )
+        except Exception as e:
+            logger.error("Invoice/email after admin record failed: %s", str(e))
+
     return Response(PaymentSerializer(pay).data, status=status.HTTP_201_CREATED)
 
 

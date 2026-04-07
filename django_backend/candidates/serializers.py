@@ -2,8 +2,9 @@ from rest_framework import serializers
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation,
     CredentialVersion, Referral, InterviewLog, PlacementClosure,
-    Payment, TrainingScheduleClick, InterestedCandidate,
+    CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate,
 )
+from billing.models import Payment
 from users.serializers import ProfileSerializer
 
 
