@@ -305,32 +305,8 @@ def create_razorpay_order(request, candidate_id):
 
     razorpay_client, key_id = _get_razorpay_client()
 
-    # Use mock mode ONLY if keys are explicitly set to mock markers or if client failed to init and we are in debug
-    is_mock_key = key_id and str(key_id).startswith('rzp_test_mock')
-    
-    if razorpay_client is None or is_mock_key:
-        if not getattr(settings, 'DEBUG', False) and not is_mock_key:
-             return Response({'error': 'Payment gateway not configured'}, status=500)
-             
-        # Generate a truly unique mock ID using timestamp to avoid UNIQUE constraint conflicts
-        import time
-        mock_order_id = f"order_mock_{str(candidate_id)[:8]}_{int(time.time())}"
-        
-        RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
-        rp_order = RazorpayOrder.objects.create(
-            candidate=candidate, subscription=sub,
-            razorpay_order_id=mock_order_id,
-            amount=total_amount, currency=sub.currency,
-            payment_type='subscription', notes={'plan': sub.plan_name, 'mode': 'mock'},
-        )
-        return Response({
-            'mode': 'mock', 'order_id': mock_order_id,
-            'amount': total_paise, 'currency': sub.currency,
-            'key_id': 'rzp_test_mock',
-            'subscription_id': str(sub.id), 'internal_order_id': str(rp_order.id),
-            'description': f'Hyrind | {sub.plan_name}',
-            'prefill': {'name': _user_name(candidate.user), 'email': candidate.user.email},
-        })
+    if razorpay_client is None:
+        return Response({'error': 'Payment gateway not configured'}, status=500)
 
     try:
         rz_order = razorpay_client.order.create({
@@ -368,7 +344,6 @@ def verify_razorpay_payment(request, candidate_id):
     rz_order_id = request.data.get('razorpay_order_id')
     rz_payment_id = request.data.get('razorpay_payment_id')
     rz_signature = request.data.get('razorpay_signature', '')
-    is_mock = request.data.get('mode') == 'mock'
 
     try:
         rp_order = RazorpayOrder.objects.select_related('candidate', 'subscription').get(
@@ -380,21 +355,20 @@ def verify_razorpay_payment(request, candidate_id):
     if str(rp_order.candidate_id) != str(candidate_id):
         return Response({'error': 'Order does not belong to this candidate'}, status=403)
 
-    if not is_mock:
-        client, _ = _get_razorpay_client()
-        if client:
-            params_dict = {
-                'razorpay_order_id': rz_order_id,
-                'razorpay_payment_id': rz_payment_id,
-                'razorpay_signature': rz_signature
-            }
-            try:
-                client.utility.verify_payment_signature(params_dict)
-            except Exception as e:
-                logger.warning("Razorpay signature verification failed: %s", str(e))
-                return Response({'error': 'Payment verification failed'}, status=400)
-        else:
-            return Response({'error': 'Payment gateway not configured'}, status=500)
+    client, _ = _get_razorpay_client()
+    if client:
+        params_dict = {
+            'razorpay_order_id': rz_order_id,
+            'razorpay_payment_id': rz_payment_id,
+            'razorpay_signature': rz_signature
+        }
+        try:
+            client.utility.verify_payment_signature(params_dict)
+        except Exception as e:
+            logger.warning("Razorpay signature verification failed: %s", str(e))
+            return Response({'error': 'Payment verification failed'}, status=400)
+    else:
+        return Response({'error': 'Payment gateway not configured'}, status=500)
 
     rp_order.razorpay_payment_id = rz_payment_id
     rp_order.razorpay_signature = rz_signature
@@ -511,28 +485,8 @@ def initiate_payment(request, candidate_id, payment_id):
     description  = pay.payment_type.replace('_', ' ').title()
 
     razorpay_client, key_id = _get_razorpay_client()
-    is_mock_key = key_id and str(key_id).startswith('rzp_test_mock')
-
-    if razorpay_client is None or is_mock_key:
-        if not getattr(settings, 'DEBUG', False) and not is_mock_key:
-            return Response({'error': 'Payment gateway not configured'}, status=500)
-        import time
-        mock_order_id = f"order_mock_pay_{str(payment_id)[:8]}_{int(time.time())}"
-        RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
-        rp_order = RazorpayOrder.objects.create(
-            candidate=candidate, subscription=pay.subscription,
-            razorpay_order_id=mock_order_id,
-            amount=total_amount, currency=currency,
-            payment_type=pay.payment_type,
-            notes={'billing_payment_id': str(pay.id), 'mode': 'mock'},
-        )
-        return Response({
-            'mode': 'mock', 'order_id': mock_order_id,
-            'amount': total_paise, 'currency': currency, 'key_id': 'rzp_test_mock',
-            'internal_order_id': str(rp_order.id), 'billing_payment_id': str(pay.id),
-            'description': f'Hyrind | {description}',
-            'prefill': {'name': _user_name(candidate.user), 'email': candidate.user.email},
-        })
+    if razorpay_client is None:
+        return Response({'error': 'Payment gateway not configured'}, status=500)
 
     try:
         rz_order = razorpay_client.order.create({
@@ -570,7 +524,6 @@ def verify_individual_payment(request, candidate_id, payment_id):
     rz_order_id   = request.data.get('razorpay_order_id')
     rz_payment_id = request.data.get('razorpay_payment_id')
     rz_signature  = request.data.get('razorpay_signature', '')
-    is_mock       = request.data.get('mode') == 'mock'
 
     try:
         candidate = Candidate.objects.select_related('user').get(id=candidate_id)
@@ -587,18 +540,19 @@ def verify_individual_payment(request, candidate_id, payment_id):
     except RazorpayOrder.DoesNotExist:
         return Response({'error': 'Order not found'}, status=404)
 
-    if not is_mock:
-        client, _ = _get_razorpay_client()
-        if client:
-            try:
-                client.utility.verify_payment_signature({
-                    'razorpay_order_id': rz_order_id,
-                    'razorpay_payment_id': rz_payment_id,
-                    'razorpay_signature': rz_signature,
-                })
-            except Exception as e:
-                logger.warning("Signature verification failed (individual payment): %s", str(e))
-                return Response({'error': 'Payment verification failed'}, status=400)
+    client, _ = _get_razorpay_client()
+    if client:
+        try:
+            client.utility.verify_payment_signature({
+                'razorpay_order_id': rz_order_id,
+                'razorpay_payment_id': rz_payment_id,
+                'razorpay_signature': rz_signature,
+            })
+        except Exception as e:
+            logger.warning("Signature verification failed (individual payment): %s", str(e))
+            return Response({'error': 'Payment verification failed'}, status=400)
+    else:
+        return Response({'error': 'Payment gateway not configured'}, status=500)
 
     rp_order.razorpay_payment_id = rz_payment_id
     rp_order.razorpay_signature  = rz_signature

@@ -43,26 +43,6 @@ const openRazorpay = async (
     return false;
   }
 
-  // ── Mock mode (no live Razorpay keys configured) ──
-  if (orderData.mode === "mock") {
-    await new Promise((r) => setTimeout(r, 1500));
-    const verifyData: Record<string, any> = {
-      mode: "mock",
-      razorpay_order_id: orderData.order_id,
-      razorpay_payment_id: "pay_mock_" + Math.random().toString(36).substring(7),
-      internal_order_id: orderData.internal_order_id,
-    };
-    if (orderData.billing_payment_id) {
-      // Individual payment verify
-      await billingApi.verifyIndividualPayment(candidateId, orderData.billing_payment_id, verifyData);
-    } else {
-      await billingApi.verifyPayment(candidateId, verifyData);
-    }
-    toast({ title: "✅ Mock payment successful!", description: "Payment status updated." });
-    onSuccess();
-    return true;
-  }
-
   // ── Real Razorpay checkout ──
   return new Promise<boolean>((resolve) => {
     const rzp = new window.Razorpay({
