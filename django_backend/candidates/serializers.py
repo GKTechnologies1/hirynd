@@ -51,7 +51,7 @@ class CandidateListSerializer(serializers.ModelSerializer):
         model = Candidate
         fields = [
             'id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
-            'university', 'major', 'graduation_year', 'referral_source',
+            'university', 'degree', 'major', 'graduation_year', 'graduation_date', 'referral_source',
             'referral_friend_name', 'current_location', 'notes'
         ]
 

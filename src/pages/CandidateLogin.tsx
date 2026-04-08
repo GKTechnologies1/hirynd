@@ -35,8 +35,7 @@ const CandidateLogin = () => {
     first_name: "", last_name: "", email: "", phone: "",
     password: "", confirm_password: "",
     university_name: "",
-    degree: "",
-    major: "",
+    degree_major: "",
     graduation_date: "",
     how_did_you_hear: "", friend_name: "",
     linkedin_url: "", portfolio_url: "", github_url: "",
@@ -74,12 +73,15 @@ const CandidateLogin = () => {
     if (reg.password !== reg.confirm_password) errors.confirm_password = "Passwords do not match";
 
     if (!reg.university_name) errors.university_name = "University is required";
-    if (!reg.degree) errors.degree = "Degree is required";
-    if (!reg.major) errors.major = "Major is required";
+    if (!reg.degree_major) errors.degree_major = "Degree / Major is required";
     
     const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
-    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-dd-yyyy format";
+    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-DD-YYYY format";
+
+    if (reg.visa_status === "OPT" && reg.opt_end_date && !dateRegex.test(reg.opt_end_date)) {
+      errors.opt_end_date = "Use MM-DD-YYYY format";
+    }
 
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
     if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) errors.friend_name = "Friend name is required when source is Friend";
@@ -147,9 +149,12 @@ const CandidateLogin = () => {
     data.append("phone", `${countryCode} ${reg.phone.trim()}`);
     data.append("password", reg.password);
     data.append("confirm_password", reg.confirm_password);
+    const [degree, ...majorParts] = reg.degree_major.split("/");
+    const major = majorParts.join("/").trim();
+    
     data.append("university_name", reg.university_name);
-    data.append("degree", reg.degree);
-    data.append("major", reg.major);
+    data.append("degree", (degree || "").trim());
+    data.append("major", major);
     const formattedGradDate = reg.graduation_date ? format(parse(reg.graduation_date, "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "";
     data.append("graduation_date", formattedGradDate);
     data.append("how_did_you_hear", reg.how_did_you_hear);
@@ -421,27 +426,16 @@ const CandidateLogin = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Degree *</Label>
+                    <Label className="text-sm font-medium ml-1">Degree / Major *</Label>
                     <Input 
-                      id="reg-degree"
-                      value={reg.degree} 
-                      onChange={e => updateReg("degree", e.target.value)} 
-                      maxLength={120} 
+                      id="reg-degree_major"
+                      value={reg.degree_major} 
+                      onChange={e => updateReg("degree_major", e.target.value)} 
+                      placeholder="e.g. Bachelors / Computer Science"
+                      maxLength={250} 
                       className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
-                    {regErrors.degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Major *</Label>
-                    <Input 
-                      id="reg-major"
-                      value={reg.major} 
-                      onChange={e => updateReg("major", e.target.value)} 
-                      maxLength={120} 
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
-                    />
-                    {regErrors.major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major}</p>}
+                    {regErrors.degree_major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree_major}</p>}
                   </div>
                   
                   <div className="space-y-2">
@@ -450,7 +444,7 @@ const CandidateLogin = () => {
                       id="reg-graduation_date"
                       value={reg.graduation_date} 
                       onChange={val => updateReg("graduation_date", val)} 
-                      placeholder="MM-dd-yyyy"
+                      placeholder="MM-DD-YYYY"
                     />
                     {regErrors.graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.graduation_date}</p>}
                   </div>
@@ -520,6 +514,7 @@ const CandidateLogin = () => {
                           onChange={val => updateReg("opt_end_date", val)} 
                           placeholder="MM-DD-YYYY"
                         />
+                        {regErrors.opt_end_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.opt_end_date}</p>}
                       </div>
                     )}
 

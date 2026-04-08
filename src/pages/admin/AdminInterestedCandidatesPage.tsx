@@ -129,7 +129,7 @@ const AdminInterestedCandidatesPage = () => {
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium truncate max-w-[150px]">{c.university || "—"}</span>
                     <span className="text-[10px] text-muted-foreground">
-                      {c.degree && c.major ? `${c.degree} in ${c.major}` : (c.degree || c.major || c.degree_major || "—")}
+                      {c.degree || "—"} {c.major ? ` / ${c.major}` : ""}
                     </span>
                   </div>
                 )

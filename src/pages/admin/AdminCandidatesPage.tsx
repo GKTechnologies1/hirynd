@@ -143,6 +143,18 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
               { header: "Name", accessorKey: "full_name", className: "text-xs font-bold", sortable: true },
               { header: "Email", accessorKey: "email", className: "text-xs", sortable: true },
               { 
+                header: "Education", 
+                className: "text-xs min-w-[150px]",
+                render: (c: any) => (
+                  <div className="flex flex-col gap-0.5">
+                    <p className="font-bold text-[11px] truncate max-w-[150px]">{c.university || "—"}</p>
+                    <p className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                      {c.degree || "—"} {c.major ? ` / ${c.major}` : ""}
+                    </p>
+                  </div>
+                )
+              },
+              { 
                 header: "Status", 
                 render: (c: any) => <StatusBadge status={c.status} />,
                 className: "text-xs",

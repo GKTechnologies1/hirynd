@@ -21,7 +21,7 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'full_name', 'phone',
             'city', 'state', 'country',
-            'university', 'major', 'graduation_date', 
+            'university', 'degree', 'major', 'graduation_date', 
             'linkedin_url', 'social_profile_url',
             'company_name', 'employee_id', 'date_of_joining', 
             'department', 'specialization', 'max_clients',

@@ -33,7 +33,7 @@ const RecruiterLogin = () => {
   const [reg, setReg] = useState({
     first_name: "", last_name: "", email: "", phone: "",
     password: "", confirm_password: "",
-    university_name: "", degree: "", major: "", graduation_date: "",
+    university_name: "", degree_major: "", graduation_date: "",
     how_did_you_hear: "", friend_name: "",
     linkedin_url: "", social_profile: "",
     city: "", state: "", country: "",
@@ -75,12 +75,11 @@ const RecruiterLogin = () => {
     if (reg.password !== reg.confirm_password) errors.confirm_password = "Passwords do not match";
 
     if (!reg.university_name.trim()) errors.university_name = "University is required";
-    if (!reg.degree.trim()) errors.degree = "Degree is required";
-    if (!reg.major.trim()) errors.major = "Major is required";
+    if (!reg.degree_major.trim()) errors.degree_major = "Degree / Major is required";
     
     const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
-    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-dd-yyyy format";
+    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-DD-YYYY format";
 
     if (!reg.linkedin_url.trim() && !reg.social_profile.trim()) 
       errors.linkedin_url = "LinkedIn URL or Social Profile is required for recruiter registration";
@@ -144,9 +143,18 @@ const RecruiterLogin = () => {
       consent_to_terms: reg.consent_to_terms,
       graduation_date: reg.graduation_date ? format(parse(reg.graduation_date, "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "",
     };
+    
+    // Split combined degree_major for backend if needed, or send as is
+    // Assuming backend still wants separate fields based on previous structure
+    const [degree, ...majorParts] = reg.degree_major.split("/");
+    const finalData = {
+      ...dataToSubmit,
+      degree: (degree || "").trim(),
+      major: majorParts.join("/").trim()
+    };
 
     try {
-      await authApi.register(dataToSubmit as any);
+      await authApi.register(finalData as any);
       await signOut(); // Section 3.3 Step 9
       setRegistrationComplete(true);
     } catch (err: any) {
@@ -373,18 +381,13 @@ const RecruiterLogin = () => {
                     {regErrors.university_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.university_name}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Degree *</Label>
-                    <Input id="reg-degree" value={reg.degree} onChange={e => updateReg("degree", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
-                    {regErrors.degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Major *</Label>
-                    <Input id="reg-major" value={reg.major} onChange={e => updateReg("major", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
-                    {regErrors.major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major}</p>}
+                    <Label className="text-sm font-medium ml-1">Degree / Major *</Label>
+                    <Input id="reg-degree_major" value={reg.degree_major} onChange={e => updateReg("degree_major", e.target.value)} placeholder="e.g. Bachelors / Computer Science" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
+                    {regErrors.degree_major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree_major}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Graduation Date *</Label>
-                    <DatePicker id="reg-graduation_date" value={reg.graduation_date} onChange={val => updateReg("graduation_date", val)} placeholder="MM-dd-yyyy" />
+                    <DatePicker id="reg-graduation_date" value={reg.graduation_date} onChange={val => updateReg("graduation_date", val)} placeholder="MM-DD-YYYY" />
                     {regErrors.graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.graduation_date}</p>}
                   </div>
 

@@ -376,13 +376,12 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   <p className="font-semibold text-foreground tracking-tight">{candidate?.university || intakeData?.university_name || "—"}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Degree</Label>
-                    <p className="font-medium text-foreground">{candidate?.degree || intakeData?.degree || "—"}</p>
-                  </div>
-                  <div>
-                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Major</Label>
-                    <p className="font-medium text-foreground">{candidate?.major || intakeData?.major || "—"}</p>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Degree / Major</Label>
+                    <p className="font-medium text-foreground">
+                      {candidate?.degree || intakeData?.degree || "—"}
+                      {(candidate?.major || intakeData?.major) ? ` / ${candidate?.major || intakeData?.major}` : ""}
+                    </p>
                   </div>
                 </div>
                 <div>
@@ -550,7 +549,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Education</h4>
                       <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Degree</p><p className="font-semibold text-sm">{intakeData.degree === "other" ? intakeData.degree_other : (intakeData.degree || "—")}{intakeData.major ? ` in ${intakeData.major}` : ""}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Degree / Major</p><p className="font-semibold text-sm">{intakeData.degree === "other" ? intakeData.degree_other : (intakeData.degree || "—")}{intakeData.major ? ` / ${intakeData.major}` : ""}</p></div>
                         <div className="col-span-2"><p className="text-muted-foreground mb-1">University</p><p className="font-medium text-sm">{intakeData.university_name || "—"}</p></div>
                         <div><p className="text-muted-foreground mb-1">Graduation Date</p><p className="font-medium">{intakeData.graduation_date || "—"}</p></div>
                         <div className="col-span-2"><p className="text-muted-foreground mb-1">Certifications</p><p className="font-medium whitespace-pre-wrap">{intakeData.additional_certifications || "—"}</p></div>

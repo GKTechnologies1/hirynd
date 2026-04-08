@@ -11,6 +11,8 @@ import { DataTable } from "@/components/ui/DataTable";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban } from "lucide-react";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { parse, format } from "date-fns";
 
 interface AdminBillingTabProps {
   candidateId: string;
@@ -93,9 +95,17 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
     setSaving(true);
     setSaving(true);
     try {
+      let nextBilling = formNextDate;
+      if (nextBilling && nextBilling.includes("-") && nextBilling.split("-")[0].length === 2) {
+        try {
+          const parsed = parse(nextBilling, "MM-dd-yyyy", new Date());
+          if (!isNaN(parsed.getTime())) nextBilling = format(parsed, "yyyy-MM-dd");
+        } catch(e) {}
+      }
+
       const payload = {
         amount: Number(formAmount),
-        next_billing_at: formNextDate || undefined,
+        next_billing_at: nextBilling || undefined,
         grace_days: Number(formGraceDays),
         status: formStatus,
         plan_name: formPlanName,
@@ -214,7 +224,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div><Label>Plan Name</Label><Input value={formPlanName} onChange={e => setFormPlanName(e.target.value)} /></div>
             <div><Label>Monthly Amount ($) *</Label><Input type="number" min="1" value={formAmount} onChange={e => setFormAmount(e.target.value)} placeholder="499" /></div>
-            <div><Label>Next Charge Date</Label><Input type="date" value={formNextDate} onChange={e => setFormNextDate(e.target.value)} /></div>
+            <div><Label>Next Charge Date</Label><DatePicker value={formNextDate} onChange={setFormNextDate} /></div>
             <div><Label>Grace Days</Label><Input type="number" min="1" max="30" value={formGraceDays} onChange={e => setFormGraceDays(e.target.value)} /></div>
             <div><Label>Status</Label>
               <Select value={formStatus} onValueChange={setFormStatus}>

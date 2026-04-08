@@ -15,6 +15,8 @@ import {
   Shield, CheckCircle2, XCircle, Clock
 } from "lucide-react";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { parse, format } from "date-fns";
 
 interface AdminRecruiterDetailProps {
   id?: string;
@@ -39,6 +41,7 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
     state: "",
     country: "",
     university: "",
+    degree: "",
     major: "",
     graduation_date: "",
     linkedin_url: "",
@@ -66,6 +69,7 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
         state: data.state || "",
         country: data.country || "",
         university: data.university || "",
+        degree: data.degree || "",
         major: data.major || "",
         graduation_date: data.graduation_date || "",
         linkedin_url: data.linkedin_url || "",
@@ -98,7 +102,34 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
     if (!id) return;
     setSaving(true);
     try {
-      await recruitersApi.adminUpdateProfile(id, formData);
+      const cleanData = { ...formData };
+      
+      // Convert MM-dd-yyyy back to yyyy-MM-dd for backend
+      if (cleanData.graduation_date && cleanData.graduation_date.includes("-")) {
+        try {
+          // DatePicker gives MM-dd-yyyy
+          const parts = cleanData.graduation_date.split("-");
+          if (parts[0].length === 2 && parts[2].length === 4) {
+            const parsed = parse(cleanData.graduation_date, "MM-dd-yyyy", new Date());
+            if (!isNaN(parsed.getTime())) cleanData.graduation_date = format(parsed, "yyyy-MM-dd");
+          }
+        } catch(e) {}
+      }
+      
+      if (cleanData.date_of_joining && cleanData.date_of_joining.includes("-")) {
+        try {
+          const parts = cleanData.date_of_joining.split("-");
+          if (parts[0].length === 2 && parts[2].length === 4) {
+             const parsed = parse(cleanData.date_of_joining, "MM-dd-yyyy", new Date());
+             if (!isNaN(parsed.getTime())) cleanData.date_of_joining = format(parsed, "yyyy-MM-dd");
+          }
+        } catch(e) {}
+      }
+
+      if (!cleanData.graduation_date) (cleanData.graduation_date as any) = null;
+      if (!cleanData.date_of_joining) (cleanData.date_of_joining as any) = null;
+      
+      await recruitersApi.adminUpdateProfile(id, cleanData);
       toast({ title: "Profile updated successfully" });
       fetchData();
     } catch (err: any) {
@@ -236,19 +267,27 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Major / Degree</Label>
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree / Major</Label>
                   <Input 
-                    value={formData.major} 
-                    onChange={e => setFormData({...formData, major: e.target.value})}
+                    value={`${formData.degree || ""}${formData.degree && formData.major ? " / " : ""}${formData.major || ""}`} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      const [d, ...m] = val.split("/");
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        degree: (d || "").trim(), 
+                        major: m.join("/").trim() 
+                      }));
+                    }}
                     className="h-11 rounded-xl bg-muted/20"
+                    placeholder="e.g. Bachelors / CS"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Graduation Date</Label>
-                  <Input 
-                    type="date"
+                  <DatePicker 
                     value={formData.graduation_date} 
-                    onChange={e => setFormData({...formData, graduation_date: e.target.value})}
+                    onChange={val => setFormData({...formData, graduation_date: val})} 
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
@@ -353,10 +392,9 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Date of Joining</Label>
-                  <Input 
-                    type="date"
+                  <DatePicker 
                     value={formData.date_of_joining} 
-                    onChange={e => setFormData({...formData, date_of_joining: e.target.value})}
+                    onChange={val => setFormData({...formData, date_of_joining: val})} 
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>

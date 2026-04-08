@@ -130,8 +130,8 @@ const AdminRecruitersPage = () => {
                         <Award className="h-3 w-3 text-secondary" /> {r.university}
                       </p>
                     )}
-                    {r.major && (
-                      <p className="text-[10px] text-muted-foreground font-medium pl-5">{r.major}</p>
+                    {(r.degree || r.major) && (
+                      <p className="text-[10px] text-muted-foreground font-medium pl-5">{r.degree || "—"}{r.major ? ` / ${r.major}` : ""}</p>
                     )}
                     <div className="flex gap-3 mt-1 pl-5">
                       {r.linkedin_url && (

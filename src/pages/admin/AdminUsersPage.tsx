@@ -263,7 +263,7 @@ const AdminUsersPage = () => {
                   <div className="flex flex-col gap-0.5">
                     <p className="font-bold text-[11px] truncate max-w-[150px]">{u.university || "—"}</p>
                     <p className="text-[10px] text-muted-foreground truncate max-w-[150px]">
-                      {u.degree && u.major ? `${u.degree} in ${u.major}` : (u.degree || u.major || "—")}
+                      {u.degree || "—"} {u.major ? ` / ${u.major}` : ""}
                     </p>
                   </div>
                 )

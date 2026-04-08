@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, Award, TrendingUp, Settings } from "lucide-react";
 import { motion } from "framer-motion";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { parse, format } from "date-fns";
 
 
 const navItems = [
@@ -70,8 +72,28 @@ const RecruiterHome = () => {
     let matchesDate = true;
     if (dateRange.start || dateRange.end) {
       const updatedAt = new Date(c.updated_at || c.created_at);
-      if (dateRange.start && updatedAt < new Date(dateRange.start)) matchesDate = false;
-      if (dateRange.end && updatedAt > new Date(dateRange.end)) matchesDate = false;
+      
+      if (dateRange.start) {
+        let dStart = dateRange.start;
+        if (dStart.includes("-") && dStart.split("-")[0].length === 2) {
+          try {
+            const parsed = parse(dStart, "MM-dd-yyyy", new Date());
+            if (!isNaN(parsed.getTime())) dStart = format(parsed, "yyyy-MM-dd");
+          } catch(e) {}
+        }
+        if (updatedAt < new Date(dStart)) matchesDate = false;
+      }
+      
+      if (dateRange.end) {
+        let dEnd = dateRange.end;
+        if (dEnd.includes("-") && dEnd.split("-")[0].length === 2) {
+          try {
+            const parsed = parse(dEnd, "MM-dd-yyyy", new Date());
+            if (!isNaN(parsed.getTime())) dEnd = format(parsed, "yyyy-MM-dd");
+          } catch(e) {}
+        }
+        if (updatedAt > new Date(dEnd + "T23:59:59")) matchesDate = false;
+      }
     }
 
     return matchesSearch && matchesStatus && matchesVisa && matchesDate;
@@ -137,20 +159,20 @@ const RecruiterHome = () => {
                   <SelectItem value="placed">Placed</SelectItem>
                 </SelectContent>
               </Select>
-              <div className="flex items-center gap-1 bg-background/50 border rounded-md px-2 h-9">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <input 
-                  type="date" 
-                  className="bg-transparent text-[10px] outline-none w-24" 
-                  value={dateRange.start}
-                  onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              <div className="flex items-center gap-1 bg-background/50 border rounded-md px-1.5 h-9 min-w-[300px]">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground ml-1" />
+                <DatePicker 
+                  value={dateRange.start} 
+                  onChange={val => setDateRange(prev => ({ ...prev, start: val }))} 
+                  className="h-7 border-none bg-transparent shadow-none text-[10px] w-32 px-1"
+                  placeholder="Start Date"
                 />
                 <span className="text-muted-foreground">-</span>
-                <input 
-                  type="date" 
-                  className="bg-transparent text-[10px] outline-none w-24" 
-                  value={dateRange.end}
-                  onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                <DatePicker 
+                  value={dateRange.end} 
+                  onChange={val => setDateRange(prev => ({ ...prev, end: val }))} 
+                  className="h-7 border-none bg-transparent shadow-none text-[10px] w-32 px-1"
+                  placeholder="End Date"
                 />
               </div>
             </div>

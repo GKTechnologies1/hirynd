@@ -29,8 +29,8 @@ class RegisterSerializer(serializers.Serializer):
 
     # Education fields
     university_name = serializers.CharField(max_length=120)
-    degree = serializers.CharField(max_length=120)
-    major = serializers.CharField(max_length=120)
+    degree = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    major = serializers.CharField(max_length=120, required=False, allow_blank=True)
     graduation_date = serializers.DateField()
     opt_end_date = serializers.DateField(required=False, allow_null=True)
 
@@ -185,6 +185,7 @@ class UserListSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
     university = serializers.SerializerMethodField()
+    degree = serializers.SerializerMethodField()
     major = serializers.SerializerMethodField()
     graduation_date = serializers.SerializerMethodField()
     linkedin_url = serializers.SerializerMethodField()
@@ -216,7 +217,7 @@ class UserListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'role', 'approval_status', 'is_active', 'created_at', 
             'full_name', 'phone', 'profile', 
-            'university', 'major', 'graduation_date', 
+            'university', 'degree', 'major', 'graduation_date', 
             'linkedin_url', 'social_profile_url', 
             'city', 'state', 'country',
             'candidate_id', 'opt_end_date', 'github_url', 'visa_status', 'referral_source', 'referral_friend_name', 'notes',
@@ -244,6 +245,10 @@ class UserListSerializer(serializers.ModelSerializer):
     def get_major(self, obj):
         p = self._get_target_profile(obj)
         return getattr(p, 'major', '') or ''
+
+    def get_degree(self, obj):
+        p = self._get_target_profile(obj)
+        return getattr(p, 'degree', '') or ''
 
     def get_graduation_date(self, obj):
         p = self._get_target_profile(obj)

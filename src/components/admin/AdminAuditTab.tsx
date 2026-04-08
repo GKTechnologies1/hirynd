@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/DataTable";
 import { Shield } from "lucide-react";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { parse, format } from "date-fns";
 
 interface AdminAuditTabProps {
   targetId: string;
@@ -40,8 +42,28 @@ const AdminAuditTab = ({ targetId }: AdminAuditTabProps) => {
         if (actionFilter !== "all") {
           filtered = filtered.filter((l: any) => l.action?.toLowerCase().includes(actionFilter.toLowerCase()));
         }
-        if (dateFrom) filtered = filtered.filter((l: any) => l.created_at >= dateFrom);
-        if (dateTo) filtered = filtered.filter((l: any) => l.created_at <= dateTo + "T23:59:59");
+        
+        if (dateFrom) {
+          let dFrom = dateFrom;
+          if (dFrom.includes("-") && dFrom.split("-")[0].length === 2) {
+            try {
+              const parsed = parse(dFrom, "MM-dd-yyyy", new Date());
+              if (!isNaN(parsed.getTime())) dFrom = format(parsed, "yyyy-MM-dd");
+            } catch(e) {}
+          }
+          filtered = filtered.filter((l: any) => l.created_at >= dFrom);
+        }
+        
+        if (dateTo) {
+          let dTo = dateTo;
+          if (dTo.includes("-") && dTo.split("-")[0].length === 2) {
+            try {
+              const parsed = parse(dTo, "MM-dd-yyyy", new Date());
+              if (!isNaN(parsed.getTime())) dTo = format(parsed, "yyyy-MM-dd");
+            } catch(e) {}
+          }
+          filtered = filtered.filter((l: any) => l.created_at <= dTo + "T23:59:59");
+        }
         setLogs(filtered);
       } catch {
         setLogs([]);
@@ -79,11 +101,11 @@ const AdminAuditTab = ({ targetId }: AdminAuditTabProps) => {
             </div>
             <div>
               <Label className="text-xs font-bold uppercase tracking-wider opacity-60">From Date</Label>
-              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-40 h-8 text-xs" />
+              <DatePicker value={dateFrom} onChange={setDateFrom} className="w-40 h-8 text-xs" />
             </div>
             <div>
               <Label className="text-xs font-bold uppercase tracking-wider opacity-60">To Date</Label>
-              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-40 h-8 text-xs" />
+              <DatePicker value={dateTo} onChange={setDateTo} className="w-40 h-8 text-xs" />
             </div>
           </div>
 

@@ -183,10 +183,16 @@ def recruiter_profile(request):
 @permission_classes([IsAdmin])
 def admin_update_profile(request, user_id):
     from .models import RecruiterProfile
+    from users.models import User
+    
     try:
-        profile = RecruiterProfile.objects.select_related('user__profile').get(user_id=user_id)
-    except RecruiterProfile.DoesNotExist:
-        return Response({'error': 'Recruiter profile not found'}, status=404)
+        user_obj = User.objects.get(id=user_id)
+        if user_obj.role != 'recruiter':
+            return Response({'error': 'User is not a recruiter'}, status=400)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    profile, _ = RecruiterProfile.objects.get_or_create(user=user_obj)
     
     if request.method == 'PATCH':
         serializer = AdminRecruiterFullSerializer(profile, data=request.data, partial=True)

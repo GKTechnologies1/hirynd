@@ -24,22 +24,48 @@ interface DatePickerProps {
 export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", className, id }: DatePickerProps) {
   const [date, setDate] = React.useState<Date | undefined>(() => {
     if (!value) return undefined;
-    // Try to parse MM/dd/yyyy
-    try {
-      const formatString = value.includes("/") ? "MM/dd/yyyy" : "MM-dd-yyyy";
-      const parsed = parse(value, formatString, new Date());
-      return isNaN(parsed.getTime()) ? undefined : parsed;
-    } catch {
-      return undefined;
+    
+    // Try multiple formats
+    const formats = ["MM-dd-yyyy", "MM/dd/yyyy", "yyyy-MM-dd"];
+    for (const f of formats) {
+      try {
+        const parsed = parse(value, f, new Date());
+        if (!isNaN(parsed.getTime())) return parsed;
+      } catch (e) {}
     }
+    return undefined;
   });
+
+  // Sync internal state when value prop changes
+  React.useEffect(() => {
+    if (!value) {
+      setDate(undefined);
+      return;
+    }
+    
+    const formats = ["MM-dd-yyyy", "MM/dd/yyyy", "yyyy-MM-dd"];
+    let found = false;
+    for (const f of formats) {
+      try {
+        const parsed = parse(value, f, new Date());
+        if (!isNaN(parsed.getTime())) {
+          setDate(parsed);
+          found = true;
+          break;
+        }
+      } catch (e) {}
+    }
+    if (!found) setDate(undefined);
+  }, [value]);
 
   const handleSelect = (newDate: Date | undefined) => {
     setDate(newDate);
-    if (onChange && newDate) {
-      onChange(format(newDate, "MM/dd/yyyy"));
-    } else if (onChange && !newDate) {
-      onChange("");
+    if (onChange) {
+      if (newDate) {
+        onChange(format(newDate, "MM-dd-yyyy"));
+      } else {
+        onChange("");
+      }
     }
   };
 
@@ -56,7 +82,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "MM/dd/yyyy") : <span>{placeholder}</span>}
+          {date ? format(date, "MM-dd-yyyy") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

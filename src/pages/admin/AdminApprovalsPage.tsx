@@ -276,13 +276,11 @@ const AdminApprovalsPage = () => {
                     <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">University / Institute</p>
                     <p className="font-semibold text-foreground">{selectedUser?.university || "—"}</p>
                   </div>
-                  <div>
-                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Degree</p>
-                    <p className="font-medium text-foreground">{selectedUser?.degree || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Major</p>
-                    <p className="font-medium text-foreground">{selectedUser?.major || "—"}</p>
+                  <div className="col-span-2">
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Degree / Major</p>
+                    <p className="font-medium text-foreground">
+                      {selectedUser?.degree || "—"} {selectedUser?.major ? ` / ${selectedUser.major}` : ""}
+                    </p>
                   </div>
                   <div>
                     <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Graduation</p>
@@ -379,9 +377,11 @@ const AdminApprovalsPage = () => {
                         <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">University</p>
                         <p className="font-semibold text-teal-900">{selectedUser?.university || "—"}</p>
                       </div>
-                      <div>
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Major</p>
-                        <p className="font-medium text-teal-900">{selectedUser?.major || "—"}</p>
+                      <div className="col-span-2">
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Degree / Major</p>
+                        <p className="font-medium text-teal-900">
+                          {selectedUser?.degree || "—"} {selectedUser?.major ? ` / ${selectedUser.major}` : ""}
+                        </p>
                       </div>
                       <div className="col-span-2">
                         <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight mb-1">Professional Links</p>
@@ -403,9 +403,23 @@ const AdminApprovalsPage = () => {
                         <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Internal Company</p>
                         <p className="font-semibold text-teal-900">{selectedUser?.company_name || "—"}</p>
                       </div>
-                       <div>
+                      <div>
                         <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Experience</p>
                         <p className="font-medium text-teal-900 line-clamp-2">{selectedUser?.prior_recruitment_experience || "None specified"}</p>
+                      </div>
+                      <div className="col-span-2 grid grid-cols-3 gap-2 pt-2 border-t border-teal-100">
+                        <div>
+                          <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Emp ID</p>
+                          <p className="font-medium text-teal-900 text-xs">{selectedUser?.employee_id || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Department</p>
+                          <p className="font-medium text-teal-900 text-xs">{selectedUser?.department || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Specialization</p>
+                          <p className="font-medium text-teal-900 text-xs">{selectedUser?.specialization || "—"}</p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>

@@ -11,6 +11,7 @@ class RecruiterProfile(models.Model):
     state = models.CharField(max_length=100, blank=True, null=True)
     country = models.CharField(max_length=100, blank=True, null=True)
     university = models.CharField(max_length=255, blank=True, null=True)
+    degree = models.CharField(max_length=255, blank=True, null=True)
     major = models.CharField(max_length=255, blank=True, null=True)
     graduation_date = models.DateField(blank=True, null=True)
     linkedin_url = models.URLField(blank=True, null=True)

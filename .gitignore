@@ -84,3 +84,4 @@ backfill_invoices.py
 billing/backfill_invoices.py
 django_backend/backfill_invoices.py
 /tmp/
+django_backend/db.sqlite3

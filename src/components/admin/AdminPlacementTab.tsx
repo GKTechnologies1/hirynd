@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Award, CheckCircle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { parse, format } from "date-fns";
 
 interface AdminPlacementTabProps {
   candidateId: string;
@@ -51,10 +53,21 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
     }
     setSubmitting(true);
     try {
+      let startDate = form.start_date;
+      if (startDate && startDate.includes("-")) {
+        const parts = startDate.split("-");
+        if (parts[0].length === 2 && parts[2].length === 4) {
+          try {
+            const parsed = parse(startDate, "MM-dd-yyyy", new Date());
+            if (!isNaN(parsed.getTime())) startDate = format(parsed, "yyyy-MM-dd");
+          } catch(e) {}
+        }
+      }
+
       await candidatesApi.closePlacement(candidateId, {
         company_name: form.company_name.trim(),
         role_title: form.role_title.trim(),
-        start_date: form.start_date,
+        start_date: startDate,
         salary: form.salary.trim(),
         hr_email: form.hr_email.trim(),
         offer_letter_url: form.offer_letter_url,
@@ -123,7 +136,12 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
         <div className="grid gap-4 sm:grid-cols-2">
           <div><Label>Company Name *</Label><Input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} /></div>
           <div><Label>Role Title *</Label><Input value={form.role_title} onChange={e => setForm(p => ({ ...p, role_title: e.target.value }))} /></div>
-          <div><Label>Start Date *</Label><Input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} /></div>
+          <div><Label>Start Date *</Label>
+            <DatePicker 
+              value={form.start_date} 
+              onChange={val => setForm(p => ({ ...p, start_date: val }))} 
+            />
+          </div>
           <div><Label>Salary *</Label><Input value={form.salary} onChange={e => setForm(p => ({ ...p, salary: e.target.value }))} placeholder="e.g. $85,000/year" /></div>
           <div><Label>HR Email *</Label><Input type="email" value={form.hr_email} onChange={e => setForm(p => ({ ...p, hr_email: e.target.value }))} /></div>
           <div><Label>Offer Letter URL</Label><Input value={form.offer_letter_url} onChange={e => setForm(p => ({ ...p, offer_letter_url: e.target.value }))} placeholder="https://..." /></div>

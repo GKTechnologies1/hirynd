@@ -178,6 +178,26 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
+    
+    // Validate date formats
+    const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
+    if (formData.date_of_birth && !dateRegex.test(formData.date_of_birth)) {
+      toast({ title: "Invalid Date", description: "Date of Birth must be in MM-DD-YYYY format", variant: "destructive" });
+      return;
+    }
+    if (formData.graduation_date && !dateRegex.test(formData.graduation_date)) {
+      toast({ title: "Invalid Date", description: "Graduation Date must be in MM-DD-YYYY format", variant: "destructive" });
+      return;
+    }
+    if (formData.visa_expiry_date && !dateRegex.test(formData.visa_expiry_date)) {
+      toast({ title: "Invalid Date", description: "Visa Expiry Date must be in MM-DD-YYYY format", variant: "destructive" });
+      return;
+    }
+    if (formData.ready_to_start_date && !dateRegex.test(formData.ready_to_start_date)) {
+      toast({ title: "Invalid Date", description: "Ready to Start Date must be in MM-DD-YYYY format", variant: "destructive" });
+      return;
+    }
+
     setSubmitting(true);
 
     const submissionData = {
@@ -270,7 +290,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     id="intake-date_of_birth"
                     value={formData.date_of_birth}
                     onChange={val => handleChange("date_of_birth", val)}
-                    placeholder="MM/DD/YYYY"
+                    placeholder="MM-DD-YYYY"
                     className={isLocked ? "opacity-50 pointer-events-none" : "h-11"}
                   />
                 </div>
@@ -352,41 +372,42 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600">Education Background</h3>
               </div> */}
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div className="sm:col-span-2 space-y-2">
-                  <Label className="text-sm font-medium ml-1">University Name *</Label>
-                  <Input value={formData.university_name} onChange={e => handleChange("university_name", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium ml-1">Degree *</Label>
-                  <Select value={formData.degree} onValueChange={v => handleChange("degree", v)} disabled={isLocked}>
-                    <SelectTrigger className="h-11 rounded-xl bg-neutral-50"><SelectValue placeholder="Select degree" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bachelors">Bachelor's</SelectItem>
-                      <SelectItem value="masters">Master's</SelectItem>
-                      <SelectItem value="phd">PhD</SelectItem>
-                      <SelectItem value="associate">Associate</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {formData.degree === "other" && (
-                  <div className="animate-in slide-in-from-top-1 space-y-2">
-                    <Label className="text-sm font-medium ml-1">Please Specify Degree *</Label>
-                    <Input value={formData.degree_other} onChange={e => handleChange("degree_other", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50" />
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label className="text-sm font-medium ml-1">University Name *</Label>
+                    <Input value={formData.university_name} onChange={e => handleChange("university_name", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200" />
                   </div>
-                )}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium ml-1">Major *</Label>
-                  <Input value={formData.major} onChange={e => handleChange("major", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200" />
-                </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">Degree *</Label>
+                    <Select value={formData.degree} onValueChange={v => handleChange("degree", v)} disabled={isLocked}>
+                      <SelectTrigger className="h-11 rounded-xl bg-neutral-50"><SelectValue placeholder="Select degree" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bachelors">Bachelor's</SelectItem>
+                        <SelectItem value="masters">Master's</SelectItem>
+                        <SelectItem value="phd">PhD</SelectItem>
+                        <SelectItem value="associate">Associate</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">Major *</Label>
+                    <Input value={formData.major} onChange={e => handleChange("major", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200" />
+                  </div>
+
+                  {formData.degree === "other" && (
+                    <div className="sm:col-span-2 animate-in slide-in-from-top-1 space-y-2">
+                      <Label className="text-sm font-medium ml-1">Please Specify Degree *</Label>
+                      <Input value={formData.degree_other} onChange={e => handleChange("degree_other", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50" />
+                    </div>
+                  )}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium ml-1">Graduation Date *</Label>
                   <DatePicker
                     id="intake-graduation_date"
                     value={formData.graduation_date}
                     onChange={val => handleChange("graduation_date", val)}
-                    placeholder="MM/DD/YYYY"
+                    placeholder="MM-DD-YYYY"
                     className={isLocked ? "opacity-50 pointer-events-none" : "h-11"}
                   />
                 </div>
@@ -560,7 +581,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     id="intake-ready_to_start_date"
                     value={formData.ready_to_start_date}
                     onChange={val => handleChange("ready_to_start_date", val)}
-                    placeholder="MM/DD/YYYY"
+                    placeholder="MM-DD-YYYY"
                     className={isLocked ? "opacity-50 pointer-events-none" : "h-11"}
                   />
                 </div>

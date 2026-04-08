@@ -143,13 +143,18 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-widest">Degree</Label>
-                <Input value={form.degree} onChange={(event) => handleChange('degree', event.target.value)} className="h-11 rounded-xl" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-widest">Major</Label>
-                <Input value={form.major} onChange={(event) => handleChange('major', event.target.value)} className="h-11 rounded-xl" />
+              <div className="space-y-1.5 sm:col-span-1">
+                <Label className="text-xs font-bold uppercase tracking-widest">Degree / Major</Label>
+                <Input 
+                  value={`${form.degree}${form.degree && form.major ? " / " : ""}${form.major}`} 
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    const [d, ...m] = val.split("/");
+                    setForm(prev => ({ ...prev, degree: (d || "").trim(), major: m.join("/").trim() }));
+                  }} 
+                  className="h-11 rounded-xl" 
+                  placeholder="e.g. Bachelors / CS"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase tracking-widest">Graduation Year</Label>
