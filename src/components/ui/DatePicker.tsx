@@ -21,12 +21,13 @@ interface DatePickerProps {
   id?: string
 }
 
-export function DatePicker({ value, onChange, placeholder = "MM-DD-YYYY", className, id }: DatePickerProps) {
+export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", className, id }: DatePickerProps) {
   const [date, setDate] = React.useState<Date | undefined>(() => {
     if (!value) return undefined;
-    // Try to parse MM-dd-yyyy
+    // Try to parse MM/dd/yyyy
     try {
-      const parsed = parse(value, "MM-dd-yyyy", new Date());
+      const formatString = value.includes("/") ? "MM/dd/yyyy" : "MM-dd-yyyy";
+      const parsed = parse(value, formatString, new Date());
       return isNaN(parsed.getTime()) ? undefined : parsed;
     } catch {
       return undefined;
@@ -36,7 +37,7 @@ export function DatePicker({ value, onChange, placeholder = "MM-DD-YYYY", classN
   const handleSelect = (newDate: Date | undefined) => {
     setDate(newDate);
     if (onChange && newDate) {
-      onChange(format(newDate, "MM-dd-yyyy"));
+      onChange(format(newDate, "MM/dd/yyyy"));
     } else if (onChange && !newDate) {
       onChange("");
     }
@@ -55,7 +56,7 @@ export function DatePicker({ value, onChange, placeholder = "MM-DD-YYYY", classN
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "MM-dd-yyyy") : <span>{placeholder}</span>}
+          {date ? format(date, "MM/dd/yyyy") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

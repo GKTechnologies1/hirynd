@@ -73,7 +73,7 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
           </nav>
           <div className={`border-t border-white/10 p-4 ${sidebarCollapsed ? "flex flex-col items-center" : ""}`}>
           <Link
-            to="/contact"
+            to="/contact?type=general"
             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition-all ${
               sidebarCollapsed ? "justify-center px-2" : ""
             }`}

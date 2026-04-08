@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
 from audit.utils import log_action
@@ -78,7 +79,11 @@ def candidate_list(request):
 @permission_classes([IsApproved])
 def candidate_detail(request, candidate_id):
     try:
-        candidate = Candidate.objects.select_related('user__profile').get(id=candidate_id)
+        try:
+            candidate = Candidate.objects.select_related('user__profile').get(id=candidate_id)
+        except (Candidate.DoesNotExist, ValueError, ValidationError):
+            # Fallback for when a User ID is passed instead of Candidate ID
+            candidate = Candidate.objects.select_related('user__profile').get(user_id=candidate_id)
     except Candidate.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
     return Response(CandidateSerializer(candidate).data)
@@ -234,9 +239,8 @@ def confirm_roles(request, candidate_id):
             custom_reason=custom_role.get('reason')
         )
 
-    candidate = Candidate.objects.get(id=candidate_id)
     if candidate.status in ('roles_suggested', 'roles_published', 'intake_submitted'):
-        candidate.status = 'pending_payment'
+        candidate.status = 'payment_pending'
         candidate.save()
         
     # AUTOMATION: Ensure the $400 subscription exists

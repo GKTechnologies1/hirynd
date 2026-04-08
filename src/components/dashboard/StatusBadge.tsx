@@ -8,6 +8,7 @@ const statusConfig: Record<string, { label: string; className: string; dot?: str
   roles_published: { label: "Roles Published", className: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", dot: "bg-amber-500" },
   roles_candidate_responded: { label: "Roles Responded", className: "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", dot: "bg-yellow-500" },
   payment_pending: { label: "Payment Pending", className: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", dot: "bg-orange-500" },
+  pending_payment: { label: "Payment Pending", className: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", dot: "bg-orange-500" },
   payment_completed: { label: "Payment Completed", className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", dot: "bg-emerald-500" },
   credentials_submitted: { label: "Credentials Submitted", className: "bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400", dot: "bg-cyan-500" },
   active_marketing: { label: "Active Marketing", className: "bg-secondary/15 text-secondary", dot: "bg-secondary" },

@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 
@@ -393,7 +394,7 @@ const AdminJobsPage = () => {
                   },
                   { 
                     header: "Date", 
-                    render: (sub: any) => <span className="text-xs text-muted-foreground">{sub.created_at ? new Date(sub.created_at).toLocaleDateString() : "—"}</span>
+                    render: (sub: any) => <span className="text-xs text-muted-foreground">{formatDate(sub.created_at)}</span>
                   },
                   { 
                     header: "Actions", 

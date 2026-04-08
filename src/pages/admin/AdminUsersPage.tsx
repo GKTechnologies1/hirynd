@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
 
@@ -49,10 +50,24 @@ const AdminUsersPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const filteredUsers = users.filter(u => {
+    const searchStr = (
+      (u.full_name || "") + 
+      (u.email || "") + 
+      (u.university || "") + 
+      (u.major || "") +
+      (u.company_name || "")
+    ).toLowerCase();
+    const matchesSearch = searchStr.includes(search.toLowerCase());
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    const matchesStatus = statusFilter === 'all' || (u.approval_status || u.status) === statusFilter;
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
   // Edit dialog
   const [editUser, setEditUser] = useState<any>(null);
@@ -72,27 +87,20 @@ const AdminUsersPage = () => {
       // all_users now returns {total, results}
       const list = data?.results ?? data ?? [];
       setUsers(list);
-      setFiltered(list);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
     setLoading(false);
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { 
+    fetchUsers(); 
+    // Auto-refresh when returning to tab
+    const onFocus = () => fetchUsers();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
-  useEffect(() => {
-    let result = users;
-    if (roleFilter !== "all") result = result.filter(u => u.role === roleFilter);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(u =>
-        (u.full_name || "").toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q)
-      );
-    }
-    setFiltered(result);
-  }, [search, roleFilter, users]);
 
   const openEdit = (user: any) => {
     setEditUser(user);
@@ -190,7 +198,7 @@ const AdminUsersPage = () => {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search by name or email..." value={search} onChange={e => setSearch(e.target.value)} />
+          <Input className="pl-9" placeholder="Search by name, email, university or major..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
           <SelectTrigger className="w-44"><SelectValue placeholder="Filter by role" /></SelectTrigger>
@@ -203,17 +211,16 @@ const AdminUsersPage = () => {
             <SelectItem value="admin">Admin</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-sm text-muted-foreground">{filtered.length} users</span>
+        <span className="text-sm text-muted-foreground font-medium">{filteredUsers.length} users found</span>
       </div>
 
       {/* Table */}
       <Card>
         <CardContent className="p-0">
           <DataTable
-            data={filtered}
+            data={filteredUsers}
             isLoading={loading}
-            searchPlaceholder="Search by name..."
-            searchKey="full_name" // Internal search will work on filtered list
+            emptyMessage="No users found matching your criteria."
             columns={[
               {
                 header: "ID",
@@ -250,6 +257,28 @@ const AdminUsersPage = () => {
                 )
               },
               { 
+                header: "Education", 
+                className: "text-xs min-w-[150px]",
+                render: (u: any) => (
+                  <div className="flex flex-col gap-0.5">
+                    <p className="font-bold text-[11px] truncate max-w-[150px]">{u.university || "—"}</p>
+                    <p className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                      {u.degree && u.major ? `${u.degree} in ${u.major}` : (u.degree || u.major || "—")}
+                    </p>
+                  </div>
+                )
+              },
+              { 
+                header: "Graduation", 
+                sortable: true,
+                accessorKey: "graduation_date",
+                render: (u: any) => (
+                  <span className="text-[11px] font-medium">
+                    {formatDate(u.graduation_date)}
+                  </span>
+                )
+              },
+              { 
                 header: "Status", 
                 sortable: true,
                 accessorKey: "approval_status",
@@ -265,8 +294,8 @@ const AdminUsersPage = () => {
                 accessorKey: "date_joined",
                 render: (u: any) => (
                   <div className="text-[10px]">
-                    <p className="font-bold">{u.date_joined ? new Date(u.date_joined).toLocaleDateString() : u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</p>
-                    <p className="opacity-50">{u.date_joined ? new Date(u.date_joined).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
+                    <p className="font-bold">{formatDate(u.date_joined || u.created_at)}</p>
+                    <p className="opacity-50">{u.date_joined ? new Date(u.date_joined).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : u.created_at ? new Date(u.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
                   </div>
                 )
               },
@@ -277,8 +306,13 @@ const AdminUsersPage = () => {
                   <div className="flex justify-end gap-1.5">
                     {(u.role === 'candidate' || u.role === 'recruiter') && (
                       <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={() => {
-                        const detailId = u.role === 'candidate' ? u.candidate_id : u.id;
-                        navigate(`/admin-dashboard/${u.role}s/${detailId}`);
+                        if (u.role === 'candidate') {
+                          // Try candidate_id first, fallback to user id
+                          const cid = u.candidate_id || u.id;
+                          navigate(`/admin-dashboard/candidates/${cid}`);
+                        } else {
+                          navigate(`/admin-dashboard/recruiters/${u.id}`);
+                        }
                       }}>
                         <Eye className="h-3 w-3 mr-1" /> View Details
                       </Button>

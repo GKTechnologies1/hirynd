@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { recruitersApi } from "@/services/api";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -186,7 +187,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   <AccordionItem key={log.id} value={log.id}>
                     <AccordionTrigger>
                       <div className="flex items-center gap-4 text-left">
-                        <span className="text-sm font-bold">{new Date(log.log_date).toLocaleDateString()}</span>
+                        <span className="text-sm font-bold">{formatDate(log.log_date)}</span>
                         <span className="text-xs text-muted-foreground">{log.applications_count} applications logged</span>
                       </div>
                     </AccordionTrigger>

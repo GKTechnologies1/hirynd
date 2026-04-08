@@ -8,7 +8,8 @@ const LOCAL_URL = import.meta.env.VITE_LOCAL_API || 'http://127.0.0.1:8000';
 const DEFAULT_URL = isStaging ? STAGING_URL : LOCAL_URL;
 
 const VITE_API_URL = import.meta.env.VITE_API_URL || DEFAULT_URL;
-const API_BASE_URL = `${VITE_API_URL.replace(/\/$/, "")}/api`;
+export const BACKEND_URL = VITE_API_URL.replace(/\/$/, "");
+const API_BASE_URL = `${BACKEND_URL}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

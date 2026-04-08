@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Award, CheckCircle } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 interface AdminPlacementTabProps {
   candidateId: string;
@@ -81,7 +82,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
         <CardContent className="grid gap-3 sm:grid-cols-2 text-sm">
           <div><span className="text-muted-foreground">Company:</span> <strong>{placement.company_name}</strong></div>
           <div><span className="text-muted-foreground">Role:</span> <strong>{placement.role_title}</strong></div>
-          <div><span className="text-muted-foreground">Start Date:</span> {new Date(placement.start_date).toLocaleDateString()}</div>
+          <div><span className="text-muted-foreground mr-1">Start Date:</span> {formatDate(placement.start_date)}</div>
           <div><span className="text-muted-foreground">Salary:</span> {placement.salary}</div>
           <div><span className="text-muted-foreground">HR Email:</span> {placement.hr_email}</div>
           {placement.interviewer_email && <div><span className="text-muted-foreground">Interviewer:</span> {placement.interviewer_email}</div>}

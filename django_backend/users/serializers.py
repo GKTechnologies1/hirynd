@@ -29,7 +29,8 @@ class RegisterSerializer(serializers.Serializer):
 
     # Education fields
     university_name = serializers.CharField(max_length=120)
-    major_degree = serializers.CharField(max_length=120)
+    degree = serializers.CharField(max_length=120)
+    major = serializers.CharField(max_length=120)
     graduation_date = serializers.DateField()
     opt_end_date = serializers.DateField(required=False, allow_null=True)
 
@@ -103,7 +104,8 @@ class RegisterSerializer(serializers.Serializer):
 
         # Common profile fields
         university_name = validated_data.pop('university_name', '')
-        major_degree = validated_data.pop('major_degree', '')
+        degree = validated_data.pop('degree', '')
+        major = validated_data.pop('major', '')
         graduation_date = validated_data.pop('graduation_date', None)
         how_did_you_hear = validated_data.pop('how_did_you_hear', '')
         friend_name = validated_data.pop('friend_name', '')
@@ -137,7 +139,9 @@ class RegisterSerializer(serializers.Serializer):
                 user=user,
                 status='pending_approval',
                 university=university_name,
-                major=major_degree,
+                degree=degree,
+                major=major,
+                graduation_year=str(graduation_date.year) if graduation_date else "",
                 graduation_date=graduation_date,
                 opt_end_date=opt_end_date,
                 visa_status=visa_status,
@@ -147,6 +151,7 @@ class RegisterSerializer(serializers.Serializer):
                 portfolio_url=portfolio_url,
                 github_url=github_url,
                 current_location=current_location,
+                resume_file=resume_file,
                 notes=additional_notes
             )
         elif role == 'recruiter':
@@ -157,7 +162,8 @@ class RegisterSerializer(serializers.Serializer):
                 state=state,
                 country=country,
                 university=university_name,
-                major=major_degree,
+                degree=degree,
+                major=major,
                 graduation_date=graduation_date,
                 linkedin_url=linkedin_url,
                 social_profile_url=social_profile,
@@ -368,8 +374,8 @@ class ContactSerializer(serializers.Serializer):
     email = serializers.EmailField()
     phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     university = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    degree = serializers.CharField(max_length=120, required=False, allow_blank=True)
     major = serializers.CharField(max_length=120, required=False, allow_blank=True)
-    degree_major = serializers.CharField(max_length=120, required=False, allow_blank=True)
     graduation_year = serializers.CharField(max_length=10, required=False, allow_blank=True)
     visa_status = serializers.CharField(max_length=50, required=False, allow_blank=True)
     referral_source = serializers.CharField(max_length=100, required=False, allow_blank=True)

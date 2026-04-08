@@ -11,6 +11,7 @@ import RecruiterSettingsPage from "@/pages/recruiter/RecruiterSettingsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, Award, TrendingUp, Settings } from "lucide-react";
@@ -57,7 +58,7 @@ const RecruiterHome = () => {
       setLoading(false);
     };
     fetchData();
-  }, [user, navigate]);
+  }, [user, navigate, location.pathname]);
 
   const filteredCandidates = candidates.filter(c => {
     const matchesSearch = !search || 
@@ -193,7 +194,7 @@ const RecruiterHome = () => {
                 className: "px-6",
                 render: (c: any) => (
                   <span className="text-xs text-muted-foreground">
-                    {new Date(c.updated_at || c.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {formatDate(c.updated_at || c.created_at)}
                   </span>
                 )
               },

@@ -2,11 +2,11 @@ import { CheckCircle, Circle } from "lucide-react";
 import { motion } from "framer-motion";
 
 const PIPELINE_STEPS = [
-  { key: "pending_approval",    label: "Registration Submitted" },
+  { key: "pending_approval",    label: "Registration Submitted", alias: "lead" },
   { key: "approved",            label: "Profile Approved" },
   { key: "intake_submitted",    label: "Intake Submitted" },
-  { label: "Roles Reviewed",     key: "roles_published", alias: "roles_suggested" },
-  { label: "Roles Confirmed",    key: "roles_confirmed" },
+  { label: "Roles Reviewed",     key: "roles_published", alias: ["roles_suggested", "roles_candidate_responded"] },
+  { label: "Roles Confirmed",    key: "roles_confirmed", alias: ["payment_pending", "pending_payment"] },
   { label: "Payment Completed",  key: "payment_completed", alias: "paid" },
   { label: "Credentials Submitted", key: "credentials_submitted", alias: "credential_completed" },
   { label: "Active Marketing",    key: "active_marketing" },
@@ -18,7 +18,12 @@ interface CandidateTimelineProps {
 }
 
 const CandidateTimeline = ({ currentStatus }: CandidateTimelineProps) => {
-  const currentIndex = PIPELINE_STEPS.findIndex((s) => s.key === currentStatus || (s as any).alias === currentStatus);
+  const currentIndex = PIPELINE_STEPS.findIndex((s) => {
+    if (s.key === currentStatus) return true;
+    const alias = (s as any).alias;
+    if (Array.isArray(alias)) return alias.includes(currentStatus);
+    return alias === currentStatus;
+  });
   const isPausedOrSpecial = ["paused", "cancelled", "on_hold", "past_due"].includes(currentStatus);
 
   return (

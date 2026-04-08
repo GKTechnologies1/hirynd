@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { formatDate } from "@/lib/utils";
 
 import {
   BarChart as ReBarChart, Bar, LineChart, Line,
@@ -80,12 +81,22 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: cands } = await candidatesApi.list();
+      const [{ data: cands }, { data: leads }] = await Promise.all([
+        candidatesApi.list(),
+        candidatesApi.interestedList()
+      ]);
+
       if (cands) {
         setCandidates(cands);
         const counts: Record<string, number> = {};
         STATUSES.forEach((s) => { counts[s] = 0; });
         cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
+        
+        // ADD: Merge InterestedCandidate count into "lead" pipeline count
+        if (leads && Array.isArray(leads)) {
+          counts["lead"] = (counts["lead"] || 0) + leads.length;
+        }
+        
         setPipelineCounts(counts);
       }
     } catch {}
@@ -114,7 +125,13 @@ const AdminDashboard = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [user]);
+  useEffect(() => {
+    fetchData();
+    // Auto-refresh when returns to tab
+    const onFocus = () => fetchData();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [user, location.pathname]);
 
   const handleStatusChange = async (candidateId: string, newStatus: string) => {
     try {
@@ -293,7 +310,7 @@ const AdminDashboard = () => {
                   header: "Joined",
                   render: (c: any) => (
                     <div className="text-[10px]">
-                      <p className="font-bold">{c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}</p>
+                      <p className="font-bold">{formatDate(c.created_at)}</p>
                       <p className="opacity-50">{c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
                     </div>
                   ),

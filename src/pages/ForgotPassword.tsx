@@ -72,15 +72,15 @@ const ForgotPassword = () => {
               <form onSubmit={handleSubmit} className="space-y-6 animate-in slide-in-from-bottom-2">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium ml-1">Account Email</Label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 z-10" />
+                  <div className="relative group/field">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within/field:text-neutral-400 transition-colors z-10" />
                     <Input
                       id="email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@example.com"
-                      className="h-12 pl-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm focus:ring-2 focus:ring-primary/20"
+                      className="h-12 pl-11 rounded-xl bg-neutral-50/50 border-neutral-200 focus:bg-white transition-all shadow-sm focus:ring-2 focus:ring-primary/20"
                       required
                     />
                   </div>

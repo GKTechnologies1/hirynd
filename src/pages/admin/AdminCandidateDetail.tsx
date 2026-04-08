@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi, billingApi } from "@/services/api";
+import { candidatesApi, billingApi, authApi, BACKEND_URL } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils";
 
 import { useToast } from "@/hooks/use-toast";
 import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, RefreshCw, Activity, Eye, AlertTriangle, ClipboardList, KeyRound, Save } from "lucide-react";
@@ -226,8 +227,9 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const isPlaced = status === "placed_closed";
   const STATUSES = [
     "pending_approval", "lead", "approved", "intake_submitted", "roles_published", 
-    "roles_confirmed", "payment_completed", "credentials_submitted", "active_marketing", 
-    "paused", "on_hold", "past_due", "cancelled", "placed_closed"
+    "roles_candidate_responded", "roles_confirmed", "payment_pending", "pending_payment", "payment_completed", 
+    "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due", 
+    "cancelled", "placed_closed"
   ];
 
   return (
@@ -339,14 +341,18 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   </div>
                   <div>
                     <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">{status === 'lead' ? 'Submitted At' : 'Date Joined'}</Label>
-                    <p className="font-medium text-foreground">{new Date(candidate.created_at).toLocaleDateString()}</p>
+                    <p className="font-medium text-foreground">{formatDate(candidate.created_at || candidate.date_joined)}</p>
                   </div>
                 </div>
                 <div className="pt-2 border-t mt-2">
                     <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">{status === 'lead' ? 'Submitted Resume' : 'Registered Resume'}</Label>
-                    {candidate?.resume_file ? (
+                    {(candidate?.resume_file || candidate?.resume_url) ? (
                       <Button variant="outline" size="sm" className="h-9 w-full justify-start gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary" asChild>
-                        <a href={candidate.resume_file} target="_blank" rel="noreferrer">
+                        <a 
+                          href={(candidate.resume_file || candidate.resume_url).startsWith('http') ? (candidate.resume_file || candidate.resume_url) : `${BACKEND_URL}${candidate.resume_file || candidate.resume_url}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                        >
                           <FileText className="h-4 w-4" /> View {status === 'lead' ? 'Lead' : 'Registration'} Resume
                         </a>
                       </Button>
@@ -367,22 +373,23 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
               <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">University / College</Label>
-                  <p className="font-semibold text-foreground">{candidate?.university || "—"}</p>
+                  <p className="font-semibold text-foreground tracking-tight">{candidate?.university || intakeData?.university_name || "—"}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Degree</Label>
-                    <p className="font-medium text-foreground">{candidate?.degree || "—"}</p>
+                    <p className="font-medium text-foreground">{candidate?.degree || intakeData?.degree || "—"}</p>
                   </div>
                   <div>
                     <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Major</Label>
-                    <p className="font-medium text-foreground">{candidate?.major || "—"}</p>
+                    <p className="font-medium text-foreground">{candidate?.major || intakeData?.major || "—"}</p>
                   </div>
                 </div>
                 <div>
-                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Graduation Details</Label>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Graduation Date</Label>
                   <p className="font-medium text-foreground">
-                    {candidate?.graduation_year || "—"} {candidate?.graduation_date ? `(${new Date(candidate.graduation_date).toLocaleDateString()})` : ""}
+                    {formatDate(candidate?.graduation_date || intakeData?.graduation_date)} 
+                    {candidate?.graduation_year && !candidate?.graduation_date && ` (${candidate.graduation_year})`}
                   </p>
                 </div>
               </CardContent>
@@ -443,7 +450,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">OPT / STEM End Date</Label>
-                  <p className="font-medium text-foreground">{candidate?.opt_end_date ? new Date(candidate.opt_end_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "—"}</p>
+                  <p className="font-medium text-foreground">{formatDate(candidate?.opt_end_date)}</p>
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Source / Referral</Label>
@@ -742,7 +749,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                           <Badge variant="secondary" className="h-6">v{v.version}</Badge>
                           <div>
                             <span className="font-semibold block">{v.editor_name || "Candidate Submission"}</span>
-                            <span className="text-[10px] uppercase text-muted-foreground font-bold">{new Date(v.created_at).toLocaleString()}</span>
+                            <span className="text-[10px] uppercase text-muted-foreground font-bold">{formatDate(v.created_at)}</span>
                           </div>
                         </div>
                       </AccordionTrigger>

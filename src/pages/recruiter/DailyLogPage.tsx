@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 
 import { ClipboardList, Plus, CheckCircle2, ChevronRight, Search, TrendingUp, AlertCircle, FilePlus, Calendar } from "lucide-react";
@@ -63,7 +64,7 @@ const DailyLogPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Daily Activity Logs</h1>
-          <p className="text-muted-foreground text-sm font-medium mt-1">Log your candidate application activity for today, {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}.</p>
+          <p className="text-muted-foreground text-sm font-medium mt-1">Log your candidate application activity for today, {formatDate(new Date())}.</p>
         </div>
         <div className="flex items-center gap-4 bg-card/40 backdrop-blur-md p-4 rounded-2xl border border-border/50 shadow-sm min-w-[300px]">
            <div className="flex-1 space-y-1.5">

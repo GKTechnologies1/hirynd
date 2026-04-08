@@ -33,7 +33,7 @@ const RecruiterLogin = () => {
   const [reg, setReg] = useState({
     first_name: "", last_name: "", email: "", phone: "",
     password: "", confirm_password: "",
-    university_name: "", major_degree: "", graduation_date: "",
+    university_name: "", degree: "", major: "", graduation_date: "",
     how_did_you_hear: "", friend_name: "",
     linkedin_url: "", social_profile: "",
     city: "", state: "", country: "",
@@ -75,7 +75,8 @@ const RecruiterLogin = () => {
     if (reg.password !== reg.confirm_password) errors.confirm_password = "Passwords do not match";
 
     if (!reg.university_name.trim()) errors.university_name = "University is required";
-    if (!reg.major_degree.trim()) errors.major_degree = "Major/degree is required";
+    if (!reg.degree.trim()) errors.degree = "Degree is required";
+    if (!reg.major.trim()) errors.major = "Major is required";
     
     const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
@@ -372,9 +373,14 @@ const RecruiterLogin = () => {
                     {regErrors.university_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.university_name}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Degree & Major *</Label>
-                    <Input id="reg-major_degree" value={reg.major_degree} onChange={e => updateReg("major_degree", e.target.value)} placeholder="e.g., Master's in Computer Science" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
-                    {regErrors.major_degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major_degree}</p>}
+                    <Label className="text-sm font-medium ml-1">Degree *</Label>
+                    <Input id="reg-degree" value={reg.degree} onChange={e => updateReg("degree", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
+                    {regErrors.degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">Major *</Label>
+                    <Input id="reg-major" value={reg.major} onChange={e => updateReg("major", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
+                    {regErrors.major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Graduation Date *</Label>
@@ -445,10 +451,10 @@ const RecruiterLogin = () => {
                         <input type="checkbox" id="reg-consent_to_terms" checked={reg.consent_to_terms} onChange={e => updateReg("consent_to_terms", e.target.checked)} className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary" />
                       </div>
                       <Label htmlFor="reg-consent_to_terms" className="text-xs text-muted-foreground leading-normal cursor-pointer select-none">
-                        I hereby confirm that all information provided is accurate and agree to the{" "}
-                        <Link to="/terms" className="text-primary font-bold hover:underline">Terms of Service</Link>
+                        I hereby confirm that all information provided is accurate and agree to HYRIND's{" "}
+                        <Link to="/terms" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>
                         {" "}and{" "}
-                        <Link to="/privacy-policy" className="text-primary font-bold hover:underline">Privacy Policy</Link>. *
+                        <Link to="/privacy-policy" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</Link>. *
                       </Label>
                     </div>
                     {regErrors.consent_to_terms && <p className="text-[10px] text-destructive mt-1 font-medium ml-2">{regErrors.consent_to_terms}</p>}

@@ -44,8 +44,10 @@ const STATUS_TAB_ACCESS: Record<string, string[]> = {
   approved:              ["overview", "intake"],
   intake_submitted:      ["overview", "intake"],
   roles_published:       ["overview", "intake", "roles"],
+  roles_candidate_responded: ["overview", "intake", "roles", "payments"],
   roles_confirmed:       ["overview", "intake", "roles", "payments"],
-  pending_payment:       ["overview", "intake", "roles", "payments"],   // ← NEW: allows payment after role confirmation
+  payment_pending:       ["overview", "intake", "roles", "payments"],
+  pending_payment:       ["overview", "intake", "roles", "payments"],
   payment_completed:     ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
   credentials_submitted: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
   active_marketing:      ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
@@ -140,7 +142,13 @@ const CandidateDashboard = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [user]);
+  useEffect(() => {
+    fetchData();
+    // Auto-refresh when returns to tab
+    const onFocus = () => fetchData();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [user, navigate, location.pathname]);
 
   const subPath = useMemo(() => {
     return location.pathname.replace("/candidate-dashboard", "").replace(/^\//, "") || "overview";
@@ -150,7 +158,7 @@ const CandidateDashboard = () => {
   const allowedTabs = STATUS_TAB_ACCESS[status] || ["overview"];
   const tabKey = subPath === "" ? "overview" : subPath;
   const isBillingTab = tabKey === "payments" || tabKey === "billing";
-  const hasPendingSub = ["pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status);
+  const hasPendingSub = ["payment_pending", "pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status);
 
   const isLocked = tabKey !== "overview" && !allowedTabs.includes(tabKey) && !(isBillingTab && hasPendingSub);
 
@@ -161,7 +169,10 @@ const CandidateDashboard = () => {
       case "approved":          return "Complete your Client Intake Sheet to proceed.";
       case "intake_submitted":  return "Your intake is under review. Waiting for role suggestions from your team.";
       case "roles_published":   return "Review and respond to your suggested roles.";
-      case "roles_confirmed":   return "Your roles are confirmed. Waiting for payment step.";
+      case "roles_candidate_responded":
+      case "roles_confirmed":   
+      case "payment_pending":
+      case "pending_payment":   return "Your roles are confirmed. Please proceed to payment to unlock the next steps.";
       case "payment_completed": return "Payment received. Submit your credential intake sheet.";
       case "credentials_submitted": return "Your credentials are submitted. Waiting for recruiter assignment.";
       case "active_marketing":  return "Your profile is being actively marketed!";
@@ -175,13 +186,16 @@ const CandidateDashboard = () => {
   };
 
   const getNextActionCTA = () => {
-    if (["pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status)) {
+    if (["payment_pending", "pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status)) {
       return { label: "Pay Now →", path: "/candidate-dashboard/payments" };
     }
     switch (status) {
       case "approved":          return { label: "Complete Intake Sheet →", path: "/candidate-dashboard/intake" };
       case "roles_published":   return { label: "Review Suggested Roles →", path: "/candidate-dashboard/roles" };
-      case "roles_confirmed":   return { label: "View Payments →", path: "/candidate-dashboard/payments" };
+      case "roles_candidate_responded":
+      case "roles_confirmed":   
+      case "payment_pending":
+      case "pending_payment":   return { label: "View Payments →", path: "/candidate-dashboard/payments" };
       case "payment_completed": return { label: "Complete Credential Intake →", path: "/candidate-dashboard/credentials" };
       case "active_marketing":  return { label: "View Applications →", path: "/candidate-dashboard/applications" };
       case "credentials_submitted": 

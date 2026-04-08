@@ -34,7 +34,10 @@ const CandidateLogin = () => {
   const [reg, setReg] = useState({
     first_name: "", last_name: "", email: "", phone: "",
     password: "", confirm_password: "",
-    university_name: "", major_degree: "", graduation_date: "",
+    university_name: "",
+    degree: "",
+    major: "",
+    graduation_date: "",
     how_did_you_hear: "", friend_name: "",
     linkedin_url: "", portfolio_url: "", github_url: "",
     visa_status: "", visa_other: "", opt_end_date: "",
@@ -70,8 +73,9 @@ const CandidateLogin = () => {
 
     if (reg.password !== reg.confirm_password) errors.confirm_password = "Passwords do not match";
 
-    if (!reg.university_name.trim()) errors.university_name = "University is required";
-    if (!reg.major_degree.trim()) errors.major_degree = "Degree & Major is required";
+    if (!reg.university_name) errors.university_name = "University is required";
+    if (!reg.degree) errors.degree = "Degree is required";
+    if (!reg.major) errors.major = "Major is required";
     
     const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
@@ -130,13 +134,11 @@ const CandidateLogin = () => {
     }
   };
 
-  const { signUp: signUpRaw } = useAuth();
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateRegistration()) return;
     setSubmitting(true);
     
-    // Using FormData for multipart submission
     const data = new FormData();
     data.append("role", "candidate");
     data.append("first_name", reg.first_name.trim());
@@ -146,7 +148,8 @@ const CandidateLogin = () => {
     data.append("password", reg.password);
     data.append("confirm_password", reg.confirm_password);
     data.append("university_name", reg.university_name);
-    data.append("major_degree", reg.major_degree);
+    data.append("degree", reg.degree);
+    data.append("major", reg.major);
     const formattedGradDate = reg.graduation_date ? format(parse(reg.graduation_date, "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "";
     data.append("graduation_date", formattedGradDate);
     data.append("how_did_you_hear", reg.how_did_you_hear);
@@ -191,7 +194,6 @@ const CandidateLogin = () => {
     setSubmitting(false);
   };
 
-  // Section 3.4 Pending Approval Screen
   if (registrationComplete || approvalStatus === "pending_approval") {
     return (
       <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -419,16 +421,27 @@ const CandidateLogin = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Degree & Major *</Label>
+                    <Label className="text-sm font-medium ml-1">Degree *</Label>
                     <Input 
-                      id="reg-major_degree"
-                      value={reg.major_degree} 
-                      onChange={e => updateReg("major_degree", e.target.value)} 
-                      placeholder="e.g., Master's in Computer Science"
+                      id="reg-degree"
+                      value={reg.degree} 
+                      onChange={e => updateReg("degree", e.target.value)} 
                       maxLength={120} 
                       className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
-                    {regErrors.major_degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major_degree}</p>}
+                    {regErrors.degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">Major *</Label>
+                    <Input 
+                      id="reg-major"
+                      value={reg.major} 
+                      onChange={e => updateReg("major", e.target.value)} 
+                      maxLength={120} 
+                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
+                    />
+                    {regErrors.major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.major}</p>}
                   </div>
                   
                   <div className="space-y-2">
@@ -559,16 +572,16 @@ const CandidateLogin = () => {
                         />
                       </div>
                       <Label htmlFor="consent_to_terms" className="text-xs text-muted-foreground leading-normal cursor-pointer select-none">
-                        I hereby confirm that all information provided is accurate and agree to the{" "}
-                        <Link to="/terms" className="text-primary font-bold hover:underline">Terms of Service</Link>
+                        I hereby confirm that all information provided is accurate and I agree to HYRIND's{" "}
+                        <Link to="/terms" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>
                          {" "}and{" "}
-                        <Link to="/privacy-policy" className="text-primary font-bold hover:underline">Privacy Policy</Link>. *
+                        <Link to="/privacy-policy" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</Link>. *
                       </Label>
                     </div>
                     {regErrors.consent_to_terms && <p className="text-[10px] text-destructive mt-1 font-medium ml-2">{regErrors.consent_to_terms}</p>}
                   </div>
 
-                </div>{/* end scrollable fields */}
+                </div>
 
                 <div className="pt-3 pb-1 border-t border-neutral-100">
                   <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/10" disabled={submitting}>

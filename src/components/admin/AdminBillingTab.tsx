@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/DataTable";
 
 import { useToast } from "@/hooks/use-toast";
+import { formatDate } from "@/lib/utils";
 import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban } from "lucide-react";
 
 interface AdminBillingTabProps {
@@ -189,7 +190,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Next Charge</p>
-                <p className="text-card-foreground">{subscription.next_billing_at ? new Date(subscription.next_billing_at).toLocaleDateString() : "—"}</p>
+                <p className="text-card-foreground">{formatDate(subscription.next_billing_at)}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Failed Attempts</p>
@@ -198,13 +199,13 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
               {subscription.grace_period_ends_at && (
                 <div>
                   <p className="text-sm text-muted-foreground">Grace Period Ends</p>
-                  <p className="text-destructive font-semibold">{new Date(subscription.grace_period_ends_at).toLocaleDateString()}</p>
+                  <p className="text-destructive font-semibold">{formatDate(subscription.grace_period_ends_at)}</p>
                 </div>
               )}
               {subscription.last_payment_at && (
                 <div>
                   <p className="text-sm text-muted-foreground">Last Payment</p>
-                  <p className="text-card-foreground">{new Date(subscription.last_payment_at).toLocaleDateString()}</p>
+                  <p className="text-card-foreground">{formatDate(subscription.last_payment_at)}</p>
                 </div>
               )}
             </div>
@@ -265,7 +266,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                     {pendingInvoices.map((inv: any) => (
                       <SelectItem key={inv.id} value={inv.id}>
                         {/* Use template literal for $ to avoid confusion with variable interpolation in some contexts (though not here, but consistent) */}
-                        ${Number(inv.amount).toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} to {new Date(inv.period_end).toLocaleDateString()}
+                        ${Number(inv.amount).toLocaleString()} — {formatDate(inv.period_start)} to {formatDate(inv.period_end)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -295,7 +296,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                   <SelectContent>
                     {pendingInvoices.map((inv: any) => (
                       <SelectItem key={inv.id} value={inv.id}>
-                        ${Number(inv.amount).toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} to {new Date(inv.period_end).toLocaleDateString()}
+                        ${Number(inv.amount).toLocaleString()} — {formatDate(inv.period_start)} to {formatDate(inv.period_end)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -323,7 +324,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
             columns={[
               { 
                 header: "Period", 
-                render: (inv: any) => <span className="text-sm pl-6">{new Date(inv.period_start).toLocaleDateString()} – {new Date(inv.period_end).toLocaleDateString()}</span>
+                render: (inv: any) => <span className="text-sm pl-6">{formatDate(inv.period_start)} – {formatDate(inv.period_end)}</span>
               },
               { 
                 header: "Amount", 
@@ -339,7 +340,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
               },
               { 
                 header: "Paid At", 
-                render: (inv: any) => <span className="text-sm">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</span>
+                render: (inv: any) => <span className="text-sm">{formatDate(inv.paid_at)}</span>
               },
               { 
                 header: "Reference", 
@@ -364,7 +365,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
               columns={[
                 { 
                   header: "Date", 
-                  render: (p: any) => <span className="text-sm pl-6">{new Date(p.created_at).toLocaleDateString()}</span>
+                  render: (p: any) => <span className="text-sm pl-6">{formatDate(p.created_at)}</span>
                 },
                 { 
                   header: "Amount", 

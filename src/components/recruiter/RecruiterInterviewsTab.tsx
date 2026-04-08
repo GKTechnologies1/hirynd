@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/DataTable";
-
+import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Phone, Plus } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -146,7 +146,7 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
             columns={[
               { 
                 header: "Date", 
-                render: (l: any) => <span className="text-sm pl-6">{l.interview_date ? new Date(l.interview_date).toLocaleDateString() : "—"}</span>
+                render: (l: any) => <span className="text-sm pl-6">{formatDate(l.interview_date)}</span>
               },
               { 
                 header: "Type", 

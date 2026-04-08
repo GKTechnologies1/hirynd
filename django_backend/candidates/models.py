@@ -10,7 +10,9 @@ class Candidate(models.Model):
         ('approved', 'Approved'),
         ('intake_submitted', 'Intake Submitted'),
         ('roles_published', 'Roles Published'),
+        ('roles_candidate_responded', 'Roles Candidate Responded'),
         ('roles_confirmed', 'Roles Confirmed'),
+        ('payment_pending', 'Payment Pending'),
         ('payment_completed', 'Payment Completed'),
         ('credentials_submitted', 'Credentials Submitted'),
         ('active_marketing', 'Active Marketing'),
@@ -31,6 +33,8 @@ class Candidate(models.Model):
     graduation_year = models.CharField(max_length=10, blank=True, null=True)
     graduation_date = models.DateField(blank=True, null=True)
     resume_url = models.URLField(blank=True, null=True)
+    resume_file = models.FileField(upload_to='resumes/', blank=True, null=True)
+    services = models.JSONField(default=list, blank=True)
     drive_folder_url = models.URLField(blank=True, null=True)
     linkedin_url = models.URLField(blank=True, null=True)
     portfolio_url = models.URLField(blank=True, null=True)
@@ -72,6 +76,8 @@ class InterestedCandidate(models.Model):
     email = models.EmailField()
     phone = models.CharField(max_length=30, blank=True, null=True)
     university = models.CharField(max_length=255, blank=True, null=True)
+    degree = models.CharField(max_length=255, blank=True, null=True)
+    major = models.CharField(max_length=255, blank=True, null=True)
     degree_major = models.CharField(max_length=255, blank=True, null=True)
     graduation_year = models.CharField(max_length=10, blank=True, null=True)
     visa_status = models.CharField(max_length=50, blank=True, null=True)
@@ -80,6 +86,8 @@ class InterestedCandidate(models.Model):
     current_location = models.CharField(max_length=255, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     resume_url = models.URLField(blank=True, null=True)
+    resume_file = models.FileField(upload_to='leads/resumes/', blank=True, null=True)
+    selected_services = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

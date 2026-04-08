@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 
 import { useToast } from "@/hooks/use-toast";
@@ -96,7 +97,7 @@ const AdminReferralsPage = () => {
               },
               { 
                 header: "Date", 
-                render: (r: any) => <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+                render: (r: any) => <span className="text-xs text-muted-foreground">{formatDate(r.created_at)}</span>
               },
               { 
                 header: "Actions", 

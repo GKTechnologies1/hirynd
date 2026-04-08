@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { User, Mail, Phone, MapPin, Linkedin, Landmark, ShieldCheck, Wallet, Eye, EyeOff, Loader2, Save } from "lucide-react";
 import { motion } from "framer-motion";
@@ -31,6 +32,7 @@ const RecruiterProfilePage = () => {
   const [maskBank, setMaskBank] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingBank, setSavingBank] = useState(false);
+  const [countryCode, setCountryCode] = useState("+1");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,6 +59,18 @@ const RecruiterProfilePage = () => {
           linkedin_url: prof?.linkedin_url || ""
         });
 
+        const rawPhone = user?.profile?.phone || prof?.phone || "";
+        if (rawPhone.startsWith("+")) {
+            const parts = rawPhone.split(" ");
+            if (parts.length > 1) {
+                setCountryCode(parts[0]);
+                setProfile(prev => ({ ...prev, phone: parts.slice(1).join("") }));
+            } else {
+                setCountryCode(rawPhone.slice(0, 3));
+                setProfile(prev => ({ ...prev, phone: rawPhone.slice(3) }));
+            }
+        }
+
         if (bank) {
           setBankDetails({
             bank_name: bank.bank_name || "",
@@ -74,13 +88,18 @@ const RecruiterProfilePage = () => {
 
   const handleSaveProfile = async () => {
     setSavingProfile(true);
+    const submissionProfile = {
+        ...profile,
+        phone: `${countryCode} ${profile.phone}`
+    };
+
     try {
-      await recruitersApi.updateProfile(profile);
+      await recruitersApi.updateProfile(submissionProfile);
       // Update basic auth fields as well if changed
       await authApi.updateProfile({ 
-          first_name: profile.first_name, 
-          last_name: profile.last_name,
-          phone: profile.phone
+          first_name: submissionProfile.first_name, 
+          last_name: submissionProfile.last_name,
+          phone: submissionProfile.phone
       });
       await refreshUser();
       toast({ title: "Profile updated successfully" });
@@ -160,10 +179,27 @@ const RecruiterProfilePage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Phone Number</Label>
-              <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                  <Input className="pl-9 bg-background/50 h-10 text-sm" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} />
+              <Label className="text-xs font-bold uppercase tracking-widest opacity-60 ml-1">Phone Number</Label>
+              <div className="flex gap-2">
+                <Select value={countryCode} onValueChange={setCountryCode}>
+                  <SelectTrigger className="h-10 w-[90px] rounded-xl bg-background/50 border-neutral-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                    <SelectItem value="+91">🇮🇳 +91</SelectItem>
+                    <SelectItem value="+44">🇬🇧 +44</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="relative flex-1">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                    <Input 
+                      className="pl-9 bg-background/50 h-10 text-sm rounded-xl" 
+                      value={profile.phone} 
+                      onChange={e => setProfile({...profile, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
+                      placeholder="1234567890"
+                    />
+                </div>
               </div>
             </div>
 

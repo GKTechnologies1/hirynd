@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileText } from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import { BACKEND_URL } from "@/services/api";
 
 interface AdminInterestedCandidateDetailProps {
   leadId: string;
@@ -20,7 +22,8 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
     email: "",
     phone: "",
     university: "",
-    degree_major: "",
+    degree: "",
+    major: "",
     graduation_year: "",
     visa_status: "",
     referral_source: "",
@@ -43,7 +46,8 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
         email: data.email || "",
         phone: data.phone || "",
         university: data.university || "",
-        degree_major: data.degree_major || "",
+        degree: data.degree || "",
+        major: data.major || "",
         graduation_year: data.graduation_year || "",
         visa_status: data.visa_status || "",
         referral_source: data.referral_source || "",
@@ -106,7 +110,7 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
         </div>
         <div className="space-y-1 text-right">
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Submitted</p>
-          <p className="font-semibold text-foreground">{new Date(lead.created_at).toLocaleString()}</p>
+          <p className="font-semibold text-foreground">{formatDate(lead.created_at)}</p>
         </div>
       </div>
 
@@ -140,8 +144,12 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-widest">Degree & Major</Label>
-                <Input value={form.degree_major} onChange={(event) => handleChange('degree_major', event.target.value)} className="h-11 rounded-xl" />
+                <Label className="text-xs font-bold uppercase tracking-widest">Degree</Label>
+                <Input value={form.degree} onChange={(event) => handleChange('degree', event.target.value)} className="h-11 rounded-xl" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-widest">Major</Label>
+                <Input value={form.major} onChange={(event) => handleChange('major', event.target.value)} className="h-11 rounded-xl" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase tracking-widest">Graduation Year</Label>
@@ -173,15 +181,35 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
 
             <div className="space-y-1.5">
               <Label className="text-xs font-bold uppercase tracking-widest">Notes</Label>
-              <Textarea value={form.notes} onChange={(event) => handleChange('notes', event.target.value)} rows={5} className="rounded-xl" />
+              <Textarea value={form.notes} onChange={(event) => handleChange('notes', event.target.value)} rows={3} className="rounded-xl" />
             </div>
+
+            {lead.selected_services && lead.selected_services.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-widest">Services of Interest</Label>
+                <div className="flex flex-wrap gap-2">
+                  {lead.selected_services.map((s: string) => (
+                    <span key={s} className="px-3 py-1 bg-secondary/10 text-secondary text-[11px] font-bold rounded-full border border-secondary/20">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {lead.resume_url && (
               <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <FileText className="h-4 w-4" /> Resume
                 </div>
-                <a href={lead.resume_url} target="_blank" rel="noreferrer" className="text-sm text-secondary hover:underline">View uploaded resume</a>
+                <a 
+                  href={lead.resume_file?.startsWith('http') ? lead.resume_file : `${BACKEND_URL}${lead.resume_file}`} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="text-sm text-secondary hover:underline"
+                >
+                  View uploaded resume
+                </a>
               </div>
             )}
 

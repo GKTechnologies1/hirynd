@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useToast } from "@/hooks/use-toast";
@@ -349,7 +350,7 @@ const AdminSubscriptionPlansPage = () => {
                   },
                   { 
                     header: "Assigned", 
-                    render: (s: any) => <span className="text-xs text-muted-foreground">{s.payment_initiated_at ? new Date(s.payment_initiated_at).toLocaleDateString() : "—"}</span>
+                    render: (s: any) => <span className="text-xs text-muted-foreground">{formatDate(s.payment_initiated_at)}</span>
                   }
                 ]}
               />

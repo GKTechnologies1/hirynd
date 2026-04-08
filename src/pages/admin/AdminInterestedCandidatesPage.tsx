@@ -8,6 +8,7 @@ import { Eye, FileText, Download, Users, Activity, CheckCircle, Clock } from "lu
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import { formatDate } from "@/lib/utils";
 
 const AdminInterestedCandidatesPage = () => {
   const { toast } = useToast();
@@ -127,7 +128,9 @@ const AdminInterestedCandidatesPage = () => {
                 render: (c: any) => (
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium truncate max-w-[150px]">{c.university || "—"}</span>
-                    <span className="text-[10px] text-muted-foreground">{c.major || c.degree_major || "—"}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {c.degree && c.major ? `${c.degree} in ${c.major}` : (c.degree || c.major || c.degree_major || "—")}
+                    </span>
                   </div>
                 )
               },
@@ -167,7 +170,7 @@ const AdminInterestedCandidatesPage = () => {
                 header: "Submission",
                 render: (c: any) => (
                   <div className="text-[10px]">
-                    <p className="font-bold">{c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}</p>
+                    <p className="font-bold">{formatDate(c.created_at)}</p>
                     <p className="opacity-50">{c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
                   </div>
                 ),

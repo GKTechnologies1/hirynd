@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DataTable } from "@/components/ui/DataTable";
-
+import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save } from "lucide-react";
 import { motion } from "framer-motion";
@@ -360,7 +360,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       <AccordionTrigger className="hover:no-underline py-4">
                         <div className="flex flex-col items-start gap-1">
                             <span className="text-xs font-bold">Version {v.version}</span>
-                            <span className="text-[10px] text-muted-foreground font-medium">{new Date(v.created_at).toLocaleDateString()} by {v.edited_by?.profile?.full_name || "Admin"}</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">{formatDate(v.created_at)} by {v.edited_by?.profile?.full_name || "Admin"}</span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pb-4">
@@ -506,7 +506,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   { 
                     header: "Logged Date", 
                     className: "px-6 py-4 text-right pr-6",
-                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{new Date(j.log_date || j.created_at).toLocaleDateString()}</span>
+                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{formatDate(j.log_date || j.created_at)}</span>
                   }
                 ]}
               />

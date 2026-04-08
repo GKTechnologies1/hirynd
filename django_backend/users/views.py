@@ -17,6 +17,7 @@ from .serializers import (
 from .permissions import IsAdmin
 from audit.utils import log_action
 from notifications.utils import send_email, get_styled_email_html
+from candidates.models import Candidate
 
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -310,31 +311,30 @@ def submit_contact(request):
 
         existing_user = User.objects.filter(email=data['email']).first()
 
-        # Handle Resume File
-        resume_url = ''
-        resume_file = data.get('resume')
-        if resume_file:
-            import uuid
-            ext = resume_file.name.split('.')[-1] if '.' in resume_file.name else 'bin'
-            file_path = f'leads/resumes/{uuid.uuid4()}.{ext}'
-            saved_path = default_storage.save(file_path, ContentFile(resume_file.read()))
-            resume_url = saved_path
-
-        InterestedCandidate.objects.create(
+        lead = InterestedCandidate.objects.create(
             user=existing_user,
             name=data['name'],
             email=data['email'],
             phone=data.get('phone', ''),
             university=data.get('university', ''),
-            degree_major=data.get('major') or data.get('degree_major', ''),
+            degree=data.get('degree', ''),
+            major=data.get('major', ''),
             graduation_year=data.get('graduation_year', ''),
             visa_status=data.get('visa_status', ''),
             current_location=data.get('current_location', ''),
             referral_source=data.get('referral_source', ''),
             referral_friend_name=data.get('referral_friend', ''),
             notes=data.get('message', ''),
-            resume_url=resume_url,
+            resume_file=data.get('resume'),
+            selected_services=json.loads(request.data.get('services', '[]')) if isinstance(request.data.get('services'), str) and request.data.get('services') else request.data.get('services', []),
         )
+
+        # Build absolute URL for resume
+        resume_url = ''
+        if lead.resume_file:
+            resume_url = request.build_absolute_uri(lead.resume_file.url)
+            lead.resume_url = resume_url
+            lead.save(update_fields=['resume_url'])
 
         # Notify admin of new lead
         admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')

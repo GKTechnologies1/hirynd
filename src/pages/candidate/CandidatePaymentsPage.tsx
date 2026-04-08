@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate } from "@/lib/utils";
 import {
   DollarSign, FileText, CheckCircle, XCircle, Clock,
   Package, CreditCard, ShieldCheck, AlertTriangle, Loader2, RefreshCw, Zap,
@@ -183,7 +184,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
     : 400; // Always show the $400 default even if subscription hasn't been assigned yet
 
   const subscriptionPending = subscription?.status
-    ? ["pending_payment", "unpaid", "past_due"].some((s) => subscription.status.includes(s))
+    ? ["payment_pending", "pending_payment", "unpaid", "past_due"].some((s) => subscription.status.includes(s))
     : false;
 
   const pendingPayments = payments.filter((p) => p.status === "pending");
@@ -377,7 +378,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                           <>
                             <span className="text-muted-foreground/30">•</span>
                             <p className="text-xs text-muted-foreground">
-                              Due: {new Date(p.payment_date).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                              Due: {formatDate(p.payment_date)}
                             </p>
                           </>
                         )}
@@ -437,8 +438,8 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                       <span className="text-muted-foreground/30">•</span>
                       <p className="text-xs text-muted-foreground">
                         {p.payment_date
-                          ? new Date(p.payment_date).toLocaleDateString(undefined, { dateStyle: "medium" })
-                          : new Date(p.created_at).toLocaleDateString()}
+                          ? formatDate(p.payment_date)
+                          : formatDate(p.created_at)}
                       </p>
                     </div>
                   </div>

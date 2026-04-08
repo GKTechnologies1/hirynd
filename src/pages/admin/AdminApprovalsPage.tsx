@@ -7,7 +7,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, Mail, UserX, LayoutDashboard, Users, Award, CreditCard, Briefcase, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/utils";
 
 import { 
   Sheet, 
@@ -28,6 +28,7 @@ interface PendingUser {
   full_name: string;
   phone: string;
   university: string;
+  degree: string;
   major: string;
   graduation_date: string | null;
   linkedin_url: string;
@@ -157,8 +158,8 @@ const AdminApprovalsPage = () => {
                 header: "Submission Date", 
                 render: (u: any) => (
                   <div className="text-xs">
-                    <p className="font-medium text-foreground">{format(new Date(u.created_at), "MMM d, yyyy")}</p>
-                    <p className="text-[10px] text-muted-foreground">{format(new Date(u.created_at), "hh:mm a")}</p>
+                    <p className="font-medium text-foreground">{formatDate(u.created_at)}</p>
+                    <p className="text-[10px] text-muted-foreground">{u.created_at ? new Date(u.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
                   </div>
                 )
               },
@@ -204,7 +205,7 @@ const AdminApprovalsPage = () => {
                   </Badge>
                 </SheetTitle>
                 <SheetDescription className="flex items-center gap-1.5 mt-0.5">
-                   Submitted on {selectedUser?.created_at && format(new Date(selectedUser.created_at), "PPp")}
+                   Submitted on {formatDate(selectedUser?.created_at)}
                 </SheetDescription>
               </div>
             </div>
@@ -276,13 +277,17 @@ const AdminApprovalsPage = () => {
                     <p className="font-semibold text-foreground">{selectedUser?.university || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Major / Degree</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Degree</p>
+                    <p className="font-medium text-foreground">{selectedUser?.degree || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Major</p>
                     <p className="font-medium text-foreground">{selectedUser?.major || "—"}</p>
                   </div>
                   <div>
                     <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Graduation</p>
                     <p className="font-medium text-foreground">
-                      {selectedUser?.graduation_date ? format(new Date(selectedUser.graduation_date), "MMM yyyy") : "—"}
+                      {formatDate(selectedUser?.graduation_date)}
                     </p>
                   </div>
                 </CardContent>
@@ -337,7 +342,7 @@ const AdminApprovalsPage = () => {
                       </div>
                       <div>
                         <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">OPT End Date</p>
-                        <p className="font-medium text-blue-900">{selectedUser?.opt_end_date ? format(new Date(selectedUser.opt_end_date), "PP") : "—"}</p>
+                        <p className="font-medium text-blue-900">{formatDate(selectedUser?.opt_end_date)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">GitHub Profile</p>

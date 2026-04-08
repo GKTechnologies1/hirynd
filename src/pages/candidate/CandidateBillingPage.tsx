@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { billingApi } from "@/services/api";
+import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -238,7 +239,7 @@ const CandidateBillingPage = ({ candidate }: Props) => {
                         {inv.subscription?.plan_name || "Service Fee"}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(inv.period_start).toLocaleDateString()} — {new Date(inv.period_end).toLocaleDateString()}
+                        {formatDate(inv.period_start)} — {formatDate(inv.period_end)}
                       </div>
                     </TableCell>
                     <TableCell className="font-semibold">

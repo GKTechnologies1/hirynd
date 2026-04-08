@@ -13,16 +13,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { formatDate } from "@/lib/utils";
 
 const Contact = () => {
   const [searchParams] = useSearchParams();
-  const [wantsMarketing, setWantsMarketing] = useState<string | null>(null);
+  const [wantsMarketing, setWantsMarketing] = useState<"yes" | "no" | null>(() => {
+    const type = new URLSearchParams(window.location.search).get("type");
+    if (type === "general") return "no";
+    if (type === "interest") return "yes";
+    return null;
+  });
   const [referralSource, setReferralSource] = useState("");
   const [visaStatus, setVisaStatus] = useState("");
   const [countryCode, setCountryCode] = useState("+1");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const { toast } = useToast();
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const SERVICES = [
+    "End-to-End Marketing Strategy",
+    "Resume & Portfolio Optimization",
+    "Technical Interview Prep",
+    "Career Growth Counseling",
+    "Visa & Compliance Support",
+  ];
+
+  const toggleService = (service: string) => {
+    setSelectedServices(prev => 
+      prev.includes(service) ? prev.filter(s => s !== service) : [...prev, service]
+    );
+  };
 
   useEffect(() => {
     const type = searchParams.get("type");
@@ -33,24 +55,53 @@ const Contact = () => {
     }
   }, [searchParams]);
 
+  const validateForm = (formData: FormData) => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.get("first_name")) newErrors.first_name = "First name is required";
+    if (!formData.get("last_name")) newErrors.last_name = "Last name is required";
+    
+    const email = formData.get("email") as string;
+    if (!email) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = "Invalid email format";
+    }
+    
+    if (!formData.get("phone")) newErrors.phone = "Phone number is required";
+    
+    if (wantsMarketing === "yes") {
+      if (!formData.get("degree")) newErrors.degree = "Degree is required";
+      if (!formData.get("major")) newErrors.major = "Major is required";
+      if (!visaStatus) newErrors.visa_status = "Please select your visa status";
+      if (visaStatus === "other" && !formData.get("visa_other")) {
+        newErrors.visa_other = "Please specify your visa status";
+      }
+      if (!formData.get("current_location")) newErrors.current_location = "Current location is required";
+      if (!referralSource) newErrors.referral_source = "Please tell us how you heard about us";
+      if (referralSource === "friend" && !formData.get("referral_friend")) {
+        newErrors.referral_friend = "Friend's name is required";
+      }
+      if (selectedServices.length === 0) {
+        newErrors.services = "Please select at least one service";
+      }
+      if (!termsAccepted) newErrors.terms = "You must accept the terms and privacy policy";
+    } else {
+      if (!formData.get("message")) newErrors.message = "Message is required";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const formElement = e.target as HTMLFormElement;
     const formData = new FormData(formElement);
     
-    if (wantsMarketing === "yes") {
-      if (!termsAccepted) {
-        toast({ title: "Please accept the Terms & Conditions and Privacy Policy to continue.", variant: "destructive" });
-        return;
-      }
-      if (!visaStatus) {
-        toast({ title: "Please select your visa status.", variant: "destructive" });
-        return;
-      }
-      if (!referralSource) {
-        toast({ title: "Please select how you heard about us.", variant: "destructive" });
-        return;
-      }
+    if (!validateForm(formData)) {
+      toast({ title: "Please fix the errors in the form.", variant: "destructive" });
+      return;
     }
     
     const firstName = formData.get("first_name") as string;
@@ -66,14 +117,21 @@ const Contact = () => {
     
     if (wantsMarketing === "yes") {
       finalData.append("university", formData.get("university") as string || "");
+      finalData.append("degree", formData.get("degree") as string || "");
+      finalData.append("major", formData.get("major") as string || "");
       finalData.append("graduation_year", formData.get("graduation_year") as string || "");
-      finalData.append("degree_major", formData.get("degree_major") as string || "");
-      finalData.append("visa_status", visaStatus);
+      finalData.append("visa_status", visaStatus === "other" ? (formData.get("visa_other") as string) : visaStatus);
+      finalData.append("current_location", formData.get("current_location") as string || "");
       finalData.append("referral_source", referralSource);
       finalData.append("referral_friend", formData.get("referral_friend") as string || "");
+      finalData.append("services", JSON.stringify(selectedServices));
       
-      const resumeFile = formData.get("resume");
-      if (resumeFile && (resumeFile as File).name) {
+      const resumeFile = formData.get("resume") as File;
+      if (resumeFile && resumeFile.name) {
+        if (resumeFile.size > 5 * 1024 * 1024) {
+          toast({ title: "File too large", description: "Resume must be less than 5MB.", variant: "destructive" });
+          return;
+        }
         finalData.append("resume", resumeFile);
       }
     } else {
@@ -88,7 +146,9 @@ const Contact = () => {
       setShowSuccessDialog(true);
       setReferralSource("");
       setVisaStatus("");
+      setSelectedServices([]);
       setTermsAccepted(false);
+      setErrors({});
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -143,10 +203,22 @@ const Contact = () => {
                     <p className="mt-2 text-sm text-neutral-500">Have a question about our services, partnerships, or anything else? Send us a message and we'll respond promptly.</p>
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label><Input name="first_name" required placeholder="First name" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
-                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label><Input name="last_name" required placeholder="Last name" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
+                      <Input name="first_name" placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
+                      {errors.first_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.first_name}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
+                      <Input name="last_name" placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
+                      {errors.last_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.last_name}</p>}
+                    </div>
                   </div>
-                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label><Input name="email" required type="email" placeholder="you@email.com" className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" /></div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
+                    <Input name="email" type="email" placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
+                    {errors.email && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
+                  </div>
                   
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
@@ -162,14 +234,19 @@ const Contact = () => {
                           <SelectItem value="+61">🇦🇺 +61</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input name="phone" required placeholder="(555) 000-0000" className="flex-1 bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11" />
+                      <Input name="phone" placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
                     </div>
+                    {errors.phone && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.phone}</p>}
                   </div>
                   
-                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Message *</Label><Textarea name="message" required placeholder="How can we help you?" rows={5} className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none" /></div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Message *</Label>
+                    <Textarea name="message" placeholder="How can we help you?" rows={5} className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none ${errors.message ? 'border-destructive' : ''}`} />
+                    {errors.message && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.message}</p>}
+                  </div>
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button type="submit" className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90 rounded-xl h-11 px-6 font-bold shadow-sm">Send Message</Button>
-                    <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => setWantsMarketing(null)}>Back</Button>
+                    <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => { setWantsMarketing(null); setErrors({}); }}>Back</Button>
                   </div>
                 </form>
               )}
@@ -183,11 +260,23 @@ const Contact = () => {
                   </div>
 
                   <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label><Input name="first_name" required placeholder="First name" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
-                    <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label><Input name="last_name" required placeholder="Last name" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
+                      <Input name="first_name" placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
+                      {errors.first_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.first_name}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
+                      <Input name="last_name" placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
+                      {errors.last_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.last_name}</p>}
+                    </div>
                   </div>
                   
-                  <div className="space-y-1.5"><Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label><Input name="email" required type="email" placeholder="you@email.com" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" /></div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
+                    <Input name="email" type="email" placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
+                    {errors.email && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
+                  </div>
                   
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
@@ -203,8 +292,33 @@ const Contact = () => {
                           <SelectItem value="+61">🇦🇺 +61</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input name="phone" required placeholder="(555) 000-0000" className="flex-1 bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <Input name="phone" placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
                     </div>
+                    {errors.phone && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.phone}</p>}
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest text-[#0d47a1]">Select Services of Interest *</Label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {SERVICES.map((s) => {
+                        const isSelected = selectedServices.includes(s);
+                        return (
+                          <div 
+                            key={s} 
+                            onClick={() => toggleService(s)}
+                            className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-[#0d47a1] bg-blue-50/50 shadow-sm' : 'border-neutral-200 hover:border-neutral-300 bg-neutral-50/10'}`}
+                          >
+                            <Checkbox 
+                              checked={isSelected}
+                              onCheckedChange={() => toggleService(s)}
+                              className="data-[state=checked]:bg-[#0d47a1] border-neutral-300"
+                            />
+                            <span className={`text-[11px] font-bold ${isSelected ? 'text-[#0d47a1]' : 'text-neutral-600'}`}>{s}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {errors.services && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.services}</p>}
                   </div>
 
                   <div className="grid gap-5 sm:grid-cols-2">
@@ -220,14 +334,23 @@ const Contact = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree & Major *</Label>
-                    <Input name="degree_major" required placeholder="e.g., Master's in Computer Science" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree *</Label>
+                      <Input name="degree" placeholder="e.g. Master's" className={`h-11 rounded-xl ${errors.degree ? 'border-destructive' : ''}`} />
+                      {errors.degree && <p className="text-[10px] text-destructive font-semibold tracking-tight uppercase mt-1">{errors.degree}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Major *</Label>
+                      <Input name="major" placeholder="e.g. Computer Science" className={`h-11 rounded-xl ${errors.major ? 'border-destructive' : ''}`} />
+                      {errors.major && <p className="text-[10px] text-destructive font-semibold tracking-tight uppercase mt-1">{errors.major}</p>}
+                    </div>
                   </div>
+
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Visa Status</Label>
-                    <Select value={visaStatus} onValueChange={setVisaStatus}>
-                      <SelectTrigger className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11"><SelectValue placeholder="Select your visa status" /></SelectTrigger>
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Visa Status *</Label>
+                    <Select value={visaStatus} onValueChange={(val) => { setVisaStatus(val); setErrors(prev => ({ ...prev, visa_status: "", visa_other: "" })); }}>
+                      <SelectTrigger className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.visa_status ? 'border-destructive shadow-[0_0_0_1px_rgba(239,68,68,1)]' : ''}`}><SelectValue placeholder="Select your visa status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="us-citizen">US Citizen</SelectItem>
                         <SelectItem value="green-card">Green Card / Permanent Resident</SelectItem>
@@ -239,7 +362,21 @@ const Contact = () => {
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
+                    {errors.visa_status && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.visa_status}</p>}
+                    
+                    {visaStatus === "other" && (
+                      <div className="mt-3 space-y-1.5 animate-in slide-in-from-top-1">
+                        <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Please Specify *</Label>
+                        <Input name="visa_other" placeholder="Enter your visa status" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.visa_other ? 'border-destructive' : ''}`} />
+                        {errors.visa_other && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.visa_other}</p>}
+                      </div>
+                    )}
                     <p className="mt-1 text-[10px] text-neutral-400 font-medium">This helps us tailor our approach to your situation</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Current Location *</Label>
+                    <Input name="current_location" placeholder="City, State, Country" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.current_location ? 'border-destructive' : ''}`} />
+                    {errors.current_location && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.current_location}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Resume Upload (Optional)</Label>
@@ -247,9 +384,9 @@ const Contact = () => {
                     <p className="mt-1 text-[10px] text-neutral-400 font-medium">PDF or Word document preferred</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">How did you hear about us?</Label>
-                    <Select value={referralSource} onValueChange={setReferralSource}>
-                      <SelectTrigger className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11"><SelectValue placeholder="Select source" /></SelectTrigger>
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">How did you hear about us? *</Label>
+                    <Select value={referralSource} onValueChange={(val) => { setReferralSource(val); setErrors(prev => ({ ...prev, referral_source: "" })); }}>
+                      <SelectTrigger className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.referral_source ? 'border-destructive shadow-[0_0_0_1px_rgba(239,68,68,1)]' : ''}`}><SelectValue placeholder="Select source" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="google">Google Search</SelectItem>
                         <SelectItem value="linkedin">LinkedIn</SelectItem>
@@ -259,33 +396,36 @@ const Contact = () => {
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
+                    {errors.referral_source && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.referral_source}</p>}
                   </div>
                   {referralSource === "friend" && (
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Friend's Name</Label>
-                      <Input name="referral_friend" placeholder="Who referred you to HYRIND?" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Friend's Name *</Label>
+                      <Input name="referral_friend" placeholder="Who referred you to HYRIND?" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.referral_friend ? 'border-destructive' : ''}`} />
+                      {errors.referral_friend && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.referral_friend}</p>}
                     </div>
                   )}
 
                   {/* Terms & Privacy */}
-                  <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-5 mt-8">
+                  <div className={`flex items-start gap-3 rounded-xl border p-5 mt-8 transition-colors ${errors.terms ? 'border-destructive bg-destructive/5' : 'border-neutral-200 bg-neutral-50'}`}>
                     <Checkbox
                       id="terms"
                       checked={termsAccepted}
-                      onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                      onCheckedChange={(checked) => { setTermsAccepted(checked === true); if (checked === true) setErrors(prev => ({ ...prev, terms: "" })); }}
                       className="mt-0.5 border-neutral-300 data-[state=checked]:bg-[#0d47a1] data-[state=checked]:text-white rounded"
                     />
                     <label htmlFor="terms" className="text-sm text-neutral-600 leading-relaxed font-medium">
                       I agree to HYRIND's{" "}
-                      <Link to="/terms" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>{" "}
+                      <Link to="/terms-and-conditions" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>{" "}
                       and{" "}
-                      <Link to="/privacy-policy" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</Link>.
+                      <Link to="/privacy-policy" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</Link>. *
                     </label>
                   </div>
+                  {errors.terms && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1 ml-2">{errors.terms}</p>}
 
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button type="submit" className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90 rounded-xl h-11 px-6 font-bold shadow-sm">Submit Interest</Button>
-                    <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => { setWantsMarketing(null); setTermsAccepted(false); }}>Back</Button>
+                    <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => { setWantsMarketing(null); setTermsAccepted(false); setErrors({}); }}>Back</Button>
                   </div>
                 </form>
               )}

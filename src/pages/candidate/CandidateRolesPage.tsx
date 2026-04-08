@@ -29,7 +29,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
 
   const canConfirm = ["roles_suggested", "roles_published"].includes(candidate?.status);
   const isConfirmed = [
-    "roles_confirmed", "payment_completed", "paid", "credentials_submitted",
+    "roles_candidate_responded", "roles_confirmed", "payment_pending", "payment_completed", "paid", "credentials_submitted",
     "credential_completed", "active_marketing", "placed_closed", "placed"
   ].includes(candidate?.status);
 
@@ -56,7 +56,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   }, [candidate?.id]); // Also updated to depend on candidate.id
 
   const statusAllowed = [
-    "roles_suggested", "roles_published", "roles_confirmed", "payment_completed", "paid", 
+    "roles_suggested", "roles_published", "roles_candidate_responded", "roles_confirmed", "payment_pending", "pending_payment", "payment_completed", "paid", 
     "credentials_submitted", "credential_completed", "active_marketing", "placed_closed", "placed"
   ].includes(candidate?.status);
 

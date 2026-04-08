@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Send } from "lucide-react";
@@ -116,7 +117,7 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
                 },
                 { 
                   header: "Date", 
-                  render: (r: any) => <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+                  render: (r: any) => <span className="text-xs text-muted-foreground">{formatDate(r.created_at)}</span>
                 }
               ]}
             />

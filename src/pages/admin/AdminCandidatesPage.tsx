@@ -5,6 +5,7 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
+import { formatDate } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, Activity, CheckCircle, FileText, ClipboardList, DollarSign, Briefcase, Users, AlertTriangle, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -152,7 +153,7 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
                 header: "Submission Date",
                 render: (c: any) => (
                   <div className="text-[10px]">
-                    <p className="font-bold">{c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}</p>
+                    <p className="font-bold">{formatDate(c.created_at)}</p>
                     <p className="opacity-50">{c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
                   </div>
                 ),

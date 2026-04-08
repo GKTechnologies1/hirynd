@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/DataTable";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/DatePicker";
 
 import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar } from "lucide-react";
@@ -229,7 +230,7 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                 columns={[
                   { 
                     header: "Date", 
-                    render: (l: any) => <span className="text-sm">{l.interview_date ? new Date(l.interview_date).toLocaleDateString() : "—"}</span>
+                    render: (l: any) => <span className="text-sm">{formatDate(l.interview_date)}</span>
                   },
                   { 
                     header: "Type", 
