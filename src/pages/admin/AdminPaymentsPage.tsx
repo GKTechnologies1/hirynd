@@ -159,6 +159,15 @@ const AdminPaymentsPage = () => {
               searchPlaceholder="Search by candidate..."
               emptyMessage="No payments found."
               columns={[
+                { 
+                  header: "ID", 
+                  className: "pl-4",
+                  render: (p: any) => (
+                    <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                      {`HYRPAY${(p.id || "").toString().slice(-6).toUpperCase()}`}
+                    </span>
+                  )
+                },
                 { header: "Candidate", accessorKey: "candidate_name", sortable: true, className: "font-medium text-sm" },
                 {
                   header: "Amount",

@@ -105,7 +105,7 @@ const AdminLogin = () => {
                 <Button
                   type="submit"
                   variant="hero"
-                  className="w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+                  className={`w-full h-12 rounded-xl text-md font-bold transition-all ${email.trim() && password.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
                   disabled={submitting}
                 >
                   {submitting ? "Authenticating..." : "Admin Sign In"}

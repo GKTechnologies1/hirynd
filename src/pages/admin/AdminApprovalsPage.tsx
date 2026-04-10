@@ -132,11 +132,20 @@ const AdminApprovalsPage = () => {
             emptyMessage="No pending registrations in queue."
             columns={[
               { 
+                header: "ID", 
+                render: (u: any) => (
+                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                    {u.role === 'candidate' ? `HYRCDT${u.id.toString().slice(-6).toUpperCase()}` : `HYRRCR${u.id.toString().slice(-6).toUpperCase()}`}
+                  </span>
+                ),
+                className: "pl-6"
+              },
+              { 
                 header: "Candidate / Recruiter", 
                 sortable: true,
                 accessorKey: "full_name",
                 render: (u: any) => (
-                  <div className="pl-6 py-1">
+                  <div className="py-1">
                     <p className="font-bold text-sm text-foreground">{u.profile?.full_name || "—"}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{u.email}</p>
                   </div>

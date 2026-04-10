@@ -54,7 +54,8 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
           </div>
           <nav className="flex-1 space-y-1 p-3 mt-4">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isDashboardHome = ["/candidate-dashboard", "/recruiter-dashboard", "/admin-dashboard"].includes(item.path);
+              const isActive = isDashboardHome ? location.pathname === item.path : location.pathname.startsWith(item.path);
               return (
                 <Link
                   key={item.path}
@@ -114,7 +115,8 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
                 </div>
                 <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
                   {navItems.map((item) => {
-                    const isActive = location.pathname === item.path;
+                      const isDashboardHome = ["/candidate-dashboard", "/recruiter-dashboard", "/admin-dashboard"].includes(item.path);
+                      const isActive = isDashboardHome ? location.pathname === item.path : location.pathname.startsWith(item.path);
                     return (
                       <Link
                         key={item.path}

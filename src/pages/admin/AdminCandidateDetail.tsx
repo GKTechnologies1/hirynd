@@ -17,12 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, RefreshCw, Activity, Eye, AlertTriangle, ClipboardList, KeyRound, Save } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
 import AdminQAChecklist from "@/components/admin/AdminQAChecklist";
 import AdminBillingTab from "@/components/admin/AdminBillingTab";
+import CandidateApplicationsPage from "@/pages/candidate/CandidateApplicationsPage";
+import CandidateInterviewsPage from "@/pages/candidate/CandidateInterviewsPage";
 
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -62,8 +64,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [addingPayment, setAddingPayment] = useState(false);
 
   const [isEditingCreds, setIsEditingCreds] = useState(false);
-  const [credForm, setCredForm] = useState<Record<string, string>>({});
+  const [credForm, setCredForm] = useState<Record<string, any>>({});
   const [savingCred, setSavingCred] = useState(false);
+  const [showCredPasswords, setShowCredPasswords] = useState<Record<string, boolean>>({});
+  const toggleCredPw = (k: string) => setShowCredPasswords(p => ({...p, [k]: !p[k]}));
 
   const fetchAll = async () => {
     try {
@@ -82,7 +86,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         setRoles(roleRes.data || []);
         setCredentials(credRes.data || []);
         if (credRes.data && credRes.data.length > 0 && credRes.data[0].data) {
-          setCredForm(credRes.data[0].data as Record<string, string>);
+          setCredForm(credRes.data[0].data as Record<string, any>);
         }
         setPayments(payRes.data || []);
         setSubscription(subRes.data?.id ? subRes.data : null);
@@ -310,6 +314,8 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
             </>
           )}
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
+          {status !== 'lead' && <TabsTrigger value="applications">Applications</TabsTrigger>}
+          {status !== 'lead' && <TabsTrigger value="interviews">Interviews</TabsTrigger>}
           {status !== 'lead' && <TabsTrigger value="placement">Placement</TabsTrigger>}
           <TabsTrigger value="audit">Audit</TabsTrigger>
         </TabsList>
@@ -670,7 +676,13 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 <div><Label>Description / Rationale</Label><Textarea value={newRoleDescription} onChange={e => setNewRoleDescription(e.target.value)} /></div>
                 <div className="flex gap-3">
                   <Button onClick={handleAddRole} disabled={addingRole || !newRoleTitle.trim()}>{addingRole ? "Adding..." : "Add Role"}</Button>
-                  {status === "intake_submitted" && roles.length > 0 && <Button variant="hero" onClick={handleSuggestRoles}>Publish Suggested Roles</Button>}
+                  <Button 
+                    variant="hero" 
+                    className={`font-bold transition-all ${status === "intake_submitted" && roles.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                    onClick={handleSuggestRoles}
+                  >
+                    Publish Suggested Roles
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -716,7 +728,56 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                       {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].map((field) => (
                         <div key={field} className="space-y-1.5">
                           <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")} {["gmail_password", "linkedin_password"].includes(field) ? "*" : "(Optional)"}</Label>
-                          <Input type="password" placeholder="••••••••" className="bg-white text-sm h-10 border-border/50" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                          <div className="relative">
+                            <Input type={showCredPasswords[field] ? "text" : "password"} placeholder="••••••••" className="bg-white text-sm h-10 border-border/50 pr-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:bg-transparent" onClick={() => toggleCredPw(field)}>
+                              {showCredPasswords[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Custom Job Platforms */}
+                    <div className="border-t border-amber-200/60 pt-4 mt-2 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-800">Custom Job Platforms</Label>
+                        <Button variant="outline" size="sm" className="h-7 text-xs bg-white text-amber-900 border-amber-200" onClick={() => {
+                          setCredForm(p => ({
+                            ...p,
+                            custom_platforms: [...(p.custom_platforms || []), { platform_name: "", password: "" }]
+                          }));
+                        }}>
+                          <Plus className="h-3 w-3 mr-1" /> Add Platform
+                        </Button>
+                      </div>
+                      {credForm.custom_platforms?.map((cp: any, idx: number) => (
+                        <div key={idx} className="flex gap-3 p-3 bg-white/60 rounded-xl border border-amber-100 relative group">
+                          <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+                            const n = [...credForm.custom_platforms]; n.splice(idx, 1);
+                            setCredForm({ ...credForm, custom_platforms: n });
+                          }}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                          <div className="flex-1 space-y-1">
+                            <Label className="text-[9px] font-bold uppercase text-amber-700">Platform Name</Label>
+                            <Input className="h-8 text-xs bg-white" placeholder="e.g. Monster, ZipRecruiter" value={cp.platform_name} onChange={e => {
+                              const n = [...credForm.custom_platforms]; n[idx].platform_name = e.target.value;
+                              setCredForm({ ...credForm, custom_platforms: n });
+                            }} />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
+                            <div className="relative">
+                              <Input className="h-8 text-xs bg-white pr-8" type={showCredPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
+                                const n = [...credForm.custom_platforms]; n[idx].password = e.target.value;
+                                setCredForm({ ...credForm, custom_platforms: n });
+                              }} />
+                              <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent" onClick={() => toggleCredPw(`cp_${idx}`)}>
+                                {showCredPasswords[`cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -728,7 +789,12 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Button variant="hero" className="flex-1 h-11 font-bold shadow-lg shadow-primary/10" onClick={handleSaveCredential} disabled={savingCred}>
+                    <Button 
+                      variant="hero" 
+                      className={`flex-1 h-11 font-bold transition-all ${credForm.full_legal_name?.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                      onClick={handleSaveCredential} 
+                      disabled={savingCred}
+                    >
                       {savingCred ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                       Update Candidate Credentials
                     </Button>
@@ -790,6 +856,25 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                                  </div>
                                ))}
                             </div>
+                            
+                            {cData.custom_platforms && Array.isArray(cData.custom_platforms) && cData.custom_platforms.length > 0 && (
+                              <div className="mt-4">
+                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2 mb-3">
+                                  <Shield className="h-3 w-3" /> Custom Platforms
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {cData.custom_platforms.map((cp: any, idx: number) => (
+                                    <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3">
+                                      <p className="font-bold text-[10px] text-amber-700 mb-2">{cp.platform_name || "Platform"}</p>
+                                      <div className="space-y-1">
+                                        <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded">{cp.password ? "••••••••" : "N/A"}</span></p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                           </div>
 
                           {/* Preferences */}
@@ -881,7 +966,14 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   <div><Label>Status</Label><Select value={payStatus} onValueChange={setPayStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completed">Completed</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="refunded">Refunded</SelectItem></SelectContent></Select></div>
                 </div>
                 <div><Label>Notes</Label><Textarea value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Manual check, wire transfer, etc." /></div>
-                <Button variant="hero" onClick={handleRecordPayment} disabled={addingPayment || !payAmount}>{addingPayment ? "Recording..." : "Record Payment"}</Button>
+                <Button 
+                  variant="hero" 
+                  className={`w-full h-11 font-bold transition-all ${payAmount && Number(payAmount) > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                  onClick={handleRecordPayment} 
+                  disabled={addingPayment || !payAmount}
+                >
+                  {addingPayment ? "Recording..." : "Record Payment"}
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -954,6 +1046,16 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         {/* Assignments Tab */}
         <TabsContent value="assignments">
           <AdminAssignmentsTab candidateId={candidateId} candidateStatus={status} hasCredentials={credentials.length > 0} onRefresh={fetchAll} />
+        </TabsContent>
+
+        {/* Applications Tab */}
+        <TabsContent value="applications">
+          <CandidateApplicationsPage candidate={candidate} />
+        </TabsContent>
+
+        {/* Interviews Tab */}
+        <TabsContent value="interviews">
+          <CandidateInterviewsPage candidate={candidate} />
         </TabsContent>
 
         {/* Billing Tab */}

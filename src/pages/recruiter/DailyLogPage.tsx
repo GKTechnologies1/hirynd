@@ -9,7 +9,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 
-import { ClipboardList, Plus, CheckCircle2, ChevronRight, Search, TrendingUp, AlertCircle, FilePlus, Calendar } from "lucide-react";
+import { ClipboardList, Plus, CheckCircle2, ChevronRight, Search, TrendingUp, AlertCircle, FilePlus, Calendar, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 
 const DailyLogPage = () => {
@@ -89,7 +89,7 @@ const DailyLogPage = () => {
                         <CardDescription className="text-xs">Quick log access for your assigned candidates.</CardDescription>
                     </div>
                     <div className="relative w-48">
-                        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        {!search && <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />}
                         <Input 
                             placeholder="Filter candidates..." 
                             className="h-8 pl-8 text-xs bg-background/50 border-none ring-1 ring-border/50" 
@@ -107,6 +107,15 @@ const DailyLogPage = () => {
                   searchKey="full_name"
                   emptyMessage="No candidates assigned."
                   columns={[
+                    { 
+                      header: "ID", 
+                      className: "px-6 py-4",
+                      render: (c: any) => (
+                        <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                          {`HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
+                        </span>
+                      )
+                    },
                     { 
                       header: "Candidate", 
                       sortable: true,
@@ -162,22 +171,29 @@ const DailyLogPage = () => {
                   ]}
                 />
              </CardContent>
+        {filteredCandidates.length > 5 && (
+          <div className="py-2 flex justify-center border-t border-border/30 bg-muted/10">
+            <ChevronDown className="h-4 w-4 text-muted-foreground/40 animate-bounce" />
+          </div>
+        )}
+      </Card>
 
-          </Card>
-
-          <div className="space-y-6">
-              <Card className="border-none shadow-sm bg-primary/5 border-primary/20">
+      <div className="space-y-6">
+              <Card className="border-none shadow-sm bg-primary/5 border-primary/20 relative overflow-hidden group">
+                  <div className="absolute bottom-2 right-2 opacity-40 group-hover:opacity-100 transition-opacity animate-bounce pointer-events-none">
+                    <ChevronDown className="h-4 w-4 text-primary" />
+                  </div>
                   <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2 text-primary"><Calendar className="h-4 w-4" /> Weekly Goals</CardTitle>
+                      <CardTitle className="text-base flex items-center gap-2 text-primary">Weekly Goals</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                       <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground font-medium">Daily Target</span>
-                          <span className="font-bold underline underline-offset-4 decoration-primary/40">15 Applications / Day</span>
+                          <span className="font-bold underline underline-offset-4 decoration-primary/40">60 Applications / Day</span>
                       </div>
                       <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground font-medium">Weekly Target</span>
-                          <span className="font-bold underline underline-offset-4 decoration-primary/40">75 Applications / Candidate</span>
+                          <span className="font-bold underline underline-offset-4 decoration-primary/40">300 Applications / Week</span>
                       </div>
                       <div className="p-3 bg-white/50 dark:bg-black/20 rounded-xl text-[11px] text-muted-foreground leading-relaxed border border-primary/10">
                           <p className="font-bold text-primary flex items-center gap-1 mb-1"><FilePlus className="h-3 w-3" /> Tip:</p>

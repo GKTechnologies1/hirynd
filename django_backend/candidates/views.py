@@ -218,6 +218,11 @@ def add_role(request, candidate_id):
 @api_view(['POST'])
 @permission_classes([IsCandidate])
 def confirm_roles(request, candidate_id):
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=status.HTTP_404_NOT_FOUND)
+
     payload = request.data
     decisions = payload.get('decisions', {})
     notes = payload.get('notes', {})

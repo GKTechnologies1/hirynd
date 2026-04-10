@@ -33,6 +33,8 @@ const RecruiterProfilePage = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingBank, setSavingBank] = useState(false);
   const [countryCode, setCountryCode] = useState("+1");
+  const [isProfileEditing, setIsProfileEditing] = useState(false);
+  const [isBankEditing, setIsBankEditing] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -107,6 +109,7 @@ const RecruiterProfilePage = () => {
       toast({ title: "Error", description: err.response?.data?.error || "Failed to update profile", variant: "destructive" });
     } finally {
       setSavingProfile(false);
+      setIsProfileEditing(false);
     }
   };
 
@@ -127,6 +130,7 @@ const RecruiterProfilePage = () => {
       toast({ title: "Error", description: err.response?.data?.error || "Failed to update bank details", variant: "destructive" });
     } finally {
       setSavingBank(false);
+      setIsBankEditing(false);
     }
   };
 
@@ -146,11 +150,16 @@ const RecruiterProfilePage = () => {
       <div className="grid gap-8 md:grid-cols-2">
         {/* Profile Info */}
         <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <User className="h-5 w-5 text-primary" /> Recruiter Information
-            </CardTitle>
-            <CardDescription>Your public and internal profile details</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <User className="h-5 w-5 text-primary" /> Recruiter Information
+              </CardTitle>
+              <CardDescription>Your public and internal profile details</CardDescription>
+            </div>
+            {!isProfileEditing && (
+              <Button variant="outline" size="sm" onClick={() => setIsProfileEditing(true)}>Edit</Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -158,14 +167,14 @@ const RecruiterProfilePage = () => {
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">First Name</Label>
                 <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                    <Input className="pl-9 bg-background/50 h-10 text-sm" value={profile.first_name} onChange={e => setProfile({...profile, first_name: e.target.value})} />
+                    <Input disabled={!isProfileEditing} className="pl-9 bg-background/50 h-10 text-sm" value={profile.first_name} onChange={e => setProfile({...profile, first_name: e.target.value})} />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Last Name</Label>
                 <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                    <Input className="pl-9 bg-background/50 h-10 text-sm" value={profile.last_name} onChange={e => setProfile({...profile, last_name: e.target.value})} />
+                    <Input disabled={!isProfileEditing} className="pl-9 bg-background/50 h-10 text-sm" value={profile.last_name} onChange={e => setProfile({...profile, last_name: e.target.value})} />
                 </div>
               </div>
             </div>
@@ -181,7 +190,7 @@ const RecruiterProfilePage = () => {
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-widest opacity-60 ml-1">Phone Number</Label>
               <div className="flex gap-2">
-                <Select value={countryCode} onValueChange={setCountryCode}>
+                <Select disabled={!isProfileEditing} value={countryCode} onValueChange={setCountryCode}>
                   <SelectTrigger className="h-10 w-[90px] rounded-xl bg-background/50 border-neutral-200">
                     <SelectValue />
                   </SelectTrigger>
@@ -194,6 +203,7 @@ const RecruiterProfilePage = () => {
                 <div className="relative flex-1">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
                     <Input 
+                      disabled={!isProfileEditing}
                       className="pl-9 bg-background/50 h-10 text-sm rounded-xl" 
                       value={profile.phone} 
                       onChange={e => setProfile({...profile, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
@@ -206,15 +216,15 @@ const RecruiterProfilePage = () => {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest opacity-60">City</Label>
-                <Input className="bg-background/50 h-10 text-xs" value={profile.city} onChange={e => setProfile({...profile, city: e.target.value})} />
+                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.city} onChange={e => setProfile({...profile, city: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest opacity-60">State</Label>
-                <Input className="bg-background/50 h-10 text-xs" value={profile.state} onChange={e => setProfile({...profile, state: e.target.value})} />
+                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.state} onChange={e => setProfile({...profile, state: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Country</Label>
-                <Input className="bg-background/50 h-10 text-xs" value={profile.country} onChange={e => setProfile({...profile, country: e.target.value})} />
+                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.country} onChange={e => setProfile({...profile, country: e.target.value})} />
               </div>
             </div>
 
@@ -222,14 +232,16 @@ const RecruiterProfilePage = () => {
               <Label className="text-xs font-bold uppercase tracking-widest opacity-60">LinkedIn URL</Label>
               <div className="relative">
                   <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                  <Input placeholder="https://linkedin.com/in/..." className="pl-9 bg-background/50 h-10 text-sm" value={profile.linkedin_url} onChange={e => setProfile({...profile, linkedin_url: e.target.value})} />
+                  <Input disabled={!isProfileEditing} placeholder="https://linkedin.com/in/..." className="pl-9 bg-background/50 h-10 text-sm" value={profile.linkedin_url} onChange={e => setProfile({...profile, linkedin_url: e.target.value})} />
               </div>
             </div>
 
-            <Button className="w-full h-11 bg-primary text-white font-semibold rounded-xl mt-4 gap-2" onClick={handleSaveProfile} disabled={savingProfile}>
-              {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Update Profile Information
-            </Button>
+            {isProfileEditing && (
+              <Button className="w-full h-11 bg-primary text-white font-semibold rounded-xl mt-4 gap-2" onClick={handleSaveProfile} disabled={savingProfile}>
+                {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Update Profile Information
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -237,11 +249,16 @@ const RecruiterProfilePage = () => {
         <div className="space-y-8">
           <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md overflow-hidden ring-1 ring-secondary/20">
             <div className="h-1 bg-secondary shadow-[0_0_15px_rgba(var(--secondary),0.5)]" />
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-secondary">
-                <Landmark className="h-5 w-5" /> Bank Details
-              </CardTitle>
-              <CardDescription>Sensitive information. Securely handled and audited.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg text-secondary">
+                  <Landmark className="h-5 w-5" /> Bank Details
+                </CardTitle>
+                <CardDescription>Sensitive information. Securely handled and audited.</CardDescription>
+              </div>
+              {!isBankEditing && (
+                <Button variant="outline" size="sm" onClick={() => setIsBankEditing(true)}>Edit</Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex gap-3 text-xs text-amber-700 dark:text-amber-400 mb-2">
@@ -251,14 +268,15 @@ const RecruiterProfilePage = () => {
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Bank Name</Label>
-                <Input className="bg-background/50 h-10 text-sm" value={bankDetails.bank_name} onChange={e => setBankDetails({...bankDetails, bank_name: e.target.value})} placeholder="e.g. Chase Bank, Wells Fargo" />
+                <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.bank_name} onChange={e => setBankDetails({...bankDetails, bank_name: e.target.value})} placeholder="e.g. Chase Bank, Wells Fargo" />
               </div>
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Account Number</Label>
                 <div className="relative">
                   <Input 
-                    type={maskBank ? "text" : "text"} 
+                    disabled={!isBankEditing}
+                    type={maskBank ? "password" : "text"} 
                     className="bg-background/50 h-10 text-sm tracking-wider pr-10" 
                     value={bankDetails.account_number} 
                     onChange={e => setBankDetails({...bankDetails, account_number: e.target.value})} 
@@ -272,13 +290,15 @@ const RecruiterProfilePage = () => {
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Routing Number</Label>
-                <Input className="bg-background/50 h-10 text-sm tracking-wider" value={bankDetails.routing_number} onChange={e => setBankDetails({...bankDetails, routing_number: e.target.value})} placeholder="9-digit routing number" />
+                <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm tracking-wider" value={bankDetails.routing_number} onChange={e => setBankDetails({...bankDetails, routing_number: e.target.value})} placeholder="9-digit routing number" />
               </div>
 
-              <Button variant="secondary" className="w-full h-11 text-white font-semibold rounded-xl mt-4 gap-2" onClick={handleSaveBankDetails} disabled={savingBank}>
-                {savingBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Landmark className="h-4 w-4" />}
-                Securely Save Bank Details
-              </Button>
+              {isBankEditing && (
+                <Button variant="secondary" className="w-full h-11 text-white font-semibold rounded-xl mt-4 gap-2" onClick={handleSaveBankDetails} disabled={savingBank}>
+                  {savingBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Landmark className="h-4 w-4" />}
+                  Securely Save Bank Details
+                </Button>
+              )}
             </CardContent>
           </Card>
 

@@ -158,7 +158,7 @@ const CandidateMessagesPage = () => {
           <Button 
             variant="hero" 
             size="icon" 
-            className="h-12 w-12 rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+            className={`h-12 w-12 rounded-xl transition-all ${newMessage.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
             onClick={handleSend} 
             disabled={!newMessage.trim()}
           >

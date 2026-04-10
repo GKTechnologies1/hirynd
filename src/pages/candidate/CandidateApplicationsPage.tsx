@@ -118,10 +118,19 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                 emptyMessage="No applications submitted yet."
                 columns={[
                   { 
+                    header: "ID", 
+                    render: (j: any) => (
+                      <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                        {`HYRSUB${j.id.toString().slice(-6).toUpperCase()}`}
+                      </span>
+                    ),
+                    className: "pl-6"
+                  },
+                  { 
                     header: "Company", 
                     accessorKey: "company_name",
                     sortable: true,
-                    className: "font-medium text-sm pl-6"
+                    className: "font-medium text-sm"
                   },
                   { 
                     header: "Role", 

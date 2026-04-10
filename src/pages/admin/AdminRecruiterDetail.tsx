@@ -12,8 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   User, Mail, Phone, MapPin, Briefcase, Award, Calendar, 
   BarChart3, TrendingUp, History, Save, ArrowLeft, Loader2,
-  Shield, CheckCircle2, XCircle, Clock
+  Shield, CheckCircle2, XCircle, Clock, Eye, EyeOff, Landmark, Users
 } from "lucide-react";
+import { DataTable } from "@/components/ui/DataTable";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
@@ -55,6 +56,14 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
     prior_recruitment_experience: "",
     work_type_preference: ""
   });
+  const [bankDetails, setBankDetails] = useState<any>({
+    bank_name: "",
+    account_number: "",
+    routing_number: ""
+  });
+  const [maskBank, setMaskBank] = useState(true);
+  const [isBankEditing, setIsBankEditing] = useState(false);
+  const [savingBank, setSavingBank] = useState(false);
 
   const fetchData = async () => {
     if (!id) return;
@@ -83,6 +92,14 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
         prior_recruitment_experience: data.prior_recruitment_experience || "",
         work_type_preference: data.work_type_preference || ""
       });
+
+      if (data.bank_details) {
+        setBankDetails({
+          bank_name: data.bank_details.bank_name || "",
+          account_number: data.bank_details.account_number_last4 ? `****${data.bank_details.account_number_last4}` : data.bank_details.account_number || "",
+          routing_number: data.bank_details.routing_number_last4 ? `****${data.bank_details.routing_number_last4}` : data.bank_details.routing_number || ""
+        });
+      }
       
       // Fetch stats
       setLoadingStats(true);
@@ -136,6 +153,20 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
       toast({ title: "Update failed", description: err.response?.data?.error || "Check your input", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveBankDetails = async () => {
+    setSavingBank(true);
+    try {
+      await recruitersApi.adminUpdateProfile(id!, { bank_details: bankDetails });
+      toast({ title: "Bank details updated successfully" });
+      setIsBankEditing(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingBank(false);
     }
   };
 
@@ -194,6 +225,7 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="bg-card/50 p-1 border border-border/40 rounded-2xl mb-6">
           <TabsTrigger value="overview" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overview</TabsTrigger>
+          <TabsTrigger value="assigned_candidates" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Assigned Candidates</TabsTrigger>
           <TabsTrigger value="professional" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Professional</TabsTrigger>
           <TabsTrigger value="staff" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Staff Details</TabsTrigger>
           <TabsTrigger value="performance" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Performance</TabsTrigger>
@@ -248,6 +280,49 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                     <Input value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})} className="h-10 rounded-lg bg-muted/20 text-xs" />
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+              <CardHeader className="bg-secondary/5 pb-4 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Landmark className="h-4 w-4 text-secondary" /> Bank Details
+                  </CardTitle>
+                </div>
+                {!isBankEditing && (
+                  <Button variant="outline" size="sm" onClick={() => setIsBankEditing(true)}>Edit</Button>
+                )}
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Bank Name</Label>
+                  <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.bank_name} onChange={e => setBankDetails({...bankDetails, bank_name: e.target.value})} placeholder="e.g. Chase Bank, Wells Fargo" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Account Number</Label>
+                  <div className="relative">
+                    <Input 
+                      disabled={!isBankEditing}
+                      type={maskBank ? "password" : "text"} 
+                      className="bg-background/50 h-10 text-sm tracking-wider pr-10" 
+                      value={bankDetails.account_number} 
+                      onChange={e => setBankDetails({...bankDetails, account_number: e.target.value})} 
+                    />
+                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground" onClick={() => setMaskBank(!maskBank)}>
+                      {maskBank ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Routing Number</Label>
+                  <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.routing_number} onChange={e => setBankDetails({...bankDetails, routing_number: e.target.value})} />
+                </div>
+                {isBankEditing && (
+                  <Button className="w-full h-11" onClick={handleSaveBankDetails} disabled={savingBank}>
+                    {savingBank ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save Bank Details
+                  </Button>
+                )}
               </CardContent>
             </Card>
 

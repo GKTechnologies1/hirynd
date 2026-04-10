@@ -232,7 +232,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
               {canConfirm && (
                 <Button
                   variant="hero"
-                  className="mt-4 w-full"
+                  className={`mt-4 w-full h-11 font-bold transition-all ${allDecided ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
                   onClick={handleSubmit}
                   disabled={!allDecided || submitting}
                 >

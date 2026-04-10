@@ -11,6 +11,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Send } from "lucide-react";
 
 interface CandidateReferralsPageProps {
@@ -25,6 +26,7 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
   const [friendName, setFriendName] = useState("");
   const [friendEmail, setFriendEmail] = useState("");
   const [friendPhone, setFriendPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+1");
   const [referralNote, setReferralNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,7 +56,7 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
       await candidatesApi.submitReferral(candidate.id, {
         friend_name: friendName.trim(),
         friend_email: friendEmail.trim(),
-        friend_phone: friendPhone.trim(),
+        friend_phone: `${countryCode} ${friendPhone.trim()}`,
         referral_note: referralNote.trim(),
       });
       toast({ title: "Referral submitted! Thank you." });
@@ -77,10 +79,30 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
             <div className="grid gap-4 sm:grid-cols-2">
               <div><Label>Friend's Name *</Label><Input value={friendName} onChange={e => setFriendName(e.target.value)} placeholder="John Doe" /></div>
               <div><Label>Friend's Email *</Label><Input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} placeholder="john@example.com" /></div>
-              <div><Label>Friend's Phone *</Label><Input value={friendPhone} onChange={e => setFriendPhone(e.target.value)} placeholder="+1 (555) 000-0000" /></div>
-              <div><Label>Note (optional)</Label><Input value={referralNote} onChange={e => setReferralNote(e.target.value)} placeholder="How do you know them?" /></div>
+              <div>
+                <Label>Friend's Phone *</Label>
+                <div className="flex gap-2 mt-1.5">
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="h-10 w-[90px] rounded-xl bg-background/50 border-neutral-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                      <SelectItem value="+91">🇮🇳 +91</SelectItem>
+                      <SelectItem value="+44">🇬🇧 +44</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input value={friendPhone} onChange={e => setFriendPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="1234567890" className="flex-1" />
+                </div>
+              </div>
+              <div><Label className="mb-1.5 inline-block">Note (optional)</Label><Input value={referralNote} onChange={e => setReferralNote(e.target.value)} placeholder="How do you know them?" /></div>
             </div>
-            <Button variant="hero" onClick={handleSubmit} disabled={submitting}>
+            <Button 
+              variant="hero" 
+              className={`h-11 px-6 font-bold transition-all ${friendName.trim() && friendEmail.trim() && friendPhone.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+              onClick={handleSubmit} 
+              disabled={submitting}
+            >
               <Send className="mr-2 h-4 w-4" /> {submitting ? "Submitting..." : "Submit Referral"}
             </Button>
           </CardContent>

@@ -133,7 +133,7 @@ const ResetPassword = () => {
                   <Button 
                     type="submit" 
                     variant="hero" 
-                    className="w-full h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] transition-all" 
+                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${password.trim() && confirmPassword.trim() && password === confirmPassword ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
                     disabled={submitting}
                   >
                     {submitting ? "Updating..." : "Reset Password"}

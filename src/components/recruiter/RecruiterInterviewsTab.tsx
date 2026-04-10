@@ -44,7 +44,7 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
   const [roleTitle, setRoleTitle] = useState("");
   const [interviewDate, setInterviewDate] = useState("");
   const [round, setRound] = useState("");
-  const [outcome, setOutcome] = useState("Scheduled");
+  const [outcome, setOutcome] = useState("scheduled");
   const [notes, setNotes] = useState("");
   const [difficultQuestions, setDifficultQuestions] = useState("");
   const [supportNeeded, setSupportNeeded] = useState(false);
@@ -67,13 +67,25 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
     if (!companyName.trim() || !roleTitle.trim() || !interviewDate) {
       toast({ title: "Fill required fields", variant: "destructive" }); return;
     }
+
+    // Convert MM-DD-YYYY → YYYY-MM-DD for the backend
+    const toISODate = (d: string) => {
+      if (!d) return d;
+      // Already YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+      // MM-DD-YYYY or MM/DD/YYYY
+      const parts = d.split(/[-\/]/);
+      if (parts.length === 3 && parts[0].length === 2) return `${parts[2]}-${parts[0]}-${parts[1]}`;
+      return d;
+    };
+
     setSaving(true);
     try {
       await candidatesApi.submitInterview(candidateId, {
         interview_type: logType,
         company_name: companyName.trim(),
         role_title: roleTitle.trim(),
-        interview_date: interviewDate,
+        interview_date: toISODate(interviewDate),
         stage_round: round,
         outcome,
         feedback_notes: notes.trim(),

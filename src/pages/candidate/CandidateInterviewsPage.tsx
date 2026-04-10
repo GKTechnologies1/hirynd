@@ -82,13 +82,23 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
     if (!companyName.trim() || !roleTitle.trim() || !interviewDate) {
       toast({ title: "Fill all required fields", variant: "destructive" }); return;
     }
+
+    // Convert MM-DD-YYYY → YYYY-MM-DD for the backend
+    const toISODate = (d: string) => {
+      if (!d) return d;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+      const parts = d.split(/[-\/]/);
+      if (parts.length === 3 && parts[0].length === 2) return `${parts[2]}-${parts[0]}-${parts[1]}`;
+      return d;
+    };
+
     setSaving(true);
     try {
       await candidatesApi.submitInterview(candidate.id, {
         interview_type: logType,
         company_name: companyName.trim(),
         role_title: roleTitle.trim(),
-        interview_date: interviewDate,
+        interview_date: toISODate(interviewDate),
         stage_round: round,
         outcome,
         feedback_notes: notes.trim(),
@@ -210,7 +220,14 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                   </div>
                 )}
                 <div className="flex gap-3">
-                  <Button variant="hero" onClick={handleSubmit} disabled={saving}>{saving ? "Saving..." : "Save Log"}</Button>
+                  <Button 
+                    variant="hero" 
+                    className={`h-10 font-bold px-6 transition-all ${companyName.trim() && roleTitle.trim() && interviewDate ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                    onClick={handleSubmit} 
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Save Log"}
+                  </Button>
                   <Button variant="outline" onClick={() => { setShowForm(false); resetForm(); }}>Cancel</Button>
                 </div>
               </CardContent>

@@ -95,10 +95,19 @@ const AdminRecruitersPage = () => {
             emptyMessage="No results found."
             columns={[
               { 
+                header: "ID", 
+                className: "pl-6 py-4",
+                render: (r: any) => (
+                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                    {`HYRRCR${r.id.toString().slice(-6).toUpperCase()}`}
+                  </span>
+                )
+              },
+              { 
                 header: "Recruiter Info", 
                 sortable: true,
                 accessorKey: "full_name",
-                className: "py-4 font-bold text-xs uppercase tracking-widest pl-6",
+                className: "py-4 font-bold text-xs uppercase tracking-widest",
                 render: (r: any) => (
                   <div className="flex items-center gap-3 py-1">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold shadow-sm ring-1 ring-primary/20">

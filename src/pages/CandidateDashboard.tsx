@@ -15,6 +15,7 @@ import CandidateInterviewsPage from "@/pages/candidate/CandidateInterviewsPage";
 import CandidateReferralsPage from "@/pages/candidate/CandidateReferralsPage";
 import CandidateSettingsPage from "@/pages/candidate/CandidateSettingsPage";
 import CandidateMessagesPage from "@/pages/candidate/CandidateMessagesPage";
+import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,8 +29,8 @@ const navItems = [
   { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
   { label: "Intake Sheet", path: "/candidate-dashboard/intake", icon: <FileText className="h-4 w-4" /> },
   { label: "Roles", path: "/candidate-dashboard/roles", icon: <Briefcase className="h-4 w-4" /> },
-  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
   { label: "Payments", path: "/candidate-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
+  { label: "Credentials", path: "/candidate-dashboard/credentials", icon: <KeyRound className="h-4 w-4" /> },
   { label: "Billing", path: "/candidate-dashboard/billing", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Applications", path: "/candidate-dashboard/applications", icon: <ClipboardList className="h-4 w-4" /> },
   { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
@@ -48,14 +49,14 @@ const STATUS_TAB_ACCESS: Record<string, string[]> = {
   roles_confirmed:       ["overview", "intake", "roles", "payments"],
   payment_pending:       ["overview", "intake", "roles", "payments"],
   pending_payment:       ["overview", "intake", "roles", "payments"],
-  payment_completed:     ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  credentials_submitted: ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  active_marketing:      ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  paused:                ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  on_hold:               ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  past_due:              ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  payment_completed:     ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  credentials_submitted: ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  active_marketing:      ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  paused:                ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  on_hold:               ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  past_due:              ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
   cancelled:             ["overview"],
-  placed_closed:         ["overview", "intake", "roles", "credentials", "payments", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  placed_closed:         ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
 };
 
 const LOCKED_MESSAGES: Record<string, { title: string; reason: string; action?: string; actionPath?: string }> = {
@@ -114,7 +115,9 @@ const CandidateDashboard = () => {
   const [candidate, setCandidate] = useState<any>(null);
   const [team, setTeam] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchingInterviews, setFetchingInterviews] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
@@ -138,6 +141,14 @@ const CandidateDashboard = () => {
         const { data: notifs } = await notificationsApi.list(true);
         setNotifications(notifs?.slice(0, 10) || []);
       } catch { /* ignore */ }
+
+      try {
+        setFetchingInterviews(true);
+        const { data: interviewData } = await candidatesApi.getInterviews(cand.id);
+        setInterviews(interviewData || []);
+      } catch { /* ignore */ } finally {
+        setFetchingInterviews(false);
+      }
     } catch { /* ignore */ }
     setLoading(false);
   };
@@ -171,7 +182,12 @@ const CandidateDashboard = () => {
   const isBillingTab = tabKey === "payments" || tabKey === "billing";
   const hasPendingSub = ["payment_pending", "pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status);
 
-  const isLocked = tabKey !== "overview" && !allowedTabs.includes(tabKey) && !(isBillingTab && hasPendingSub);
+  // Unlock interviews if any exist, even if status is not active_marketing yet
+  const canSeeInterviews = allowedTabs.includes("interviews") || interviews.length > 0;
+  
+  const isLocked = tabKey !== "overview" && 
+    (tabKey === "interviews" ? !canSeeInterviews : !allowedTabs.includes(tabKey)) && 
+    !(isBillingTab && hasPendingSub);
 
   const getNextAction = () => {
     switch (status) {
@@ -256,7 +272,6 @@ const CandidateDashboard = () => {
           <div className="grid gap-8 lg:grid-cols-12 items-start">
             {/* Left Column (Main Journey) */}
             <div className="lg:col-span-7 space-y-8">
-              
               {/* Timeline Visualization */}
               <div className="glass-card rounded-3xl p-8 shadow-sm border border-border/30 bg-card/40 backdrop-blur-md">
                 <div className="flex items-center justify-between mb-8">
@@ -267,6 +282,56 @@ const CandidateDashboard = () => {
                 </div>
                 <CandidateTimeline currentStatus={status} />
               </div>
+
+              {/* Upcoming Interviews Section */}
+              {interviews.filter(i => ["scheduled", "Follow-up Needed", "Rescheduled"].includes(i.outcome)).length > 0 && (
+                <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                  <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-secondary px-1 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" /> Upcoming Interviews
+                  </h3>
+                  <div className="grid gap-4">
+                    {interviews
+                      .filter(i => ["scheduled", "Follow-up Needed", "Rescheduled"].includes(i.outcome))
+                      .sort((a, b) => new Date(a.interview_date).getTime() - new Date(b.interview_date).getTime())
+                      .map((iv) => (
+                        <Card key={iv.id} className="glass-card border-none shadow-lg overflow-hidden group hover:shadow-secondary/10 transition-all border-l-4 border-l-secondary">
+                          <CardContent className="p-6">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold uppercase tracking-widest text-secondary bg-secondary/10 px-2 py-0.5 rounded">
+                                    {iv.interview_type?.replace(/_/g, " ")}
+                                  </span>
+                                  {iv.stage_round && (
+                                    <span className="text-[10px] font-medium bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                                      {iv.stage_round}
+                                    </span>
+                                  )}
+                                </div>
+                                <h4 className="text-lg font-bold text-card-foreground group-hover:text-secondary transition-colors">
+                                  {iv.company_name} — {iv.role_title}
+                                </h4>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-1.5">
+                                    <Calendar className="h-3.5 w-3.5" /> {formatDate(iv.interview_date)}
+                                  </div>
+                                  {iv.interview_time && (
+                                    <div className="flex items-center gap-1.5">
+                                      <Phone className="h-3.5 w-3.5 text-secondary" /> {iv.interview_time} ({iv.time_zone || "EST"})
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <Button variant="secondary" size="sm" className="rounded-xl font-bold h-10 px-6" onClick={() => navigate("/candidate-dashboard/interviews")}>
+                                Details
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </section>
+              )}
 
               {status === "placed_closed" && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>

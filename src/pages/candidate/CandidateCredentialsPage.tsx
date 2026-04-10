@@ -14,7 +14,7 @@ import {
   Lock, FileText, History as HistoryIcon, Clock, User, X, 
   LayoutDashboard, Briefcase, KeyRound, DollarSign, CreditCard, 
   ClipboardList, Phone, UserPlus, MessageSquare, Settings, 
-  Shield, CheckCircle, Download 
+  Shield, CheckCircle, Download, Eye, EyeOff, Plus, Trash2
 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,11 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [countryCode, setCountryCode] = useState("+1");
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+  const togglePassword = (field: string) => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+  };
 
   const [formData, setFormData] = useState({
     full_name_as_resume: "",
@@ -54,6 +59,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     indeed_password: "",
     dice_password: "",
     foundit_password: "",
+    custom_platforms: [] as Array<{ platform_name: string; password: string }>,
   });
 
   const isPaid = [
@@ -161,6 +167,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
 
   const SENSITIVE_FIELDS = ["visa_details", "references_if_needed", "gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"];
   const maskSensitive = (key: string, value: string) => {
+    if (key === "custom_platforms") return "******** (Sensitive Custom Platforms)";
     if (SENSITIVE_FIELDS.includes(key) && value) return "******** (Sensitive Data Masked)";
     return value;
   };
@@ -293,56 +300,140 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1 text-amber-900">Gmail Password *</Label>
-                      <Input 
-                        type="password" 
-                        value={formData.gmail_password} 
-                        onChange={e => handleChange("gmail_password", e.target.value)} 
-                        required 
-                        className="h-11 rounded-xl bg-white border-amber-200"
-                        placeholder="••••••••"
-                      />
+                      <div className="relative">
+                        <Input 
+                          type={showPasswords["gmail_password"] ? "text" : "password"} 
+                          value={formData.gmail_password} 
+                          onChange={e => handleChange("gmail_password", e.target.value)} 
+                          required 
+                          className="h-11 rounded-xl bg-white border-amber-200 pr-10"
+                          placeholder="••••••••"
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("gmail_password")}>
+                          {showPasswords["gmail_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1 text-amber-900">LinkedIn Password *</Label>
-                      <Input 
-                        type="password" 
-                        value={formData.linkedin_password} 
-                        onChange={e => handleChange("linkedin_password", e.target.value)} 
-                        required 
-                        className="h-11 rounded-xl bg-white border-amber-200"
-                        placeholder="••••••••"
-                      />
+                      <div className="relative">
+                        <Input 
+                          type={showPasswords["linkedin_password"] ? "text" : "password"} 
+                          value={formData.linkedin_password} 
+                          onChange={e => handleChange("linkedin_password", e.target.value)} 
+                          required 
+                          className="h-11 rounded-xl bg-white border-amber-200 pr-10"
+                          placeholder="••••••••"
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("linkedin_password")}>
+                          {showPasswords["linkedin_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1 text-amber-700 font-semibold opacity-70">Indeed Password (Optional)</Label>
-                      <Input 
-                        type="password" 
-                        value={formData.indeed_password} 
-                        onChange={e => handleChange("indeed_password", e.target.value)} 
-                        className="h-11 rounded-xl bg-white/50 border-amber-100"
-                        placeholder="••••••••"
-                      />
+                      <div className="relative">
+                        <Input 
+                          type={showPasswords["indeed_password"] ? "text" : "password"} 
+                          value={formData.indeed_password} 
+                          onChange={e => handleChange("indeed_password", e.target.value)} 
+                          className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10"
+                          placeholder="••••••••"
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("indeed_password")}>
+                          {showPasswords["indeed_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1 text-amber-700 font-semibold opacity-70">Dice Password (Optional)</Label>
-                      <Input 
-                        type="password" 
-                        value={formData.dice_password} 
-                        onChange={e => handleChange("dice_password", e.target.value)} 
-                        className="h-11 rounded-xl bg-white/50 border-amber-100"
-                        placeholder="••••••••"
-                      />
+                      <div className="relative">
+                        <Input 
+                          type={showPasswords["dice_password"] ? "text" : "password"} 
+                          value={formData.dice_password} 
+                          onChange={e => handleChange("dice_password", e.target.value)} 
+                          className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10"
+                          placeholder="••••••••"
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("dice_password")}>
+                          {showPasswords["dice_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
                     <div className="sm:col-span-2 space-y-2">
                       <Label className="text-sm font-medium ml-1 text-amber-700 font-semibold opacity-70">Foundit Password (Optional)</Label>
-                      <Input 
-                        type="password" 
-                        value={formData.foundit_password} 
-                        onChange={e => handleChange("foundit_password", e.target.value)} 
-                        className="h-11 rounded-xl bg-white/50 border-amber-100"
-                        placeholder="••••••••"
-                      />
+                      <div className="relative">
+                        <Input 
+                          type={showPasswords["foundit_password"] ? "text" : "password"} 
+                          value={formData.foundit_password} 
+                          onChange={e => handleChange("foundit_password", e.target.value)} 
+                          className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10"
+                          placeholder="••••••••"
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("foundit_password")}>
+                          {showPasswords["foundit_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Custom Job Platforms */}
+                  <div className="border-t border-amber-200 pt-6 mt-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium ml-1 text-amber-900">Custom Job Platforms</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-amber-200 text-amber-900 bg-amber-50 hover:bg-amber-100" onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          custom_platforms: [...(prev.custom_platforms || []), { platform_name: "", password: "" }]
+                        }));
+                      }}>
+                        <Plus className="h-3 w-3 mr-1" /> Add Platform
+                      </Button>
+                    </div>
+                    {formData.custom_platforms?.map((platform, idx) => (
+                      <div key={idx} className="flex items-start gap-4 p-3 bg-amber-100/50 rounded-xl relative group">
+                        <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => {
+                          setFormData(prev => {
+                            const newPlatforms = [...prev.custom_platforms];
+                            newPlatforms.splice(idx, 1);
+                            return { ...prev, custom_platforms: newPlatforms };
+                          });
+                        }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                        <div className="space-y-2 flex-1">
+                          <Label className="text-[10px] font-bold uppercase text-amber-800">Platform Name</Label>
+                          <Input 
+                            value={platform.platform_name}
+                            onChange={(e) => {
+                              const newPlatforms = [...formData.custom_platforms];
+                              newPlatforms[idx].platform_name = e.target.value;
+                              handleChange("custom_platforms", newPlatforms as any);
+                            }}
+                            placeholder="e.g. Monster, ZipRecruiter"
+                            className="h-10 text-sm bg-white border-amber-200"
+                          />
+                        </div>
+                        <div className="space-y-2 flex-1 relative">
+                          <Label className="text-[10px] font-bold uppercase text-amber-800">Password</Label>
+                          <div className="relative">
+                            <Input 
+                              type={showPasswords[`custom_${idx}`] ? "text" : "password"}
+                              value={platform.password}
+                              onChange={(e) => {
+                                const newPlatforms = [...formData.custom_platforms];
+                                newPlatforms[idx].password = e.target.value;
+                                handleChange("custom_platforms", newPlatforms as any);
+                              }}
+                              className="h-10 text-sm bg-white border-amber-200 pr-9"
+                            />
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:bg-transparent h-8 w-8" onClick={() => togglePassword(`custom_${idx}`)}>
+                               {showPasswords[`custom_${idx}`] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -424,9 +515,20 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                               <div className="text-foreground text-sm font-medium whitespace-pre-wrap leading-relaxed">
                                 {Array.isArray(value) 
                                   ? value.map((item, idx) => (
-                                      <div key={idx} className="flex items-center gap-2 mb-1 pl-1 border-l-2 border-secondary/20 bg-secondary/5 p-1 rounded-sm">
-                                        <FileText className="h-3 w-3 text-secondary" />
-                                        {maskSensitive(key, String(item))}
+                                      <div key={idx} className="flex flex-col gap-1 mb-2 pl-2 border-l-2 border-secondary/20 bg-secondary/5 p-2 rounded-lg">
+                                        {typeof item === 'object' ? (
+                                          Object.entries(item).map(([k, v]) => (
+                                            <div key={k} className="flex items-center gap-2">
+                                              <span className="text-[10px] font-bold opacity-40 uppercase">{k}:</span>
+                                              <span className="text-xs">{maskSensitive(k, String(v))}</span>
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <div className="flex items-center gap-2">
+                                            <FileText className="h-3 w-3 text-secondary" />
+                                            {maskSensitive(key, String(item))}
+                                          </div>
+                                        )}
                                       </div>
                                     ))
                                   : (key.includes('url') || key.includes('resume')) ? (

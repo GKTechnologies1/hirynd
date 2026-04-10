@@ -112,7 +112,7 @@ export const ChangePasswordCard = () => {
           />
           <Button
             variant="hero"
-            className="w-full mt-4 h-11 font-bold shadow-lg shadow-primary/10"
+            className={`w-full mt-4 h-11 font-bold transition-all ${newPassword.trim() && confirmPassword.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
             disabled={submitting}
           >
             {submitting ? "Updating Security..." : "Update Password"}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams, Routes, Route } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { recruitersApi } from "@/services/api";
+import { recruitersApi, candidatesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import RecruiterCandidateDetail from "@/pages/recruiter/RecruiterCandidateDetail";
@@ -14,7 +14,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, Award, TrendingUp, Settings } from "lucide-react";
+import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, Award, TrendingUp, Settings, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
@@ -33,6 +33,7 @@ const RecruiterHome = () => {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [candidateStats, setCandidateStats] = useState<Record<string, { total_apps: number; total_interviews: number }>>({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [visaFilter, setVisaFilter] = useState("all");
@@ -49,6 +50,28 @@ const RecruiterHome = () => {
         
         setCandidates(candData || []);
         setStats(statsData);
+
+        // Fetch per-candidate application and interview counts
+        if (candData?.length) {
+          const statsMap: Record<string, { total_apps: number; total_interviews: number }> = {};
+          await Promise.all(
+            candData.map(async (c: any) => {
+              try {
+                const [logsRes, interviewsRes] = await Promise.all([
+                  recruitersApi.getDailyLogs(c.id).catch(() => ({ data: [] })),
+                  candidatesApi.getInterviews(c.id).catch(() => ({ data: [] })),
+                ]);
+                const logs = logsRes.data || [];
+                const totalApps = logs.reduce((sum: number, l: any) => sum + (l.applications_count || 0), 0);
+                const totalInterviews = (interviewsRes.data || []).length;
+                statsMap[c.id] = { total_apps: totalApps, total_interviews: totalInterviews };
+              } catch {
+                statsMap[c.id] = { total_apps: 0, total_interviews: 0 };
+              }
+            })
+          );
+          setCandidateStats(statsMap);
+        }
 
         // Auto-open if only one candidate is assigned
         if (candData?.length === 1) {
@@ -106,10 +129,10 @@ const RecruiterHome = () => {
       {/* Stats Widgets */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Applications Today", value: stats?.apps_today || 0, icon: <ClipboardList className="h-4 w-4 text-primary" />, color: "bg-primary/10" },
-          { label: "Applications This Week", value: stats?.apps_week || 0, icon: <TrendingUp className="h-4 w-4 text-secondary" />, color: "bg-secondary/10" },
-          { label: "Interviews This Week", value: stats?.interviews_week || 0, icon: <Calendar className="h-4 w-4 text-emerald-500" />, color: "bg-emerald-500/10" },
-          { label: "Offers This Week", value: stats?.offers_week || 0, icon: <Award className="h-4 w-4 text-amber-500" />, color: "bg-amber-500/10" },
+          { label: "Total Applications", value: stats?.total_apps || 0, icon: <Briefcase className="h-4 w-4 text-primary" />, color: "bg-primary/10" },
+          { label: "Total Interviews", value: stats?.total_interviews || 0, icon: <TrendingUp className="h-4 w-4 text-secondary" />, color: "bg-secondary/10" },
+          { label: "Applications This Week", value: stats?.apps_week || 0, icon: <ClipboardList className="h-4 w-4 text-emerald-500" />, color: "bg-emerald-500/10" },
+          { label: "Interviews This Week", value: stats?.interviews_week || 0, icon: <Calendar className="h-4 w-4 text-amber-500" />, color: "bg-amber-500/10" },
         ].map((s, idx) => (
           <Card key={idx} className="overflow-hidden border-none shadow-sm bg-card/50 backdrop-blur-sm">
             <CardContent className="p-6">
@@ -138,7 +161,7 @@ const RecruiterHome = () => {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full md:w-64">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                {!search && <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />}
                 <Input 
                   placeholder="Search name or email..." 
                   className="pl-9 text-sm h-9 bg-background/50" 
@@ -160,7 +183,6 @@ const RecruiterHome = () => {
                 </SelectContent>
               </Select>
               <div className="flex items-center gap-1 bg-background/50 border rounded-md px-1.5 h-9 min-w-[300px]">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground ml-1" />
                 <DatePicker 
                   value={dateRange.start} 
                   onChange={val => setDateRange(prev => ({ ...prev, start: val }))} 
@@ -188,6 +210,15 @@ const RecruiterHome = () => {
             emptyMessage="No candidates found matching your criteria."
             columns={[
               { 
+                header: "ID", 
+                className: "px-6",
+                render: (c: any) => (
+                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                    {`HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
+                  </span>
+                )
+              },
+              { 
                 header: "Candidate", 
                 className: "px-6",
                 render: (c: any) => (
@@ -210,6 +241,24 @@ const RecruiterHome = () => {
                 header: "Pipeline Status", 
                 className: "px-6",
                 render: (c: any) => <StatusBadge status={c.status} />
+              },
+              { 
+                header: "Total Apps", 
+                className: "px-6 text-center",
+                render: (c: any) => (
+                  <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                    {candidateStats[c.id]?.total_apps ?? "—"}
+                  </span>
+                )
+              },
+              { 
+                header: "Total Interviews", 
+                className: "px-6 text-center",
+                render: (c: any) => (
+                  <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-secondary/10 text-secondary">
+                    {candidateStats[c.id]?.total_interviews ?? "—"}
+                  </span>
+                )
               },
               { 
                 header: "Last Updated", 
@@ -237,6 +286,11 @@ const RecruiterHome = () => {
             ]}
           />
         </CardContent>
+        {filteredCandidates.length > 5 && (
+          <div className="py-2 flex justify-center border-t border-border/30 bg-muted/10">
+            <ChevronDown className="h-4 w-4 text-muted-foreground/40 animate-bounce" />
+          </div>
+        )}
       </Card>
 
     </div>

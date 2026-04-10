@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { candidatesApi, recruitersApi, billingApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save } from "lucide-react";
+import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -45,8 +46,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [loading, setLoading] = useState(true);
 
   // Credential form
-  const [credForm, setCredForm] = useState<Record<string, string>>({});
+  const [credForm, setCredForm] = useState<Record<string, any>>({});
   const [savingCred, setSavingCred] = useState(false);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+  const togglePassword = (k: string) => setShowPasswords(p => ({...p, [k]: !p[k]}));
 
   // Daily log form
   const [logCount, setLogCount] = useState("");
@@ -73,7 +77,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         setRoles(roleRes.data || []);
         const creds = credRes.data || [];
         setCredentials(creds);
-        if (creds.length > 0 && creds[0].data) setCredForm(creds[0].data as Record<string, string>);
+        if (creds.length > 0 && creds[0].data) setCredForm(creds[0].data as Record<string, any>);
         const logs = logsRes.data || [];
         setDailyLogs(logs);
         const allJobs = logs.flatMap((l: any) => (l.job_entries || []).map((j: any) => ({ ...j, log_date: l.log_date })));
@@ -83,6 +87,19 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     } catch {}
     setLoading(false);
   };
+
+  const resumes = useMemo(() => {
+    if (!credentials.length || !credentials[0].data) return [];
+    const data = credentials[0].data;
+    const list = [];
+    if (data.primary_resume) list.push({ label: "Primary Resume", url: data.primary_resume });
+    if (data.alternate_resume_versions && Array.isArray(data.alternate_resume_versions)) {
+      data.alternate_resume_versions.forEach((url: string, i: number) => {
+        list.push({ label: `Resume Version ${i + 1}`, url });
+      });
+    }
+    return list;
+  }, [credentials]);
 
   useEffect(() => { fetchAll(); }, [candidateId, user]);
 
@@ -158,18 +175,37 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       await recruitersApi.submitDailyLog(candidateId, {
         applications_count: Number(logCount),
         notes: logNotes,
-        job_links: jobLinks
-          .filter(j => j.job_url.trim() || j.company_name.trim())
-          .map(j => ({
-            company_name: j.company_name,
-            role_title: j.role_title,
-            job_url: j.job_url,
-            resume_used: j.resume_used,
-            status: j.status.toLowerCase().replace(/ /g, "_"),
-          })),
+        job_links: [],
       });
       toast({ title: "Daily log submitted" });
-      setLogCount(""); setLogNotes(""); setJobLinks([]);
+      setLogCount(""); setLogNotes("");
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+    setSavingLog(false);
+  };
+
+  const handleSubmitJobApplication = async () => {
+    const validLinks = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
+    if (validLinks.length === 0) {
+      toast({ title: "Add at least one job link", variant: "destructive" }); return;
+    }
+    setSavingLog(true);
+    try {
+      await recruitersApi.submitDailyLog(candidateId, {
+        applications_count: validLinks.length,
+        notes: "Job application submitted",
+        job_links: validLinks.map(j => ({
+          company_name: j.company_name,
+          role_title: j.role_title,
+          job_url: j.job_url,
+          resume_used: j.resume_used,
+          status: j.status.toLowerCase().replace(/ /g, "_"),
+        })),
+      });
+      toast({ title: "Job applications submitted" });
+      setJobLinks([]);
       fetchAll();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -334,7 +370,58 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].map((field) => (
                       <div key={field} className="space-y-1.5">
                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")} {["gmail_password", "linkedin_password"].includes(field) ? "*" : "(Optional)"}</Label>
-                        <Input type="password" className="bg-white text-sm h-10 border-border/50" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                        <div className="relative">
+                          <Input type={showPasswords[field] ? "text" : "password"} className="bg-white text-sm h-10 border-border/50 pr-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                          <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword(field)}>
+                             {showPasswords[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="border-t border-amber-200/50 pt-4 mt-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-800">Custom Job Platforms</Label>
+                      <Button variant="outline" size="sm" className="h-7 text-xs bg-white text-amber-900 border-amber-200" onClick={() => {
+                         setCredForm(p => ({
+                           ...p,
+                           custom_platforms: [...(p.custom_platforms || []), { platform_name: "", password: "" }]
+                         }));
+                      }}>
+                        <Plus className="h-3 w-3 mr-1" /> Add
+                      </Button>
+                    </div>
+                    {credForm.custom_platforms?.map((cp: any, idx: number) => (
+                      <div key={idx} className="flex gap-2 p-2 bg-white/50 rounded-lg relative group">
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-[9px] font-bold uppercase text-amber-700">Platform</Label>
+                          <Input className="h-8 text-xs bg-white" placeholder="e.g. Glassdoor" value={cp.platform_name} onChange={e => {
+                             const n = [...credForm.custom_platforms];
+                             n[idx].platform_name = e.target.value;
+                             setCredForm({ ...credForm, custom_platforms: n });
+                          }} />
+                        </div>
+                        <div className="flex-1 space-y-1 relative">
+                          <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
+                          <div className="relative">
+                            <Input className="h-8 text-xs bg-white pr-8" type={showPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
+                               const n = [...credForm.custom_platforms];
+                               n[idx].password = e.target.value;
+                               setCredForm({ ...credForm, custom_platforms: n });
+                            }} />
+                            <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword(`cp_${idx}`)}>
+                               {showPasswords[`cp_${idx}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </Button>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-destructive/10 text-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+                           const n = [...credForm.custom_platforms];
+                           n.splice(idx, 1);
+                           setCredForm({ ...credForm, custom_platforms: n });
+                        }}>
+                           <Trash2 className="h-2.5 w-2.5" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -364,17 +451,54 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pb-4">
-                         <div className="space-y-3 pt-2">
-                            {Object.entries(v.data as Record<string, string>).map(([key, val]) => val && (
-                                <div key={key} className="border-b border-border/10 pb-1 last:border-0">
-                                    <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter">{key.replace(/_/g, " ")}</p>
-                                    <p className="text-[11px] leading-relaxed truncate">
-                                      {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].includes(key) 
-                                        ? "••••••••" 
-                                        : val}
-                                    </p>
+                         <div className="space-y-4 pt-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {Object.entries(v.data as Record<string, any>).map(([key, val]) => {
+                                  if (!val || key === "custom_platforms") return null;
+                                  const isPassword = ["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].includes(key);
+                                  return (
+                                    <div key={key} className="bg-muted/30 p-2 rounded-lg border border-border/20 relative group">
+                                        <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter mb-1">{key.replace(/_/g, " ")}</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                          <p className="text-[11px] font-medium truncate flex-1">
+                                            {isPassword ? (showPasswords[`v_${v.id}_${key}`] ? val : "••••••••") : (key.includes('resume') || key.includes('url')) ? <a href={val} target="_blank" className="text-secondary underline">View File</a> : val}
+                                          </p>
+                                          {isPassword && (
+                                            <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_${key}`)}>
+                                              {showPasswords[`v_${v.id}_${key}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                            </Button>
+                                          )}
+                                        </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                            
+                            {v.data?.custom_platforms && Array.isArray(v.data.custom_platforms) && v.data.custom_platforms.length > 0 && (
+                              <div className="border-t border-border/10 pt-3">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-2">Custom Platforms</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {v.data.custom_platforms.map((cp: any, idx: number) => (
+                                    <div key={idx} className="bg-amber-50/50 p-2 rounded-lg border border-amber-100 flex items-center justify-between gap-2">
+                                      <div className="flex-1 overflow-hidden">
+                                        <p className="text-[10px] font-bold text-amber-900 truncate">{cp.platform_name}</p>
+                                        <p className="text-[11px] font-mono text-amber-700 truncate">{showPasswords[`v_${v.id}_cp_${idx}`] ? cp.password : "••••••••"}</p>
+                                      </div>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-amber-800/60 hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_cp_${idx}`)}>
+                                        {showPasswords[`v_${v.id}_cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                      </Button>
+                                    </div>
+                                  ))}
                                 </div>
-                            ))}
+                              </div>
+                            )}
+
+                            {v.data?.skills_summary && (
+                              <div className="bg-muted/10 p-3 rounded-lg border border-border/20">
+                                <p className="text-[9px] font-bold uppercase opacity-50 mb-1 tracking-widest">Skills & Notes</p>
+                                <p className="text-xs italic leading-relaxed text-muted-foreground whitespace-pre-wrap">{v.data.skills_summary}</p>
+                              </div>
+                            )}
                          </div>
                       </AccordionContent>
                     </AccordionItem>
@@ -404,6 +528,60 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 </div>
               </div>
 
+              <Button 
+                variant="hero" 
+                className={`w-full h-12 text-sm font-bold tracking-tight rounded-2xl transition-all ${logCount ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/10' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                onClick={handleSubmitDailyLog} 
+                disabled={savingLog || !logCount}
+              >
+                {savingLog ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-white" />}
+                Submit Daily Record
+              </Button>
+
+              {/* Daily Log History */}
+              {dailyLogs.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-border/50">
+                  <h4 className="text-sm font-bold flex items-center gap-2 mb-4">
+                    <History className="h-4 w-4 text-secondary" /> Journal History
+                  </h4>
+                  <div className="space-y-3">
+                    {dailyLogs.map((log: any, idx: number) => (
+                      <div key={idx} className="bg-muted/10 p-4 rounded-xl border border-border/40">
+                         <div className="flex items-center justify-between mb-2">
+                           <span className="text-[10px] uppercase font-bold text-muted-foreground">{formatDate(log.log_date || log.created_at)}</span>
+                           <Badge variant="secondary" className="text-[9px] font-bold py-0">{log.applications_count} Apps</Badge>
+                         </div>
+                         <p className="text-xs text-foreground font-medium mb-3">{log.notes || <span className="italic text-muted-foreground opacity-60">No notes provided.</span>}</p>
+                         
+                         {log.job_entries && log.job_entries.length > 0 && (
+                           <div className="space-y-1.5 border-t border-border/10 pt-3">
+                             <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground opacity-60 mb-2">Linked Submissions</p>
+                             <div className="grid gap-2">
+                               {log.job_entries.map((j: any, jIdx: number) => (
+                                 <div key={jIdx} className="bg-white/40 p-2 rounded-lg border border-border/10 flex items-center justify-between gap-3 group/item">
+                                   <div className="flex-1 overflow-hidden">
+                                     <p className="text-[11px] font-bold truncate">{j.company_name} - {j.role_title}</p>
+                                     <p className="text-[10px] text-muted-foreground truncate opacity-70 italic">{j.job_url}</p>
+                                   </div>
+                                   <Badge variant="outline" className="text-[9px] h-5 bg-white border-border/20">{j.status}</Badge>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                         )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="applications" className="space-y-4">
+          <Card className="border-none shadow-sm bg-card/60">
+            <CardHeader><CardTitle className="text-base font-bold">Submit Job Application</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2 mb-2">
                   <h4 className="text-sm font-bold flex items-center gap-2">Jobs & URLs <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">{jobLinks.length}</span></h4>
@@ -435,7 +613,15 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                             </Button>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Input placeholder="Resume Used (e.g. SDE-2024.pdf)" className="h-9 text-[10px] bg-background/50" value={job.resume_used} onChange={e => updateJobLink(idx, "resume_used", e.target.value)} />
+                            <Select value={job.resume_used} onValueChange={v => updateJobLink(idx, "resume_used", v)}>
+                                <SelectTrigger className="flex-1 h-9 text-[10px] font-bold bg-background/50">
+                                    <SelectValue placeholder="Select Resume" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {resumes.map(r => <SelectItem key={r.url} value={r.url} className="text-xs">{r.label}</SelectItem>)}
+                                    {resumes.length === 0 && <SelectItem value="Standard" className="text-xs">Standard Resume</SelectItem>}
+                                </SelectContent>
+                            </Select>
                             <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
                                 <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -443,21 +629,29 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                 </SelectContent>
                             </Select>
                         </div>
+                      {jobLinks.length > 3 && (
+                        <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                          <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                        </div>
+                      )}
                     </motion.div>
                   ))}
                 </div>
               </div>
 
-              <Button variant="hero" className="w-full h-12 text-sm font-bold tracking-tight rounded-2xl shadow-xl shadow-primary/10" onClick={handleSubmitDailyLog} disabled={savingLog || !logCount}>
+              <Button 
+                variant="hero" 
+                className={`w-full h-12 text-sm font-bold tracking-tight rounded-2xl transition-all ${jobLinks.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/10' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                onClick={handleSubmitJobApplication} 
+                disabled={savingLog || jobLinks.length === 0}
+              >
                 {savingLog ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-white" />}
-                Submit Daily Record
+                Submit Job Application
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="applications" className="space-y-4">
-          <Card className="border-none shadow-sm bg-card/60">
+          <Card className="border-none shadow-sm bg-card/60 mt-6">
             <CardHeader><CardTitle className="text-base font-bold">Submission Pipeline</CardTitle></CardHeader>
             <CardContent className="p-0">
               <DataTable
@@ -467,6 +661,15 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 searchKey="company_name"
                 emptyMessage="No applications recorded in the system."
                 columns={[
+                  { 
+                    header: "ID", 
+                    className: "pl-6 py-4",
+                    render: (j: any) => (
+                      <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                        {`HYRSUB${j.id.toString().slice(-6).toUpperCase()}`}
+                      </span>
+                    )
+                  },
                   { 
                     header: "Company & Role", 
                     className: "px-6 py-4",
@@ -488,9 +691,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     header: "Application Status", 
                     className: "px-6 py-4",
                     render: (j: any) => (
-                      <Select defaultValue={j.application_status} onValueChange={(v) => handleUpdateJobStatus(j.id, v)}>
+                      <Select defaultValue={(j.status || j.application_status || "").toLowerCase().replace(/ /g, "_")} onValueChange={(v) => handleUpdateJobStatus(j.id, v)}>
                         <SelectTrigger className="w-40 h-8 text-[11px] font-bold border-none bg-muted/50 focus-visible:ring-0">
-                          <SelectValue />
+                          <SelectValue placeholder="Update status" />
                         </SelectTrigger>
                         <SelectContent>
                           {JOB_STATUSES.map(s => <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs">{s}</SelectItem>)}
@@ -499,9 +702,19 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     )
                   },
                   { 
-                    header: "Resume Version", 
+                    header: "Resume Used", 
                     className: "px-6 py-4",
-                    render: (j: any) => <span className="text-xs font-mono opacity-80">{j.resume_used || "Standard"}</span>
+                    render: (j: any) => {
+                      const isUrl = j.resume_used?.startsWith('http');
+                      const resumeName = isUrl ? (resumes.find(r => r.url === j.resume_used)?.label || "View Resume") : (j.resume_used || "Standard");
+                      return isUrl ? (
+                        <a href={j.resume_used} target="_blank" className="text-[11px] font-bold text-secondary hover:underline flex items-center gap-1 group">
+                          <FileText className="h-3 w-3" /> {resumeName}
+                        </a>
+                      ) : (
+                        <span className="text-xs font-mono opacity-80">{resumeName}</span>
+                      );
+                    }
                   },
                   { 
                     header: "Logged Date", 
@@ -510,6 +723,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   }
                 ]}
               />
+              {jobPostings.length > 5 && (
+                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                </div>
+              )}
             </CardContent>
 
           </Card>
