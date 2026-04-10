@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -152,34 +152,35 @@ const AdminPaymentsPage = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-xl border border-border overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="text-xs font-semibold">Candidate</TableHead>
-                    <TableHead className="text-xs font-semibold">Amount</TableHead>
-                    <TableHead className="text-xs font-semibold">Type</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((p: any) => (
-                    <TableRow key={p.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell className="text-sm font-medium">{p.candidate_name || "—"}</TableCell>
-                      <TableCell className="text-sm">₹{Number(p.amount).toLocaleString()}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.payment_type}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={`text-xs ${statusColor(p.status)}`}>{p.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {p.created_at ? format(new Date(p.created_at), "MMM d, yyyy") : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <DataTable
+              data={payments}
+              isLoading={loading}
+              searchKey="candidate_name"
+              searchPlaceholder="Search by candidate..."
+              emptyMessage="No payments found."
+              columns={[
+                { header: "Candidate", accessorKey: "candidate_name", sortable: true, className: "font-medium text-sm" },
+                {
+                  header: "Amount",
+                  sortable: true,
+                  accessorKey: "amount",
+                  render: (p: any) => <span className="text-sm">₹{Number(p.amount).toLocaleString()}</span>
+                },
+                { header: "Type", accessorKey: "payment_type", sortable: true, className: "text-sm text-muted-foreground" },
+                {
+                  header: "Status",
+                  sortable: true,
+                  accessorKey: "status",
+                  render: (p: any) => <Badge variant="secondary" className={`text-xs ${statusColor(p.status)}`}>{p.status}</Badge>
+                },
+                {
+                  header: "Date",
+                  sortable: true,
+                  accessorKey: "created_at",
+                  render: (p: any) => <span className="text-xs text-muted-foreground">{p.created_at ? format(new Date(p.created_at), "MMM d, yyyy") : "—"}</span>
+                },
+              ]}
+            />
           </CardContent>
         </Card>
       )}
@@ -191,30 +192,27 @@ const AdminPaymentsPage = () => {
             <CardTitle className="text-sm font-semibold">All Subscriptions ({subscriptions.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-xl border border-border overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="text-xs font-semibold">Plan</TableHead>
-                    <TableHead className="text-xs font-semibold">Amount</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Next Billing</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {subscriptions.map((s: any) => (
-                    <TableRow key={s.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell className="text-sm font-medium">{s.plan_name}</TableCell>
-                      <TableCell className="text-sm">₹{Number(s.amount).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={`text-xs ${statusColor(s.status)}`}>{s.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{s.next_billing_at || "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <DataTable
+              data={subscriptions}
+              isLoading={loading}
+              emptyMessage="No subscriptions found."
+              columns={[
+                { header: "Plan", accessorKey: "plan_name", sortable: true, className: "font-medium text-sm" },
+                {
+                  header: "Amount",
+                  sortable: true,
+                  accessorKey: "amount",
+                  render: (s: any) => <span className="text-sm">₹{Number(s.amount).toLocaleString()}</span>
+                },
+                {
+                  header: "Status",
+                  sortable: true,
+                  accessorKey: "status",
+                  render: (s: any) => <Badge variant="secondary" className={`text-xs ${statusColor(s.status)}`}>{s.status}</Badge>
+                },
+                { header: "Next Billing", accessorKey: "next_billing_at", sortable: true, className: "text-xs text-muted-foreground" },
+              ]}
+            />
           </CardContent>
         </Card>
       )}
@@ -229,32 +227,29 @@ const AdminPaymentsPage = () => {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="rounded-xl border border-border overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="text-xs font-semibold">Name</TableHead>
-                    <TableHead className="text-xs font-semibold">Amount</TableHead>
-                    <TableHead className="text-xs font-semibold">Cycle</TableHead>
-                    <TableHead className="text-xs font-semibold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {plans.map((p: any) => (
-                    <TableRow key={p.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell className="text-sm font-medium">{p.name}</TableCell>
-                      <TableCell className="text-sm">₹{Number(p.amount).toLocaleString()} {p.currency}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.billing_cycle}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => handleDeletePlan(p.id)}>
-                          Deactivate
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <DataTable
+              data={plans}
+              isLoading={loading}
+              emptyMessage="No plans found."
+              columns={[
+                { header: "Name", accessorKey: "name", sortable: true, className: "font-medium text-sm" },
+                {
+                  header: "Amount",
+                  sortable: true,
+                  accessorKey: "amount",
+                  render: (p: any) => <span className="text-sm">₹{Number(p.amount).toLocaleString()} {p.currency}</span>
+                },
+                { header: "Cycle", accessorKey: "billing_cycle", sortable: true, className: "text-sm text-muted-foreground" },
+                {
+                  header: "Actions",
+                  render: (p: any) => (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => handleDeletePlan(p.id)}>
+                      Deactivate
+                    </Button>
+                  )
+                },
+              ]}
+            />
           </CardContent>
         </Card>
       )}

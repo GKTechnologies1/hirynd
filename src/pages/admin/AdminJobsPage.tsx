@@ -294,9 +294,11 @@ const AdminJobsPage = () => {
                 searchKey="title"
                 emptyMessage="No jobs found"
                 columns={[
-                  { header: "Title", accessorKey: "title", className: "font-medium text-sm" },
+                  { header: "Title", accessorKey: "title", sortable: true, className: "font-medium text-sm" },
                   { 
                     header: "Company", 
+                    sortable: true,
+                    accessorKey: "company",
                     render: (job: any) => (
                       <div className="flex items-center gap-1.5 text-sm">
                         <Building className="h-3.5 w-3.5 text-muted-foreground" />{job.company}
@@ -317,6 +319,8 @@ const AdminJobsPage = () => {
                   },
                   { 
                     header: "Status", 
+                    sortable: true,
+                    accessorKey: "status",
                     render: (job: any) => (
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status] ?? ""}`}>
                         {job.status.replace(/_/g, " ")}
@@ -374,6 +378,8 @@ const AdminJobsPage = () => {
                 columns={[
                   { 
                     header: "Candidate", 
+                    sortable: true,
+                    accessorKey: "candidate_name",
                     render: (sub: any) => (
                       <div>
                         <p className="font-medium text-sm">{sub.candidate_name || "—"}</p>
@@ -381,11 +387,13 @@ const AdminJobsPage = () => {
                       </div>
                     )
                   },
-                  { header: "Job", accessorKey: "job_title", className: "font-medium text-sm" },
-                  { header: "Company", accessorKey: "job_company", className: "text-sm text-muted-foreground" },
-                  { header: "Submitted By", accessorKey: "submitted_by_name", className: "text-xs text-muted-foreground" },
+                  { header: "Job", accessorKey: "job_title", sortable: true, className: "font-medium text-sm" },
+                  { header: "Company", accessorKey: "job_company", sortable: true, className: "text-sm text-muted-foreground" },
+                  { header: "Submitted By", accessorKey: "submitted_by_name", sortable: true, className: "text-xs text-muted-foreground" },
                   { 
                     header: "Status", 
+                    sortable: true,
+                    accessorKey: "status",
                     render: (sub: any) => (
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SUB_STATUS_COLORS[sub.status] ?? ""}`}>
                         {sub.status.replace(/_/g, " ")}
@@ -394,6 +402,8 @@ const AdminJobsPage = () => {
                   },
                   { 
                     header: "Date", 
+                    sortable: true,
+                    accessorKey: "created_at",
                     render: (sub: any) => <span className="text-xs text-muted-foreground">{formatDate(sub.created_at)}</span>
                   },
                   { 

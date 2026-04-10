@@ -142,6 +142,19 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     setSubmitting(false);
   };
 
+  const isFormFilled = 
+    formData.full_name_as_resume.trim() !== "" &&
+    formData.phone_number.trim() !== "" &&
+    formData.linkedin_url.trim() !== "" &&
+    formData.primary_resume !== "" &&
+    formData.work_history_summary.trim() !== "" &&
+    formData.skills_summary.trim() !== "" &&
+    formData.tools_and_technologies.trim() !== "" &&
+    formData.shared_email.trim() !== "" &&
+    formData.gmail_password.trim() !== "" &&
+    formData.linkedin_password.trim() !== "" &&
+    formData.visa_details.trim() !== "";
+
   if (loading) {
     return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading credentials...</p></div>;
   }
@@ -352,7 +365,16 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
               </div>
 
               <div className="pt-8 border-t border-neutral-100">
-                <Button type="submit" variant="hero" className={`w-full h-14 text-lg font-bold shadow-2xl shadow-primary/20 transition-all rounded-2xl ${!submitting ? 'hover:scale-[1.02] active:scale-[0.98]' : ''}`} disabled={submitting}>
+                <Button 
+                  type="submit" 
+                  variant="hero" 
+                  className={`w-full h-14 text-lg font-bold transition-all rounded-2xl ${
+                    isFormFilled 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98]' 
+                      : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'
+                  }`} 
+                  disabled={submitting}
+                >
                   {submitting ? (
                     <span className="flex items-center gap-2"><Lock className="h-5 w-5 animate-pulse" /> Saving New Version...</span>
                   ) : (

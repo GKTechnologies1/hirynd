@@ -1,3 +1,4 @@
+import json
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -365,7 +366,8 @@ def submit_contact(request):
         log_data = data.copy()
         if 'resume' in log_data:
             log_data.pop('resume')
-        log_action(user, 'interest_form_submitted', str(user.id), 'user', log_data)
+        if existing_user:
+            log_action(existing_user, 'interest_form_submitted', str(existing_user.id), 'user', log_data)
         return Response({'message': 'Interest form submitted successfully.'}, status=status.HTTP_201_CREATED)
 
     else:

@@ -120,11 +120,13 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   { 
                     header: "Company", 
                     accessorKey: "company_name",
+                    sortable: true,
                     className: "font-medium text-sm pl-6"
                   },
                   { 
                     header: "Role", 
                     accessorKey: "role_title",
+                    sortable: true,
                     className: "text-sm"
                   },
                   { 

@@ -100,11 +100,13 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
                 { 
                   header: "Name", 
                   accessorKey: "friend_name",
+                  sortable: true,
                   className: "font-medium text-sm pl-6"
                 },
                 { 
                   header: "Email", 
                   accessorKey: "friend_email",
+                  sortable: true,
                   className: "text-sm"
                 },
                 { 
@@ -113,10 +115,14 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
                 },
                 { 
                   header: "Status", 
+                  sortable: true,
+                  accessorKey: "status",
                   render: (r: any) => <StatusBadge status={r.status} />
                 },
                 { 
                   header: "Date", 
+                  sortable: true,
+                  accessorKey: "created_at",
                   render: (r: any) => <span className="text-xs text-muted-foreground">{formatDate(r.created_at)}</span>
                 }
               ]}

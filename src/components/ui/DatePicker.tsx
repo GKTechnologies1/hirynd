@@ -36,6 +36,8 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
     return undefined;
   });
 
+  const [open, setOpen] = React.useState(false);
+
   // Sync internal state when value prop changes
   React.useEffect(() => {
     if (!value) {
@@ -63,6 +65,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
     if (onChange) {
       if (newDate) {
         onChange(format(newDate, "MM-dd-yyyy"));
+        setOpen(false); // Close the calendar after selection
       } else {
         onChange("");
       }
@@ -70,7 +73,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           id={id}

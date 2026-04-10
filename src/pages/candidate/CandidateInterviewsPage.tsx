@@ -230,29 +230,38 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                 columns={[
                   { 
                     header: "Date", 
+                    sortable: true,
+                    accessorKey: "interview_date",
                     render: (l: any) => <span className="text-sm">{formatDate(l.interview_date)}</span>
                   },
                   { 
                     header: "Type", 
+                    sortable: true,
+                    accessorKey: "interview_type",
                     render: (l: any) => <span className="text-sm capitalize">{l.interview_type?.replace(/_/g, " ")}</span>
                   },
                   { 
                     header: "Company", 
                     accessorKey: "company_name",
+                    sortable: true,
                     className: "font-medium text-sm"
                   },
                   { 
                     header: "Role", 
                     accessorKey: "role_title",
+                    sortable: true,
                     className: "text-sm"
                   },
                   { 
                     header: "Round", 
                     accessorKey: "stage_round",
+                    sortable: true,
                     className: "text-sm"
                   },
                   { 
                     header: "Outcome", 
+                    sortable: true,
+                    accessorKey: "outcome",
                     render: (l: any) => <StatusBadge status={l.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} />
                   }
                 ]}

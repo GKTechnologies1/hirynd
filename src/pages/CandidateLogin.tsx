@@ -90,7 +90,9 @@ const CandidateLogin = () => {
     if (reg.visa_status === "Other" && !reg.visa_other.trim()) errors.visa_other = "Please specify your visa type";
     if (!reg.current_location.trim()) errors.current_location = "Current location is required";
 
-    if (reg.resume_file && reg.resume_file.size > 5 * 1024 * 1024) {
+    if (!reg.resume_file) {
+      errors.resume_file = "Resume file is required";
+    } else if (reg.resume_file.size > 5 * 1024 * 1024) {
       errors.resume_file = "File size must be less than 5MB";
     }
 
@@ -267,6 +269,25 @@ const CandidateLogin = () => {
     );
   }
 
+  const isFormFilled = 
+    reg.first_name.trim() !== "" &&
+    reg.last_name.trim() !== "" &&
+    reg.email.trim() !== "" &&
+    reg.phone.trim() !== "" &&
+    reg.password !== "" &&
+    reg.password.length >= 8 &&
+    reg.password === reg.confirm_password &&
+    reg.university_name.trim() !== "" &&
+    reg.degree_major.trim() !== "" &&
+    reg.graduation_date !== "" &&
+    reg.how_did_you_hear !== "" &&
+    (reg.how_did_you_hear !== "Friend" || reg.friend_name.trim() !== "") &&
+    reg.visa_status !== "" &&
+    (reg.visa_status !== "Other" || reg.visa_other.trim() !== "") &&
+    reg.current_location.trim() !== "" &&
+    reg.resume_file !== null &&
+    reg.consent_to_terms === true;
+
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <Header />
@@ -414,7 +435,7 @@ const CandidateLogin = () => {
                   />
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">University *</Label>
+                    <Label className="text-sm font-medium ml-1">University / College *</Label>
                     <Input 
                       id="reg-university_name"
                       value={reg.university_name} 
@@ -426,7 +447,7 @@ const CandidateLogin = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Degree / Major *</Label>
+                    <Label className="text-sm font-medium ml-1">Degree & Major *</Label>
                     <Input 
                       id="reg-degree_major"
                       value={reg.degree_major} 
@@ -531,7 +552,7 @@ const CandidateLogin = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium ml-1">Resume File (PDF/DOCX) (Optional)</Label>
+                      <Label className="text-sm font-medium ml-1">Resume File (PDF/DOCX) *</Label>
                       <Input 
                         id="reg-resume_file"
                         type="file" 
@@ -579,7 +600,11 @@ const CandidateLogin = () => {
                 </div>
 
                 <div className="pt-3 pb-1 border-t border-neutral-100">
-                  <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/10" disabled={submitting}>
+                  <Button 
+                    variant="hero" 
+                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${isFormFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/10' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                    disabled={submitting}
+                  >
                     {submitting ? "Processing Registration..." : "Create Account"}
                   </Button>
                 </div>

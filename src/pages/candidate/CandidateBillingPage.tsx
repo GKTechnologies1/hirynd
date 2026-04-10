@@ -5,9 +5,7 @@ import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import {
   DollarSign, FileText, CreditCard, AlertTriangle, CheckCircle,
   Clock, XCircle, Info, Download, RefreshCw, Loader2,
@@ -221,66 +219,67 @@ const CandidateBillingPage = ({ candidate }: Props) => {
               No invoices generated yet. Invoices are created automatically after each payment.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Description / Period</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Paid On</TableHead>
-                  <TableHead className="text-right">Receipt</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.map((inv: any) => (
-                  <TableRow key={inv.id}>
-                    <TableCell className="font-medium">
+            <DataTable
+              data={invoices}
+              isLoading={loading}
+              emptyMessage="No invoices generated yet. Invoices are created automatically after each payment."
+              columns={[
+                {
+                  header: "Description / Period",
+                  sortable: true,
+                  accessorKey: "period_start",
+                  render: (inv: any) => (
+                    <div>
                       <div className="text-sm font-semibold">
                         {inv.subscription?.plan_name || "Service Fee"}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {formatDate(inv.period_start)} — {formatDate(inv.period_end)}
                       </div>
-                    </TableCell>
-                    <TableCell className="font-semibold">
+                    </div>
+                  )
+                },
+                {
+                  header: "Amount",
+                  sortable: true,
+                  accessorKey: "amount",
+                  render: (inv: any) => (
+                    <span className="font-semibold">
                       {inv.currency === "INR" ? "₹" : "$"}{Number(inv.amount).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          inv.status === "paid"
-                            ? "bg-green-100 text-green-800"
-                            : inv.status === "failed"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }
-                      >
-                        {inv.status.toUpperCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {inv.status === "paid" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadInvoice(inv.id)}
-                          disabled={downloading === inv.id}
-                        >
-                          {downloading === inv.id ? (
-                            <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Downloading</>
-                          ) : (
-                            <><Download className="mr-1.5 h-4 w-4" />PDF</>
-                          )}
-                        </Button>
+                    </span>
+                  )
+                },
+                {
+                  header: "Status",
+                  sortable: true,
+                  accessorKey: "status",
+                  render: (inv: any) => (
+                    <Badge className={inv.status === "paid" ? "bg-green-100 text-green-800" : inv.status === "failed" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
+                      {inv.status.toUpperCase()}
+                    </Badge>
+                  )
+                },
+                {
+                  header: "Paid On",
+                  sortable: true,
+                  accessorKey: "paid_at",
+                  render: (inv: any) => <span className="text-muted-foreground text-sm">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</span>
+                },
+                {
+                  header: "Receipt",
+                  className: "text-right",
+                  render: (inv: any) => inv.status === "paid" ? (
+                    <Button variant="outline" size="sm" onClick={() => handleDownloadInvoice(inv.id)} disabled={downloading === inv.id}>
+                      {downloading === inv.id ? (
+                        <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Downloading</>
+                      ) : (
+                        <><Download className="mr-1.5 h-4 w-4" />PDF</>
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </Button>
+                  ) : null
+                },
+              ]}
+            />
           )}
         </CardContent>
       </Card>
@@ -295,41 +294,50 @@ const CandidateBillingPage = ({ candidate }: Props) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {standalonePayments.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
-                        {payTypeLabel(p.payment_type)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-semibold">
+            <DataTable
+              data={standalonePayments}
+              isLoading={loading}
+              emptyMessage="No payments found."
+              columns={[
+                {
+                  header: "Type",
+                  sortable: true,
+                  accessorKey: "payment_type",
+                  render: (p: any) => (
+                    <div className="flex items-center gap-2 font-medium">
+                      <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                      {payTypeLabel(p.payment_type)}
+                    </div>
+                  )
+                },
+                {
+                  header: "Amount",
+                  sortable: true,
+                  accessorKey: "amount",
+                  render: (p: any) => (
+                    <span className="font-semibold">
                       {p.currency === "INR" ? "₹" : "$"}{Number(p.amount).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-800 text-[10px] font-bold tracking-wider">
-                        COMPLETED
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {p.payment_date
-                        ? new Date(p.payment_date).toLocaleDateString()
-                        : new Date(p.created_at).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </span>
+                  )
+                },
+                {
+                  header: "Status",
+                  render: (_p: any) => (
+                    <Badge className="bg-green-100 text-green-800 text-[10px] font-bold tracking-wider">COMPLETED</Badge>
+                  )
+                },
+                {
+                  header: "Date",
+                  sortable: true,
+                  accessorKey: "created_at",
+                  render: (p: any) => (
+                    <span className="text-muted-foreground text-sm">
+                      {p.payment_date ? new Date(p.payment_date).toLocaleDateString() : new Date(p.created_at).toLocaleDateString()}
+                    </span>
+                  )
+                },
+              ]}
+            />
           </CardContent>
         </Card>
       )}

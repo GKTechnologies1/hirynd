@@ -96,7 +96,7 @@ const Services = () => {
     <div className="services-page-v2 bg-white min-h-screen">
       <SEO title="Our Services | HYRIND" description="Strategic career solutions that combine profile marketing, preparation, and recruiter support to help you move forward with confidence." path="/services" />
       <Header />
-      
+
       <style>{`
         .services-hero-v2 {
           background: radial-gradient(circle at top right, #1e40af, #0d47a1);
@@ -135,6 +135,7 @@ const Services = () => {
           gap: 60px;
           align-items: center;
           margin-bottom: 100px;
+          scroll-margin-top: 120px;
         }
 
         @media (max-width: 991px) {
@@ -182,45 +183,45 @@ const Services = () => {
           <div className="max-w-6xl mx-auto px-6">
             {services.map((service, index) => (
               <div key={service.id} id={service.anchor} className="service-row-v2" style={{ direction: index % 2 === 0 ? 'ltr' : 'rtl' }}>
-                 <div style={{ direction: 'ltr' }}>
-                    <span className="service-badge-v2">{service.badge}</span>
-                    <h2 className="service-title-v2 mt-4">{service.title}</h2>
-                    <p className="text-lg text-gray-600 mb-8">{service.longDesc}</p>
-                    <ul className="mb-8 space-y-3">
-                      {service.features.map((f, i) => (
-                        <li key={i} className="flex items-center gap-3 font-medium text-gray-800">
-                          <CheckCircle2 className="text-blue-600" /> {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <button onClick={() => navigate('/candidate-login')} className="btn-premium-v2">
-                      Get Started Today <ArrowRight size={20} />
-                    </button>
-                 </div>
-                 <div className="image-wrapper-v2">
-                    <img src={service.image} alt={service.title} className="w-full h-auto object-cover" />
-                 </div>
+                <div style={{ direction: 'ltr' }}>
+                  <span className="service-badge-v2">{service.badge}</span>
+                  <h2 className="service-title-v2 mt-4">{service.title}</h2>
+                  <p className="text-lg text-gray-600 mb-8">{service.longDesc}</p>
+                  <ul className="mb-8 space-y-3">
+                    {service.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-3 font-medium text-gray-800">
+                        <CheckCircle2 className="text-blue-600" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <button onClick={() => navigate('/candidate-login')} className="btn-premium-v2">
+                    Get Started Today <ArrowRight size={20} />
+                  </button>
+                </div>
+                <div className="image-wrapper-v2">
+                  <img src={service.image} alt={service.title} className="w-full h-auto object-cover" />
+                </div>
               </div>
             ))}
           </div>
         </section>
 
         <section className="py-20 bg-blue-900 text-white text-center mx-6 my-10 rounded-[60px]">
-           <div className="max-w-3xl mx-auto px-6">
-              <h2 className="text-4xl font-extrabold mb-6">Ready to Secure Your Next Role?</h2>
-              <p className="text-xl opacity-90 mb-10">Join the elite community of HYRIND candidates who are currently receiving real interview opportunities.</p>
-              <div className="flex justify-center gap-4 flex-wrap">
-                 <button onClick={() => navigate('/candidate-login')} className="bg-white text-blue-900 px-10 py-4 rounded-xl font-bold flex items-center gap-2 hover:scale-105 transition-transform">
-                    Register Now <Rocket size={20} />
-                 </button>
-                 <button onClick={() => navigate('/contact')} className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold flex items-center gap-2 hover:bg-white hover:text-blue-900 transition-all">
-                    Submit Interest <Sparkles size={20} />
-                 </button>
-              </div>
-           </div>
+          <div className="max-w-3xl mx-auto px-6">
+            <h2 className="text-4xl font-extrabold mb-6">Ready to Secure Your Next Role?</h2>
+            <p className="text-xl opacity-90 mb-10">Join the elite community of HYRIND candidates who are currently receiving real interview opportunities.</p>
+            <div className="flex justify-center gap-4 flex-wrap">
+              <button onClick={() => navigate('/candidate-login')} className="bg-white text-blue-900 px-10 py-4 rounded-xl font-bold flex items-center gap-2 hover:scale-105 transition-transform">
+                Register Now <Rocket size={20} />
+              </button>
+              <button onClick={() => navigate('/contact')} className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold flex items-center gap-2 hover:bg-white hover:text-blue-900 transition-all">
+                Submit Interest <Sparkles size={20} />
+              </button>
+            </div>
+          </div>
         </section>
       </main>
-      
+
       <Footer />
     </div>
   );

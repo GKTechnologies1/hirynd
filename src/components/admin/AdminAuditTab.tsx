@@ -118,15 +118,20 @@ const AdminAuditTab = ({ targetId }: AdminAuditTabProps) => {
             columns={[
               { 
                 header: "Timestamp", 
+                sortable: true,
+                accessorKey: "created_at",
                 render: (log: any) => <span className="text-xs text-muted-foreground whitespace-nowrap pl-6">{new Date(log.created_at).toLocaleString()}</span>
               },
               { 
                 header: "Actor", 
                 accessorKey: "actor_name",
+                sortable: true,
                 className: "text-sm"
               },
               { 
                 header: "Action", 
+                sortable: true,
+                accessorKey: "action",
                 render: (log: any) => <span className="text-sm font-medium capitalize">{log.action?.replace(/_/g, " ")}</span>
               },
               { 

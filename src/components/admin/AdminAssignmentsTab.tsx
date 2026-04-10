@@ -114,6 +114,8 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
             columns={[
               { 
                 header: "Recruiter", 
+                sortable: true,
+                accessorKey: "recruiter_name",
                 render: (a: any) => (
                   <div className="pl-6">
                     <p className="font-medium text-sm text-card-foreground">{a.recruiter_name || "Unknown"}</p>
@@ -123,6 +125,8 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
               },
               { 
                 header: "Designation", 
+                sortable: true,
+                accessorKey: "role_type",
                 render: (a: any) => (
                   <div className="flex items-center gap-2">
                     <StatusBadge status={a.role_type === "primary_recruiter" ? "active" : "pending"} className="text-[10px]" />

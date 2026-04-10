@@ -96,6 +96,8 @@ const AdminRecruitersPage = () => {
             columns={[
               { 
                 header: "Recruiter Info", 
+                sortable: true,
+                accessorKey: "full_name",
                 className: "py-4 font-bold text-xs uppercase tracking-widest pl-6",
                 render: (r: any) => (
                   <div className="flex items-center gap-3 py-1">
@@ -111,6 +113,8 @@ const AdminRecruitersPage = () => {
               },
               { 
                 header: "Role", 
+                sortable: true,
+                accessorKey: "role",
                 className: "font-bold text-xs uppercase tracking-widest text-center",
                 render: (r: any) => (
                   <div className="flex justify-center">
@@ -166,6 +170,8 @@ const AdminRecruitersPage = () => {
               },
               { 
                 header: "Status", 
+                sortable: true,
+                accessorKey: "approval_status",
                 className: "font-bold text-xs uppercase tracking-widest text-center",
                 render: (r: any) => (
                   <div className="flex justify-center">

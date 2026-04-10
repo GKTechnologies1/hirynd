@@ -109,6 +109,8 @@ const DailyLogPage = () => {
                   columns={[
                     { 
                       header: "Candidate", 
+                      sortable: true,
+                      accessorKey: "full_name",
                       className: "px-6 py-4",
                       render: (c: any) => (
                         <div className="flex flex-col">
@@ -119,6 +121,8 @@ const DailyLogPage = () => {
                     },
                     { 
                       header: "Pipeline Status", 
+                      sortable: true,
+                      accessorKey: "status",
                       className: "px-6 py-4",
                       render: (c: any) => <StatusBadge status={c.status} />
                     },

@@ -39,6 +39,7 @@ const RecruiterLogin = () => {
     city: "", state: "", country: "",
     prior_recruitment_experience: "",
     work_type_preference: "",
+    resume_file: null as File | null,
     consent_to_terms: false,
     countryCode: "+1",
   });
@@ -74,19 +75,25 @@ const RecruiterLogin = () => {
 
     if (reg.password !== reg.confirm_password) errors.confirm_password = "Passwords do not match";
 
-    if (!reg.university_name.trim()) errors.university_name = "University is required";
-    if (!reg.degree_major.trim()) errors.degree_major = "Degree / Major is required";
+    if (!reg.university_name.trim()) errors.university_name = "University / College is required";
+    if (!reg.degree_major.trim()) errors.degree_major = "Degree & Major is required";
     
     const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
     else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-DD-YYYY format";
 
-    if (!reg.linkedin_url.trim() && !reg.social_profile.trim()) 
-      errors.linkedin_url = "LinkedIn URL or Social Profile is required for recruiter registration";
+    if (!reg.linkedin_url.trim()) 
+      errors.linkedin_url = "LinkedIn URL is required";
 
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
     if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) errors.friend_name = "Friend name is required";
     
+    if (!reg.resume_file) {
+      errors.resume_file = "Resume file is required";
+    } else if (reg.resume_file.size > 5 * 1024 * 1024) {
+      errors.resume_file = "File size must be less than 5MB";
+    }
+
     if (!reg.consent_to_terms) errors.consent_to_terms = "You must agree to the Terms and Conditions";
 
     setRegErrors(errors);
@@ -143,18 +150,25 @@ const RecruiterLogin = () => {
       consent_to_terms: reg.consent_to_terms,
       graduation_date: reg.graduation_date ? format(parse(reg.graduation_date, "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "",
     };
+
+    const data = new FormData();
+    Object.entries(dataToSubmit).forEach(([key, value]) => {
+      if (key !== "resume_file") {
+        data.append(key, String(value));
+      }
+    });
+    if (reg.resume_file) {
+      data.append("resume_file", reg.resume_file, reg.resume_file.name);
+    }
     
     // Split combined degree_major for backend if needed, or send as is
     // Assuming backend still wants separate fields based on previous structure
     const [degree, ...majorParts] = reg.degree_major.split("/");
-    const finalData = {
-      ...dataToSubmit,
-      degree: (degree || "").trim(),
-      major: majorParts.join("/").trim()
-    };
+    data.set("degree", (degree || "").trim());
+    data.set("major", majorParts.join("/").trim());
 
     try {
-      await authApi.register(finalData as any);
+      await authApi.register(data as any);
       await signOut(); // Section 3.3 Step 9
       setRegistrationComplete(true);
     } catch (err: any) {
@@ -242,6 +256,23 @@ const RecruiterLogin = () => {
       </div>
     );
   }
+
+  const isFormFilled = 
+    reg.first_name.trim() !== "" &&
+    reg.last_name.trim() !== "" &&
+    reg.email.trim() !== "" &&
+    reg.phone.trim() !== "" &&
+    reg.password !== "" &&
+    reg.password.length >= 8 &&
+    reg.password === reg.confirm_password &&
+    reg.university_name.trim() !== "" &&
+    reg.degree_major.trim() !== "" &&
+    reg.graduation_date !== "" &&
+    reg.linkedin_url.trim() !== "" &&
+    reg.how_did_you_hear !== "" &&
+    (reg.how_did_you_hear !== "Friend" || reg.friend_name.trim() !== "") &&
+    reg.resume_file !== null &&
+    reg.consent_to_terms === true;
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -376,13 +407,13 @@ const RecruiterLogin = () => {
 
                   {/* Academic Section */}
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">University *</Label>
+                    <Label className="text-sm font-medium ml-1">University / College *</Label>
                     <Input id="reg-university_name" value={reg.university_name} onChange={e => updateReg("university_name", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
                     {regErrors.university_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.university_name}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Degree / Major *</Label>
-                    <Input id="reg-degree_major" value={reg.degree_major} onChange={e => updateReg("degree_major", e.target.value)} placeholder="e.g. Bachelors / Computer Science" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
+                    <Label className="text-sm font-medium ml-1">Degree & Major *</Label>
+                    <Input id="reg-degree_major" value={reg.degree_major} onChange={e => updateReg("degree_major", e.target.value)} placeholder="e.g. Bachelors & Computer Science" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
                     {regErrors.degree_major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree_major}</p>}
                   </div>
                   <div className="space-y-2">
@@ -393,7 +424,7 @@ const RecruiterLogin = () => {
 
                   {/* Professional Section */}
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">LinkedIn URL</Label>
+                    <Label className="text-sm font-medium ml-1">LinkedIn URL *</Label>
                     <Input id="reg-linkedin_url" type="url" value={reg.linkedin_url} onChange={e => updateReg("linkedin_url", e.target.value)} placeholder="https://linkedin.com/in/..." className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
                     {regErrors.linkedin_url && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.linkedin_url}</p>}
                   </div>
@@ -448,6 +479,19 @@ const RecruiterLogin = () => {
                     </Select>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1">Resume File (PDF/DOCX) *</Label>
+                    <Input 
+                      id="reg-resume_file"
+                      type="file" 
+                      accept=".pdf,.doc,.docx" 
+                      onChange={e => updateReg("resume_file", e.target.files?.[0])}
+                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm py-1.5 px-2 text-xs" 
+                    />
+                    {regErrors.resume_file && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.resume_file}</p>}
+                    <p className="text-[10px] text-muted-foreground ml-1">Max file size: 5MB</p>
+                  </div>
+
                   <div className="pt-2 px-1">
                     <div className="flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 transition-all hover:bg-white shadow-sm">
                       <div className="pt-0.5">
@@ -465,7 +509,11 @@ const RecruiterLogin = () => {
                 </div>
 
                 <div className="pt-3 pb-1 border-t border-neutral-100">
-                  <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/20" disabled={submitting}>
+                  <Button 
+                    variant="hero" 
+                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${isFormFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                    disabled={submitting}
+                  >
                     {submitting ? "Processing Application..." : "Create Recruiter Account"}
                   </Button>
                 </div>

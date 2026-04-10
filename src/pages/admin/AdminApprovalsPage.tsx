@@ -133,6 +133,8 @@ const AdminApprovalsPage = () => {
             columns={[
               { 
                 header: "Candidate / Recruiter", 
+                sortable: true,
+                accessorKey: "full_name",
                 render: (u: any) => (
                   <div className="pl-6 py-1">
                     <p className="font-bold text-sm text-foreground">{u.profile?.full_name || "—"}</p>
@@ -146,6 +148,8 @@ const AdminApprovalsPage = () => {
               },
               { 
                 header: "Role", 
+                sortable: true,
+                accessorKey: "role",
                 render: (u: any) => (
                   <Badge variant="outline" className={`text-[10px] font-bold uppercase tracking-wider ${
                     u.role === 'candidate' ? 'border-blue-200 text-blue-700 bg-blue-50' : 'border-teal-200 text-teal-700 bg-teal-50'
@@ -156,6 +160,8 @@ const AdminApprovalsPage = () => {
               },
               { 
                 header: "Submission Date", 
+                sortable: true,
+                accessorKey: "created_at",
                 render: (u: any) => (
                   <div className="text-xs">
                     <p className="font-medium text-foreground">{formatDate(u.created_at)}</p>

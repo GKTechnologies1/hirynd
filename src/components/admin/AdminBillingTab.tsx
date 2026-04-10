@@ -334,10 +334,14 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
             columns={[
               { 
                 header: "Period", 
+                sortable: true,
+                accessorKey: "period_start",
                 render: (inv: any) => <span className="text-sm pl-6">{formatDate(inv.period_start)} – {formatDate(inv.period_end)}</span>
               },
               { 
                 header: "Amount", 
+                sortable: true,
+                accessorKey: "amount",
                 render: (inv: any) => (
                   <span className="font-medium flex items-center gap-0.5 text-sm">
                     <DollarSign className="h-3.5 w-3.5" />{Number(inv.amount).toLocaleString()}
@@ -346,10 +350,14 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
               },
               { 
                 header: "Status", 
+                sortable: true,
+                accessorKey: "status",
                 render: (inv: any) => <Badge className={invoiceStatusBadge[inv.status] || ""}>{inv.status.toUpperCase()}</Badge>
               },
               { 
                 header: "Paid At", 
+                sortable: true,
+                accessorKey: "paid_at",
                 render: (inv: any) => <span className="text-sm">{formatDate(inv.paid_at)}</span>
               },
               { 
@@ -375,10 +383,14 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
               columns={[
                 { 
                   header: "Date", 
+                  sortable: true,
+                  accessorKey: "created_at",
                   render: (p: any) => <span className="text-sm pl-6">{formatDate(p.created_at)}</span>
                 },
                 { 
                   header: "Amount", 
+                  sortable: true,
+                  accessorKey: "amount",
                   render: (p: any) => (
                     <span className="font-medium flex items-center gap-0.5 text-sm">
                       <DollarSign className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()}
@@ -387,6 +399,8 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                 },
                 { 
                   header: "Status", 
+                  sortable: true,
+                  accessorKey: "payment_status",
                   render: (p: any) => (
                     <div className="flex items-center gap-1.5">
                       {p.payment_status === "success" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> :
@@ -398,6 +412,8 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                 },
                 { 
                   header: "Method", 
+                  sortable: true,
+                  accessorKey: "payment_method",
                   render: (p: any) => <span className="capitalize text-sm text-muted-foreground pr-6">{p.payment_method}</span>
                 }
               ]}

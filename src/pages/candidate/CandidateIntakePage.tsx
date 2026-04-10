@@ -204,6 +204,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
       ...formData,
       phone_number: `${countryCode} ${formData.phone_number}`,
       alternate_phone: formData.alternate_phone ? `${altCountryCode} ${formData.alternate_phone}` : "",
+      degree: formData.major.split("&")[0]?.trim() || "",
+      major: formData.major.split("&").slice(1).join("&")?.trim() || formData.major.trim(),
     };
 
     try {
@@ -242,6 +244,32 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     }
   };
+
+  const isFormFilled = 
+    formData.first_name.trim() !== "" &&
+    formData.last_name.trim() !== "" &&
+    formData.date_of_birth !== "" &&
+    formData.phone_number.trim() !== "" &&
+    formData.current_address.trim() !== "" &&
+    formData.city.trim() !== "" &&
+    formData.state.trim() !== "" &&
+    formData.country.trim() !== "" &&
+    formData.zip_code.trim() !== "" &&
+    formData.university_name.trim() !== "" &&
+    formData.major.trim() !== "" &&
+    formData.graduation_date !== "" &&
+    formData.visa_type !== "" &&
+    formData.work_authorization_status !== "" &&
+    formData.target_roles.trim() !== "" &&
+    formData.preferred_locations.trim() !== "" &&
+    formData.remote_preference !== "" &&
+    formData.salary_expectation.trim() !== "" &&
+    formData.years_of_experience.trim() !== "" &&
+    formData.linkedin_url.trim() !== "" &&
+    formData.technologies_or_skills.trim() !== "" &&
+    formData.resume_url !== "" &&
+    formData.ready_to_start_date !== "" &&
+    formData.preferred_employment_type !== "";
 
   if (loading) {
     return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading intake form...</p></div>;
@@ -374,33 +402,13 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               </div> */}
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div className="sm:col-span-2 space-y-2">
-                    <Label className="text-sm font-medium ml-1">University Name *</Label>
+                    <Label className="text-sm font-medium ml-1">University / College *</Label>
                     <Input value={formData.university_name} onChange={e => handleChange("university_name", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200" />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Degree *</Label>
-                    <Select value={formData.degree} onValueChange={v => handleChange("degree", v)} disabled={isLocked}>
-                      <SelectTrigger className="h-11 rounded-xl bg-neutral-50"><SelectValue placeholder="Select degree" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="bachelors">Bachelor's</SelectItem>
-                        <SelectItem value="masters">Master's</SelectItem>
-                        <SelectItem value="phd">PhD</SelectItem>
-                        <SelectItem value="associate">Associate</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label className="text-sm font-medium ml-1">Degree & Major *</Label>
+                    <Input value={formData.major} onChange={e => handleChange("major", e.target.value)} placeholder="e.g. Bachelors & Computer Science" disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200" />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Major *</Label>
-                    <Input value={formData.major} onChange={e => handleChange("major", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200" />
-                  </div>
-
-                  {formData.degree === "other" && (
-                    <div className="sm:col-span-2 animate-in slide-in-from-top-1 space-y-2">
-                      <Label className="text-sm font-medium ml-1">Please Specify Degree *</Label>
-                      <Input value={formData.degree_other} onChange={e => handleChange("degree_other", e.target.value)} disabled={isLocked} required className="h-11 rounded-xl bg-neutral-50" />
-                    </div>
-                  )}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium ml-1">Graduation Date *</Label>
                   <DatePicker
@@ -606,7 +614,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 <Button
                   type="submit"
                   variant="hero"
-                  className={`w-full h-14 text-lg font-bold shadow-2xl shadow-primary/20 ${!submitting ? 'hover:scale-[1.02] active:scale-[0.98]' : ''} transition-all duration-300 rounded-2xl`}
+                  className={`w-full h-14 text-lg font-bold transition-all duration-300 rounded-2xl ${
+                    isFormFilled 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98]' 
+                      : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'
+                  }`}
                   disabled={submitting}
                 >
                   {submitting ? (

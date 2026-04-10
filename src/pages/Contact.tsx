@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import Header from "@/components/layout/Header";
 import SEO from "@/components/SEO";
 import Footer from "@/components/layout/Footer";
@@ -14,6 +14,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
+
+const SERVICES = [
+  "End-to-End Marketing Strategy",
+  "Resume & Portfolio Optimization",
+  "Technical Interview Prep",
+  "Career Growth Counseling",
+  "Visa & Compliance Support",
+];
 
 const Contact = () => {
   const [searchParams] = useSearchParams();
@@ -31,29 +39,32 @@ const Contact = () => {
   const { toast } = useToast();
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formValues, setFormValues] = useState({
+    first_name: "", last_name: "", email: "", phone: "",
+    university: "", graduation_year: "", degree_major: "",
+    current_location: "", message: "", visa_other: "", referral_friend: ""
+  });
 
-  const SERVICES = [
-    "End-to-End Marketing Strategy",
-    "Resume & Portfolio Optimization",
-    "Technical Interview Prep",
-    "Career Growth Counseling",
-    "Visa & Compliance Support",
-  ];
-
-  const toggleService = (service: string) => {
-    setSelectedServices(prev => 
-      prev.includes(service) ? prev.filter(s => s !== service) : [...prev, service]
-    );
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormValues(prev => ({ ...prev, [name]: value }));
   };
 
+
+  const toggleService = useCallback((service: string) => {
+    setSelectedServices(prev =>
+      prev.includes(service) ? prev.filter(s => s !== service) : [...prev, service]
+    );
+  }, []);
+
+  const typeParam = searchParams.get("type");
   useEffect(() => {
-    const type = searchParams.get("type");
-    if (type === "general") {
+    if (typeParam === "general" && wantsMarketing !== "no") {
       setWantsMarketing("no");
-    } else if (type === "interest") {
+    } else if (typeParam === "interest" && wantsMarketing !== "yes") {
       setWantsMarketing("yes");
     }
-  }, [searchParams]);
+  }, [typeParam]);
 
   const validateForm = (formData: FormData) => {
     const newErrors: Record<string, string> = {};
@@ -85,6 +96,14 @@ const Contact = () => {
       if (selectedServices.length === 0) {
         newErrors.services = "Please select at least one service";
       }
+      
+      const resume = formData.get("resume") as File;
+      if (!resume || !resume.name) {
+        newErrors.resume = "Resume file is required";
+      } else if (resume.size > 5 * 1024 * 1024) {
+        newErrors.resume = "File size must be less than 5MB";
+      }
+
       if (!termsAccepted) newErrors.terms = "You must accept the terms and privacy policy";
     } else {
       if (!formData.get("message")) newErrors.message = "Message is required";
@@ -93,6 +112,27 @@ const Contact = () => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  const isGeneralFilled = 
+    formValues.first_name.trim() !== "" &&
+    formValues.last_name.trim() !== "" &&
+    formValues.email.trim() !== "" &&
+    formValues.phone.trim() !== "" &&
+    formValues.message.trim() !== "";
+
+  const isInterestFilled = 
+    formValues.first_name.trim() !== "" &&
+    formValues.last_name.trim() !== "" &&
+    formValues.email.trim() !== "" &&
+    formValues.phone.trim() !== "" &&
+    selectedServices.length > 0 &&
+    formValues.degree_major.trim() !== "" &&
+    visaStatus !== "" &&
+    (visaStatus !== "other" || formValues.visa_other.trim() !== "") &&
+    formValues.current_location.trim() !== "" &&
+    referralSource !== "" &&
+    (referralSource !== "friend" || formValues.referral_friend.trim() !== "") &&
+    termsAccepted;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,26 +144,27 @@ const Contact = () => {
       return;
     }
     
-    const firstName = formData.get("first_name") as string;
-    const lastName = formData.get("last_name") as string;
-    const phoneNum = formData.get("phone") as string;
+    const firstName = formValues.first_name;
+    const lastName = formValues.last_name;
+    const phoneNum = formValues.phone;
     
     // Construct final payload as FormData to support file upload
     const finalData = new FormData();
     finalData.append("name", `${firstName || ""} ${lastName || ""}`.trim());
-    finalData.append("email", formData.get("email") as string);
+    finalData.append("email", formValues.email);
     finalData.append("phone", `${countryCode} ${phoneNum}`.trim());
     finalData.append("mode", wantsMarketing === "yes" ? "interest" : "general");
     
     if (wantsMarketing === "yes") {
-      finalData.append("university", formData.get("university") as string || "");
-      finalData.append("degree", formData.get("degree") as string || "");
-      finalData.append("major", formData.get("major") as string || "");
-      finalData.append("graduation_year", formData.get("graduation_year") as string || "");
-      finalData.append("visa_status", visaStatus === "other" ? (formData.get("visa_other") as string) : visaStatus);
-      finalData.append("current_location", formData.get("current_location") as string || "");
+      finalData.append("university", formValues.university);
+      const [degree, ...majorParts] = formValues.degree_major.split("&");
+      finalData.append("degree", (degree || "").trim());
+      finalData.append("major", majorParts.join("&").trim() || formValues.degree_major.trim());
+      finalData.append("graduation_year", formValues.graduation_year);
+      finalData.append("visa_status", visaStatus === "other" ? formValues.visa_other : visaStatus);
+      finalData.append("current_location", formValues.current_location);
       finalData.append("referral_source", referralSource);
-      finalData.append("referral_friend", formData.get("referral_friend") as string || "");
+      finalData.append("referral_friend", formValues.referral_friend);
       finalData.append("services", JSON.stringify(selectedServices));
       
       const resumeFile = formData.get("resume") as File;
@@ -135,14 +176,18 @@ const Contact = () => {
         finalData.append("resume", resumeFile);
       }
     } else {
-      finalData.append("message", formData.get("message") as string || "");
+      finalData.append("message", formValues.message);
     }
 
     try {
       await authApi.submitContact(finalData);
       
       // Reset form
-      formElement.reset();
+      setFormValues({
+        first_name: "", last_name: "", email: "", phone: "",
+        university: "", graduation_year: "", degree_major: "",
+        current_location: "", message: "", visa_other: "", referral_friend: ""
+      });
       setShowSuccessDialog(true);
       setReferralSource("");
       setVisaStatus("");
@@ -205,18 +250,18 @@ const Contact = () => {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
-                      <Input name="first_name" placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
+                      <Input name="first_name" value={formValues.first_name} onChange={handleInputChange} placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
                       {errors.first_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.first_name}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
-                      <Input name="last_name" placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
+                      <Input name="last_name" value={formValues.last_name} onChange={handleInputChange} placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
                       {errors.last_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.last_name}</p>}
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
-                    <Input name="email" type="email" placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
+                    <Input name="email" type="email" value={formValues.email} onChange={handleInputChange} placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
                     {errors.email && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
                   </div>
                   
@@ -234,18 +279,23 @@ const Contact = () => {
                           <SelectItem value="+61">🇦🇺 +61</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input name="phone" placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
+                      <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
                     </div>
                     {errors.phone && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.phone}</p>}
                   </div>
                   
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Message *</Label>
-                    <Textarea name="message" placeholder="How can we help you?" rows={5} className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none ${errors.message ? 'border-destructive' : ''}`} />
+                    <Textarea name="message" value={formValues.message} onChange={handleInputChange} placeholder="How can we help you?" rows={5} className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none ${errors.message ? 'border-destructive' : ''}`} />
                     {errors.message && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.message}</p>}
                   </div>
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
-                    <Button type="submit" className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90 rounded-xl h-11 px-6 font-bold shadow-sm">Send Message</Button>
+                    <Button 
+                      type="submit" 
+                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isGeneralFilled ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 pointer-events-none'}`}
+                    >
+                      Send Message
+                    </Button>
                     <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => { setWantsMarketing(null); setErrors({}); }}>Back</Button>
                   </div>
                 </form>
@@ -262,37 +312,36 @@ const Contact = () => {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
-                      <Input name="first_name" placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
+                      <Input name="first_name" value={formValues.first_name} onChange={handleInputChange} placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
                       {errors.first_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.first_name}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
-                      <Input name="last_name" placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
+                      <Input name="last_name" value={formValues.last_name} onChange={handleInputChange} placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
                       {errors.last_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.last_name}</p>}
                     </div>
                   </div>
                   
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
-                    <Input name="email" type="email" placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
+                    <Input name="email" type="email" value={formValues.email} onChange={handleInputChange} placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
                     {errors.email && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
                   </div>
                   
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
                     <div className="flex gap-2">
-                      <Select value={countryCode} onValueChange={setCountryCode}>
-                        <SelectTrigger className="w-[100px] bg-neutral-50/50 border-neutral-200 rounded-xl h-11 focus-visible:ring-[#0d47a1]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="+1">🇺🇸 +1</SelectItem>
-                          <SelectItem value="+91">🇮🇳 +91</SelectItem>
-                          <SelectItem value="+44">🇬🇧 +44</SelectItem>
-                          <SelectItem value="+61">🇦🇺 +61</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input name="phone" placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
+                      <select
+                        value={countryCode}
+                        onChange={e => setCountryCode(e.target.value)}
+                        className="w-[100px] bg-neutral-50/50 border border-neutral-200 rounded-xl h-11 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d47a1]"
+                      >
+                        <option value="+1">🇺🇸 +1</option>
+                        <option value="+91">🇮🇳 +91</option>
+                        <option value="+44">🇬🇧 +44</option>
+                        <option value="+61">🇦🇺 +61</option>
+                      </select>
+                      <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
                     </div>
                     {errors.phone && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.phone}</p>}
                   </div>
@@ -308,11 +357,15 @@ const Contact = () => {
                             onClick={() => toggleService(s)}
                             className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-[#0d47a1] bg-blue-50/50 shadow-sm' : 'border-neutral-200 hover:border-neutral-300 bg-neutral-50/10'}`}
                           >
-                            <Checkbox 
-                              checked={isSelected}
-                              onCheckedChange={() => toggleService(s)}
-                              className="data-[state=checked]:bg-[#0d47a1] border-neutral-300"
-                            />
+                            <div
+                              className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${isSelected ? 'bg-[#0d47a1] border-[#0d47a1]' : 'border-neutral-300 bg-white'}`}
+                            >
+                              {isSelected && (
+                                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                                </svg>
+                              )}
+                            </div>
                             <span className={`text-[11px] font-bold ${isSelected ? 'text-[#0d47a1]' : 'text-neutral-600'}`}>{s}</span>
                           </div>
                         );
@@ -323,51 +376,45 @@ const Contact = () => {
 
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University</Label>
-                      <Input name="university" placeholder="University name (if applicable)" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University / College</Label>
+                      <Input name="university" value={formValues.university} onChange={handleInputChange} placeholder="University name" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
                       <p className="mt-1 text-[10px] text-neutral-400 font-medium">Leave blank if not applicable</p>
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year</Label>
-                      <Input name="graduation_year" placeholder="e.g., 2025" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
+                      <Input name="graduation_year" value={formValues.graduation_year} onChange={handleInputChange} placeholder="e.g., 2025" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
                       <p className="mt-1 text-[10px] text-neutral-400 font-medium">Expected or completed graduation year</p>
                     </div>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree *</Label>
-                      <Input name="degree" placeholder="e.g. Master's" className={`h-11 rounded-xl ${errors.degree ? 'border-destructive' : ''}`} />
-                      {errors.degree && <p className="text-[10px] text-destructive font-semibold tracking-tight uppercase mt-1">{errors.degree}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Major *</Label>
-                      <Input name="major" placeholder="e.g. Computer Science" className={`h-11 rounded-xl ${errors.major ? 'border-destructive' : ''}`} />
-                      {errors.major && <p className="text-[10px] text-destructive font-semibold tracking-tight uppercase mt-1">{errors.major}</p>}
-                    </div>
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree & Major *</Label>
+                    <Input name="degree_major" value={formValues.degree_major} onChange={handleInputChange} placeholder="e.g. Master's & Computer Science" className={`h-11 rounded-xl ${errors.degree || errors.major ? 'border-destructive' : ''}`} />
+                    {(errors.degree || errors.major) && <p className="text-[10px] text-destructive font-semibold tracking-tight uppercase mt-1">{errors.degree || errors.major}</p>}
                   </div>
 
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Visa Status *</Label>
-                    <Select value={visaStatus} onValueChange={(val) => { setVisaStatus(val); setErrors(prev => ({ ...prev, visa_status: "", visa_other: "" })); }}>
-                      <SelectTrigger className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.visa_status ? 'border-destructive shadow-[0_0_0_1px_rgba(239,68,68,1)]' : ''}`}><SelectValue placeholder="Select your visa status" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="us-citizen">US Citizen</SelectItem>
-                        <SelectItem value="green-card">Green Card / Permanent Resident</SelectItem>
-                        <SelectItem value="h1b">H-1B</SelectItem>
-                        <SelectItem value="f1-opt">F-1 OPT</SelectItem>
-                        <SelectItem value="f1-stem-opt">F-1 STEM OPT</SelectItem>
-                        <SelectItem value="cpt">CPT</SelectItem>
-                        <SelectItem value="ead">EAD</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={visaStatus}
+                      onChange={e => { setVisaStatus(e.target.value); setErrors(prev => ({ ...prev, visa_status: "", visa_other: "" })); }}
+                      className={`w-full bg-neutral-50/50 border rounded-xl h-11 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d47a1] ${errors.visa_status ? 'border-destructive' : 'border-neutral-200'}`}
+                    >
+                      <option value="">Select your visa status</option>
+                      <option value="us-citizen">US Citizen</option>
+                      <option value="green-card">Green Card / Permanent Resident</option>
+                      <option value="h1b">H-1B</option>
+                      <option value="f1-opt">F-1 OPT</option>
+                      <option value="f1-stem-opt">F-1 STEM OPT</option>
+                      <option value="cpt">CPT</option>
+                      <option value="ead">EAD</option>
+                      <option value="other">Other</option>
+                    </select>
                     {errors.visa_status && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.visa_status}</p>}
-                    
                     {visaStatus === "other" && (
                       <div className="mt-3 space-y-1.5 animate-in slide-in-from-top-1">
                         <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Please Specify *</Label>
-                        <Input name="visa_other" placeholder="Enter your visa status" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.visa_other ? 'border-destructive' : ''}`} />
+                        <Input name="visa_other" value={formValues.visa_other} onChange={handleInputChange} placeholder="Enter your visa status" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.visa_other ? 'border-destructive' : ''}`} />
                         {errors.visa_other && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.visa_other}</p>}
                       </div>
                     )}
@@ -375,33 +422,36 @@ const Contact = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Current Location *</Label>
-                    <Input name="current_location" placeholder="City, State, Country" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.current_location ? 'border-destructive' : ''}`} />
+                    <Input name="current_location" value={formValues.current_location} onChange={handleInputChange} placeholder="City, State, Country" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.current_location ? 'border-destructive' : ''}`} />
                     {errors.current_location && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.current_location}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Resume Upload (Optional)</Label>
-                    <Input name="resume" type="file" accept=".pdf,.doc,.docx" className="file:rounded-lg file:border-0 file:bg-neutral-100 file:text-neutral-700 cursor-pointer pt-2 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 file:mr-4 file:px-4 file:text-xs file:font-semibold" />
-                    <p className="mt-1 text-[10px] text-neutral-400 font-medium">PDF or Word document preferred</p>
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Resume Upload *</Label>
+                    <Input name="resume" type="file" accept=".pdf,.doc,.docx" className={`file:rounded-lg file:border-0 file:bg-neutral-100 file:text-neutral-700 cursor-pointer pt-2 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 file:mr-4 file:px-4 file:text-xs file:font-semibold ${errors.resume ? 'border-destructive' : ''}`} />
+                    {errors.resume && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.resume}</p>}
+                    <p className="mt-1 text-[10px] text-neutral-400 font-medium">PDF or Word document required</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">How did you hear about us? *</Label>
-                    <Select value={referralSource} onValueChange={(val) => { setReferralSource(val); setErrors(prev => ({ ...prev, referral_source: "" })); }}>
-                      <SelectTrigger className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.referral_source ? 'border-destructive shadow-[0_0_0_1px_rgba(239,68,68,1)]' : ''}`}><SelectValue placeholder="Select source" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="google">Google Search</SelectItem>
-                        <SelectItem value="linkedin">LinkedIn</SelectItem>
-                        <SelectItem value="instagram">Instagram</SelectItem>
-                        <SelectItem value="friend">Referred by a Friend</SelectItem>
-                        <SelectItem value="university">University / Career Center</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={referralSource}
+                      onChange={e => { setReferralSource(e.target.value); setErrors(prev => ({ ...prev, referral_source: "" })); }}
+                      className={`w-full bg-neutral-50/50 border rounded-xl h-11 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d47a1] ${errors.referral_source ? 'border-destructive' : 'border-neutral-200'}`}
+                    >
+                      <option value="">Select source</option>
+                      <option value="google">Google Search</option>
+                      <option value="linkedin">LinkedIn</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="friend">Referred by a Friend</option>
+                      <option value="university">University / Career Center</option>
+                      <option value="other">Other</option>
+                    </select>
                     {errors.referral_source && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.referral_source}</p>}
                   </div>
                   {referralSource === "friend" && (
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Friend's Name *</Label>
-                      <Input name="referral_friend" placeholder="Who referred you to HYRIND?" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.referral_friend ? 'border-destructive' : ''}`} />
+                      <Input name="referral_friend" value={formValues.referral_friend} onChange={handleInputChange} placeholder="Who referred you to HYRIND?" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.referral_friend ? 'border-destructive' : ''}`} />
                       {errors.referral_friend && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.referral_friend}</p>}
                     </div>
                   )}
@@ -424,7 +474,12 @@ const Contact = () => {
                   {errors.terms && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1 ml-2">{errors.terms}</p>}
 
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
-                    <Button type="submit" className="bg-[#0d47a1] text-white hover:bg-[#0d47a1]/90 rounded-xl h-11 px-6 font-bold shadow-sm">Submit Interest</Button>
+                    <Button 
+                      type="submit" 
+                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isInterestFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 pointer-events-none'}`}
+                    >
+                      Submit Interest
+                    </Button>
                     <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => { setWantsMarketing(null); setTermsAccepted(false); setErrors({}); }}>Back</Button>
                   </div>
                 </form>

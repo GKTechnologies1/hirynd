@@ -68,16 +68,19 @@ const AdminReferralsPage = () => {
               { 
                 header: "Referred By", 
                 accessorKey: "referrer_name",
+                sortable: true,
                 className: "font-medium text-sm pl-6"
               },
               { 
                 header: "Friend Name", 
                 accessorKey: "friend_name",
+                sortable: true,
                 className: "text-sm"
               },
               { 
                 header: "Email", 
                 accessorKey: "friend_email",
+                sortable: true,
                 className: "text-sm"
               },
               { 
@@ -97,6 +100,8 @@ const AdminReferralsPage = () => {
               },
               { 
                 header: "Date", 
+                sortable: true,
+                accessorKey: "created_at",
                 render: (r: any) => <span className="text-xs text-muted-foreground">{formatDate(r.created_at)}</span>
               },
               { 

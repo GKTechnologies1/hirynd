@@ -146,27 +146,38 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
             columns={[
               { 
                 header: "Date", 
+                sortable: true,
+                accessorKey: "interview_date",
                 render: (l: any) => <span className="text-sm pl-6">{formatDate(l.interview_date)}</span>
               },
               { 
                 header: "Type", 
-                render: (l: any) => <span className="text-sm capitalize">{l.log_type?.replace(/_/g, " ")}</span>
+                sortable: true,
+                accessorKey: "interview_type",
+                render: (l: any) => <span className="text-sm capitalize">{l.interview_type?.replace(/_/g, " ")}</span>
               },
               { 
                 header: "Company", 
                 accessorKey: "company_name",
+                sortable: true,
                 className: "text-sm font-medium"
               },
               { 
                 header: "Role", 
+                sortable: true,
+                accessorKey: "role_title",
                 render: (l: any) => <span className="text-sm">{l.role_title || "—"}</span>
               },
               { 
                 header: "Round", 
-                render: (l: any) => <span className="text-xs">{l.round || "—"}</span>
+                sortable: true,
+                accessorKey: "stage_round",
+                render: (l: any) => <span className="text-xs">{l.stage_round || "—"}</span>
               },
               { 
                 header: "Outcome", 
+                sortable: true,
+                accessorKey: "outcome",
                 className: "pr-6 text-right",
                 render: (l: any) => <StatusBadge status={l.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} />
               }
