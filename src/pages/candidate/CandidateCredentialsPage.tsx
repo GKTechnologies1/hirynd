@@ -508,7 +508,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     </AccordionTrigger>
                     <AccordionContent className="pt-2 pb-6">
                       <div className="grid gap-3 text-sm">
-                        {Object.entries(v.data as Record<string, any>).map(([key, value]) => (
+                        {v.data && Object.entries(v.data as Record<string, any>).map(([key, value]) => (
                           value ? (
                             <div key={key} className="col-span-full border-b border-neutral-50 pb-3 last:border-0">
                               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1 opacity-60">{key.replace(/_/g, " ")}:</span>{" "}
@@ -516,7 +516,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                                 {Array.isArray(value) 
                                   ? value.map((item, idx) => (
                                       <div key={idx} className="flex flex-col gap-1 mb-2 pl-2 border-l-2 border-secondary/20 bg-secondary/5 p-2 rounded-lg">
-                                        {typeof item === 'object' ? (
+                                        {typeof item === 'object' && item !== null ? (
                                           Object.entries(item).map(([k, v]) => (
                                             <div key={k} className="flex items-center gap-2">
                                               <span className="text-[10px] font-bold opacity-40 uppercase">{k}:</span>

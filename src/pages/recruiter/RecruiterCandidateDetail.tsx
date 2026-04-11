@@ -77,7 +77,26 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         setRoles(roleRes.data || []);
         const creds = credRes.data || [];
         setCredentials(creds);
-        if (creds.length > 0 && creds[0].data) setCredForm(creds[0].data as Record<string, any>);
+        
+        // Pre-fill form with existing credentials OR candidate data
+        if (creds.length > 0 && creds[0].data) {
+          setCredForm(creds[0].data as Record<string, any>);
+        } else {
+          // Pre-fill with candidate information if no credentials exist
+          setCredForm({
+            full_legal_name: cand?.profile?.full_name || cand?.full_name || "",
+            email: cand?.profile?.email || cand?.email || "",
+            phone: cand?.profile?.phone || "",
+            linkedin_url: cand?.profile?.linkedin_profile || "",
+            current_title: "",
+            years_experience: "",
+            certifications: "",
+            shared_email: cand?.profile?.email || cand?.email || "",
+            custom_platforms: [],
+            skills_summary: ""
+          });
+        }
+        
         const logs = logsRes.data || [];
         setDailyLogs(logs);
         const allJobs = logs.flatMap((l: any) => (l.job_entries || []).map((j: any) => ({ ...j, log_date: l.log_date })));
@@ -353,7 +372,12 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     {["full_legal_name", "email", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
                       <div key={field} className="space-y-1.5">
                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
-                        <Input className="bg-background/50 text-sm h-10 border-border/50" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                        <Input 
+                          disabled={field === "email"}
+                          className={`bg-background/50 text-sm h-10 border-border/50 ${field === "email" ? "opacity-60 cursor-not-allowed" : ""}`}
+                          value={credForm[field] || ""} 
+                          onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} 
+                        />
                       </div>
                     ))}
                 </div>
@@ -365,7 +389,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2 space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Shared Email (All Platforms) *</Label>
-                      <Input type="email" className="bg-white text-sm h-10 border-border/50" value={credForm["shared_email"] || ""} onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))} />
+                      <Input 
+                        disabled
+                        type="email" 
+                        className="bg-muted/30 text-sm h-10 border-border/50 opacity-70 cursor-not-allowed" 
+                        value={credForm["shared_email"] || ""} 
+                        onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))} 
+                      />
+                      <p className="text-[9px] text-muted-foreground italic">Email is read-only and automatically set from candidate profile</p>
                     </div>
                     {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].map((field) => (
                       <div key={field} className="space-y-1.5">
