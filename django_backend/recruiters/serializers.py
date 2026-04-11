@@ -1,13 +1,71 @@
 from rest_framework import serializers
 from .models import RecruiterProfile, RecruiterAssignment, DailySubmissionLog, JobLinkEntry, RecruiterBankDetails
 from users.serializers import ProfileSerializer
+from files.models import UploadedFile
 
 
 class RecruiterProfileSerializer(serializers.ModelSerializer):
+    highest_degree_certificate_file = serializers.SerializerMethodField()
+    government_id_card_file = serializers.SerializerMethodField()
+    pan_card_file = serializers.SerializerMethodField()
+    bank_passbook_file = serializers.SerializerMethodField()
+    
     class Meta:
         model = RecruiterProfile
         fields = '__all__'
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+    
+    def get_highest_degree_certificate_file(self, obj):
+        if obj.highest_degree_certificate_id:
+            try:
+                file_obj = UploadedFile.objects.get(id=obj.highest_degree_certificate_id)
+                return {
+                    'id': str(file_obj.id),
+                    'name': file_obj.original_name,
+                    'uploaded_at': file_obj.uploaded_at
+                }
+            except UploadedFile.DoesNotExist:
+                return None
+        return None
+    
+    def get_government_id_card_file(self, obj):
+        if obj.government_id_card_id:
+            try:
+                file_obj = UploadedFile.objects.get(id=obj.government_id_card_id)
+                return {
+                    'id': str(file_obj.id),
+                    'name': file_obj.original_name,
+                    'uploaded_at': file_obj.uploaded_at
+                }
+            except UploadedFile.DoesNotExist:
+                return None
+        return None
+    
+    def get_pan_card_file(self, obj):
+        if obj.pan_card_id:
+            try:
+                file_obj = UploadedFile.objects.get(id=obj.pan_card_id)
+                return {
+                    'id': str(file_obj.id),
+                    'name': file_obj.original_name,
+                    'uploaded_at': file_obj.uploaded_at
+                }
+            except UploadedFile.DoesNotExist:
+                return None
+        return None
+    
+    def get_bank_passbook_file(self, obj):
+        if obj.bank_passbook_id:
+            try:
+                file_obj = UploadedFile.objects.get(id=obj.bank_passbook_id)
+                return {
+                    'id': str(file_obj.id),
+                    'name': file_obj.original_name,
+                    'uploaded_at': file_obj.uploaded_at
+                }
+            except UploadedFile.DoesNotExist:
+                return None
+        return None
 
 
 class AdminRecruiterFullSerializer(serializers.ModelSerializer):
@@ -15,6 +73,10 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='user.profile.full_name', required=False)
     phone = serializers.CharField(source='user.profile.phone', required=False)
     email = serializers.EmailField(source='user.email', read_only=True)
+    highest_degree_certificate_file = serializers.SerializerMethodField()
+    government_id_card_file = serializers.SerializerMethodField()
+    pan_card_file = serializers.SerializerMethodField()
+    bank_passbook_file = serializers.SerializerMethodField()
     
     class Meta:
         model = RecruiterProfile
@@ -25,8 +87,64 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
             'linkedin_url', 'social_profile_url',
             'company_name', 'employee_id', 'date_of_joining', 
             'department', 'specialization', 'max_clients',
-            'prior_recruitment_experience', 'work_type_preference'
+            'prior_recruitment_experience', 'work_type_preference',
+            'highest_degree_certificate_id', 'government_id_card_id', 
+            'pan_card_id', 'bank_passbook_id',
+            'highest_degree_certificate_file', 'government_id_card_file',
+            'pan_card_file', 'bank_passbook_file'
         ]
+
+    def get_highest_degree_certificate_file(self, obj):
+        if obj.highest_degree_certificate_id:
+            try:
+                file_obj = UploadedFile.objects.get(id=obj.highest_degree_certificate_id)
+                return {
+                    'id': str(file_obj.id),
+                    'name': file_obj.original_name,
+                    'uploaded_at': file_obj.uploaded_at
+                }
+            except UploadedFile.DoesNotExist:
+                return None
+        return None
+    
+    def get_government_id_card_file(self, obj):
+        if obj.government_id_card_id:
+            try:
+                file_obj = UploadedFile.objects.get(id=obj.government_id_card_id)
+                return {
+                    'id': str(file_obj.id),
+                    'name': file_obj.original_name,
+                    'uploaded_at': file_obj.uploaded_at
+                }
+            except UploadedFile.DoesNotExist:
+                return None
+        return None
+    
+    def get_pan_card_file(self, obj):
+        if obj.pan_card_id:
+            try:
+                file_obj = UploadedFile.objects.get(id=obj.pan_card_id)
+                return {
+                    'id': str(file_obj.id),
+                    'name': file_obj.original_name,
+                    'uploaded_at': file_obj.uploaded_at
+                }
+            except UploadedFile.DoesNotExist:
+                return None
+        return None
+    
+    def get_bank_passbook_file(self, obj):
+        if obj.bank_passbook_id:
+            try:
+                file_obj = UploadedFile.objects.get(id=obj.bank_passbook_id)
+                return {
+                    'id': str(file_obj.id),
+                    'name': file_obj.original_name,
+                    'uploaded_at': file_obj.uploaded_at
+                }
+            except UploadedFile.DoesNotExist:
+                return None
+        return None
 
     def update(self, instance, validated_data):
         # Handle Profile updates (full_name, phone)

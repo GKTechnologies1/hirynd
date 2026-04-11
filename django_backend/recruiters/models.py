@@ -28,6 +28,13 @@ class RecruiterProfile(models.Model):
     prior_recruitment_experience = models.TextField(blank=True, null=True)
     work_type_preference = models.CharField(max_length=50, blank=True, null=True)
     documents_url = models.URLField(blank=True, null=True)
+    
+    # Document upload fields (mandatory)
+    highest_degree_certificate_id = models.UUIDField(blank=True, null=True, help_text="File ID for highest degree certificate")
+    government_id_card_id = models.UUIDField(blank=True, null=True, help_text="File ID for Government ID/Aadhaar card")
+    pan_card_id = models.UUIDField(blank=True, null=True, help_text="File ID for PAN card")
+    bank_passbook_id = models.UUIDField(blank=True, null=True, help_text="File ID for bank passbook first page")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

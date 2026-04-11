@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { recruitersApi, authApi, auditApi } from "@/services/api";
+import { recruitersApi, authApi, auditApi, filesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   User, Mail, Phone, MapPin, Briefcase, Award, Calendar, 
   BarChart3, TrendingUp, History, Save, ArrowLeft, Loader2,
-  Shield, CheckCircle2, XCircle, Clock, Eye, EyeOff, Landmark, Users
+  Shield, CheckCircle2, XCircle, Clock, Eye, EyeOff, Landmark, Users, FileUp, Check
 } from "lucide-react";
 import { DataTable } from "@/components/ui/DataTable";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -65,6 +65,26 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
   const [isBankEditing, setIsBankEditing] = useState(false);
   const [savingBank, setSavingBank] = useState(false);
 
+  // Document upload states
+  const [documents, setDocuments] = useState<any>({
+    highest_degree_certificate_file: null,
+    government_id_card_file: null,
+    pan_card_file: null,
+    bank_passbook_file: null
+  });
+  const [uploadingDocs, setUploadingDocs] = useState<Record<string, boolean>>({
+    highest_degree_certificate: false,
+    government_id_card: false,
+    pan_card: false,
+    bank_passbook: false
+  });
+
+  // File input refs
+  const degreeInputRef = useRef<HTMLInputElement>(null);
+  const idCardInputRef = useRef<HTMLInputElement>(null);
+  const panCardInputRef = useRef<HTMLInputElement>(null);
+  const bankPassbookInputRef = useRef<HTMLInputElement>(null);
+
   const fetchData = async () => {
     if (!id) return;
     setLoading(true);
@@ -100,6 +120,14 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
           routing_number: data.bank_details.routing_number_last4 ? `****${data.bank_details.routing_number_last4}` : data.bank_details.routing_number || ""
         });
       }
+
+      // Load document information
+      setDocuments({
+        highest_degree_certificate_file: data.highest_degree_certificate_file,
+        government_id_card_file: data.government_id_card_file,
+        pan_card_file: data.pan_card_file,
+        bank_passbook_file: data.bank_passbook_file
+      });
       
       // Fetch stats
       setLoadingStats(true);
@@ -170,6 +198,40 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
     }
   };
 
+  const handleDocumentUpload = async (docType: string, file: File) => {
+    setUploadingDocs(prev => ({ ...prev, [docType]: true }));
+    try {
+      const { data } = await filesApi.upload(file, docType);
+      
+      // Map docType to API field name
+      const fieldMap: Record<string, string> = {
+        'highest_degree_certificate': 'highest_degree_certificate_id',
+        'government_id_card': 'government_id_card_id',
+        'pan_card': 'pan_card_id',
+        'bank_passbook': 'bank_passbook_id'
+      };
+      
+      const fieldName = fieldMap[docType];
+      await recruitersApi.adminUpdateProfile(id!, { [fieldName]: data.id });
+      
+      // Update local documents state
+      setDocuments(prev => ({
+        ...prev,
+        [`${docType}_file`]: {
+          id: data.id,
+          name: file.name,
+          uploaded_at: new Date().toISOString()
+        }
+      }));
+      
+      toast({ title: "Success", description: `${docType.replace(/_/g, ' ')} uploaded successfully` });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || "Failed to upload document", variant: "destructive" });
+    } finally {
+      setUploadingDocs(prev => ({ ...prev, [docType]: false }));
+    }
+  };
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <Loader2 className="h-10 w-10 animate-spin text-primary opacity-60" />
@@ -228,6 +290,7 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
           <TabsTrigger value="assigned_candidates" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Assigned Candidates</TabsTrigger>
           <TabsTrigger value="professional" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Professional</TabsTrigger>
           <TabsTrigger value="staff" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Staff Details</TabsTrigger>
+          <TabsTrigger value="documents" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Documents</TabsTrigger>
           <TabsTrigger value="performance" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Performance</TabsTrigger>
           <TabsTrigger value="audit" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Audit Log</TabsTrigger>
         </TabsList>
@@ -501,6 +564,258 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                     onChange={e => setFormData({...formData, max_clients: parseInt(e.target.value) || 3})}
                     className="h-11 rounded-xl bg-muted/20 font-bold"
                   />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Documents Tab */}
+        <TabsContent value="documents">
+          <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileUp className="h-5 w-5 text-primary" /> Document Verification
+              </CardTitle>
+              <CardDescription>Manage recruiter's document uploads and verification</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex gap-3 text-xs text-blue-700 dark:text-blue-400">
+                <Shield className="h-5 w-5 shrink-0" />
+                <p>Admin can upload or update recruiter documents on their behalf</p>
+              </div>
+
+              <div className="grid gap-6">
+                {/* Highest Degree Certificate */}
+                <div className="space-y-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Highest Degree Certificate</Label>
+                    {documents.highest_degree_certificate_file && (
+                      <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                        <Check className="h-4 w-4" /> Uploaded
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    ref={degreeInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => e.target.files && handleDocumentUpload('highest_degree_certificate', e.target.files[0])}
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  />
+                  {documents.highest_degree_certificate_file ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">File: {documents.highest_degree_certificate_file.name}</p>
+                      <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.highest_degree_certificate_file.uploaded_at).toLocaleDateString()}</p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full text-xs" 
+                        disabled={uploadingDocs.highest_degree_certificate}
+                        onClick={() => degreeInputRef.current?.click()}
+                      >
+                        {uploadingDocs.highest_degree_certificate ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <FileUp className="h-4 w-4 mr-2" /> Replace File
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-xs" 
+                      disabled={uploadingDocs.highest_degree_certificate}
+                      onClick={() => degreeInputRef.current?.click()}
+                    >
+                      {uploadingDocs.highest_degree_certificate ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="h-4 w-4 mr-2" /> Upload Certificate
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Government ID Card */}
+                <div className="space-y-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Government ID Card (Aadhaar)</Label>
+                    {documents.government_id_card_file && (
+                      <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                        <Check className="h-4 w-4" /> Uploaded
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    ref={idCardInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => e.target.files && handleDocumentUpload('government_id_card', e.target.files[0])}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                  {documents.government_id_card_file ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">File: {documents.government_id_card_file.name}</p>
+                      <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.government_id_card_file.uploaded_at).toLocaleDateString()}</p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full text-xs" 
+                        disabled={uploadingDocs.government_id_card}
+                        onClick={() => idCardInputRef.current?.click()}
+                      >
+                        {uploadingDocs.government_id_card ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <FileUp className="h-4 w-4 mr-2" /> Replace File
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-xs" 
+                      disabled={uploadingDocs.government_id_card}
+                      onClick={() => idCardInputRef.current?.click()}
+                    >
+                      {uploadingDocs.government_id_card ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="h-4 w-4 mr-2" /> Upload ID Card
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {/* PAN Card */}
+                <div className="space-y-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">PAN Card</Label>
+                    {documents.pan_card_file && (
+                      <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                        <Check className="h-4 w-4" /> Uploaded
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    ref={panCardInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => e.target.files && handleDocumentUpload('pan_card', e.target.files[0])}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                  {documents.pan_card_file ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">File: {documents.pan_card_file.name}</p>
+                      <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.pan_card_file.uploaded_at).toLocaleDateString()}</p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full text-xs" 
+                        disabled={uploadingDocs.pan_card}
+                        onClick={() => panCardInputRef.current?.click()}
+                      >
+                        {uploadingDocs.pan_card ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <FileUp className="h-4 w-4 mr-2" /> Replace File
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-xs" 
+                      disabled={uploadingDocs.pan_card}
+                      onClick={() => panCardInputRef.current?.click()}
+                    >
+                      {uploadingDocs.pan_card ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="h-4 w-4 mr-2" /> Upload PAN Card
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Bank Passbook */}
+                <div className="space-y-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Bank Passbook First Page</Label>
+                    {documents.bank_passbook_file && (
+                      <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                        <Check className="h-4 w-4" /> Uploaded
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    ref={bankPassbookInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => e.target.files && handleDocumentUpload('bank_passbook', e.target.files[0])}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                  {documents.bank_passbook_file ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">File: {documents.bank_passbook_file.name}</p>
+                      <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.bank_passbook_file.uploaded_at).toLocaleDateString()}</p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full text-xs" 
+                        disabled={uploadingDocs.bank_passbook}
+                        onClick={() => bankPassbookInputRef.current?.click()}
+                      >
+                        {uploadingDocs.bank_passbook ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <FileUp className="h-4 w-4 mr-2" /> Replace File
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-xs" 
+                      disabled={uploadingDocs.bank_passbook}
+                      onClick={() => bankPassbookInputRef.current?.click()}
+                    >
+                      {uploadingDocs.bank_passbook ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="h-4 w-4 mr-2" /> Upload Passbook
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>

@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { recruitersApi, authApi } from "@/services/api";
+import { recruitersApi, authApi, filesApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { User, Mail, Phone, MapPin, Linkedin, Landmark, ShieldCheck, Wallet, Eye, EyeOff, Loader2, Save } from "lucide-react";
+import { User, Mail, Phone, MapPin, Linkedin, Landmark, ShieldCheck, Wallet, Eye, EyeOff, Loader2, Save, FileUp, Check, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 const RecruiterProfilePage = () => {
@@ -35,6 +35,26 @@ const RecruiterProfilePage = () => {
   const [countryCode, setCountryCode] = useState("+1");
   const [isProfileEditing, setIsProfileEditing] = useState(false);
   const [isBankEditing, setIsBankEditing] = useState(false);
+  
+  // Document upload states
+  const [documents, setDocuments] = useState<any>({
+    highest_degree_certificate_file: null,
+    government_id_card_file: null,
+    pan_card_file: null,
+    bank_passbook_file: null
+  });
+  const [uploadingDocs, setUploadingDocs] = useState<Record<string, boolean>>({
+    highest_degree_certificate: false,
+    government_id_card: false,
+    pan_card: false,
+    bank_passbook: false
+  });
+
+  // File input refs
+  const degreeInputRef = useRef<HTMLInputElement>(null);
+  const idCardInputRef = useRef<HTMLInputElement>(null);
+  const panCardInputRef = useRef<HTMLInputElement>(null);
+  const bankPassbookInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,6 +100,14 @@ const RecruiterProfilePage = () => {
             routing_number: bank.routing_number_last4 ? `****${bank.routing_number_last4}` : ""
           });
         }
+
+        // Load document information
+        setDocuments({
+          highest_degree_certificate_file: prof?.highest_degree_certificate_file,
+          government_id_card_file: prof?.government_id_card_file,
+          pan_card_file: prof?.pan_card_file,
+          bank_passbook_file: prof?.bank_passbook_file
+        });
       } catch (err) {
         console.error("Failed to fetch profile", err);
       }
@@ -131,6 +159,40 @@ const RecruiterProfilePage = () => {
     } finally {
       setSavingBank(false);
       setIsBankEditing(false);
+    }
+  };
+
+  const handleDocumentUpload = async (docType: string, file: File) => {
+    setUploadingDocs(prev => ({ ...prev, [docType]: true }));
+    try {
+      const { data } = await filesApi.upload(file, docType);
+      
+      // Map docType to API field name
+      const fieldMap: Record<string, string> = {
+        'highest_degree_certificate': 'highest_degree_certificate_id',
+        'government_id_card': 'government_id_card_id',
+        'pan_card': 'pan_card_id',
+        'bank_passbook': 'bank_passbook_id'
+      };
+      
+      const fieldName = fieldMap[docType];
+      await recruitersApi.updateProfile({ [fieldName]: data.id });
+      
+      // Update local documents state
+      setDocuments(prev => ({
+        ...prev,
+        [`${docType}_file`]: {
+          id: data.id,
+          name: file.name,
+          uploaded_at: new Date().toISOString()
+        }
+      }));
+      
+      toast({ title: "Success", description: `${docType.replace(/_/g, ' ')} uploaded successfully` });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || "Failed to upload document", variant: "destructive" });
+    } finally {
+      setUploadingDocs(prev => ({ ...prev, [docType]: false }));
     }
   };
 
@@ -301,8 +363,260 @@ const RecruiterProfilePage = () => {
               )}
             </CardContent>
           </Card>
+        </div>
+      </div>
 
-          <Card className="border-none shadow-sm bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+      {/* Document Uploads Section */}
+      <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileUp className="h-5 w-5 text-primary" /> Document Verification
+          </CardTitle>
+          <CardDescription>Upload required documents for verification (all fields are mandatory)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex gap-3 text-xs text-blue-700 dark:text-blue-400">
+            <ShieldCheck className="h-5 w-5 shrink-0" />
+            <p>Please upload clear images or documents of your certificates, IDs, and passbook. These will be verified by our team.</p>
+          </div>
+
+          <div className="grid gap-6">
+            {/* Highest Degree Certificate */}
+            <div className="space-y-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Highest Degree Certificate *</Label>
+                {documents.highest_degree_certificate_file && (
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                    <Check className="h-4 w-4" /> Uploaded
+                  </div>
+                )}
+              </div>
+              <input
+                ref={degreeInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => e.target.files && handleDocumentUpload('highest_degree_certificate', e.target.files[0])}
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              />
+              {documents.highest_degree_certificate_file ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">File: {documents.highest_degree_certificate_file.name}</p>
+                  <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.highest_degree_certificate_file.uploaded_at).toLocaleDateString()}</p>
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-xs" 
+                    disabled={uploadingDocs.highest_degree_certificate}
+                    onClick={() => degreeInputRef.current?.click()}
+                  >
+                    {uploadingDocs.highest_degree_certificate ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <FileUp className="h-4 w-4 mr-2" /> Update File
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full text-xs" 
+                  disabled={uploadingDocs.highest_degree_certificate}
+                  onClick={() => degreeInputRef.current?.click()}
+                >
+                  {uploadingDocs.highest_degree_certificate ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <FileUp className="h-4 w-4 mr-2" /> Upload Certificate
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {/* Government ID Card */}
+            <div className="space-y-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Government ID Card (Aadhaar) *</Label>
+                {documents.government_id_card_file && (
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                    <Check className="h-4 w-4" /> Uploaded
+                  </div>
+                )}
+              </div>
+              <input
+                ref={idCardInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => e.target.files && handleDocumentUpload('government_id_card', e.target.files[0])}
+                accept=".pdf,.jpg,.jpeg,.png"
+              />
+              {documents.government_id_card_file ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">File: {documents.government_id_card_file.name}</p>
+                  <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.government_id_card_file.uploaded_at).toLocaleDateString()}</p>
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-xs" 
+                    disabled={uploadingDocs.government_id_card}
+                    onClick={() => idCardInputRef.current?.click()}
+                  >
+                    {uploadingDocs.government_id_card ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <FileUp className="h-4 w-4 mr-2" /> Update File
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full text-xs" 
+                  disabled={uploadingDocs.government_id_card}
+                  onClick={() => idCardInputRef.current?.click()}
+                >
+                  {uploadingDocs.government_id_card ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <FileUp className="h-4 w-4 mr-2" /> Upload ID Card
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {/* PAN Card */}
+            <div className="space-y-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">PAN Card *</Label>
+                {documents.pan_card_file && (
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                    <Check className="h-4 w-4" /> Uploaded
+                  </div>
+                )}
+              </div>
+              <input
+                ref={panCardInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => e.target.files && handleDocumentUpload('pan_card', e.target.files[0])}
+                accept=".pdf,.jpg,.jpeg,.png"
+              />
+              {documents.pan_card_file ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">File: {documents.pan_card_file.name}</p>
+                  <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.pan_card_file.uploaded_at).toLocaleDateString()}</p>
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-xs" 
+                    disabled={uploadingDocs.pan_card}
+                    onClick={() => panCardInputRef.current?.click()}
+                  >
+                    {uploadingDocs.pan_card ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <FileUp className="h-4 w-4 mr-2" /> Update File
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full text-xs" 
+                  disabled={uploadingDocs.pan_card}
+                  onClick={() => panCardInputRef.current?.click()}
+                >
+                  {uploadingDocs.pan_card ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <FileUp className="h-4 w-4 mr-2" /> Upload PAN Card
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {/* Bank Passbook */}
+            <div className="space-y-2 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Bank Passbook First Page *</Label>
+                {documents.bank_passbook_file && (
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                    <Check className="h-4 w-4" /> Uploaded
+                  </div>
+                )}
+              </div>
+              <input
+                ref={bankPassbookInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => e.target.files && handleDocumentUpload('bank_passbook', e.target.files[0])}
+                accept=".pdf,.jpg,.jpeg,.png"
+              />
+              {documents.bank_passbook_file ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">File: {documents.bank_passbook_file.name}</p>
+                  <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.bank_passbook_file.uploaded_at).toLocaleDateString()}</p>
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-xs" 
+                    disabled={uploadingDocs.bank_passbook}
+                    onClick={() => bankPassbookInputRef.current?.click()}
+                  >
+                    {uploadingDocs.bank_passbook ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <FileUp className="h-4 w-4 mr-2" /> Update File
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full text-xs" 
+                  disabled={uploadingDocs.bank_passbook}
+                  onClick={() => bankPassbookInputRef.current?.click()}
+                >
+                  {uploadingDocs.bank_passbook ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <FileUp className="h-4 w-4 mr-2" /> Upload Passbook
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-none shadow-sm bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                     <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -315,8 +629,6 @@ const RecruiterProfilePage = () => {
                 </div>
               </CardContent>
           </Card>
-        </div>
-      </div>
     </motion.div>
   );
 };

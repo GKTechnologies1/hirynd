@@ -173,6 +173,25 @@ def recruiter_profile(request):
         serializer = RecruiterProfileSerializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        
+        # Validate that mandatory document fields are present
+        updated_profile = RecruiterProfile.objects.get(id=profile.id)
+        missing_docs = []
+        if not updated_profile.highest_degree_certificate_id:
+            missing_docs.append('highest_degree_certificate_id')
+        if not updated_profile.government_id_card_id:
+            missing_docs.append('government_id_card_id')
+        if not updated_profile.pan_card_id:
+            missing_docs.append('pan_card_id')
+        if not updated_profile.bank_passbook_id:
+            missing_docs.append('bank_passbook_id')
+        
+        if missing_docs:
+            return Response(
+                {'warning': 'Please upload all required documents', 'missing_documents': missing_docs},
+                status=status.HTTP_202_ACCEPTED
+            )
+        
         log_action(request.user, 'recruiter_profile_updated', str(request.user.id), 'user', serializer.data)
         return Response(serializer.data)
 
