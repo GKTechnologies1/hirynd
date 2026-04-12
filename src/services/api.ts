@@ -99,6 +99,7 @@ export const candidatesApi = {
     api.post(`/candidates/${id}/roles/add/`, data),
   confirmRoles: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/roles/confirm/`, data),
+  getProposedRoles: (id: string) => api.get(`/candidates/${id}/roles/proposed/`),
   getCredentials: (id: string) => api.get(`/candidates/${id}/credentials/`),
   upsertCredential: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/credentials/upsert/`, { data }),

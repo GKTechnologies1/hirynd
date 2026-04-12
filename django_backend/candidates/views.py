@@ -230,10 +230,12 @@ def confirm_roles(request, candidate_id):
     
     for role_id, decision in decisions.items():
         status_val = True if decision == 'accepted' else False if decision == 'declined' else None
+        # Save rejection reason note for 'declined' as well as 'change_requested'
+        save_note = notes.get(role_id, '') if decision in ('declined', 'change_requested') else None
         RoleSuggestion.objects.filter(id=role_id, candidate_id=candidate_id).update(
             candidate_confirmed=status_val,
             confirmed_at=timezone.now(),
-            change_request_note=notes.get(role_id, '') if decision == 'change_requested' else None
+            change_request_note=save_note
         )
     
     if custom_role and custom_role.get('title'):
@@ -252,6 +254,19 @@ def confirm_roles(request, candidate_id):
     ensure_default_subscription(candidate)
     
     return Response({'message': 'Roles confirmed'})
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved])
+def proposed_roles(request, candidate_id):
+    """Return candidate-proposed custom roles (RoleConfirmation with custom_role_title set)."""
+    confirmations = RoleConfirmation.objects.filter(
+        candidate_id=candidate_id,
+        custom_role_title__isnull=False
+    ).exclude(custom_role_title='').order_by('-responded_at')
+    from .serializers import RoleConfirmationSerializer
+    return Response(RoleConfirmationSerializer(confirmations, many=True).data)
+
 
 
 @api_view(['POST'])

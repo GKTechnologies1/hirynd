@@ -47,6 +47,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [candidate, setCandidate] = useState<any>(null);
   const [intake, setIntake] = useState<any>(null);
   const [roles, setRoles] = useState<any[]>([]);
+  const [proposedRoles, setProposedRoles] = useState<any[]>([]);
   const [credentials, setCredentials] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
@@ -74,16 +75,18 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
       const { data: cand } = await candidatesApi.detail(candidateId);
       setCandidate(cand);
       if (cand) {
-        const [intakeRes, roleRes, credRes, payRes, subRes, interviewRes] = await Promise.all([
+        const [intakeRes, roleRes, credRes, payRes, subRes, interviewRes, proposedRoleRes] = await Promise.all([
           candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
           candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
           candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
           billingApi.payments(candidateId).catch(() => ({ data: [] })),
           billingApi.subscription(candidateId).catch(() => ({ data: null })),
           candidatesApi.getInterviews(candidateId).catch(() => ({ data: [] })),
+          candidatesApi.getProposedRoles(candidateId).catch(() => ({ data: [] })),
         ]);
         setIntake(intakeRes.data || null);
         setRoles(roleRes.data || []);
+        setProposedRoles(proposedRoleRes.data || []);
         setCredentials(credRes.data || []);
         if (credRes.data && credRes.data.length > 0 && credRes.data[0].data) {
           setCredForm(credRes.data[0].data as Record<string, any>);
@@ -635,7 +638,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5" /> Role Suggestions</CardTitle>
-                {["roles_published", "roles_confirmed"].includes(status) && (
+                {["roles_published", "roles_confirmed", "roles_candidate_responded"].includes(status) && (
                   <Button variant="outline" size="sm" onClick={handleReopenRoles} className="text-secondary border-secondary/30 hover:bg-secondary/5">
                     <History className="mr-1 h-3.5 w-3.5" /> Reopen & Reset
                   </Button>
@@ -660,14 +663,75 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     render: (r: any) => <span className="text-xs text-muted-foreground line-clamp-1">{r.description || "—"}</span>
                   },
                   { 
-                    header: "Confirmation", 
-                    className: "pr-6 text-right",
-                    render: (r: any) => <StatusBadge status={r.candidate_confirmed === true ? "active" : r.candidate_confirmed === false ? "rejected" : "pending"} />
+                    header: "Candidate Response", 
+                    render: (r: any) => (
+                      <div className="space-y-1">
+                        <StatusBadge status={r.candidate_confirmed === true ? "active" : r.candidate_confirmed === false ? "rejected" : "pending"} />
+                        {r.candidate_confirmed === false && r.change_request_note && (
+                          <p className="text-[11px] text-destructive/80 italic max-w-[220px] line-clamp-2">
+                            Reason: {r.change_request_note}
+                          </p>
+                        )}
+                      </div>
+                    )
                   }
                 ]}
               />
             </CardContent>
           </Card>
+
+          {/* Candidate-Proposed Custom Roles */}
+          {proposedRoles.length > 0 && (
+            <Card className="border-secondary/20 bg-secondary/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Plus className="h-4 w-4 text-secondary" /> Candidate-Proposed Roles
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Roles the candidate suggested during their role confirmation step.</p>
+              </CardHeader>
+              <CardContent className="p-0">
+                <DataTable
+                  data={proposedRoles}
+                  isLoading={loading}
+                  searchPlaceholder="Search proposed roles..."
+                  searchKey="custom_role_title"
+                  emptyMessage="No proposed roles."
+                  columns={[
+                    {
+                      header: "Proposed Role Title",
+                      accessorKey: "custom_role_title",
+                      className: "font-medium text-sm pl-6 text-secondary"
+                    },
+                    {
+                      header: "Reason / Context",
+                      render: (r: any) => <span className="text-xs text-muted-foreground">{r.custom_reason || "—"}</span>
+                    },
+                    {
+                      header: "Proposed On",
+                      render: (r: any) => <span className="text-xs text-muted-foreground">{formatDate(r.responded_at)}</span>
+                    },
+                    {
+                      header: "Action",
+                      className: "pr-6 text-right",
+                      render: (r: any) => (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs border-secondary/30 text-secondary hover:bg-secondary/5"
+                          onClick={() => {
+                            setNewRoleTitle(r.custom_role_title || "");
+                            setNewRoleDescription(r.custom_reason || "");
+                          }}
+                        >
+                          Add to Suggestions
+                        </Button>
+                      )
+                    }
+                  ]}
+                />
+              </CardContent>
+            </Card>
+          )}
           {!isPlaced && ["intake_submitted", "roles_suggested"].includes(status) && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Add Role Suggestion</CardTitle></CardHeader>

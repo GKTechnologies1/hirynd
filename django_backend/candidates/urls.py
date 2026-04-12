@@ -14,6 +14,7 @@ urlpatterns = [
     path('<uuid:candidate_id>/roles/add/', views.add_role, name='add_role'),
     path('<uuid:candidate_id>/roles/confirm/', views.confirm_roles, name='confirm_roles'),
     path('<uuid:candidate_id>/roles/reopen/', views.reopen_roles, name='reopen_roles'),
+    path('<uuid:candidate_id>/roles/proposed/', views.proposed_roles, name='proposed_roles'),
     path('<uuid:candidate_id>/credentials/', views.credentials, name='credentials'),
     path('<uuid:candidate_id>/credentials/upsert/', views.upsert_credential, name='upsert_credential'),
     path('<uuid:candidate_id>/referrals/', views.referrals, name='referrals'),
