@@ -167,16 +167,7 @@ const CandidateDashboard = () => {
 
   const status = candidate?.status || "pending_approval";
 
-  // Auto-redirect to critical sections based on status
-  useEffect(() => {
-    if (loading || !candidate) return;
 
-    if (subPath === "overview") {
-      if (status === "roles_published") {
-        navigate("/candidate-dashboard/roles");
-      }
-    }
-  }, [status, subPath, loading, candidate, navigate]);
   const allowedTabs = STATUS_TAB_ACCESS[status] || ["overview"];
   const tabKey = subPath === "" ? "overview" : subPath;
   const isBillingTab = tabKey === "payments" || tabKey === "billing";

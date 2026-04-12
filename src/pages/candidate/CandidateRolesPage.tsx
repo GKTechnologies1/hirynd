@@ -6,7 +6,7 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Briefcase, Check, X, MessageSquare, Plus } from "lucide-react";
+import { Lock, Briefcase, Check, X, Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -148,35 +148,32 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                           </div>
                         )}
                       </div>
-                      <div className="ml-4 flex items-center gap-1.5 shrink-0">
+                      <div className="ml-4 flex items-center gap-2 shrink-0">
                         {canConfirm ? (
                           <>
                             <Button
                               size="sm"
                               variant={decision === "accepted" ? "hero" : "outline"}
-                              className="h-8 px-2.5"
+                              className={`h-9 px-4 font-semibold transition-all ${
+                                decision === "accepted"
+                                  ? "bg-green-600 hover:bg-green-700 text-white border-green-600 shadow-sm shadow-green-500/20"
+                                  : "hover:border-green-500 hover:text-green-600"
+                              }`}
                               onClick={() => handleDecision(role.id, "accepted")}
-                              title="Accept"
                             >
-                              <Check className="h-4 w-4" />
+                              <Check className="h-4 w-4 mr-1.5" /> Accept
                             </Button>
                             <Button
                               size="sm"
                               variant={decision === "declined" ? "destructive" : "outline"}
-                              className="h-8 px-2.5"
-                              onClick={() => handleDecision(role.id, "declined")}
-                              title="Decline"
+                              className={`h-9 px-4 font-semibold transition-all ${
+                                decision === "declined"
+                                  ? ""
+                                  : "hover:border-destructive hover:text-destructive"
+                              }`}
+                              onClick={() => handleDecision(role.id, decision === "declined" ? "" : "declined")}
                             >
-                              <X className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={decision === "change_requested" ? "accent" : "outline"}
-                              className="h-8 px-2.5"
-                              onClick={() => handleDecision(role.id, "change_requested")}
-                              title="Request Change"
-                            >
-                              <MessageSquare className="h-4 w-4" />
+                              <X className="h-4 w-4 mr-1.5" /> Reject
                             </Button>
                           </>
                         ) : (
@@ -185,14 +182,14 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                       </div>
                     </div>
 
-                    {decision === "change_requested" && canConfirm && (
-                      <div className="mt-3 space-y-2 animate-in slide-in-from-top-1 duration-200">
-                        <Label className="text-xs">Reason for change / Feedback</Label>
+                    {decision === "declined" && canConfirm && (
+                      <div className="mt-3 space-y-2 animate-in slide-in-from-top-1 duration-200 border-t border-destructive/20 pt-3">
+                        <Label className="text-xs text-destructive font-semibold">Reason for rejection <span className="text-muted-foreground font-normal">(optional but helpful)</span></Label>
                         <Textarea 
-                          placeholder="What would you like to change about this role suggestion?"
+                          placeholder="e.g. Not relevant to my background, prefer a different industry..."
                           value={notes[role.id] || ""}
                           onChange={(e) => handleNoteChange(role.id, e.target.value)}
-                          className="text-sm min-h-[80px]"
+                          className="text-sm min-h-[70px] border-destructive/30 focus:border-destructive/60"
                         />
                       </div>
                     )}
