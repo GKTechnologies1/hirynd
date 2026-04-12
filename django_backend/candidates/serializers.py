@@ -3,9 +3,22 @@ from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation,
     CredentialVersion, Referral, InterviewLog, PlacementClosure,
     CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate,
+    WorkExperience, Certification,
 )
 from billing.models import Payment
 from users.serializers import ProfileSerializer
+
+
+class WorkExperienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkExperience
+        fields = ['id', 'job_title', 'company_name', 'company_address', 'start_date', 'end_date', 'job_type', 'responsibilities']
+
+
+class CertificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Certification
+        fields = ['id', 'name', 'organization', 'issued_date', 'expires_date', 'credential_url']
 
 
 class InterestedCandidateSerializer(serializers.ModelSerializer):
@@ -63,10 +76,31 @@ class CandidateListSerializer(serializers.ModelSerializer):
 
 
 class ClientIntakeSerializer(serializers.ModelSerializer):
+    experiences = serializers.SerializerMethodField()
+    certifications = serializers.SerializerMethodField()
+
     class Meta:
         model = ClientIntake
         fields = '__all__'
         read_only_fields = ['id', 'candidate', 'created_at', 'updated_at']
+
+    def get_experiences(self, obj):
+        """Include related work experiences"""
+        if obj.candidate:
+            return WorkExperienceSerializer(
+                WorkExperience.objects.filter(candidate=obj.candidate),
+                many=True
+            ).data
+        return []
+
+    def get_certifications(self, obj):
+        """Include related certifications"""
+        if obj.candidate:
+            return CertificationSerializer(
+                Certification.objects.filter(candidate=obj.candidate),
+                many=True
+            ).data
+        return []
 
 
 class RoleSuggestionSerializer(serializers.ModelSerializer):

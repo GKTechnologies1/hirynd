@@ -3,12 +3,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 
 from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
 from audit.utils import log_action
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, CredentialVersion,
     Referral, InterviewLog, PlacementClosure, CandidateLegacyPayment, InterestedCandidate,
+    WorkExperience, Certification,
 )
 from billing.models import Payment
 from .serializers import (
@@ -143,6 +145,66 @@ def update_candidate_status(request, candidate_id):
 
 # ─── Intake ───
 
+def validate_intake_data(data):
+    """Comprehensive validation for intake form data"""
+    errors = {}
+    
+    # Required personal fields
+    required_personal = ['first_name', 'last_name', 'date_of_birth', 'phone_number', 'email', 'current_address', 'city', 'state', 'country', 'zip_code']
+    for field in required_personal:
+        if not data.get(field):
+            errors[field] = f"{field.replace('_', ' ').title()} is required"
+    
+    # Required education fields
+    required_education = ['university_name', 'major', 'graduation_date', 'highest_degree']
+    for field in required_education:
+        if not data.get(field):
+            errors[field] = f"{field.replace('_', ' ').title()} is required"
+    
+    # Required authorization fields
+    required_auth = ['visa_type', 'work_authorization_status']
+    for field in required_auth:
+        if not data.get(field):
+            errors[field] = f"{field.replace('_', ' ').title()} is required"
+    
+    # Required job preference fields
+    required_prefs = ['desired_experience', 'industry_preference', 'shift_preference']
+    for field in required_prefs:
+        if not data.get(field):
+            errors[field] = f"{field.replace('_', ' ').title()} is required"
+    
+    # Required experience fields
+    if not data.get('years_of_experience'):
+        errors['years_of_experience'] = "Years of Experience is required"
+    
+    # File URL validation
+    document_urls = ['resume_url', 'passport_url', 'government_id_url', 'work_authorization_url']
+    for url_field in document_urls:
+        if data.get(url_field):
+            try:
+                URLValidator()(data[url_field])
+            except ValidationError:
+                errors[url_field] = f"Invalid URL format for {url_field}"
+    
+    # Date format validation
+    from datetime import datetime
+    date_fields = ['date_of_birth', 'graduation_date', 'first_entry_us', 'visa_expiry_date', 'ready_to_start_date']
+    for date_field in date_fields:
+        if data.get(date_field):
+            try:
+                datetime.strptime(data[date_field], '%m-%d-%Y')
+            except (ValueError, TypeError):
+                errors[date_field] = f"{date_field} must be in MM-DD-YYYY format"
+    
+    # Phone validation (basic)
+    if data.get('phone_number'):
+        phone = data['phone_number'].replace('-', '').replace(' ', '')
+        if not phone.isdigit() or len(phone) < 10:
+            errors['phone_number'] = "Invalid phone number format"
+    
+    return errors
+
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsApproved])
 def intake(request, candidate_id):
@@ -183,10 +245,47 @@ def intake(request, candidate_id):
 
     # Accept both { data: {...} } (legacy) and flat field submission
     payload = request.data.get('data') if 'data' in request.data else request.data
+    
+    # Validate intake data
+    validation_errors = validate_intake_data(payload)
+    if validation_errors:
+        return Response({
+            'error': 'Validation failed',
+            'validation_errors': validation_errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
     intake, created = ClientIntake.objects.update_or_create(
         candidate=candidate,
         defaults={'data': payload, 'submitted_at': timezone.now(), 'is_locked': True},
     )
+    
+    # Process work experiences and certifications from payload
+    if payload.get('experiences'):
+        WorkExperience.objects.filter(candidate=candidate).delete()
+        for exp in payload['experiences']:
+            WorkExperience.objects.create(
+                candidate=candidate,
+                job_title=exp.get('job_title', ''),
+                company_name=exp.get('company_name', ''),
+                company_address=exp.get('company_address', ''),
+                start_date=exp.get('start_date'),
+                end_date=exp.get('end_date'),
+                job_type=exp.get('job_type', 'full_time'),
+                responsibilities=exp.get('responsibilities', ''),
+            )
+    
+    if payload.get('certifications'):
+        Certification.objects.filter(candidate=candidate).delete()
+        for cert in payload['certifications']:
+            Certification.objects.create(
+                candidate=candidate,
+                name=cert.get('name', ''),
+                organization=cert.get('organization', ''),
+                issued_date=cert.get('issued_date'),
+                expires_date=cert.get('expires_date'),
+                credential_url=cert.get('credential_url', ''),
+            )
+    
     if candidate.status in ('approved', 'intake_pending', 'lead'):
         candidate.status = 'intake_submitted'
         candidate.save()

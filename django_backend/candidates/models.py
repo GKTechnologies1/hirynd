@@ -1,5 +1,7 @@
 import uuid
 from django.db import models
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 from users.models import User
 
 
@@ -60,6 +62,56 @@ class Candidate(models.Model):
 
     def __str__(self):
         return f"{self.user.profile.full_name or self.user.email} ({self.status})"
+
+
+class WorkExperience(models.Model):
+    """Work experience for candidates - stored as array in ClientIntake JSON but can be normalized separately"""
+    JOB_TYPE_CHOICES = [
+        ('full_time', 'Full Time'),
+        ('part_time', 'Part Time'),
+        ('contract', 'Contract'),
+        ('freelance', 'Freelance'),
+        ('c2c', 'C2C'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='experiences')
+    job_title = models.CharField(max_length=255)
+    company_name = models.CharField(max_length=255)
+    company_address = models.CharField(max_length=511, blank=True, null=True)
+    start_date = models.DateField()
+    end_date = models.DateField(blank=True, null=True)
+    job_type = models.CharField(max_length=20, choices=JOB_TYPE_CHOICES, default='full_time')
+    responsibilities = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'work_experiences'
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.job_title} at {self.company_name} ({self.candidate.user.email})"
+
+
+class Certification(models.Model):
+    """Certifications for candidates - stored as array in ClientIntake JSON"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='certifications_data')
+    name = models.CharField(max_length=255)
+    organization = models.CharField(max_length=255)
+    issued_date = models.DateField()
+    expires_date = models.DateField(blank=True, null=True)
+    credential_url = models.URLField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'certifications'
+        ordering = ['-issued_date']
+
+    def __str__(self):
+        return f"{self.name} from {self.organization} ({self.candidate.user.email})"
 
 
 class InterestedCandidate(models.Model):
