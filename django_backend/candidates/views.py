@@ -188,18 +188,28 @@ def validate_intake_data(data):
     
     # Date format validation
     from datetime import datetime
-    date_fields = ['date_of_birth', 'graduation_date', 'first_entry_us', 'visa_expiry_date', 'ready_to_start_date']
-    for date_field in date_fields:
+    new_date_fields = [
+        'date_of_birth', 'graduation_date', 'first_entry_us', 'visa_expiry_date', 
+        'ready_to_start_date', 'bachelors_graduation_date', 'masters_graduation_date', 
+        'opt_start_date'
+    ]
+    for date_field in new_date_fields:
         if data.get(date_field):
-            try:
-                datetime.strptime(data[date_field], '%m-%d-%Y')
-            except (ValueError, TypeError):
-                errors[date_field] = f"{date_field} must be in MM-DD-YYYY format"
+            success = False
+            for fmt in ('%m-%d-%Y', '%Y-%m-%d'):
+                try:
+                    datetime.strptime(data[date_field], fmt)
+                    success = True
+                    break
+                except (ValueError, TypeError):
+                    continue
+            if not success:
+                errors[date_field] = f"{date_field} must be in MM-DD-YYYY or YYYY-MM-DD format"
     
     # Phone validation (basic)
     if data.get('phone_number'):
-        phone = data['phone_number'].replace('-', '').replace(' ', '')
-        if not phone.isdigit() or len(phone) < 10:
+        phone = str(data['phone_number']).replace('-', '').replace(' ', '')
+        if not phone.isdigit() or len(phone) < 6: # Flexible for international
             errors['phone_number'] = "Invalid phone number format"
     
     return errors
@@ -259,36 +269,107 @@ def intake(request, candidate_id):
         defaults={'data': payload, 'submitted_at': timezone.now(), 'is_locked': True},
     )
     
+    # Update Candidate model top-level fields for better reporting/filtering
+    if payload.get('university_name'):
+        candidate.university = payload['university_name']
+    if payload.get('highest_degree'):
+        candidate.degree = payload['highest_degree']
+    if payload.get('highest_field_of_study'):
+        candidate.major = payload['highest_field_of_study']
+    if payload.get('visa_type'):
+        candidate.visa_status = payload['visa_type']
+    
+    # Marketing and Contact Sync
+    if payload.get('marketing_email'):
+        candidate.marketing_email = payload['marketing_email']
+    if payload.get('marketing_phone'):
+        candidate.marketing_phone = payload['marketing_phone']
+    if payload.get('personal_email'):
+        candidate.personal_email = payload['personal_email']
+    
+    # Years of Experience
+    if payload.get('desired_years_of_experience'):
+        candidate.desired_years_of_experience = str(payload['desired_years_of_experience'])
+    
+    # Attempt to parse specific date fields
+    date_map = {
+        'graduation_date': 'graduation_date',
+        'opt_start_date': 'opt_start_date',
+        'first_entry_us': 'first_entry_us',
+        'bachelors_graduation_date': 'bachelors_graduation_date',
+        'masters_graduation_date': 'masters_graduation_date'
+    }
+    
+    for payload_key, model_attr in date_map.items():
+        if payload.get(payload_key):
+            for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
+                try:
+                    setattr(candidate, model_attr, datetime.strptime(payload[payload_key], fmt).date())
+                    break
+                except: continue
+    
+    if payload.get('current_location'):
+        candidate.current_location = payload['current_location']
+    
+    # Update user profile name if provided
+    if payload.get('first_name') and payload.get('last_name'):
+        if hasattr(candidate.user, 'profile'):
+            candidate.user.profile.full_name = f"{payload['first_name']} {payload['last_name']}"
+            candidate.user.profile.save()
+
     # Process work experiences and certifications from payload
     if payload.get('experiences'):
         WorkExperience.objects.filter(candidate=candidate).delete()
         for exp in payload['experiences']:
-            WorkExperience.objects.create(
-                candidate=candidate,
-                job_title=exp.get('job_title', ''),
-                company_name=exp.get('company_name', ''),
-                company_address=exp.get('company_address', ''),
-                start_date=exp.get('start_date'),
-                end_date=exp.get('end_date'),
-                job_type=exp.get('job_type', 'full_time'),
-                responsibilities=exp.get('responsibilities', ''),
-            )
+            try:
+                s_date = None
+                for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
+                    try: s_date = datetime.strptime(exp.get('start_date'), fmt).date(); break
+                    except: continue
+                
+                e_date = None
+                if exp.get('end_date'):
+                    for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
+                        try: e_date = datetime.strptime(exp.get('end_date'), fmt).date(); break
+                        except: continue
+
+                WorkExperience.objects.create(
+                    candidate=candidate,
+                    job_title=exp.get('job_title', ''),
+                    company_name=exp.get('company_name', ''),
+                    company_address=exp.get('company_address', ''),
+                    start_date=s_date,
+                    end_date=e_date,
+                    job_type=exp.get('job_type', 'full_time'),
+                    responsibilities=exp.get('responsibilities', ''),
+                )
+            except Exception as e:
+                print(f"Error saving work experience: {e}")
     
     if payload.get('certifications'):
         Certification.objects.filter(candidate=candidate).delete()
         for cert in payload['certifications']:
-            Certification.objects.create(
-                candidate=candidate,
-                name=cert.get('name', ''),
-                organization=cert.get('organization', ''),
-                issued_date=cert.get('issued_date'),
-                expires_date=cert.get('expires_date'),
-                credential_url=cert.get('credential_url', ''),
-            )
+            try:
+                i_date = None
+                for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
+                    try: i_date = datetime.strptime(cert.get('issued_date'), fmt).date(); break
+                    except: continue
+
+                Certification.objects.create(
+                    candidate=candidate,
+                    name=cert.get('name', ''),
+                    organization=cert.get('organization', ''),
+                    issued_date=i_date,
+                    expires_date=None, # Optional
+                    credential_url=cert.get('credential_url', ''),
+                )
+            except Exception as e:
+                print(f"Error saving certification: {e}")
     
     if candidate.status in ('approved', 'intake_pending', 'lead'):
         candidate.status = 'intake_submitted'
-        candidate.save()
+    
+    candidate.save()
     log_action(request.user, 'intake_submitted', str(candidate.id), 'candidate', {})
     return Response(ClientIntakeSerializer(intake).data)
 
@@ -427,6 +508,27 @@ def upsert_credential(request, candidate_id):
         edited_by=request.user,
         version=new_version,
     )
+
+    # Sync key fields from credential data to top-level Candidate model
+    if payload.get('personal_email'):
+        candidate.personal_email = payload['personal_email']
+    if payload.get('preferred_locations'):
+        candidate.current_location = payload['preferred_locations']
+    
+    date_map = {
+        'opt_start_date': 'opt_start_date',
+        'first_entry_us': 'first_entry_us',
+        'bachelors_graduation_date': 'bachelors_graduation_date',
+        'masters_graduation_date': 'masters_graduation_date'
+    }
+    from datetime import datetime
+    for payload_key, model_attr in date_map.items():
+        if payload.get(payload_key):
+            for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
+                try:
+                    setattr(candidate, model_attr, datetime.strptime(payload[payload_key], fmt).date())
+                    break
+                except: continue
 
     if candidate.status in ('payment_completed', 'roles_confirmed', 'pending_payment'):
         candidate.status = 'credentials_submitted'

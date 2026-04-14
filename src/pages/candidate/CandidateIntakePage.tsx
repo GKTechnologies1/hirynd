@@ -60,6 +60,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     last_name: "",
     date_of_birth: "",
     phone_number: "",
+    marketing_email: "",
     marketing_phone: "",
     alternate_phone: "",
     email: user?.email || "",
@@ -100,6 +101,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
 
     // Section E - Job Preferences
     desired_experience: "",
+    desired_years_of_experience: "",
     industry_preference: "",
     shift_preference: "",
     target_roles: "",
@@ -122,11 +124,16 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     government_id_url: "",
     visa_url: "",
     work_authorization_url: "",
+    any_documents_url: "",
 
     // Section H - Additional
     ready_to_start_date: "",
     preferred_employment_type: "",
     additional_notes: "",
+
+    // Conditional gates
+    has_work_experience: "" as "" | "yes" | "no",
+    has_certifications: "" as "" | "yes" | "no",
 
     // Arrays
     experiences: [] as WorkExperience[],
@@ -156,6 +163,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
             ...prev,
             ...mappedData,
             email: saved.email || user?.email || prev.email,
+            resume_url: saved.resume_url || candidate?.resume_url || prev.resume_url,
+            linkedin_url: saved.linkedin_url || candidate?.linkedin_url || prev.linkedin_url,
             experiences: saved.experiences || [],
             certifications: saved.certifications || [],
           }));
@@ -175,8 +184,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
   ].includes(candidate?.status);
 
   const isLocked = intake?.is_locked === true;
-  const canSubmit = (["approved", "lead", "on_boarding", "roles_published"].includes(candidate?.status) || 
-                     (candidate?.status === "intake_submitted" && !isLocked)) && !isLocked;
+  const canSubmit = !!candidate && !isLocked;
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -242,7 +250,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
 
     // Validation
     const validationErrors: string[] = [];
-    
+
     if (!formData.first_name?.trim()) validationErrors.push("First Name");
     if (!formData.last_name?.trim()) validationErrors.push("Last Name");
     if (!formData.date_of_birth) validationErrors.push("Date of Birth");
@@ -261,6 +269,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
         description: `Please fill in: ${validationErrors.join(', ')}`,
         variant: "destructive"
       });
+      console.log("formData", formData)
       return;
     }
 
@@ -285,7 +294,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     } catch (err: any) {
       toast({
         title: "Error",
-        description: err.response?.data?.error || err.response?.data?.validation_errors 
+        description: err.response?.data?.error || err.response?.data?.validation_errors
           ? JSON.stringify(err.response.data.validation_errors)
           : err.message,
         variant: "destructive"
@@ -340,7 +349,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-blue-600">Personal Details</h3>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">First Name *</Label>
@@ -374,6 +383,10 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     </Select>
                     <Input type="tel" value={formData.phone_number} onChange={e => handleChange("phone_number", e.target.value.replace(/\D/g, '').slice(0, 10))} disabled={isLocked} required placeholder="1234567890" className="h-10 flex-1 rounded-lg bg-neutral-50" />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">New Email for Marketing</Label>
+                  <Input type="email" value={formData.marketing_email} onChange={e => handleChange("marketing_email", e.target.value)} disabled={isLocked} placeholder="Optional — separate marketing email" className="h-10 rounded-lg bg-neutral-50" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Marketing Phone</Label>
@@ -416,7 +429,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-purple-600">Education</h3>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Highest Degree *</Label>
@@ -485,7 +498,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-green-600">Skills</h3>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
                   <Label className="text-sm font-medium">Primary Skills *</Label>
@@ -519,65 +532,77 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 <h3 className="text-sm font-bold uppercase tracking-widest text-orange-600">Work Experience</h3>
               </div>
 
-              <div className="space-y-4">
-                {formData.experiences.map((exp, idx) => (
-                  <Card key={idx} className="border border-neutral-200 rounded-lg p-4 relative">
-                    <button
-                      type="button"
-                      onClick={() => handleArrayRemove('experiences', idx)}
-                      disabled={isLocked}
-                      className="absolute top-2 right-2 p-2 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </button>
-                    
-                    <div className="grid gap-3 sm:grid-cols-2 pr-10">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Job Title</Label>
-                        <Input value={exp.job_title} onChange={e => handleArrayChange('experiences', idx, 'job_title', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Company</Label>
-                        <Input value={exp.company_name} onChange={e => handleArrayChange('experiences', idx, 'company_name', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
-                      </div>
-                      <div className="sm:col-span-2 space-y-2">
-                        <Label className="text-xs font-medium">Company Address</Label>
-                        <Input value={exp.company_address} onChange={e => handleArrayChange('experiences', idx, 'company_address', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Start Date</Label>
-                        <DatePicker id={`exp-start-${idx}`} value={exp.start_date} onChange={val => handleArrayChange('experiences', idx, 'start_date', val)} placeholder="MM-DD-YYYY" className={cn("h-9", isLocked && "opacity-50 pointer-events-none")} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">End Date</Label>
-                        <DatePicker id={`exp-end-${idx}`} value={exp.end_date} onChange={val => handleArrayChange('experiences', idx, 'end_date', val)} placeholder="MM-DD-YYYY (or leave blank if current)" className={cn("h-9", isLocked && "opacity-50 pointer-events-none")} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Job Type</Label>
-                        <Select value={exp.job_type} onValueChange={v => handleArrayChange('experiences', idx, 'job_type', v)} disabled={isLocked}>
-                          <SelectTrigger className="h-9 rounded-lg bg-neutral-50"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="full_time">Full Time</SelectItem>
-                            <SelectItem value="part_time">Part Time</SelectItem>
-                            <SelectItem value="contract">Contract</SelectItem>
-                            <SelectItem value="freelance">Freelance</SelectItem>
-                            <SelectItem value="c2c">C2C</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="sm:col-span-2 space-y-2">
-                        <Label className="text-xs font-medium">Responsibilities</Label>
-                        <Textarea value={exp.responsibilities} onChange={e => handleArrayChange('experiences', idx, 'responsibilities', e.target.value)} disabled={isLocked} className="rounded-lg bg-neutral-50 min-h-[60px]" />
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-                {!isLocked && (
-                  <Button type="button" onClick={() => handleArrayAdd('experiences')} variant="outline" className="w-full h-10 border-dashed border-neutral-300">
-                    <Plus className="h-4 w-4 mr-2" /> Add Work Experience
-                  </Button>
-                )}
+              {/* Yes/No gate */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Do you have any work experience (U.S. and/or International)? *</Label>
+                <div className="flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border border-neutral-200">
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_work_experience === "yes"} onChange={() => { handleChange("has_work_experience", "yes"); if (formData.experiences.length === 0) handleArrayAdd('experiences'); }} disabled={isLocked} className="accent-primary h-4 w-4" /> Yes</label>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_work_experience === "no"} onChange={() => handleChange("has_work_experience", "no")} disabled={isLocked} className="accent-primary h-4 w-4" /> No</label>
+                </div>
               </div>
+
+              {formData.has_work_experience === "yes" && (
+                <div className="space-y-4">
+                  {formData.experiences.map((exp, idx) => (
+                    <Card key={idx} className="border border-neutral-200 rounded-lg p-4 relative">
+                      <button
+                        type="button"
+                        onClick={() => handleArrayRemove('experiences', idx)}
+                        disabled={isLocked}
+                        className="absolute top-2 right-2 p-2 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </button>
+
+                      <div className="grid gap-3 sm:grid-cols-2 pr-10">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Job Title</Label>
+                          <Input value={exp.job_title} onChange={e => handleArrayChange('experiences', idx, 'job_title', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Company</Label>
+                          <Input value={exp.company_name} onChange={e => handleArrayChange('experiences', idx, 'company_name', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                        </div>
+                        <div className="sm:col-span-2 space-y-2">
+                          <Label className="text-xs font-medium">Company Address</Label>
+                          <Input value={exp.company_address} onChange={e => handleArrayChange('experiences', idx, 'company_address', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Start Date</Label>
+                          <DatePicker id={`exp-start-${idx}`} value={exp.start_date} onChange={val => handleArrayChange('experiences', idx, 'start_date', val)} placeholder="MM-DD-YYYY" className={cn("h-9", isLocked && "opacity-50 pointer-events-none")} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">End Date</Label>
+                          <DatePicker id={`exp-end-${idx}`} value={exp.end_date} onChange={val => handleArrayChange('experiences', idx, 'end_date', val)} placeholder="MM-DD-YYYY (or leave blank if current)" className={cn("h-9", isLocked && "opacity-50 pointer-events-none")} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Job Type</Label>
+                          <Select value={exp.job_type} onValueChange={v => handleArrayChange('experiences', idx, 'job_type', v)} disabled={isLocked}>
+                            <SelectTrigger className="h-9 rounded-lg bg-neutral-50"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="full_time">Full Time</SelectItem>
+                              <SelectItem value="part_time">Part Time</SelectItem>
+                              <SelectItem value="internship">Internship</SelectItem>
+                              <SelectItem value="contract">Contract</SelectItem>
+                              <SelectItem value="freelance">Freelance</SelectItem>
+                              <SelectItem value="c2c">C2C</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="sm:col-span-2 space-y-2">
+                          <Label className="text-xs font-medium">Responsibilities</Label>
+                          <Textarea value={exp.responsibilities} onChange={e => handleArrayChange('experiences', idx, 'responsibilities', e.target.value)} disabled={isLocked} className="rounded-lg bg-neutral-50 min-h-[60px]" />
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                  {!isLocked && (
+                    <Button type="button" onClick={() => handleArrayAdd('experiences')} variant="outline" className="w-full h-10 border-dashed border-neutral-300">
+                      <Plus className="h-4 w-4 mr-2" /> Add Another Work Experience
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ═══ SECTION E: CERTIFICATIONS ═══ */}
@@ -589,48 +614,59 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 <h3 className="text-sm font-bold uppercase tracking-widest text-red-600">Certifications & Credentials</h3>
               </div>
 
-              <div className="space-y-4">
-                {formData.certifications.map((cert, idx) => (
-                  <Card key={idx} className="border border-neutral-200 rounded-lg p-4 relative">
-                    <button
-                      type="button"
-                      onClick={() => handleArrayRemove('certifications', idx)}
-                      disabled={isLocked}
-                      className="absolute top-2 right-2 p-2 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </button>
-                    
-                    <div className="grid gap-3 sm:grid-cols-2 pr-10">
-                      <div className="sm:col-span-2 space-y-2">
-                        <Label className="text-xs font-medium">Certification Name</Label>
-                        <Input value={cert.name} onChange={e => handleArrayChange('certifications', idx, 'name', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Organization</Label>
-                        <Input value={cert.organization} onChange={e => handleArrayChange('certifications', idx, 'organization', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Issued Date</Label>
-                        <DatePicker id={`cert-issued-${idx}`} value={cert.issued_date} onChange={val => handleArrayChange('certifications', idx, 'issued_date', val)} placeholder="MM-DD-YYYY" className={cn("h-9", isLocked && "opacity-50 pointer-events-none")} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Expires Date</Label>
-                        <DatePicker id={`cert-expires-${idx}`} value={cert.expires_date || ''} onChange={val => handleArrayChange('certifications', idx, 'expires_date', val)} placeholder="MM-DD-YYYY (optional)" className={cn("h-9", isLocked && "opacity-50 pointer-events-none")} />
-                      </div>
-                      <div className="sm:col-span-2 space-y-2">
-                        <Label className="text-xs font-medium">Credential URL</Label>
-                        <Input type="url" value={cert.credential_url || ''} onChange={e => handleArrayChange('certifications', idx, 'credential_url', e.target.value)} disabled={isLocked} placeholder="https://..." className="h-9 rounded-lg bg-neutral-50" />
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-                {!isLocked && (
-                  <Button type="button" onClick={() => handleArrayAdd('certifications')} variant="outline" className="w-full h-10 border-dashed border-neutral-300">
-                    <Plus className="h-4 w-4 mr-2" /> Add Certification
-                  </Button>
-                )}
+              {/* Yes/No gate */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Have you completed any professional certifications relevant to your career or skillset? *</Label>
+                <div className="flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border border-neutral-200">
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_certifications === "yes"} onChange={() => { handleChange("has_certifications", "yes"); if (formData.certifications.length === 0) handleArrayAdd('certifications'); }} disabled={isLocked} className="accent-primary h-4 w-4" /> Yes</label>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_certifications === "no"} onChange={() => handleChange("has_certifications", "no")} disabled={isLocked} className="accent-primary h-4 w-4" /> No</label>
+                </div>
               </div>
+
+              {formData.has_certifications === "yes" && (
+                <div className="space-y-4">
+                  {formData.certifications.map((cert, idx) => (
+                    <Card key={idx} className="border border-neutral-200 rounded-lg p-4 relative">
+                      <button
+                        type="button"
+                        onClick={() => handleArrayRemove('certifications', idx)}
+                        disabled={isLocked}
+                        className="absolute top-2 right-2 p-2 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </button>
+
+                      <div className="grid gap-3 sm:grid-cols-2 pr-10">
+                        <div className="sm:col-span-2 space-y-2">
+                          <Label className="text-xs font-medium">Certification Name</Label>
+                          <Input value={cert.name} onChange={e => handleArrayChange('certifications', idx, 'name', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Organization</Label>
+                          <Input value={cert.organization} onChange={e => handleArrayChange('certifications', idx, 'organization', e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Issued Date</Label>
+                          <DatePicker id={`cert-issued-${idx}`} value={cert.issued_date} onChange={val => handleArrayChange('certifications', idx, 'issued_date', val)} placeholder="MM-DD-YYYY" className={cn("h-9", isLocked && "opacity-50 pointer-events-none")} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Expires Date</Label>
+                          <DatePicker id={`cert-expires-${idx}`} value={cert.expires_date || ''} onChange={val => handleArrayChange('certifications', idx, 'expires_date', val)} placeholder="MM-DD-YYYY (optional)" className={cn("h-9", isLocked && "opacity-50 pointer-events-none")} />
+                        </div>
+                        <div className="sm:col-span-2 space-y-2">
+                          <Label className="text-xs font-medium">Credential URL</Label>
+                          <Input type="url" value={cert.credential_url || ''} onChange={e => handleArrayChange('certifications', idx, 'credential_url', e.target.value)} disabled={isLocked} placeholder="https://..." className="h-9 rounded-lg bg-neutral-50" />
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                  {!isLocked && (
+                    <Button type="button" onClick={() => handleArrayAdd('certifications')} variant="outline" className="w-full h-10 border-dashed border-neutral-300">
+                      <Plus className="h-4 w-4 mr-2" /> Add Certification
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ═══ SECTION F: WORK AUTHORIZATION ═══ */}
@@ -641,14 +677,16 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-blue-600">Work Authorization</h3>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Visa Type *</Label>
                   <Select value={formData.visa_type} onValueChange={v => handleChange("visa_type", v)} disabled={isLocked} required>
                     <SelectTrigger className="h-10 rounded-lg bg-neutral-50"><SelectValue placeholder="Select visa type" /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="F1-OPT">F1-OPT</SelectItem>
                       <SelectItem value="H1B">H1B</SelectItem>
+                      <SelectItem value="H4 EAD">H4 EAD</SelectItem>
                       <SelectItem value="OPT">OPT</SelectItem>
                       <SelectItem value="CPT">CPT</SelectItem>
                       <SelectItem value="Green Card">Green Card</SelectItem>
@@ -696,7 +734,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-600">Professional Background</h3>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Years of Experience *</Label>
@@ -753,11 +791,15 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-cyan-600">Job Preferences</h3>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
-                  <Label className="text-sm font-medium">Desired Experience Level *</Label>
+                  <Label className="text-sm font-medium">Desired Experience Level / Description *</Label>
                   <Textarea value={formData.desired_experience} onChange={e => handleChange("desired_experience", e.target.value)} disabled={isLocked} required placeholder="e.g. Looking for a role focused on backend development with team leadership" className="rounded-lg bg-neutral-50 min-h-[80px]" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Desired Years of Experience *</Label>
+                  <Input type="number" min="0" max="50" value={formData.desired_years_of_experience} onChange={e => handleChange("desired_years_of_experience", e.target.value)} disabled={isLocked} required placeholder="e.g. 3" className="h-10 rounded-lg bg-neutral-50" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Industry Preference *</Label>
@@ -765,7 +807,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Shift Preference *</Label>
-                  <Select value={formData.shift_preference} onValueChange={v => handleChange("shift_preference", v)} disabled={isLocked}>
+                  <Select value={formData.shift_preference} onValueChange={v => handleChange("shift_preference", v)} disabled={isLocked} required>
                     <SelectTrigger className="h-10 rounded-lg bg-neutral-50"><SelectValue placeholder="Select shift" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Morning">Morning (9 AM - 5 PM)</SelectItem>
@@ -833,7 +875,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-teal-600">Identity & Legal Documents</h3>
               </div>
-              
+
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Passport</Label>
@@ -906,6 +948,24 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     )}
                   </div>
                 </div>
+
+                <div className="space-y-3 sm:col-span-2">
+                  <Label className="text-sm font-medium">Upload Any Additional Documents</Label>
+                  <div className={cn("p-4 border-2 border-dashed rounded-lg transition-all text-center", formData.any_documents_url ? "bg-green-50 border-green-300" : "bg-neutral-50 border-neutral-300")}>
+                    {!isLocked && (
+                      <Input type="file" onChange={(e) => handleFileUpload(e, 'any_documents_url')} disabled={isLocked} accept={ALLOWED_FILE_TYPES.join(',')} className="mb-2 h-9 py-1 cursor-pointer" />
+                    )}
+                    {formData.any_documents_url ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <FileCheck className="h-6 w-6 text-green-600" />
+                        <p className="text-xs font-bold text-green-700">Uploaded</p>
+                        <a href={formData.any_documents_url} target="_blank" rel="noreferrer" className="text-xs text-green-600 hover:underline">View</a>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Any additional document (PDF, DOCX, or image)</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -917,7 +977,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-violet-600">Additional Information</h3>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Additional Notes</Label>

@@ -44,7 +44,20 @@ class Candidate(models.Model):
     referral_friend_name = models.CharField(max_length=255, blank=True, null=True)
     current_location = models.CharField(max_length=255, blank=True, null=True)
     github_url = models.URLField(blank=True, null=True)
+    
+    # Marketing and Contact Details
+    marketing_email = models.EmailField(blank=True, null=True)
+    marketing_phone = models.CharField(max_length=30, blank=True, null=True)
+    personal_email = models.EmailField(blank=True, null=True)
+    
+    # Detailed Dates
+    bachelors_graduation_date = models.DateField(blank=True, null=True)
+    masters_graduation_date = models.DateField(blank=True, null=True)
+    first_entry_us = models.DateField(blank=True, null=True)
+    opt_start_date = models.DateField(blank=True, null=True)
     opt_end_date = models.DateField(blank=True, null=True)
+    desired_years_of_experience = models.CharField(max_length=50, blank=True, null=True)
+    
     notes = models.TextField(blank=True, null=True)
 
     # Cal.com scheduling URLs (Admin-configurable)
@@ -139,6 +152,12 @@ class InterestedCandidate(models.Model):
     notes = models.TextField(blank=True, null=True)
     resume_url = models.URLField(blank=True, null=True)
     resume_file = models.FileField(upload_to='leads/resumes/', blank=True, null=True)
+    
+    # New Marketing Fields for Leads
+    marketing_email = models.EmailField(blank=True, null=True)
+    marketing_phone = models.CharField(max_length=30, blank=True, null=True)
+    desired_years_of_experience = models.CharField(max_length=50, blank=True, null=True)
+    
     selected_services = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -53,8 +53,27 @@ def upload_file(request):
         size_bytes=file.size,
     )
 
+    # Generate download URL to return immediately
+    use_local = getattr(settings, 'USE_LOCAL_STORAGE', True)
+    if use_local:
+        from django.http import HttpRequest
+        # We need a dummy request or building it manually
+        # Simple approach for local:
+        url = request.build_absolute_uri(default_storage.url(saved_path))
+    else:
+        try:
+            s3 = _get_s3_client()
+            url = s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': settings.AWS_STORAGE_BUCKET_NAME, 'Key': saved_path},
+                ExpiresIn=3600 * 24 * 7, # 7 days
+            )
+        except:
+            url = saved_path
+
     return Response({
         'id': str(record.id),
+        'url': url,
         'bucket_path': saved_path,
         'original_name': file.name,
     }, status=status.HTTP_201_CREATED)

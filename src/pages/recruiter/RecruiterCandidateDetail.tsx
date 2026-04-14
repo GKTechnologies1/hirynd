@@ -16,6 +16,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -92,8 +93,16 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
             years_experience: "",
             certifications: "",
             shared_email: cand?.profile?.email || cand?.email || "",
-            custom_platforms: [],
-            skills_summary: ""
+            skills_summary: "",
+            personal_email: "",
+            location_city_state: "",
+            bachelors_graduation_date: "",
+            masters_graduation_date: "",
+            first_entry_us: "",
+            opt_start_date: "",
+            opt_offer_letter_submitted: "No",
+            preferred_job_roles: "",
+            preferred_locations: ""
           });
         }
         
@@ -369,17 +378,50 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                    {["full_legal_name", "email", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
+                    {["full_legal_name", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
                       <div key={field} className="space-y-1.5">
                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
                         <Input 
-                          disabled={field === "email"}
-                          className={`bg-background/50 text-sm h-10 border-border/50 ${field === "email" ? "opacity-60 cursor-not-allowed" : ""}`}
+                          className="bg-background/50 text-sm h-10 border-border/50"
                           value={credForm[field] || ""} 
                           onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} 
                         />
                       </div>
                     ))}
+                    {["personal_email", "location_city_state", "preferred_job_roles", "preferred_locations"].map((field) => (
+                      <div key={field} className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
+                        <Input 
+                          className="bg-background/50 text-sm h-10 border-border/50"
+                          value={credForm[field] || ""} 
+                          onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} 
+                        />
+                      </div>
+                    ))}
+                </div>
+
+                <div className="bg-blue-50/30 border border-blue-100 rounded-xl p-4 space-y-4">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-blue-800 flex items-center gap-2">
+                    <Award className="h-3.5 w-3.5" /> Education & OPT Dates
+                  </h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Grad Date</Label>
+                      <DatePicker id="rec-cred-bach" value={credForm.bachelors_graduation_date} onChange={val => setCredForm(p => ({...p, bachelors_graduation_date: val}))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Grad Date</Label>
+                      <DatePicker id="rec-cred-mast" value={credForm.masters_graduation_date} onChange={val => setCredForm(p => ({...p, masters_graduation_date: val}))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US</Label>
+                      <DatePicker id="rec-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({...p, first_entry_us: val}))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date</Label>
+                      <DatePicker id="rec-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({...p, opt_start_date: val}))} />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-amber-50/30 border border-amber-100 rounded-xl p-4 space-y-4">
@@ -398,9 +440,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       />
                       <p className="text-[9px] text-muted-foreground italic">Email is read-only and automatically set from candidate profile</p>
                     </div>
-                    {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].map((field) => (
+                    {["gmail_password", "linkedin_login_id", "linkedin_password", "indeed_login_id", "indeed_password", "dice_login_id", "dice_password", "monster_login_id", "monster_password", "ziprecruiter_login_id", "ziprecruiter_password", "foundit_password"].map((field) => (
                       <div key={field} className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")} {["gmail_password", "linkedin_password"].includes(field) ? "*" : "(Optional)"}</Label>
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
                         <div className="relative">
                           <Input type={showPasswords[field] ? "text" : "password"} className="bg-white text-sm h-10 border-border/50 pr-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
                           <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword(field)}>

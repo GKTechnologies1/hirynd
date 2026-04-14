@@ -292,7 +292,7 @@ const Contact = () => {
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button 
                       type="submit" 
-                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isGeneralFilled ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 pointer-events-none'}`}
+                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isGeneralFilled ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 cursor-pointer'}`}
                     >
                       Send Message
                     </Button>
@@ -476,7 +476,7 @@ const Contact = () => {
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button 
                       type="submit" 
-                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isInterestFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 pointer-events-none'}`}
+                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isInterestFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 cursor-pointer'}`}
                     >
                       Submit Interest
                     </Button>

@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -25,6 +25,7 @@ import AdminQAChecklist from "@/components/admin/AdminQAChecklist";
 import AdminBillingTab from "@/components/admin/AdminBillingTab";
 import CandidateApplicationsPage from "@/pages/candidate/CandidateApplicationsPage";
 import CandidateInterviewsPage from "@/pages/candidate/CandidateInterviewsPage";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -342,6 +343,18 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Contact Details</Label>
                   <p className="font-medium text-foreground">{candidate?.profile?.email || candidate?.email || "—"}</p>
                   <p className="font-medium text-muted-foreground mt-0.5">{candidate?.profile?.phone || "—"}</p>
+                  {intakeData?.marketing_email && (
+                    <div className="mt-2">
+                      <Label className="text-[9px] uppercase text-muted-foreground font-bold">Marketing Email</Label>
+                      <p className="font-medium text-foreground">{intakeData.marketing_email}</p>
+                    </div>
+                  )}
+                  {intakeData?.marketing_phone && (
+                    <div className="mt-1">
+                      <Label className="text-[9px] uppercase text-muted-foreground font-bold">Marketing Phone</Label>
+                      <p className="font-medium text-foreground">{intakeData.marketing_phone}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -532,6 +545,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                         <div><p className="text-muted-foreground mb-1">Primary Phone</p><p className="font-semibold">{intakeData.phone_number || "—"}</p></div>
                         <div><p className="text-muted-foreground mb-1">Alternate Phone</p><p className="font-semibold">{intakeData.alternate_phone || "—"}</p></div>
                         <div><p className="text-muted-foreground mb-1">Email</p><p className="font-semibold">{intakeData.email || "—"}</p></div>
+                        {intakeData.marketing_email && <div className="col-span-2"><p className="text-muted-foreground mb-1">Marketing Email</p><p className="font-semibold">{intakeData.marketing_email}</p></div>}
                         <div className="col-span-2 space-y-1">
                           <p className="text-muted-foreground mb-1">Address</p>
                           <p className="font-semibold">{intakeData.current_address || "—"}</p>
@@ -568,6 +582,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                       <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Job Preferences</h4>
                       <div className="grid grid-cols-2 gap-4 text-xs">
                         <div className="col-span-2"><p className="text-muted-foreground mb-1 text-sm">Target Roles</p><p className="font-bold text-primary text-sm">{intakeData.target_roles || "—"}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Desired Years of Exp</p><p className="font-bold text-sm">{intakeData.desired_years_of_experience || "—"}</p></div>
                         <div><p className="text-muted-foreground mb-1">Salary Expectation</p><p className="font-bold text-sm">{intakeData.salary_expectation ? `$${intakeData.salary_expectation}` : "—"}</p></div>
                         <div><p className="text-muted-foreground mb-1">Remote Preference</p><p className="font-medium">{intakeData.remote_preference || "—"}</p></div>
                         <div><p className="text-muted-foreground mb-1">Relocate?</p><p className="font-medium">{intakeData.relocation_preference?.toString() === "true" ? "Yes" : intakeData.relocation_preference?.toString() === "false" ? "No" : "—"}</p></div>
@@ -613,7 +628,16 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     <div className="pt-4">
                       <Button variant="outline" className="w-full flex items-center gap-2 border-primary/20 bg-primary/5 text-primary" asChild>
                         <a href={intakeData.resume_url} target="_blank" rel="noreferrer">
-                          <FileText className="h-4 w-4" /> Download / Preview Submitted Resume
+                          <FileText className="h-4 w-4" /> View Submitted Resume
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+                  {intakeData.any_documents_url && (
+                    <div className="pt-2">
+                      <Button variant="outline" className="w-full flex items-center gap-2 border-neutral-200 bg-neutral-50" asChild>
+                        <a href={intakeData.any_documents_url} target="_blank" rel="noreferrer">
+                          <Download className="h-4 w-4" /> Download Additional Documents
                         </a>
                       </Button>
                     </div>
@@ -778,6 +802,36 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                         <Input className="bg-muted/30 text-sm h-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
                       </div>
                     ))}
+                    {["personal_email", "location_city_state", "preferred_job_roles", "preferred_locations"].map((field) => (
+                      <div key={field} className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-blue-800 flex items-center gap-2">
+                      <Shield className="h-3.5 w-3.5" /> Education & OPT Dates
+                    </h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                       <div className="space-y-1.5">
+                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Grad Date</Label>
+                         <DatePicker id="admin-cred-bach" value={credForm.bachelors_graduation_date} onChange={val => setCredForm(p => ({...p, bachelors_graduation_date: val}))} />
+                       </div>
+                       <div className="space-y-1.5">
+                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Grad Date</Label>
+                         <DatePicker id="admin-cred-mast" value={credForm.masters_graduation_date} onChange={val => setCredForm(p => ({...p, masters_graduation_date: val}))} />
+                       </div>
+                       <div className="space-y-1.5">
+                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US</Label>
+                         <DatePicker id="admin-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({...p, first_entry_us: val}))} />
+                       </div>
+                       <div className="space-y-1.5">
+                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date</Label>
+                         <DatePicker id="admin-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({...p, opt_start_date: val}))} />
+                       </div>
+                    </div>
                   </div>
 
                   <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 space-y-4">
@@ -789,9 +843,9 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Shared Email (All Platforms) *</Label>
                         <Input type="email" className="bg-white text-sm h-10 border-border/50" value={credForm["shared_email"] || ""} onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))} />
                       </div>
-                      {["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].map((field) => (
+                      {["gmail_password", "linkedin_login_id", "linkedin_password", "indeed_login_id", "indeed_password", "dice_login_id", "dice_password", "monster_login_id", "monster_password", "ziprecruiter_login_id", "ziprecruiter_password", "foundit_password"].map((field) => (
                         <div key={field} className="space-y-1.5">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")} {["gmail_password", "linkedin_password"].includes(field) ? "*" : "(Optional)"}</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
                           <div className="relative">
                             <Input type={showCredPasswords[field] ? "text" : "password"} placeholder="••••••••" className="bg-white text-sm h-10 border-border/50 pr-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
                             <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:bg-transparent" onClick={() => toggleCredPw(field)}>
@@ -904,18 +958,20 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                                <Shield className="h-3 w-3" /> Job Portal Credentials
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                              {[
-                                 { label: 'LinkedIn', id: 'linkedin_id', pw: 'linkedin_password' },
+                               {[
+                                 { label: 'LinkedIn', id: 'linkedin_login_id', pw: 'linkedin_password' },
                                  { label: 'Gmail', id: 'shared_email', pw: 'gmail_password' },
-                                 { label: 'Indeed', id: 'shared_email', pw: 'indeed_password' },
-                                 { label: 'Dice', id: 'shared_email', pw: 'dice_password' },
+                                 { label: 'Indeed', id: 'indeed_login_id', pw: 'indeed_password' },
+                                 { label: 'Dice', id: 'dice_login_id', pw: 'dice_password' },
+                                 { label: 'Monster', id: 'monster_login_id', pw: 'monster_password' },
+                                 { label: 'ZipRecruiter', id: 'ziprecruiter_login_id', pw: 'ziprecruiter_password' },
                                  { label: 'Foundit', id: 'shared_email', pw: 'foundit_password' }
                                ].map(portal => (
                                  <div key={portal.label} className="bg-white border rounded-lg p-3">
                                    <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
                                    <div className="space-y-1">
-                                     <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cData[portal.id] || "N/A"}</span></p>
-                                     <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded">{cData[portal.pw] ? "••••••••" : "N/A"}</span></p>
+                                     <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cData[portal.id] || cData.shared_email || "N/A"}</span></p>
+                                     <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => alert(`${portal.label} Password: ${cData[portal.pw] || 'N/A'}`)}>{cData[portal.pw] ? "••••••••" : "N/A"}</span></p>
                                    </div>
                                  </div>
                                ))}

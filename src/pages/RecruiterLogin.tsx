@@ -330,7 +330,7 @@ const RecruiterLogin = () => {
                 <div className="pt-2">
                   <Button 
                     variant="hero" 
-                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${loginEmail.trim() && loginPassword.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${loginEmail.trim() && loginPassword.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 shadow-none cursor-pointer'}`}
                     disabled={submitting}
                   >
                     {submitting ? "Signing in..." : "Sign In"}
@@ -515,7 +515,7 @@ const RecruiterLogin = () => {
                 <div className="pt-3 pb-1 border-t border-neutral-100">
                   <Button 
                     variant="hero" 
-                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${isFormFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${isFormFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 shadow-none cursor-pointer'}`} 
                     disabled={submitting}
                   >
                     {submitting ? "Processing Application..." : "Create Recruiter Account"}

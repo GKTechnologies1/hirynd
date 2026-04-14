@@ -17,6 +17,7 @@ import {
   Shield, CheckCircle, Download, Eye, EyeOff, Plus, Trash2
 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
 
 interface CandidateCredentialsPageProps {
@@ -39,8 +40,25 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   };
 
   const [formData, setFormData] = useState({
+    // Personal & Contact
     full_name_as_resume: "",
+    personal_email: "",
     phone_number: "",
+    location_city_state: "",
+
+    // Education & OPT dates
+    bachelors_graduation_date: "",
+    masters_graduation_date: "",
+    first_entry_us: "",
+    opt_start_date: "",
+    opt_offer_letter_submitted: "" as "" | "yes" | "no" | "waiting",
+    opt_offer_letter_url: "",
+
+    // Marketing preferences
+    preferred_job_roles: "",
+    preferred_locations: "",
+
+    // Professional URLs
     primary_resume: "",
     alternate_resume_versions: [] as string[],
     linkedin_url: "",
@@ -53,11 +71,20 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     visa_details: "",
     relocation_preference: "",
     references_if_needed: "",
+
+    // Platform credentials
     shared_email: "",
     gmail_password: "",
+    linkedin_login_id: "",
     linkedin_password: "",
+    indeed_login_id: "",
     indeed_password: "",
+    dice_login_id: "",
     dice_password: "",
+    monster_login_id: "",
+    monster_password: "",
+    ziprecruiter_login_id: "",
+    ziprecruiter_password: "",
     foundit_password: "",
     custom_platforms: [] as Array<{ platform_name: string; password: string }>,
   });
@@ -159,7 +186,11 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     formData.shared_email.trim() !== "" &&
     formData.gmail_password.trim() !== "" &&
     formData.linkedin_password.trim() !== "" &&
-    formData.visa_details.trim() !== "";
+    formData.visa_details.trim() !== "" &&
+    formData.bachelors_graduation_date !== "" &&
+    formData.opt_start_date !== "" &&
+    formData.preferred_job_roles.trim() !== "" &&
+    formData.preferred_locations.trim() !== "";
 
   if (loading) {
     return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading credentials...</p></div>;
@@ -215,6 +246,14 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                   <Label className="text-sm font-medium ml-1">Full Name as on Resume *</Label>
                   <Input value={formData.full_name_as_resume} onChange={e => handleChange("full_name_as_resume", e.target.value)} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" />
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium ml-1">Personal Email Address *</Label>
+                  <Input type="email" value={formData.personal_email} onChange={e => handleChange("personal_email", e.target.value)} required placeholder="personal@email.com" className="h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium ml-1">Location (City, State) *</Label>
+                  <Input value={formData.location_city_state} onChange={e => handleChange("location_city_state", e.target.value)} required placeholder="e.g. Dallas, TX" className="h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" />
+                </div>
                 <div className="sm:col-span-2 space-y-2">
                   <Label className="text-sm font-medium ml-1">Phone Number *</Label>
                   <div className="flex gap-2">
@@ -240,6 +279,63 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                       className="h-11 flex-1 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" 
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* OPT / Education Dates */}
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-6 space-y-5">
+                <div className="flex items-center gap-3 border-b border-blue-100 pb-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <Shield className="h-4 w-4 text-blue-700" />
+                  </div>
+                  <h3 className="font-bold text-xs uppercase tracking-widest text-blue-900">Education & OPT Details</h3>
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1 text-blue-900">Bachelor's Graduation Date *</Label>
+                    <DatePicker id="cred-bach-grad" value={formData.bachelors_graduation_date} onChange={val => handleChange("bachelors_graduation_date", val)} placeholder="MM-DD-YYYY" className="h-11" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1 text-blue-900">Master's Graduation Date</Label>
+                    <DatePicker id="cred-masters-grad" value={formData.masters_graduation_date} onChange={val => handleChange("masters_graduation_date", val)} placeholder="MM-DD-YYYY (if applicable)" className="h-11" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1 text-blue-900">First Entry into the U.S. *</Label>
+                    <DatePicker id="cred-first-entry" value={formData.first_entry_us} onChange={val => handleChange("first_entry_us", val)} placeholder="MM-DD-YYYY" className="h-11" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium ml-1 text-blue-900">OPT Start Date *</Label>
+                    <DatePicker id="cred-opt-start" value={formData.opt_start_date} onChange={val => handleChange("opt_start_date", val)} placeholder="MM-DD-YYYY" className="h-11" />
+                  </div>
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label className="text-sm font-medium ml-1 text-blue-900">OPT Offer Letter Submitted? *</Label>
+                    <div className="flex items-center gap-6 py-2.5 px-4 bg-white rounded-xl border border-blue-100">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.opt_offer_letter_submitted === "yes"} onChange={() => handleChange("opt_offer_letter_submitted", "yes")} className="accent-blue-600 h-4 w-4" /> Yes</label>
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.opt_offer_letter_submitted === "no"} onChange={() => handleChange("opt_offer_letter_submitted", "no")} className="accent-blue-600 h-4 w-4" /> No</label>
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.opt_offer_letter_submitted === "waiting"} onChange={() => handleChange("opt_offer_letter_submitted", "waiting")} className="accent-blue-600 h-4 w-4" /> Waiting for one</label>
+                    </div>
+                  </div>
+                  {formData.opt_offer_letter_submitted === "yes" && (
+                    <div className="sm:col-span-2 space-y-2">
+                      <Label className="text-sm font-medium ml-1 text-blue-900">Upload Offer Letter *</Label>
+                      <div className={cn("p-4 border-2 border-dashed rounded-xl transition-all", formData.opt_offer_letter_url ? "bg-green-50 border-green-200" : "bg-white border-blue-200 hover:border-blue-400")}>
+                        <Input type="file" onChange={e => handleFileUpload(e, "opt_offer_letter_url")} accept=".pdf,.doc,.docx" className="mb-2 h-10 py-1.5 cursor-pointer text-xs" />
+                        {formData.opt_offer_letter_url && <p className="text-[11px] text-green-700 font-bold flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> File attached (<a href={formData.opt_offer_letter_url} target="_blank" className="underline hover:text-green-900">Preview</a>)</p>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Marketing Preferences */}
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="sm:col-span-2 space-y-2">
+                  <Label className="text-sm font-medium ml-1">Preferred Job Roles for Marketing *</Label>
+                  <Input value={formData.preferred_job_roles} onChange={e => handleChange("preferred_job_roles", e.target.value)} required placeholder="e.g. Java Developer, Data Engineer, Business Analyst" className="h-11 rounded-xl bg-neutral-50" />
+                </div>
+                <div className="sm:col-span-2 space-y-2">
+                  <Label className="text-sm font-medium ml-1">Preferred Location(s) *</Label>
+                  <Input value={formData.preferred_locations} onChange={e => handleChange("preferred_locations", e.target.value)} required placeholder="e.g. Dallas, TX; Remote; Chicago, IL" className="h-11 rounded-xl bg-neutral-50" />
                 </div>
                 <div className="space-y-2"><Label className="text-sm font-medium ml-1">LinkedIn URL *</Label><Input type="url" value={formData.linkedin_url} onChange={e => handleChange("linkedin_url", e.target.value)} required className="h-11 rounded-xl bg-neutral-50" /></div>
                 <div className="space-y-2"><Label className="text-sm font-medium ml-1">GitHub URL</Label><Input type="url" value={formData.github_url} onChange={e => handleChange("github_url", e.target.value)} className="h-11 rounded-xl bg-neutral-50" /></div>
@@ -287,92 +383,84 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     <h3 className="font-bold text-xs uppercase tracking-widest text-amber-900">Account Credentials</h3>
                   </div>
                   <div className="grid gap-6 sm:grid-cols-2">
-                    <div className="sm:col-span-2 space-y-2">
-                      <Label className="text-sm font-medium ml-1 text-amber-900">Shared Email (Used for all platforms) *</Label>
-                      <Input 
-                        type="email"
-                        value={formData.shared_email} 
-                        onChange={e => handleChange("shared_email", e.target.value)} 
-                        required 
-                        placeholder="yourname@gmail.com"
-                        className="h-11 rounded-xl bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-100 transition-all"
-                      />
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70 text-amber-900">Shared Email (All Platforms) *</Label>
+                      <Input type="email" className="bg-white text-sm h-10 border-amber-200" value={formData.shared_email || ""} onChange={e => handleChange("shared_email", e.target.value)} required placeholder="yourname@gmail.com" />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium ml-1 text-amber-900">Gmail Password *</Label>
+                    {/* Gmail */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Gmail Password *</Label>
                       <div className="relative">
-                        <Input 
-                          type={showPasswords["gmail_password"] ? "text" : "password"} 
-                          value={formData.gmail_password} 
-                          onChange={e => handleChange("gmail_password", e.target.value)} 
-                          required 
-                          className="h-11 rounded-xl bg-white border-amber-200 pr-10"
-                          placeholder="••••••••"
-                        />
-                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("gmail_password")}>
-                          {showPasswords["gmail_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                        <Input type={showPasswords["gmail_password"] ? "text" : "password"} value={formData.gmail_password} onChange={e => handleChange("gmail_password", e.target.value)} required className="h-11 rounded-xl bg-white border-amber-200 pr-10" placeholder="••••••••" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("gmail_password")}>{showPasswords["gmail_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium ml-1 text-amber-900">LinkedIn Password *</Label>
+                    {/* LinkedIn */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">LinkedIn Login ID *</Label>
+                      <Input type="email" value={formData.linkedin_login_id} onChange={e => handleChange("linkedin_login_id", e.target.value)} required placeholder="LinkedIn email/username" className="h-11 rounded-xl bg-white border-amber-200" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">LinkedIn Password *</Label>
                       <div className="relative">
-                        <Input 
-                          type={showPasswords["linkedin_password"] ? "text" : "password"} 
-                          value={formData.linkedin_password} 
-                          onChange={e => handleChange("linkedin_password", e.target.value)} 
-                          required 
-                          className="h-11 rounded-xl bg-white border-amber-200 pr-10"
-                          placeholder="••••••••"
-                        />
-                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("linkedin_password")}>
-                          {showPasswords["linkedin_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                        <Input type={showPasswords["linkedin_password"] ? "text" : "password"} value={formData.linkedin_password} onChange={e => handleChange("linkedin_password", e.target.value)} required className="h-11 rounded-xl bg-white border-amber-200 pr-10" placeholder="••••••••" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("linkedin_password")}>{showPasswords["linkedin_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium ml-1 text-amber-700 font-semibold opacity-70">Indeed Password (Optional)</Label>
+                    {/* Indeed */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">Indeed Login ID (Optional)</Label>
+                      <Input value={formData.indeed_login_id} onChange={e => handleChange("indeed_login_id", e.target.value)} placeholder="Indeed email/username (N/A if none)" className="h-11 rounded-xl bg-white/50 border-amber-100" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">Indeed Password (Optional)</Label>
                       <div className="relative">
-                        <Input 
-                          type={showPasswords["indeed_password"] ? "text" : "password"} 
-                          value={formData.indeed_password} 
-                          onChange={e => handleChange("indeed_password", e.target.value)} 
-                          className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10"
-                          placeholder="••••••••"
-                        />
-                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("indeed_password")}>
-                          {showPasswords["indeed_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                        <Input type={showPasswords["indeed_password"] ? "text" : "password"} value={formData.indeed_password} onChange={e => handleChange("indeed_password", e.target.value)} className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10" placeholder="••••••••" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("indeed_password")}>{showPasswords["indeed_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium ml-1 text-amber-700 font-semibold opacity-70">Dice Password (Optional)</Label>
+                    {/* Dice */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">Dice Login ID (Optional)</Label>
+                      <Input value={formData.dice_login_id} onChange={e => handleChange("dice_login_id", e.target.value)} placeholder="Dice email/username (N/A if not created)" className="h-11 rounded-xl bg-white/50 border-amber-100" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">Dice Password (Optional)</Label>
                       <div className="relative">
-                        <Input 
-                          type={showPasswords["dice_password"] ? "text" : "password"} 
-                          value={formData.dice_password} 
-                          onChange={e => handleChange("dice_password", e.target.value)} 
-                          className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10"
-                          placeholder="••••••••"
-                        />
-                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("dice_password")}>
-                          {showPasswords["dice_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                        <Input type={showPasswords["dice_password"] ? "text" : "password"} value={formData.dice_password} onChange={e => handleChange("dice_password", e.target.value)} className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10" placeholder="••••••••" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("dice_password")}>{showPasswords["dice_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
                       </div>
                     </div>
-                    <div className="sm:col-span-2 space-y-2">
-                      <Label className="text-sm font-medium ml-1 text-amber-700 font-semibold opacity-70">Foundit Password (Optional)</Label>
+                    {/* Monster */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">Monster Login ID (Optional)</Label>
+                      <Input value={formData.monster_login_id} onChange={e => handleChange("monster_login_id", e.target.value)} placeholder="Monster email/username (N/A if none)" className="h-11 rounded-xl bg-white/50 border-amber-100" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">Monster Password (Optional)</Label>
                       <div className="relative">
-                        <Input 
-                          type={showPasswords["foundit_password"] ? "text" : "password"} 
-                          value={formData.foundit_password} 
-                          onChange={e => handleChange("foundit_password", e.target.value)} 
-                          className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10"
-                          placeholder="••••••••"
-                        />
-                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("foundit_password")}>
-                          {showPasswords["foundit_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                        <Input type={showPasswords["monster_password"] ? "text" : "password"} value={formData.monster_password} onChange={e => handleChange("monster_password", e.target.value)} className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10" placeholder="••••••••" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("monster_password")}>{showPasswords["monster_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                      </div>
+                    </div>
+                    {/* ZipRecruiter */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">ZipRecruiter Login ID (Optional)</Label>
+                      <Input value={formData.ziprecruiter_login_id} onChange={e => handleChange("ziprecruiter_login_id", e.target.value)} placeholder="ZipRecruiter email/username (N/A if none)" className="h-11 rounded-xl bg-white/50 border-amber-100" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">ZipRecruiter Password (Optional)</Label>
+                      <div className="relative">
+                        <Input type={showPasswords["ziprecruiter_password"] ? "text" : "password"} value={formData.ziprecruiter_password} onChange={e => handleChange("ziprecruiter_password", e.target.value)} className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10" placeholder="••••••••" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("ziprecruiter_password")}>{showPasswords["ziprecruiter_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                      </div>
+                    </div>
+                    {/* Foundit */}
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-700 opacity-70">Foundit Password (Optional)</Label>
+                      <div className="relative">
+                        <Input type={showPasswords["foundit_password"] ? "text" : "password"} value={formData.foundit_password} onChange={e => handleChange("foundit_password", e.target.value)} className="h-11 rounded-xl bg-white/50 border-amber-100 pr-10" placeholder="••••••••" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword("foundit_password")}>{showPasswords["foundit_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
                       </div>
                     </div>
                   </div>
@@ -462,7 +550,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                   className={`w-full h-14 text-lg font-bold transition-all rounded-2xl ${
                     isFormFilled 
                       ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98]' 
-                      : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'
+                      : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 shadow-none cursor-pointer'
                   }`} 
                   disabled={submitting}
                 >
