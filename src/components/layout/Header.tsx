@@ -427,8 +427,8 @@ export default function Header() {
               
               {/* Services Dropdown */}
               <div className="services-container">
-                <button onClick={() => { toggleServicesDropdown(); navigate("/services") }} className="services-button">
-                  <span className={isActive("/services") ? "nav-link active" : "nav-link"}>Services</span>
+                <button onClick={toggleServicesDropdown} className="services-button">
+                  <span className="nav-link">Services</span>
                   <svg
                     className={`dropdown-arrow ${servicesDropdownOpen ? "rotate" : ""}`}
                     fill="none"
@@ -451,13 +451,13 @@ export default function Header() {
                     <div className="dropdown-header">
                       Our Services
                     </div>
-                    <Link to="/services#profile-marketing" onClick={closeServicesDropdown} className="dropdown-item">
+                    <Link to="/services/profile-marketing" onClick={closeServicesDropdown} className="dropdown-item">
                       Profile Marketing
                     </Link>
-                    <Link to="/services#interview-practice" onClick={closeServicesDropdown} className="dropdown-item">
+                    <Link to="/services/interview-training" onClick={closeServicesDropdown} className="dropdown-item">
                       Interview & Screening Call Practice
                     </Link>
-                    <Link to="/services#skills-training" onClick={closeServicesDropdown} className="dropdown-item">
+                    <Link to="/services/skills-training" onClick={closeServicesDropdown} className="dropdown-item">
                       Skills Training
                     </Link>
                   </div>

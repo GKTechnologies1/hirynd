@@ -396,7 +396,7 @@ const RecruiterProfilePage = () => {
                 type="file"
                 className="hidden"
                 onChange={(e) => e.target.files && handleDocumentUpload('highest_degree_certificate', e.target.files[0])}
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                accept=".pdf"
               />
               {documents.highest_degree_certificate_file ? (
                 <div className="space-y-2">

@@ -82,8 +82,9 @@ const Contact = () => {
     if (!formData.get("phone")) newErrors.phone = "Phone number is required";
     
     if (wantsMarketing === "yes") {
-      if (!formData.get("degree")) newErrors.degree = "Degree is required";
-      if (!formData.get("major")) newErrors.major = "Major is required";
+      if (!formData.get("degree_major")) newErrors.degree_major = "Degree & Major is required";
+      if (!formData.get("university")) newErrors.university = "University / College is required";
+      if (!formData.get("graduation_year")) newErrors.graduation_year = "Graduation year is required";
       if (!visaStatus) newErrors.visa_status = "Please select your visa status";
       if (visaStatus === "other" && !formData.get("visa_other")) {
         newErrors.visa_other = "Please specify your visa status";
@@ -127,6 +128,8 @@ const Contact = () => {
     formValues.phone.trim() !== "" &&
     selectedServices.length > 0 &&
     formValues.degree_major.trim() !== "" &&
+    formValues.university.trim() !== "" &&
+    formValues.graduation_year.trim() !== "" &&
     visaStatus !== "" &&
     (visaStatus !== "other" || formValues.visa_other.trim() !== "") &&
     formValues.current_location.trim() !== "" &&
@@ -376,21 +379,21 @@ const Contact = () => {
 
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University / College</Label>
-                      <Input name="university" value={formValues.university} onChange={handleInputChange} placeholder="University name" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
-                      <p className="mt-1 text-[10px] text-neutral-400 font-medium">Leave blank if not applicable</p>
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University / College *</Label>
+                      <Input name="university" value={formValues.university} onChange={handleInputChange} placeholder="University name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.university ? 'border-destructive' : ''}`} />
+                      {errors.university && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.university}</p>}
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year</Label>
-                      <Input name="graduation_year" value={formValues.graduation_year} onChange={handleInputChange} placeholder="e.g., 2025" className="bg-neutral-50/50 border-neutral-200 rounded-xl h-11" />
-                      <p className="mt-1 text-[10px] text-neutral-400 font-medium">Expected or completed graduation year</p>
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year *</Label>
+                      <Input name="graduation_year" value={formValues.graduation_year} onChange={handleInputChange} placeholder="e.g., 2025" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.graduation_year ? 'border-destructive' : ''}`} />
+                      {errors.graduation_year && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.graduation_year}</p>}
                     </div>
                   </div>
 
                   <div className="sm:col-span-2 space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree & Major *</Label>
-                    <Input name="degree_major" value={formValues.degree_major} onChange={handleInputChange} placeholder="e.g. Master's & Computer Science" className={`h-11 rounded-xl ${errors.degree || errors.major ? 'border-destructive' : ''}`} />
-                    {(errors.degree || errors.major) && <p className="text-[10px] text-destructive font-semibold tracking-tight uppercase mt-1">{errors.degree || errors.major}</p>}
+                    <Input name="degree_major" value={formValues.degree_major} onChange={handleInputChange} placeholder="e.g., Master's in Computer Science" className={`h-11 rounded-xl bg-neutral-50/50 border-neutral-200 ${errors.degree_major ? 'border-destructive' : ''}`} />
+                    {errors.degree_major && <p className="text-[10px] text-destructive font-semibold tracking-tight uppercase mt-1">{errors.degree_major}</p>}
                   </div>
 
                   <div className="space-y-1.5">

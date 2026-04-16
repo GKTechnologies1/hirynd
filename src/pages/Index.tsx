@@ -33,19 +33,19 @@ const SERVICES = [
     title: 'Profile Marketing',
     description: 'Targeted submissions • Recruiter-driven applications • Custom resume & LinkedIn optimization • Progress tracking',
     image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80',
-    link: '/services#profile-marketing'
+    link: '/services/profile-marketing'
   },
   {
     title: 'Interview & Screening Call Training',
     description: 'Mock calls • Voice & communication improvement • Technical prep • Detailed feedback',
     image: 'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=800&q=80',
-    link: '/services#interview-practice'
+    link: '/services/interview-training'
   },
   {
     title: 'Skills Training Program',
     description: 'Role-based skill roadmap • Google Drive resources • Trainer sessions • Real project guidance',
     image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80',
-    link: '/services#skills-training'
+    link: '/services/skills-training'
   }
 ];
 
