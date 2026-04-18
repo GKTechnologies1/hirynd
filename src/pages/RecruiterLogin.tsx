@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { format, parse } from "date-fns";
 import Header from "@/components/layout/Header";
@@ -26,9 +26,17 @@ const RecruiterLogin = () => {
   const [submitting, setSubmitting] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<string | null>(null);
-  const { signIn, signOut } = useAuth();
+  const { signIn, signOut, user, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) {
+      if (["recruiter", "team_lead", "team_manager"].includes(user.role)) {
+        navigate("/recruiter-dashboard");
+      }
+    }
+  }, [user, loading, navigate]);
 
   const [reg, setReg] = useState({
     first_name: "", last_name: "", email: "", phone: "",

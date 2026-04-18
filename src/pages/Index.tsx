@@ -87,16 +87,31 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <SEO title="HYRIND — Focus on Skills. Let Us Handle the Rest." description="Recruiter-led profile marketing, resume optimization, daily job submissions, and interview preparation for job seekers in the U.S." path="/" />
+      <SEO title="HYRIND — Focus on Skills. Let Us Handle the Rest." description="Recruiter-led profile marketing, resume optimization, job submissions, and interview preparation for candidates across the U.S." path="/" />
       <Header />
       
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+        .home-wrapper {
+          font-family: 'Outfit', sans-serif;
+        }
+
         .hero-section {
           background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
           position: relative;
           overflow: hidden;
           padding: 5rem 2rem;
           box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
+        }
+        
+        .hero-section::after {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: url('https://www.transparenttextures.com/patterns/cubes.png');
+          opacity: 0.05;
+          pointer-events: none;
         }
         
         .hero-content {
@@ -217,23 +232,167 @@ const Home = () => {
           box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
         
-        .step-icon-wrap-custom {
-          width: 80px;
-          height: 80px;
-          background: #ffffff;
-          border: 3px solid #3b82f6;
-          border-radius: 24px;
+        /* == Workflow Timeline == */
+        .workflow-section {
+          background: #f0f6ff;
+          padding: 5rem 2rem;
+          overflow: hidden;
+        }
+
+        .timeline-wrapper {
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          gap: 0;
+          position: relative;
+          flex-wrap: nowrap;
+        }
+
+        .timeline-step {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          flex: 1;
+          min-width: 0;
+          position: relative;
+          z-index: 1;
+        }
+
+        .timeline-node {
+          width: 72px;
+          height: 72px;
+          background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+          border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 1.5rem;
-          font-weight: 800;
-          color: #1e40af;
-          margin-bottom: 1.5rem;
-          box-shadow: 0 10px 30px rgba(59, 130, 246, 0.15);
+          color: #fff;
+          box-shadow: 0 8px 24px rgba(59,130,246,0.35);
+          flex-shrink: 0;
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
           position: relative;
         }
 
+        .timeline-node:hover {
+          transform: scale(1.12);
+          box-shadow: 0 16px 40px rgba(59,130,246,0.5);
+        }
+
+        .timeline-step-badge {
+          position: absolute;
+          top: -8px;
+          right: -8px;
+          width: 22px;
+          height: 22px;
+          background: #facc15;
+          color: #1e40af;
+          font-size: 0.65rem;
+          font-weight: 900;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
+        }
+
+        .timeline-connector {
+          flex: 1;
+          height: 3px;
+          background: linear-gradient(90deg, #3b82f6, #93c5fd);
+          margin-top: 35px;
+          position: relative;
+          min-width: 20px;
+        }
+
+        .timeline-connector::after {
+          content: '';
+          position: absolute;
+          right: -8px;
+          top: 50%;
+          transform: translateY(-50%);
+          border-left: 9px solid #93c5fd;
+          border-top: 6px solid transparent;
+          border-bottom: 6px solid transparent;
+        }
+
+        .timeline-label {
+          margin-top: 1rem;
+          padding: 0 0.5rem;
+        }
+
+        .timeline-label h4 {
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #1e40af;
+          margin-bottom: 0.3rem;
+          line-height: 1.3;
+        }
+
+        .timeline-label p {
+          font-size: 0.72rem;
+          color: #64748b;
+          line-height: 1.4;
+        }
+
+        /* Mobile: vertical compact stack */
+        @media (max-width: 768px) {
+          .timeline-wrapper {
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+          }
+          .timeline-connector {
+            width: 3px;
+            height: 32px;
+            min-width: unset;
+            background: linear-gradient(180deg, #3b82f6, #93c5fd);
+            margin-top: 0;
+            margin-left: 35px;
+            align-self: flex-start;
+          }
+          .timeline-connector::after {
+            right: unset;
+            top: unset;
+            left: 50%;
+            bottom: -8px;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 9px solid #93c5fd;
+            border-bottom: none;
+          }
+          .timeline-step {
+            flex-direction: row;
+            text-align: left;
+            gap: 1rem;
+            width: 100%;
+            max-width: 320px;
+          }
+          .timeline-label {
+            margin-top: 0;
+            padding: 0;
+          }
+        }
+
+        /* == Brand Belief Line == */
+        .belief-line {
+          margin-top: 3.5rem;
+          text-align: center;
+          font-size: clamp(0.95rem, 2vw, 1.1rem);
+          font-style: italic;
+          color: #1e40af;
+          font-weight: 600;
+          position: relative;
+          padding: 1.25rem 2rem;
+          border-top: 2px solid #bfdbfe;
+          border-bottom: 2px solid #bfdbfe;
+          letter-spacing: 0.01em;
+        }
+
+
+        /* == CTA Section == */
         .cta-section-custom {
           background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
           padding: 5rem 2rem;
@@ -247,12 +406,20 @@ const Home = () => {
         <section className="hero-section">
           <div className="container hero-content text-center">
             <h1 className="hero-title">
-              <span className="block font-extrabold">Focus on Skills</span>
-              <span className="block text-yellow-400 font-semibold">Let Us Handle the Rest</span>
+              <span className="block" style={{ fontWeight: 900 }}>Focus on Skills</span>
+              <span className="block text-yellow-400" style={{ fontWeight: 600 }}>Let Us Handle the Rest</span>
             </h1>
-            <p className="hero-subtitle mb-8 max-w-3xl mx-auto">
-              We Market Your Profile. You Focus on Your Career Growth. At HYRIND, we help candidates land full-time opportunities in the United States without the stress of self-marketing.
+            <p className="hero-subtitle mb-4 max-w-3xl mx-auto" style={{ fontWeight: 600, fontSize: 'clamp(1.05rem, 2.5vw, 1.3rem)' }}>
+              We Market Your Profile. You Focus on Your Career Growth.
             </p>
+            <div className="hero-subtitle mb-8 max-w-3xl mx-auto text-left" style={{ opacity: 0.9 }}>
+              <p className="mb-3">
+                At HYRIND, we help candidates land full-time opportunities in the United States without the stress of self-marketing. Our recruiter-led platform manages profile marketing, resume optimization, job submissions, recruiter outreach, screening call preparation, and end-to-end job search support.
+              </p>
+              <p>
+                We support students, early-career professionals, and experienced candidates across the U.S. by combining expert profile marketing, role-based skills training, and real-time interview evaluation — ensuring every candidate is positioned for the right opportunity at the right time.
+              </p>
+            </div>
             <div className="flex flex-wrap justify-center gap-4 mt-8">
               <Link to="/contact" className="btn-custom btn-primary-custom">
                 Submit Interest Form
@@ -287,6 +454,11 @@ const Home = () => {
                 </div>
               ))}
             </div>
+
+            {/* Brand Belief Line */}
+            <p className="belief-line">
+              We believe in doing the right thing, in the right way, at the right time — to deliver the right results.
+            </p>
           </div>
         </section>
 
@@ -313,26 +485,31 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Workflow Section */}
-        <section className="py-20 bg-gray-50 overflow-hidden">
+        {/* Workflow Section – Horizontal Timeline */}
+        <section className="workflow-section">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
+            <div className="text-center mb-14">
               <span className="section-tag">Our Workflow</span>
               <h2 className="section-title-custom">Simple Steps to Career Launch</h2>
             </div>
 
-            <div className="grid md:grid-cols-5 gap-4 relative">
+            <div className="timeline-wrapper">
               {PROCESS_STEPS.map((step, index) => (
-                <div key={index} className="flex flex-col items-center text-center">
-                  <div className="step-icon-wrap-custom group hover:bg-blue-900 hover:text-white transition-all">
-                    <span className="absolute -top-3 -right-3 bg-yellow-400 text-blue-900 text-xs font-black px-2 py-1 rounded-md shadow-lg">
-                      STEP 0{step.step}
-                    </span>
-                    <i className={step.icon}></i>
+                <React.Fragment key={index}>
+                  <div className="timeline-step">
+                    <div className="timeline-node">
+                      <span className="timeline-step-badge">{step.step}</span>
+                      <i className={step.icon} style={{ fontSize: '1.4rem' }}></i>
+                    </div>
+                    <div className="timeline-label">
+                      <h4>{step.title}</h4>
+                      <p>{step.detail}</p>
+                    </div>
                   </div>
-                  <h4 className="font-bold text-blue-900 mb-2">{step.title}</h4>
-                  <p className="text-sm text-gray-500">{step.detail}</p>
-                </div>
+                  {index < PROCESS_STEPS.length - 1 && (
+                    <div className="timeline-connector" aria-hidden="true" />
+                  )}
+                </React.Fragment>
               ))}
             </div>
           </div>
@@ -343,10 +520,10 @@ const Home = () => {
           <div className="container mx-auto px-4">
             <h2 className="text-3xl font-extrabold mb-4">Ready to Get More Interviews?</h2>
             <p className="text-xl opacity-90 mb-8">Join HYRIND and start receiving recruiter calls and real interview opportunities.</p>
-            <div className="flex justify-center gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
               <Link to="/contact" className="btn-custom btn-primary-custom">Submit Interest</Link>
-              <button 
-                onClick={() => window.open("https://cal.com/hyrind/15min?layout=mobile", "_blank")}
+              <button
+                onClick={() => window.open("https://cal.com/hyrind", "_blank")}
                 className="btn-custom btn-outline-custom"
               >
                 Book a Call

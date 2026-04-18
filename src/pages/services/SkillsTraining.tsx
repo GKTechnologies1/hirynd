@@ -1,377 +1,405 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Calendar, CheckCircle, BookOpen, Zap, Target, Rocket, Play, Trophy, TrendingUp } from "lucide-react";
+import SEO from "@/components/SEO";
+import { GraduationCap, Target, BookOpen, Rocket, TrendingUp, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 
-const features = [
-  "Role-specific skills roadmaps aligned with market demand",
-  "Curated, recruiter-approved learning resources (Google Drive, platforms)",
-  "Weekly tasks, milestones, and measurable progress tracking",
-  "Centralized learning access through your candidate portal",
-  "Trainer guidance and mentorship from industry professionals",
-  "Real-world project exposure and hands-on practice assignments",
-  "Tool and technology training relevant to your target roles",
-  "Ongoing support and upskilling until placement",
-  "Portfolio project guidance and verification",
-  "Weekly trainer check-ins and progress reviews",
-];
-
-const benefits = [
-  { icon: Target, title: "Role-Specific Roadmaps", desc: "Customized learning paths designed specifically for your target roles and career goals." },
-  { icon: BookOpen, title: "Curated Resources", desc: "No overwhelm—we provide handpicked, proven learning materials verified by recruiters." },
-  { icon: Rocket, title: "Hands-On Projects", desc: "Real-world assignments that build portfolios and demonstrate actual job-ready skills." },
-  { icon: TrendingUp, title: "Measurable Progress", desc: "Track milestone completions, skill assessments, and tangible improvements weekly." },
-  { icon: Play, title: "Live Trainer Sessions", desc: "Weekly trainer sessions, Q&A, and mentorship to clarify concepts and stay motivated." },
-  { icon: Trophy, title: "Verified Credentials", desc: "Portfolio projects verified by trainers to showcase real competency to employers." },
-];
-
-const sampleRoadmaps = [
-  {
-    title: "Full-Stack Web Development",
-    duration: "12-16 weeks",
-    skills: ["JavaScript/TypeScript", "React.js", "Node.js", "Databases (SQL/NoSQL)", "APIs", "Deployment"],
-    projects: "3-4 real-world projects"
-  },
-  {
-    title: "Data Analytics & Python",
-    duration: "10-14 weeks",
-    skills: ["Python", "SQL", "Data Visualization", "Tableau/Power BI", "Statistical Analysis", "Excel Advanced"],
-    projects: "2-3 portfolio projects"
-  },
-  {
-    title: "Cloud & DevOps (AWS/Azure)",
-    duration: "12-16 weeks",
-    skills: ["AWS/Azure Fundamentals", "Docker & Kubernetes", "CI/CD Pipelines", "Infrastructure as Code", "Linux", "Networking"],
-    projects: "3-4 hands-on labs"
-  },
-  {
-    title: "UI/UX Design & Figma",
-    duration: "10-12 weeks",
-    skills: ["Design Fundamentals", "Figma", "User Research", "Prototyping", "Accessibility", "Design Systems"],
-    projects: "2-3 portfolio designs"
-  },
-];
-
-const SkillsTraining = () => {
-  const [activeRoadmap, setActiveRoadmap] = useState(0);
+export default function SkillsTraining() {
+  const navigate = useNavigate();
 
   useEffect(() => {
-    document.body.style.paddingTop = '80px';
-    return () => {
-      document.body.style.paddingTop = '0px';
-    };
+    window.scrollTo(0, 0);
+    document.body.style.paddingTop = "80px";
+    return () => { document.body.style.paddingTop = "0px"; };
   }, []);
 
+  const features = [
+    "Role-Specific Skill Roadmaps",
+    "Curated Recruiter Resources",
+    "Weekly Practical Training Tasks",
+    "Portfolio Project Guidance",
+    "Milestone Progress Tracking",
+    "Trainer guidance and industry professional mentorship",
+    "Real-world project exposure and hands-on practice",
+    "Weekly trainer check-ins and progress reviews",
+    "Graduation with a verified, market-ready portfolio"
+  ];
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="service-detail-page">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+        .service-detail-page {
+          font-family: 'Outfit', sans-serif;
+          background-color: #fcfdfe;
+          color: #0f172a;
+          overflow-x: hidden;
+        }
+
+        .service-hero {
+          background: radial-gradient(circle at top right, #1e40af, #0d47a1);
+          color: white;
+          padding: 160px 24px 100px;
+          text-align: center;
+          clip-path: ellipse(150% 100% at 50% 0%);
+          position: relative;
+        }
+
+        .service-hero::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: url('https://www.transparenttextures.com/patterns/cubes.png');
+          opacity: 0.1;
+          pointer-events: none;
+        }
+
+        .hero-content {
+          max-width: 900px;
+          margin: 0 auto;
+          position: relative;
+          z-index: 10;
+        }
+
+        .hero-badge {
+          display: inline-block;
+          background: rgba(255,255,255,0.15);
+          border: 1px solid rgba(255,255,255,0.3);
+          padding: 6px 20px;
+          border-radius: 50px;
+          font-size: 0.85rem;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          margin-bottom: 24px;
+        }
+
+        .service-hero h1 {
+          font-size: clamp(3rem, 8vw, 4.5rem);
+          font-weight: 800;
+          margin-bottom: 24px;
+          letter-spacing: -0.04em;
+          line-height: 1.1;
+        }
+
+        .service-hero p {
+          font-size: 1.25rem;
+          opacity: 0.9;
+          font-weight: 300;
+          max-width: 750px;
+          margin: 0 auto 40px;
+          line-height: 1.6;
+        }
+
+        .btn-premium-v2 {
+          background: white;
+          color: #0d47a1;
+          padding: 20px 48px;
+          border-radius: 20px;
+          font-weight: 800;
+          font-size: 1.1rem;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+          border: none;
+          cursor: pointer;
+        }
+
+        .btn-premium-v2:hover {
+          transform: translateY(-5px) scale(1.02);
+          box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+        }
+
+        .btn-outline-v2 {
+          background: transparent;
+          color: white;
+          padding: 18px 44px;
+          border-radius: 20px;
+          font-weight: 700;
+          border: 2px solid rgba(255,255,255,0.5);
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          transition: 0.3s;
+        }
+
+        .btn-outline-v2:hover {
+          background: rgba(255,255,255,0.1);
+          border-color: white;
+        }
+
+        .content-section {
+          padding: 100px 24px;
+        }
+
+        .container-v2 {
+          max-width: 1100px;
+          margin: 0 auto;
+        }
+
+        .tag-v2 {
+          color: #2563eb;
+          font-weight: 700;
+          font-size: 0.85rem;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          display: block;
+          margin-bottom: 12px;
+        }
+
+        .title-v2 {
+          font-size: 3rem;
+          font-weight: 800;
+          color: #0f172a;
+          margin-bottom: 24px;
+          line-height: 1.2;
+        }
+
+        .desc-v2 {
+          font-size: 1.2rem;
+          line-height: 1.8;
+          color: #475569;
+          margin-bottom: 60px;
+        }
+
+        .benefits-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 30px;
+        }
+
+        .benefit-card {
+          background: white;
+          padding: 40px;
+          border-radius: 30px;
+          border: 1px solid #eef2ff;
+          transition: 0.4s;
+        }
+
+        .benefit-card:hover {
+          transform: translateY(-10px);
+          box-shadow: 0 20px 40px rgba(37, 99, 235, 0.08);
+          border-color: #2563eb;
+        }
+
+        .icon-wrap {
+          width: 60px;
+          height: 60px;
+          background: #eff6ff;
+          color: #2563eb;
+          border-radius: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 24px;
+        }
+
+        .split-section {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 60px;
+          align-items: center;
+        }
+
+        @media (max-width: 991px) {
+          .split-section { grid-template-columns: 1fr; }
+        }
+
+        .feature-list {
+          list-style: none;
+          padding: 0;
+        }
+
+        .feature-item {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          margin-bottom: 18px;
+          font-size: 1.1rem;
+          font-weight: 500;
+        }
+
+        .final-cta {
+          margin: 100px 24px;
+          background: linear-gradient(135deg, #0d47a1 0%, #1e40af 100%);
+          padding: 100px 48px;
+          border-radius: 60px;
+          color: white;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .final-cta::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: url('https://www.transparenttextures.com/patterns/cubes.png');
+          opacity: 0.1;
+          pointer-events: none;
+        }
+
+        .cta-content {
+          max-width: 800px;
+          margin: 0 auto;
+          position: relative;
+          z-index: 10;
+        }
+
+        .floating-icon {
+          position: absolute;
+          width: 100px;
+          height: 100px;
+          background: rgba(255,255,255,0.1);
+          border-radius: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          top: -30px;
+          left: -30px;
+          animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0) rotate(0); }
+          50% { transform: translateY(-20px) rotate(10deg); }
+        }
+      `}</style>
+      <SEO 
+        title="Role-Based Skills Training | HYRIND" 
+        description="Bridge your skills gaps with our role-based roadmaps. We provide curated resources and weekly practical tasks that align specifically with current market requirements." 
+        path="/services/skills-training" 
+      />
       <Header />
-      <main>
-        {/* Hero Section */}
-        <section className="py-20 lg:py-32 bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-950 text-white">
-          <div className="container px-4">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-4xl">
-              <div className="mb-6 inline-block rounded-full bg-emerald-400/20 px-4 py-2">
-                <span className="text-sm font-semibold text-emerald-200">Market-Ready Skills Training</span>
-              </div>
-              <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                Bridge Your Skill Gaps Fast
-              </h1>
-              <p className="text-xl lg:text-2xl text-emerald-100 mb-8 leading-relaxed">
-                Master in-demand skills with role-specific training paths, real-world projects, trainer mentorship, and portfolio projects—all aligned to what employers are actually hiring for right now.
+
+      {/* Hero */}
+      <section className="service-hero">
+        <div className="hero-content">
+          <div className="hero-badge">Career Transformation</div>
+          <h1>Market-Aligned Skills Training</h1>
+          <p>
+            Bridge your skills gaps with our role-based roadmaps. We provide curated resources and weekly practical tasks that align specifically with current market requirements and hiring manager expectations.
+          </p>
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn-premium-v2" onClick={() => navigate('/contact')}>
+              Explore Roadmaps <ArrowRight size={20} />
+            </button>
+            <button className="btn-outline-v2" onClick={() => window.open("https://cal.com/hyrind", "_blank")}>
+              Talk to a Mentor
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <section className="content-section">
+        <div className="container-v2">
+          <div className="split-section">
+            <div>
+              <span className="tag-v2">Strategic Roadmaps</span>
+              <h2 className="title-v2">Focused Learning, Real Results</h2>
+              <p className="desc-v2">
+                Our skills training isn't just about learning—it's about becoming job-ready. We provide role-specific templates, curated learning resources, and hands-on projects that build a portfolio verified by trainers.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button variant="hero" size="lg" className="gap-2 bg-white text-emerald-900 hover:bg-emerald-50 text-lg h-14 px-8" asChild>
-                  <a href="/contact">Start Skills Training <ArrowRight className="h-5 w-5" /></a>
-                </Button>
-                <Button variant="outline" size="lg" className="gap-2 border-white text-white hover:bg-white/10 text-lg h-14 px-8" asChild>
-                  <a href="https://cal.com" target="_blank" rel="noopener noreferrer">
-                    <Calendar className="h-5 w-5 bg-emerald-500" /> <span className="text-black">Explore Roadmaps</span>
-                  </a>
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* The Problem */}
-        <section className="py-20 lg:py-28 bg-gray-50">
-          <div className="container px-4">
-            <div className="max-w-4xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-gray-900 mb-4">
-                The Skills Gap Problem
-              </motion.h2>
-              <p className="text-gray-600 text-lg mb-12">
-                Job market requirements are constantly evolving. By the time you learn a skill, employers want the next one. Random online courses waste time without clear career alignment.
-              </p>
-              
-              <div className="grid md:grid-cols-3 gap-6">
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="p-6 bg-white rounded-xl border border-red-200">
-                  <h3 className="font-bold text-lg text-gray-900 mb-3">❌ The Problem</h3>
-                  <ul className="space-y-2 text-gray-700 text-sm">
-                    <li>• No clear learning path</li>
-                    <li>• Too many options, unclear priorities</li>
-                    <li>• Learning doesn't match job requirements</li>
-                    <li>• No hands-on experience</li>
-                    <li>• Wasted time on outdated skills</li>
-                  </ul>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="p-6 bg-white rounded-xl border border-blue-200">
-                  <h3 className="font-bold text-lg text-gray-900 mb-3">📊 Market Reality</h3>
-                  <ul className="space-y-2 text-gray-700 text-sm">
-                    <li>• 70% of jobs require new skills</li>
-                    <li>• Hiring teams skip candidates missing key tech</li>
-                    <li>• Portfolio projects beat certifications</li>
-                    <li>• Practical experience is critical</li>
-                    <li>• Time-to-market matters</li>
-                  </ul>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="p-6 bg-white rounded-xl border border-green-200">
-                  <h3 className="font-bold text-lg text-gray-900 mb-3">✅ Our Solution</h3>
-                  <ul className="space-y-2 text-gray-700 text-sm">
-                    <li>• Role-specific learning paths</li>
-                    <li>• Recruiter-curated resources</li>
-                    <li>• Real-world project assignments</li>
-                    <li>• Live trainer mentorship</li>
-                    <li>• Verified portfolio projects</li>
-                  </ul>
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* How Learning Works */}
-        <section className="py-20 lg:py-28">
-          <div className="container px-4">
-            <div className="max-w-4xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-center text-gray-900 mb-4">
-                How Our Skills Training Works
-              </motion.h2>
-              <p className="text-center text-gray-600 text-lg mb-16">Structured learning with real support and accountability:</p>
-              
-              <div className="space-y-8">
-                <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} className="flex gap-6 p-8 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200">
-                  <div className="w-16 h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-2xl flex-shrink-0">1</div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">Assessment & Roadmap Creation</h3>
-                    <p className="text-gray-700 text-lg leading-relaxed">
-                      We assess your current skills, target role, and learning speed. You receive a personalized 10-16 week roadmap with weekly milestones, curated resources, and clear progress markers.
-                    </p>
-                  </div>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="flex gap-6 p-8 rounded-2xl bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200">
-                  <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-2xl flex-shrink-0">2</div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">Weekly Learning & Tasks</h3>
-                    <p className="text-gray-700 text-lg leading-relaxed">
-                      Each week: 3-5 hours of guided learning with curated resources, practical tasks to apply knowledge, and real-world scenarios. All materials are in your candidate portal.
-                    </p>
-                  </div>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="flex gap-6 p-8 rounded-2xl bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200">
-                  <div className="w-16 h-16 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-2xl flex-shrink-0">3</div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">Live Trainer Sessions</h3>
-                    <p className="text-gray-700 text-lg leading-relaxed">
-                      Weekly live sessions with trainers for Q&A, clarifications, and mentorship. Debug challenges, ask questions, and get expert guidance in real-time.
-                    </p>
-                  </div>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }} className="flex gap-6 p-8 rounded-2xl bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200">
-                  <div className="w-16 h-16 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold text-2xl flex-shrink-0">4</div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">Portfolio Projects</h3>
-                    <p className="text-gray-700 text-lg leading-relaxed">
-                      Build 2-4 real portfolio projects that showcase your skills. Trainers provide guidance, review your code/work, and verify competency—creating proof for employers.
-                    </p>
-                  </div>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.4 }} className="flex gap-6 p-8 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
-                  <div className="w-16 h-16 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-2xl flex-shrink-0">5</div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">Continuous Improvement</h3>
-                    <p className="text-gray-700 text-lg leading-relaxed">
-                      Progress tracked weekly with trainer feedback. Roadmap adjusts based on pace. Interview-ready candidates graduate with verified skills and portfolio-backed confidence.
-                    </p>
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Sample Roadmaps */}
-        <section className="py-20 lg:py-28 bg-gray-50">
-          <div className="container px-4">
-            <div className="max-w-5xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-center text-gray-900 mb-4">
-                Popular Skill Roadmaps
-              </motion.h2>
-              <p className="text-center text-gray-600 text-lg mb-12">Examples of role-specific learning paths we offer:</p>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                {sampleRoadmaps.map((roadmap, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: idx * 0.1 }}
-                    onClick={() => setActiveRoadmap(idx)}
-                    className={`p-6 rounded-xl border-2 cursor-pointer transition-all ${
-                      activeRoadmap === idx 
-                        ? 'bg-emerald-50 border-emerald-500 shadow-lg' 
-                        : 'bg-white border-gray-200 hover:border-emerald-300'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold text-gray-900">{roadmap.title}</h3>
-                      {activeRoadmap === idx && <span className="text-emerald-600 text-2xl">✓</span>}
-                    </div>
-                    <p className="text-emerald-600 font-semibold mb-4">{roadmap.duration}</p>
-                    <div>
-                      <p className="font-semibold text-gray-900 mb-2 text-sm">Key Skills:</p>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {roadmap.skills.slice(0, 3).map((skill, i) => (
-                          <span key={i} className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
-                            {skill}
-                          </span>
-                        ))}
-                        {roadmap.skills.length > 3 && (
-                          <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold">
-                            +{roadmap.skills.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-gray-600 text-sm">
-                        <span className="font-semibold">Projects:</span> {roadmap.projects}
-                      </p>
-                    </div>
-                  </motion.div>
+              <ul className="feature-list">
+                {features.map((f, i) => (
+                  <li key={i} className="feature-item">
+                    <CheckCircle2 size={24} style={{ color: '#2563eb' }} /> {f}
+                  </li>
                 ))}
+              </ul>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <div className="floating-icon">
+                <GraduationCap size={50} color="white" />
               </div>
+              <img 
+                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80" 
+                alt="Skills Training" 
+                style={{ borderRadius: '40px', width: '100%', boxShadow: '0 40px 80px rgba(13,71,161,0.15)' }} 
+              />
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Benefits */}
-        <section className="py-20 lg:py-28">
-          <div className="container px-4">
-            <div className="max-w-4xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-center text-gray-900 mb-4">
-                Why Skills Training Transforms Careers
-              </motion.h2>
-              
-              <div className="grid md:grid-cols-2 gap-6 mt-16">
-                {benefits.map((benefit, idx) => {
-                  const Icon = benefit.icon;
-                  return (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: idx * 0.08 }}
-                      className="p-6 bg-white rounded-xl border border-emerald-100 hover:shadow-lg transition-shadow"
-                    >
-                      <Icon className="h-10 w-10 text-emerald-600 mb-4" />
-                      <h3 className="font-bold text-lg text-gray-900 mb-2">{benefit.title}</h3>
-                      <p className="text-gray-600">{benefit.desc}</p>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
+      {/* Benefits Grid */}
+      <section className="content-section" style={{ background: '#f8fafc' }}>
+        <div className="container-v2">
+          <div style={{ textAlign: 'center', marginBottom: '80px' }}>
+            <span className="tag-v2">The HYRIND Learning Edge</span>
+            <h2 className="title-v2">Why Our Skills Training Works</h2>
           </div>
-        </section>
+          <div className="benefits-grid">
+            {[
+              { icon: <Target />, title: "Market Alignment", desc: "Every skill we teach is verified against current job descriptions and hiring trends." },
+              { icon: <BookOpen />, title: "Curated Content", desc: "No more overwhelming courses—we provide handpicked resources that matter most." },
+              { icon: <Rocket />, title: "Portfolio Building", desc: "Build 3–4 real-world projects that demonstrate your competency to employers." },
+              { icon: <TrendingUp />, title: "Progressive Learning", desc: "Move from foundational concepts to advanced implementation with trainer guidance." },
+              { icon: <Sparkles />, title: "Expert Mentorship", desc: "Weekly live sessions with industry professionals to clarify complex concepts." },
+              { icon: <CheckCircle2 />, title: "Verified Competency", desc: "Graduate with a verified skills portfolio that significantly increases call-back rates." }
+            ].map((b, i) => (
+              <div key={i} className="benefit-card">
+                <div className="icon-wrap">{b.icon}</div>
+                <h3>{b.title}</h3>
+                <p style={{ color: '#475569', lineHeight: 1.6 }}>{b.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-        {/* What's Included */}
-        <section className="py-20 lg:py-28 bg-gradient-to-br from-emerald-50 to-teal-50">
-          <div className="container px-4">
-            <div className="max-w-3xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-gray-900 mb-4">
-                What's Included in Skills Training
-              </motion.h2>
-              <p className="text-gray-600 text-lg mb-12">Comprehensive learning support from day one to graduation:</p>
-              
-              <div className="space-y-4">
-                {features.map((item, idx) => (
-                  <motion.div
-                    key={item}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="flex items-start gap-3 p-4 rounded-lg hover:bg-white transition-colors"
-                  >
-                    <CheckCircle className="mt-1 h-6 w-6 flex-shrink-0 text-emerald-600" />
-                    <span className="text-gray-700 text-lg">{item}</span>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
+      {/* Roadmaps section */}
+      <section className="content-section">
+        <div className="container-v2">
+          <div style={{ textAlign: 'center', marginBottom: '80px' }}>
+            <span className="tag-v2">Available Paths</span>
+            <h2 className="title-v2">Skill Paths We Offer</h2>
+            <p className="desc-v2" style={{ maxWidth: '700px', margin: '0 auto' }}>
+              We specialize in high-demand technology and business roles, ensuring your training leads directly to recruitment opportunities.
+            </p>
           </div>
-        </section>
+          <div className="benefits-grid">
+            {[
+              { title: "Full-Stack Development", skills: "React, Node.js, SQL, APIs, Cloud" },
+              { title: "Data Analytics", skills: "Python, SQL, Tableau, Statistics" },
+              { title: "Cloud & DevOps", skills: "AWS, Docker, CI/CD, Terraform" },
+              { title: "Product Management", skills: "Agile, Jira, Roadmap, Analytics" }
+            ].map((r, i) => (
+              <div key={i} className="benefit-card" style={{ padding: '30px' }}>
+                <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>{r.title}</h3>
+                <p style={{ fontSize: '0.9rem', color: '#2563eb', fontWeight: 700, marginBottom: '15px' }}>Key Skills Covered:</p>
+                <p style={{ fontSize: '0.95rem', color: '#475569' }}>{r.skills}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-        {/* Results */}
-        <section className="py-20 lg:py-28">
-          <div className="container px-4">
-            <div className="max-w-4xl mx-auto">
-              <h2 className="text-4xl font-bold text-center text-gray-900 mb-16">Graduate Results</h2>
-              <div className="grid md:grid-cols-3 gap-8">
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center p-8 bg-emerald-50 rounded-xl">
-                  <div className="text-5xl font-bold text-emerald-600 mb-3">92%</div>
-                  <p className="text-xl text-gray-900">Graduation Rate</p>
-                  <p className="text-gray-600 mt-2">Complete their roadmaps on schedule</p>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-center p-8 bg-emerald-50 rounded-xl">
-                  <div className="text-5xl font-bold text-emerald-600 mb-3">3.2x</div>
-                  <p className="text-xl text-gray-900">Interview Rate Increase</p>
-                  <p className="text-gray-600 mt-2">With verified portfolio projects</p>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="text-center p-8 bg-emerald-50 rounded-xl">
-                  <div className="text-5xl font-bold text-emerald-600 mb-3">6-8 wks</div>
-                  <p className="text-xl text-gray-900">Average to First Interview</p>
-                  <p className="text-gray-600 mt-2">After skills verification</p>
-                </motion.div>
-              </div>
-            </div>
+      {/* Final CTA */}
+      <section className="final-cta">
+        <div className="cta-content">
+          <h2 style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '24px' }}>Stop Learning in Circles. Start Training for a Career.</h2>
+          <p style={{ fontSize: '1.25rem', marginBottom: '40px', opacity: 0.9 }}>
+            Join HYRIND and get the roadmap, the resources, and the recruiter support you need to land your next full-time role.
+          </p>
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn-premium-v2" onClick={() => navigate('/contact')}>
+              Apply for Training <Sparkles size={20} />
+            </button>
+            <button className="btn-outline-v2" onClick={() => window.open("https://cal.com/hyrind", "_blank")}>
+              View Roadmaps
+            </button>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* CTA */}
-        <section className="py-20 lg:py-28 bg-emerald-900 text-white">
-          <div className="container px-4">
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="max-w-3xl mx-auto text-center">
-              <h2 className="text-4xl font-bold mb-6">Ready to Master the Skills That Get Hired?</h2>
-              <p className="text-xl text-emerald-100 mb-10">
-                Join a structured learning program with real accountability, trainer mentorship, and portfolio projects that prove your competency to employers.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button variant="hero" size="lg" className="gap-2 bg-white text-emerald-900 hover:bg-emerald-50 text-lg h-14 px-8" asChild>
-                  <a href="/contact">Start Learning Today <ArrowRight className="h-5 w-5" /></a>
-                </Button>
-                <Button variant="outline" size="lg" className="gap-2 border-white text-white hover:bg-white/10 text-lg h-14 px-8" asChild>
-                  <a href="https://cal.com" target="_blank" rel="noopener noreferrer">
-                    <Calendar className="h-5 w-5" /> Explore All Roadmaps
-                  </a>
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-      </main>
       <Footer />
     </div>
   );
-};
-
-export default SkillsTraining;
+}

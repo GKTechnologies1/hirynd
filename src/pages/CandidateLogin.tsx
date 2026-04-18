@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { format, parse } from "date-fns";
 import Header from "@/components/layout/Header";
@@ -26,9 +26,17 @@ const CandidateLogin = () => {
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<string | null>(null);
   const [countryCode, setCountryCode] = useState("+1");
-  const { signIn, signOut } = useAuth();
+  const { signIn, signOut, user, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) {
+      if (user.role === "candidate") {
+        navigate("/candidate-dashboard");
+      }
+    }
+  }, [user, loading, navigate]);
 
   // Registration fields per spec Section 3.1
   const [reg, setReg] = useState({

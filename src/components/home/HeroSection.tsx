@@ -23,32 +23,29 @@ const HeroSection = () => {
           >
             Focus on Skills
             <br />
-            <span className="text-gradient">Let Us Handle the Rest</span>
+            <span className="text-gradient" style={{ fontWeight: 600 }}>Let Us Handle the Rest</span>
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-4 text-lg font-medium text-primary-foreground/80 sm:text-xl"
+            className="mt-4 text-lg font-semibold text-primary-foreground sm:text-xl"
           >
-            We market your profile. You focus on your career.
+            We Market Your Profile. You Focus on Your Career Growth.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.35 }}
-            className="mx-auto mt-6 max-w-2xl text-primary-foreground/60"
+            className="mx-auto mt-6 max-w-2xl text-primary-foreground/70 text-left"
           >
             <p className="mb-4">
-              HYRIND is a recruiter-led profile marketing and job support platform that removes the stress of self-marketing. We manage your entire job search — from resume building and daily job submissions to recruiter connections and screening call preparation.
-            </p>
-            <p className="mb-4">
-              We support international students (F-1 / OPT / STEM OPT), graduates, early-career professionals, and any candidate in the U.S. seeking full-time roles.
+              At HYRIND, we help candidates land full-time opportunities in the United States without the stress of self-marketing. Our recruiter-led platform manages profile marketing, resume optimization, job submissions, recruiter outreach, screening call preparation, and end-to-end job search support.
             </p>
             <p>
-              Our focus: role-based profile marketing, skills training and upskilling, and real interview preparation and evaluation.
+              We support students, early-career professionals, and experienced candidates across the U.S. by combining expert profile marketing, role-based skills training, and real-time interview evaluation — ensuring every candidate is positioned for the right opportunity at the right time.
             </p>
           </motion.div>
 

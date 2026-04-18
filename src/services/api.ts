@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const isStaging = window.location.href.includes("staging.hyrind.com") || window.location.href.includes("staging.hrind.com");
+const isStaging = window.location.href.includes("staging.hyrind.com") || window.location.href.includes("hyrind.com");
 
 const STAGING_URL = import.meta.env.VITE_STAGING_API || 'https://api-staging.hyrind.com';
 const LOCAL_URL = import.meta.env.VITE_LOCAL_API || 'http://127.0.0.1:8000';
@@ -77,7 +77,7 @@ export const authApi = {
   updateUser: (userId: string, data: Record<string, any>) => api.patch(`/auth/users/${userId}/`, data),
   deleteUser: (userId: string) => api.delete(`/auth/users/${userId}/`),
   analytics: () => api.get('/auth/analytics/'),
-  submitContact: (data: any) => 
+  submitContact: (data: any) =>
     api.post('/auth/contact/', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
 };
 
@@ -203,7 +203,7 @@ export const billingApi = {
 
   // New endpoints for Frontend Candidate Billing
   candidateOverview: (candidateId: string) => api.get(`/billing/${candidateId}/overview/`),
-  downloadInvoice: (invoiceId: string) => 
+  downloadInvoice: (invoiceId: string) =>
     api.get(`/billing/invoices/${invoiceId}/download/`, { responseType: 'blob' }),
 
   // Legacy compat — used by AdminBillingTab manual form

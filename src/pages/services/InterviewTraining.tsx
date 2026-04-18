@@ -1,340 +1,439 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Calendar, CheckCircle, Mic, Brain, Lightbulb, Award, Users, MessageSquare, ChevronDown } from "lucide-react";
+import SEO from "@/components/SEO";
+import { Mic, Brain, Lightbulb, Award, Users, MessageSquare, CheckCircle2, ArrowRight, ChevronDown, Sparkles } from "lucide-react";
 
-const features = [
-  "Realistic one-on-one mock interview sessions with industry professionals",
-  "Screening call coaching with customized scripts and preparation guides",
-  "Behavioral and technical interview preparation tailored to your role",
-  "STAR method coaching for structured, impactful, memorable answers",
-  "Voice, communication, pacing, and confidence improvement training",
-  "Industry-specific question banks and targeted guidance",
-  "Real-time feedback and personalized improvement plans",
-  "Confidence-building through repeated, coached practice sessions",
-  "Ongoing guidance and support until you're fully client-ready",
-];
-
-const benefits = [
-  { icon: Brain, title: "Master Interview Framework", desc: "Learn proven techniques like the STAR method to structure compelling, relevant answers." },
-  { icon: Mic, title: "Voice & Communication Coaching", desc: "Improve pace, tone, clarity, and presence to leave a lasting positive impression." },
-  { icon: Lightbulb, title: "Industry-Specific Prep", desc: "Target preparation aligned with your specific role and industry requirements." },
-  { icon: Award, title: "Confidence Building", desc: "Multiple practice sessions reduce anxiety and build genuine confidence for real interviews." },
-  { icon: Users, title: "Diverse Interviewer Styles", desc: "Practice with different interviewer personalities and styles to handle any situation." },
-  { icon: MessageSquare, title: "Personalized Feedback", desc: "Detailed feedback after each session with actionable improvement areas." },
-];
-
-const faqs = [
-  {
-    q: "How many mock interviews do I get?",
-    a: "Typically 4-6 mock interviews per month depending on your package. Each session is tailored to your target roles and preparation needs."
-  },
-  {
-    q: "Can you prepare me for technical interviews?",
-    a: "Yes! We cover both behavioral and technical interviews. We provide frameworks, practice questions, and real-time feedback on your technical explanations."
-  },
-  {
-    q: "How long is each mock session?",
-    a: "Usually 45-60 minutes: 20-30 min interview, 15-20 min feedback, and 10-15 min discussion on improvement areas."
-  },
-  {
-    q: "What if I have an interview coming up soon?",
-    a: "We can schedule crash courses! We often do intensive 1-week or 2-week preparation for candidates with upcoming interviews."
-  },
-];
-
-const InterviewTraining = () => {
+export default function InterviewTraining() {
+  const navigate = useNavigate();
   const [expandedFaq, setExpandedFaq] = useState(0);
 
   useEffect(() => {
-    document.body.style.paddingTop = '80px';
-    return () => {
-      document.body.style.paddingTop = '0px';
-    };
+    window.scrollTo(0, 0);
+    document.body.style.paddingTop = "80px";
+    return () => { document.body.style.paddingTop = "0px"; };
   }, []);
 
+  const features = [
+    "Mock Client Call Simulations",
+    "Real-Time Constructive Feedback",
+    "Communication & Presence Coaching",
+    "STAR Method & Behavioral Training",
+    "Confidence & Anxiety Management",
+    "Realistic one-on-one sessions with industry professionals",
+    "Screening call coaching with customized scripts",
+    "Industry-specific question banks",
+    "Ongoing support until you're fully client-ready"
+  ];
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="service-detail-page">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+        .service-detail-page {
+          font-family: 'Outfit', sans-serif;
+          background-color: #fcfdfe;
+          color: #0f172a;
+          overflow-x: hidden;
+        }
+
+        .service-hero {
+          background: radial-gradient(circle at top right, #1e40af, #0d47a1);
+          color: white;
+          padding: 160px 24px 100px;
+          text-align: center;
+          clip-path: ellipse(150% 100% at 50% 0%);
+          position: relative;
+        }
+
+        .service-hero::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: url('https://www.transparenttextures.com/patterns/cubes.png');
+          opacity: 0.1;
+          pointer-events: none;
+        }
+
+        .hero-content {
+          max-width: 900px;
+          margin: 0 auto;
+          position: relative;
+          z-index: 10;
+        }
+
+        .hero-badge {
+          display: inline-block;
+          background: rgba(255,255,255,0.15);
+          border: 1px solid rgba(255,255,255,0.3);
+          padding: 6px 20px;
+          border-radius: 50px;
+          font-size: 0.85rem;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          margin-bottom: 24px;
+        }
+
+        .service-hero h1 {
+          font-size: clamp(3rem, 8vw, 4.5rem);
+          font-weight: 800;
+          margin-bottom: 24px;
+          letter-spacing: -0.04em;
+          line-height: 1.1;
+        }
+
+        .service-hero p {
+          font-size: 1.25rem;
+          opacity: 0.9;
+          font-weight: 300;
+          max-width: 750px;
+          margin: 0 auto 40px;
+          line-height: 1.6;
+        }
+
+        .btn-premium-v2 {
+          background: white;
+          color: #0d47a1;
+          padding: 20px 48px;
+          border-radius: 20px;
+          font-weight: 800;
+          font-size: 1.1rem;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+          border: none;
+          cursor: pointer;
+        }
+
+        .btn-premium-v2:hover {
+          transform: translateY(-5px) scale(1.02);
+          box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+        }
+
+        .btn-outline-v2 {
+          background: transparent;
+          color: white;
+          padding: 18px 44px;
+          border-radius: 20px;
+          font-weight: 700;
+          border: 2px solid rgba(255,255,255,0.5);
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          transition: 0.3s;
+        }
+
+        .btn-outline-v2:hover {
+          background: rgba(255,255,255,0.1);
+          border-color: white;
+        }
+
+        .content-section {
+          padding: 100px 24px;
+        }
+
+        .container-v2 {
+          max-width: 1100px;
+          margin: 0 auto;
+        }
+
+        .tag-v2 {
+          color: #2563eb;
+          font-weight: 700;
+          font-size: 0.85rem;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          display: block;
+          margin-bottom: 12px;
+        }
+
+        .title-v2 {
+          font-size: 3rem;
+          font-weight: 800;
+          color: #0f172a;
+          margin-bottom: 24px;
+          line-height: 1.2;
+        }
+
+        .desc-v2 {
+          font-size: 1.2rem;
+          line-height: 1.8;
+          color: #475569;
+          margin-bottom: 60px;
+        }
+
+        .benefits-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 30px;
+        }
+
+        .benefit-card {
+          background: white;
+          padding: 40px;
+          border-radius: 30px;
+          border: 1px solid #eef2ff;
+          transition: 0.4s;
+        }
+
+        .benefit-card:hover {
+          transform: translateY(-10px);
+          box-shadow: 0 20px 40px rgba(37, 99, 235, 0.08);
+          border-color: #2563eb;
+        }
+
+        .icon-wrap {
+          width: 60px;
+          height: 60px;
+          background: #eff6ff;
+          color: #2563eb;
+          border-radius: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 24px;
+        }
+
+        .split-section {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 60px;
+          align-items: center;
+        }
+
+        @media (max-width: 991px) {
+          .split-section { grid-template-columns: 1fr; }
+        }
+
+        .feature-list {
+          list-style: none;
+          padding: 0;
+        }
+
+        .feature-item {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          margin-bottom: 18px;
+          font-size: 1.1rem;
+          font-weight: 500;
+        }
+
+        .it-faq-item {
+          border: 1px solid #e0eaff;
+          border-radius: 20px;
+          overflow: hidden;
+          background: white;
+          margin-bottom: 15px;
+        }
+
+        .it-faq-btn {
+          width: 100%;
+          padding: 24px 30px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: none;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          transition: 0.2s;
+        }
+
+        .it-faq-btn h3 {
+          font-size: 1.1rem;
+          font-weight: 800;
+          color: #0f172a;
+          font-family: 'Outfit', sans-serif;
+        }
+
+        .it-faq-body {
+          padding: 0 30px 24px;
+          color: #475569;
+          font-size: 1rem;
+          line-height: 1.7;
+        }
+
+        .final-cta {
+          margin: 100px 24px;
+          background: linear-gradient(135deg, #0d47a1 0%, #1e40af 100%);
+          padding: 100px 48px;
+          border-radius: 60px;
+          color: white;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .final-cta::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: url('https://www.transparenttextures.com/patterns/cubes.png');
+          opacity: 0.1;
+          pointer-events: none;
+        }
+
+        .cta-content {
+          max-width: 800px;
+          margin: 0 auto;
+          position: relative;
+          z-index: 10;
+        }
+
+        .floating-icon {
+          position: absolute;
+          width: 100px;
+          height: 100px;
+          background: rgba(255,255,255,0.1);
+          border-radius: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          top: -30px;
+          left: -30px;
+          animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0) rotate(0); }
+          50% { transform: translateY(-20px) rotate(10deg); }
+        }
+      `}</style>
+
+      <SEO 
+        title="Interview & Screening Call Training | HYRIND" 
+        description="Success in interviews requires more than just technical knowledge—it demands confidence and clear communication. Our sessions replicate real-world scenarios with experienced professionals." 
+        path="/services/interview-training" 
+      />
       <Header />
-      <main>
-        {/* Hero Section */}
-        <section className="py-20 lg:py-32 bg-gradient-to-br from-purple-900 via-purple-800 to-purple-950 text-white">
-          <div className="container px-4">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-4xl">
-              <div className="mb-6 inline-block rounded-full bg-purple-400/20 px-4 py-2">
-                <span className="text-sm font-semibold text-purple-200">High-Impact Interview Preparation</span>
-              </div>
-              <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                Master Every Interview
-              </h1>
-              <p className="text-xl lg:text-2xl text-purple-100 mb-8 leading-relaxed">
-                Build unshakeable confidence with mock interviews, real-time feedback, and personalized coaching. From initial screening calls to final rounds—we prepare you to impress every interviewer.
+
+      {/* Hero */}
+      <section className="service-hero">
+        <div className="hero-content">
+          <div className="hero-badge">High Impact Training</div>
+          <h1>Interview & Screening Practice</h1>
+          <p>
+            Success in interviews requires more than just technical knowledge—it demands confidence and clear communication. Our sessions replicate real-world scenarios with experienced professionals who provide actionable feedback.
+          </p>
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn-premium-v2" onClick={() => navigate('/contact')}>
+              Join Training Now <ArrowRight size={20} />
+            </button>
+            <button className="btn-outline-v2" onClick={() => window.open("https://cal.com/hyrind", "_blank")}>
+              Book Free Mock Session
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <section className="content-section">
+        <div className="container-v2">
+          <div className="split-section">
+            <div>
+              <span className="tag-v2">Master the STAR Method</span>
+              <h2 className="title-v2">Confidence through Practice</h2>
+              <p className="desc-v2">
+                We help you master the STAR method and handle behavioral questions with ease. Our experts coach you on voice, communication, and presence until you are fully client-ready.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button variant="hero" size="lg" className="gap-2 bg-white text-purple-900 hover:bg-purple-50 text-lg h-14 px-8" asChild>
-                  <a href="/contact">Start Interview Training <ArrowRight className="h-5 w-5" /></a>
-                </Button>
-                <Button variant="outline" size="lg" className="gap-2 border-white text-white hover:bg-white/10 text-lg h-14 px-8" asChild>
-                  <a href="https://cal.com" target="_blank" rel="noopener noreferrer">
-                    <Calendar className="h-5 w-5 bg-purple-500" /> <span className="text-black">Book Mock Interview</span>
-                  </a>
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* The Challenge */}
-        <section className="py-20 lg:py-28 bg-gray-50">
-          <div className="container px-4">
-            <div className="max-w-4xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-gray-900 mb-4">
-                The Interview Challenge
-              </motion.h2>
-              <p className="text-gray-600 text-lg mb-12">
-                You've made it past the application stage—now the real pressure begins. Interviews are where candidates often stumble, not because they lack skills, but because they haven't practiced with real feedback.
-              </p>
-              
-              <div className="grid md:grid-cols-2 gap-8">
-                <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} className="p-8 bg-white rounded-xl border border-red-200">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                    <span className="text-2xl">❌</span> Common Interview Challenges
-                  </h3>
-                  <ul className="space-y-3">
-                    <li className="flex gap-3 text-gray-700">
-                      <span className="text-red-500 font-bold">•</span>
-                      Rambling or unfocused answers that lose the interviewer
-                    </li>
-                    <li className="flex gap-3 text-gray-700">
-                      <span className="text-red-500 font-bold">•</span>
-                      Difficulty explaining technical concepts clearly
-                    </li>
-                    <li className="flex gap-3 text-gray-700">
-                      <span className="text-red-500 font-bold">•</span>
-                      Nervous body language and speaking pace issues
-                    </li>
-                    <li className="flex gap-3 text-gray-700">
-                      <span className="text-red-500 font-bold">•</span>
-                      Forgetting to tell a compelling story with your experience
-                    </li>
-                    <li className="flex gap-3 text-gray-700">
-                      <span className="text-red-500 font-bold">•</span>
-                      Not knowing how to handle tough or unexpected questions
-                    </li>
-                  </ul>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} className="p-8 bg-white rounded-xl border border-green-200">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                    <span className="text-2xl">✅</span> Our Solution
-                  </h3>
-                  <ul className="space-y-3">
-                    <li className="flex gap-3 text-gray-700">
-                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      Structured frameworks (STAR) for concise, impactful answers
-                    </li>
-                    <li className="flex gap-3 text-gray-700">
-                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      Real-time feedback on communication and clarity
-                    </li>
-                    <li className="flex gap-3 text-gray-700">
-                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      Voice coaching for tone, pace, and presence
-                    </li>
-                    <li className="flex gap-3 text-gray-700">
-                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      Practice with diverse interview styles and scenarios
-                    </li>
-                    <li className="flex gap-3 text-gray-700">
-                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      Confidence building through repeated, safe practice
-                    </li>
-                  </ul>
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Our Approach */}
-        <section className="py-20 lg:py-28">
-          <div className="container px-4">
-            <div className="max-w-4xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-center text-gray-900 mb-4">
-                Our Interview Preparation Approach
-              </motion.h2>
-              <p className="text-center text-gray-600 text-lg mb-16">
-                A structured, proven program that builds real confidence through practice and personalized coaching.
-              </p>
-              
-              <div className="space-y-8">
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="p-8 rounded-2xl bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-                    <span className="bg-purple-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">1</span>
-                    Assessment & Strategy
-                  </h3>
-                  <p className="text-gray-700 leading-relaxed">
-                    We learn about your target roles, company types, and interview history. We identify your key strengths and areas for improvement, then build a customized preparation plan.
-                  </p>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="p-8 rounded-2xl bg-gradient-to-r from-indigo-50 to-indigo-100 border border-indigo-200">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-                    <span className="bg-indigo-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">2</span>
-                    STAR Method Training
-                  </h3>
-                  <p className="text-gray-700 leading-relaxed">
-                    Master the STAR framework (Situation, Task, Action, Result) to structure behavioral answers that demonstrate impact. We teach you to tell compelling stories concisely.
-                  </p>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="p-8 rounded-2xl bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-                    <span className="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">3</span>
-                    Mock Interview Sessions
-                  </h3>
-                  <p className="text-gray-700 leading-relaxed">
-                    Realistic 1-on-1 mock interviews with industry professionals who ask real questions, challenge your answers, and interview like actual hiring managers. Non-stop practice.
-                  </p>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }} className="p-8 rounded-2xl bg-gradient-to-r from-cyan-50 to-cyan-100 border border-cyan-200">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-                    <span className="bg-cyan-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">4</span>
-                    Real-Time Feedback & Coaching
-                  </h3>
-                  <p className="text-gray-700 leading-relaxed">
-                    Immediately after each session, receive detailed feedback on content, delivery, body language, and tone. We pinpoint exact improvement areas and coach you through them.
-                  </p>
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Benefits Section */}
-        <section className="py-20 lg:py-28 bg-gradient-to-br from-purple-50 to-indigo-50">
-          <div className="container px-4">
-            <div className="max-w-4xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-center text-gray-900 mb-4">
-                Why Interview Training Works
-              </motion.h2>
-              <p className="text-center text-gray-600 text-lg mb-16">Benefits that compound with every practice session:</p>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                {benefits.map((benefit, idx) => {
-                  const Icon = benefit.icon;
-                  return (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: idx * 0.08 }}
-                      className="p-6 bg-white rounded-xl border border-purple-100 hover:shadow-lg transition-shadow"
-                    >
-                      <Icon className="h-10 w-10 text-purple-600 mb-4" />
-                      <h3 className="font-bold text-lg text-gray-900 mb-2">{benefit.title}</h3>
-                      <p className="text-gray-600">{benefit.desc}</p>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* What's Included */}
-        <section className="py-20 lg:py-28">
-          <div className="container px-4">
-            <div className="max-w-3xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-gray-900 mb-4">
-                What's Included
-              </motion.h2>
-              <p className="text-gray-600 text-lg mb-12">Complete interview preparation training:</p>
-              
-              <div className="space-y-4">
-                {features.map((item, idx) => (
-                  <motion.div
-                    key={item}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="flex items-start gap-3 p-4 rounded-lg hover:bg-purple-50 transition-colors"
-                  >
-                    <CheckCircle className="mt-1 h-6 w-6 flex-shrink-0 text-purple-600" />
-                    <span className="text-gray-700 text-lg">{item}</span>
-                  </motion.div>
+              <ul className="feature-list">
+                {features.map((f, i) => (
+                  <li key={i} className="feature-item">
+                    <CheckCircle2 size={24} style={{ color: '#2563eb' }} /> {f}
+                  </li>
                 ))}
+              </ul>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <div className="floating-icon">
+                <Mic size={50} color="white" />
               </div>
+              <img 
+                src="https://images.unsplash.com/photo-1573164713714-d95e436ab8d6?w=800&q=80" 
+                alt="Interview Training" 
+                style={{ borderRadius: '40px', width: '100%', boxShadow: '0 40px 80px rgba(13,71,161,0.15)' }} 
+              />
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* FAQ Section */}
-        <section className="py-20 lg:py-28 bg-gray-50">
-          <div className="container px-4">
-            <div className="max-w-3xl mx-auto">
-              <motion.h2 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-4xl font-bold text-gray-900 mb-4 text-center">
-                Frequently Asked Questions
-              </motion.h2>
-              
-              <div className="space-y-4 mt-12">
-                {faqs.map((faq, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    viewport={{ once: true }}
-                    className="border border-purple-200 rounded-lg overflow-hidden bg-white"
-                  >
-                    <button
-                      onClick={() => setExpandedFaq(expandedFaq === idx ? -1 : idx)}
-                      className="w-full p-6 text-left flex items-center justify-between hover:bg-purple-50 transition-colors"
-                    >
-                      <h3 className="font-bold text-gray-900 text-lg">{faq.q}</h3>
-                      <ChevronDown className={`h-6 w-6 text-purple-600 transition-transform ${expandedFaq === idx ? 'rotate-180' : ''}`} />
-                    </button>
-                    {expandedFaq === idx && (
-                      <div className="px-6 pb-6 text-gray-700 border-t border-purple-100">
-                        {faq.a}
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
+      {/* Benefits Grid */}
+      <section className="content-section" style={{ background: '#f8fafc' }}>
+        <div className="container-v2">
+          <div style={{ textAlign: 'center', marginBottom: '80px' }}>
+            <span className="tag-v2">Why It Works</span>
+            <h2 className="title-v2">The HYRIND Interview Advantage</h2>
+          </div>
+          <div className="benefits-grid">
+            {[
+              { icon: <Brain />, title: "STAR Mastery", desc: "Learn to structure compelling, relevant answers that demonstrate clear impact." },
+              { icon: <Mic />, title: "Voice & Tone", desc: "Improve pace, tone, and clarity to leave a lasting positive professional impression." },
+              { icon: <Lightbulb />, title: "Real Scenarios", desc: "Practice with realistic mock sessions tailored to your specific target roles." },
+              { icon: <Award />, title: "Anxiety Management", desc: "Repeated practice in a safe environment helps eliminate real-world interview jitters." },
+              { icon: <MessageSquare />, title: "Actionable Feedback", desc: "Detailed, personalized feedback after every single session to accelerate growth." },
+              { icon: <Users />, title: "Client Readiness", desc: "We ensure you're not just prepared for the job, but prepared to win the job." }
+            ].map((b, i) => (
+              <div key={i} className="benefit-card">
+                <div className="icon-wrap">{b.icon}</div>
+                <h3>{b.title}</h3>
+                <p style={{ color: '#475569', lineHeight: 1.6 }}>{b.desc}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="content-section">
+        <div className="container-v2" style={{ maxWidth: '800px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+            <span className="tag-v2">More Information</span>
+            <h2 className="title-v2">Frequently Asked Questions</h2>
+          </div>
+          {[
+            { q: "How many mock interviews do I get?", a: "Typically 4–6 mock interviews per month. Each session is tailored to your target roles and preparation needs." },
+            { q: "Can you prepare me for technical interviews?", a: "Yes! We cover both behavioral and technical interviews, providing frameworks and live question support." },
+            { q: "How long is each mock session?", a: "Usually 45–60 minutes: 30 min interview, followed by 20 min of detailed feedback." },
+            { q: "What if I have an interview coming up soon?", a: "We offer crash courses! We can do intensive 1–2 week preparation if you have a confirmed client call." }
+          ].map((faq, i) => (
+            <div key={i} className="it-faq-item">
+              <button className="it-faq-btn" onClick={() => setExpandedFaq(expandedFaq === i ? -1 : i)}>
+                <h3>{faq.q}</h3>
+                <ChevronDown size={22} style={{ color: "#2563eb", transform: expandedFaq === i ? "rotate(180deg)" : "none", transition: "0.4s" }} />
+              </button>
+              {expandedFaq === i && <div className="it-faq-body">{faq.a}</div>}
             </div>
-          </div>
-        </section>
+          ))}
+        </div>
+      </section>
 
-        {/* CTA Section */}
-        <section className="py-20 lg:py-28">
-          <div className="container px-4">
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="max-w-3xl mx-auto text-center">
-              <h2 className="text-4xl font-bold text-gray-900 mb-6">Confident Candidates Get More Offers</h2>
-              <p className="text-lg text-gray-600 mb-10">
-                Start your interview training today and walk into your next interview with unshakeable confidence, proven techniques, and real-world practice behind you.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button variant="hero" size="lg" className="gap-2 text-lg h-14 px-8" asChild>
-                  <a href="/contact">Get Interview Training <ArrowRight className="h-5 w-5" /></a>
-                </Button>
-                <Button variant="outline" size="lg" className="gap-2 text-lg h-14 px-8" asChild>
-                  <a href="https://cal.com" target="_blank" rel="noopener noreferrer">
-                    <Calendar className="h-5 w-5" /> Book First Mock Session
-                  </a>
-                </Button>
-              </div>
-            </motion.div>
+      {/* Final CTA */}
+      <section className="final-cta">
+        <div className="cta-content">
+          <h2 style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '24px' }}>Walk into your next interview with confidence.</h2>
+          <p style={{ fontSize: '1.25rem', marginBottom: '40px', opacity: 0.9 }}>
+            Stop guessing and start preparing with the platform that treats your career as our top priority.
+          </p>
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn-premium-v2" onClick={() => navigate('/contact')}>
+              Start Preparation <Sparkles size={20} />
+            </button>
+            <button className="btn-outline-v2" onClick={() => window.open("https://cal.com/hyrind", "_blank")}>
+              Talk to a Coach
+            </button>
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
+
       <Footer />
     </div>
   );
-};
-
-export default InterviewTraining;
+}
