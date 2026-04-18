@@ -228,7 +228,7 @@ export default function HowItWorks() {
                  <button onClick={() => navigate('/candidate-login')} className="bg-white text-blue-900 px-10 py-4 rounded-xl font-bold hover:scale-105 transition-transform">
                     Get Started Now
                  </button>
-                 <button onClick={() => window.open('https://cal.com/hyrind/15min?layout=mobile', '_blank')} className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold hover:bg-white hover:text-blue-900 transition-all">
+                 <button onClick={() => window.open('https://cal.com/hyrind/15min?layout=mobile', '_blank')} className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold hover:bg-black-200 hover:text-blue-900 transition-all">
                     Talk to Us
                  </button>
               </div>
