@@ -13,7 +13,7 @@ import logo from "@/assets/image.png";
 const ForgotPassword = () => {
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get("returnTo") || "/candidate-login";
-  
+
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -59,9 +59,9 @@ const ForgotPassword = () => {
             <>
               <div className="text-center mb-10">
                 <div className="mx-auto mb-6 transition-transform hover:scale-105 duration-300">
-                  <img 
-                    src={logo} 
-                    alt="Hyrind Logo" 
+                  <img
+                    src={logo}
+                    alt="Hyrind Logo"
                     className="h-16 w-16 mx-auto rounded-full border-2 border-primary/20 p-1 bg-white shadow-sm"
                   />
                 </div>
@@ -80,17 +80,17 @@ const ForgotPassword = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@example.com"
-                      className="h-12 pl-11 rounded-xl bg-neutral-50/50 border-neutral-200 focus:bg-white transition-all shadow-sm focus:ring-2 focus:ring-primary/20"
+                      className="h-12 px-11 rounded-xl bg-neutral-50/50 border-neutral-200 focus:bg-white transition-all shadow-sm focus:ring-2 focus:ring-primary/20 text-center placeholder:text-center"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="pt-2">
-                  <Button 
-                    type="submit" 
-                    variant="hero" 
-                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${email.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
+                  <Button
+                    type="submit"
+                    variant="hero"
+                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${email.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
                     disabled={submitting}
                   >
                     {submitting ? "Sending Link..." : "Send Reset Link"}
@@ -99,8 +99,8 @@ const ForgotPassword = () => {
               </form>
 
               <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
-                <Link 
-                  to={returnUrl} 
+                <Link
+                  to={returnUrl}
                   className="inline-flex items-center text-sm font-semibold text-neutral-500 hover:text-primary transition-colors group"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
@@ -117,15 +117,15 @@ const ForgotPassword = () => {
               <p className="text-muted-foreground mb-10 leading-relaxed">
                 We've sent a password reset link to <span className="font-semibold text-neutral-900">{email}</span>. Please check your inbox and follow the instructions.
               </p>
-              
+
               <div className="bg-neutral-50 rounded-xl p-5 mb-8 border border-neutral-100 text-sm text-neutral-500">
                 Didn't receive the email? Check your spam folder or try again in a few minutes.
               </div>
 
               <div className="flex flex-col gap-3">
-                <Button 
-                  variant="hero" 
-                  className="h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/10" 
+                <Button
+                  variant="hero"
+                  className="h-12 rounded-xl text-md font-semibold shadow-lg shadow-primary/10"
                   onClick={() => setSubmitted(false)}
                 >
                   Resend Email
