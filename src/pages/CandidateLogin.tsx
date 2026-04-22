@@ -81,7 +81,7 @@ const CandidateLogin = () => {
     if (reg.password !== reg.confirm_password) errors.confirm_password = "Passwords do not match";
 
     if (!reg.university_name) errors.university_name = "University is required";
-    if (!reg.degree_major) errors.degree_major = "Degree / Major is required";
+    if (!reg.degree_major) errors.degree_major = "Degree & Major is required";
     
     const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
@@ -464,7 +464,7 @@ const CandidateLogin = () => {
                       id="reg-degree_major"
                       value={reg.degree_major} 
                       onChange={e => updateReg("degree_major", e.target.value)} 
-                      placeholder="e.g. Bachelors / Computer Science"
+                      placeholder="e.g., Master's in Computer Science"
                       maxLength={250} 
                       className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />

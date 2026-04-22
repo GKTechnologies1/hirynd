@@ -87,7 +87,7 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <SEO title="HYRIND — Focus on Skills. Let Us Handle the Rest." description="Recruiter-led profile marketing, resume optimization, job submissions, and interview preparation for candidates across the U.S." path="/" />
+      <SEO title="HYRIND | Focus on Skills. Let Us Handle the Rest." description="Recruiter-led profile marketing, resume optimization, job submissions, and interview preparation for candidates across the U.S." path="/" />
       <Header />
       
       <style>{`

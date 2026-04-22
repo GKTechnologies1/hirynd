@@ -131,8 +131,8 @@ const Footer = () => {
             <div className="footer-link-custom"><Link to="/how-it-works">How it works</Link></div>
             <div className="footer-link-custom"><Link to="/reviews">Reviews</Link></div>
             <div className="footer-link-custom"><Link to="/contact?type=general">Contact us</Link></div>
-            <div className="footer-link-custom font-bold" style={{ marginTop: '15px' }}><Link to="/privacy-policy">Privacy Policy</Link></div>
-            <div className="footer-link-custom font-bold"><Link to="/terms">Terms & Conditions</Link></div>
+            {/* <div className="footer-link-custom font-bold" style={{ marginTop: '15px' }}><Link to="/privacy-policy">Privacy Policy</Link></div>
+            <div className="footer-link-custom font-bold"><Link to="/terms">Terms & Conditions</Link></div> */}
           </div>
 
           {/* Our Solutions */}
@@ -185,8 +185,8 @@ const Footer = () => {
 
         <div className="footer-bottom-custom">
           © {new Date().getFullYear()} HYRIND. All Rights Reserved |
-          <Link to="/privacy-policy" style={{ color: "#dce6ff", margin: "0 10px" }}>Privacy Policy</Link> |
-          <Link to="/terms" style={{ color: "#dce6ff", margin: "0 10px" }}>Terms & Conditions</Link>
+          <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: "#dce6ff", margin: "0 10px" }}>Privacy Policy</Link> |
+          <Link to="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#dce6ff", margin: "0 10px" }}>Terms & Conditions</Link>
         </div>
       </footer>
     </>
