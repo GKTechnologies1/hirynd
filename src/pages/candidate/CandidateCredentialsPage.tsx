@@ -33,6 +33,8 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   const [editorProfiles, setEditorProfiles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [countryCode, setCountryCode] = useState("+1");
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
@@ -155,10 +157,42 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.full_name_as_resume.trim()) newErrors.full_name_as_resume = "Full name is required";
+    if (!formData.phone_number.trim()) newErrors.phone_number = "Phone number is required";
+    if (!formData.linkedin_url.trim()) newErrors.linkedin_url = "LinkedIn URL is required";
+    if (!formData.primary_resume) newErrors.primary_resume = "Primary resume is required";
+    if (!formData.work_history_summary.trim()) newErrors.work_history_summary = "Work history summary is required";
+    if (!formData.skills_summary.trim()) newErrors.skills_summary = "Skills summary is required";
+    if (!formData.tools_and_technologies.trim()) newErrors.tools_and_technologies = "Tools & technologies is required";
+    if (!formData.shared_email.trim()) newErrors.shared_email = "Shared email is required";
+    if (!formData.gmail_password.trim()) newErrors.gmail_password = "Gmail password is required";
+    if (!formData.linkedin_password.trim()) newErrors.linkedin_password = "LinkedIn password is required";
+    if (!formData.visa_details.trim()) newErrors.visa_details = "Visa details is required";
+    if (!formData.bachelors_graduation_date) newErrors.bachelors_graduation_date = "Bachelor's graduation date is required";
+    if (!formData.opt_start_date) newErrors.opt_start_date = "OPT start date is required";
+    if (!formData.preferred_job_roles.trim()) newErrors.preferred_job_roles = "Preferred job roles is required";
+    if (!formData.preferred_locations.trim()) newErrors.preferred_locations = "Preferred locations is required";
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.keys(newErrors)[0];
+      const el = document.getElementById(`cred-${firstError}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) {
+      toast({ title: "Validation Error", description: "Please fill all required fields.", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
 
     const submissionData = {
@@ -169,9 +203,19 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     try {
       await candidatesApi.upsertCredential(candidate.id, submissionData);
       toast({ title: versions.length === 0 ? "Credentials submitted!" : "Credentials updated!", description: "A new version has been saved." });
+      setIsEditing(false);
       onStatusChange();
+      // Refresh versions
+      const { data } = await candidatesApi.getCredentials(candidate.id);
+      setVersions(data || []);
     } catch (err: any) {
-      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+      const validationErrors = err.response?.data?.validation_errors;
+      if (validationErrors) {
+        setErrors(validationErrors);
+        toast({ title: "Validation Error", description: "Please fix the highlighted fields.", variant: "destructive" });
+      } else {
+        toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+      }
     }
     setSubmitting(false);
   };
@@ -206,6 +250,9 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
 
   const latestVersion = versions[0];
 
+  const hasSubmission = versions.length > 0;
+  const isLocked = hasSubmission && !isEditing;
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="space-y-8">
@@ -223,21 +270,89 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                   {new Date(latestVersion.created_at).toLocaleString()}
                 </p>
               </div>
-              <Badge variant="secondary" className="px-3 py-1 rounded-full bg-secondary/5 text-secondary border-secondary/10 font-bold text-[10px]">
-                {versions.length} REVISIONS
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Badge variant="secondary" className="px-3 py-1 rounded-full bg-secondary/5 text-secondary border-secondary/10 font-bold text-[10px]">
+                  {versions.length} REVISIONS
+                </Badge>
+                {isLocked && (
+                  <Button 
+                    variant="outline" 
+                    className="h-9 px-4 rounded-xl font-bold text-xs border-secondary/30 text-secondary hover:bg-secondary/5"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1.5" /> Update Credentials
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Form */}
+        {/* Locked State — Read Only View */}
+        {isLocked && latestVersion?.data && (
+          <Card className="border-none shadow-xl shadow-neutral-200/50 rounded-2xl overflow-hidden">
+            <CardHeader className="bg-green-50 border-b border-green-100 pb-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-2xl font-bold flex items-center gap-3 text-foreground">
+                    <Lock className="h-6 w-6 text-green-600" /> Credential Intake — Submitted
+                  </CardTitle>
+                  <CardDescription className="text-sm font-medium text-green-700">Your credentials have been submitted and locked. Click "Update Credentials" to make changes (creates a new version).</CardDescription>
+                </div>
+                <Badge className="bg-green-100 text-green-700 border-green-200 text-xs font-bold h-8 px-4 rounded-full gap-1.5">
+                  <CheckCircle className="h-3.5 w-3.5" /> Locked
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 pb-8">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {Object.entries(latestVersion.data as Record<string, any>).map(([key, value]) => {
+                  if (!value || key === 'custom_platforms') return null;
+                  return (
+                    <div key={key} className="p-3 rounded-xl bg-neutral-50 border border-neutral-100">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">{key.replace(/_/g, " ")}</span>
+                      <span className="text-sm font-medium text-foreground break-words">
+                        {SENSITIVE_FIELDS.includes(key) && value ? "••••••••" : 
+                         (key.includes('url') || key.includes('resume')) && typeof value === 'string' ? (
+                           <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 underline text-xs">View File</a>
+                         ) : typeof value === 'string' ? value : JSON.stringify(value)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {latestVersion.data.custom_platforms && (latestVersion.data.custom_platforms as any[]).length > 0 && (
+                <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-100">
+                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest block mb-2">Custom Platforms</span>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {(latestVersion.data.custom_platforms as any[]).map((cp: any, i: number) => (
+                      <div key={i} className="text-sm font-medium">{cp.platform_name}: ••••••••</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Form — shown when no submissions yet or when editing */}
+        {(!isLocked) && (
         <Card className="border-none shadow-xl shadow-neutral-200/50 rounded-2xl overflow-hidden">
           <CardHeader className="bg-primary/5 border-b border-primary/10 pb-6">
-            <div className="space-y-1">
-              <CardTitle className="text-2xl font-bold flex items-center gap-3 text-foreground">
-                <Shield className="h-6 w-6 text-primary" /> Credential Intake Sheet
-              </CardTitle>
-              <CardDescription className="text-sm font-medium text-muted-foreground">Detailed marketing profile. Every update creates a new version for tracking.</CardDescription>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-2xl font-bold flex items-center gap-3 text-foreground">
+                  <Shield className="h-6 w-6 text-primary" /> Credential Intake Sheet
+                </CardTitle>
+                <CardDescription className="text-sm font-medium text-muted-foreground">
+                  {isEditing ? "Editing credentials — saving will create a new version." : "Detailed marketing profile. Every update creates a new version for tracking."}
+                </CardDescription>
+              </div>
+              {isEditing && (
+                <Button variant="ghost" className="h-9 px-4 rounded-xl text-xs font-bold text-muted-foreground" onClick={() => setIsEditing(false)}>
+                  <X className="h-3.5 w-3.5 mr-1.5" /> Cancel Edit
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="pt-8">
@@ -245,7 +360,8 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
                   <Label className="text-sm font-medium ml-1">Full Name as on Resume *</Label>
-                  <Input value={formData.full_name_as_resume} onChange={e => handleChange("full_name_as_resume", e.target.value)} required className="h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" />
+                  <Input id="cred-full_name_as_resume" value={formData.full_name_as_resume} onChange={e => handleChange("full_name_as_resume", e.target.value)} required className={cn("h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm", errors.full_name_as_resume && "border-red-500 ring-1 ring-red-500/20")} />
+                  {errors.full_name_as_resume && <p className="text-[10px] text-destructive mt-1 ml-1 font-medium">{errors.full_name_as_resume}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium ml-1">Personal Email Address *</Label>
@@ -571,9 +687,10 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
             </form>
           </CardContent>
         </Card>
+        )}
 
-        {/* Version History */}
-        {versions.length > 1 && (
+        {/* Version History — always show when there are versions */}
+        {versions.length > 0 && (
           <Card className="border-none shadow-lg rounded-2xl bg-neutral-50/50">
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-bold flex items-center gap-3">

@@ -6,7 +6,8 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Briefcase, Check, X, Plus } from "lucide-react";
+import { Lock, Briefcase, Check, X, Plus, DollarSign, CheckCircle, XCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -177,7 +178,19 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                             </Button>
                           </>
                         ) : (
-                          <StatusBadge status={role.candidate_confirmed ? "active" : role.candidate_confirmed === false ? "rejected" : "pending"} />
+                          role.candidate_confirmed === true ? (
+                            <Badge className="h-7 px-3 text-xs font-bold bg-green-500/10 text-green-600 border border-green-500/20 rounded-lg gap-1.5">
+                              <CheckCircle className="h-3.5 w-3.5" /> Accepted
+                            </Badge>
+                          ) : role.candidate_confirmed === false ? (
+                            <Badge className="h-7 px-3 text-xs font-bold bg-red-500/10 text-red-600 border border-red-500/20 rounded-lg gap-1.5">
+                              <XCircle className="h-3.5 w-3.5" /> Rejected
+                            </Badge>
+                          ) : (
+                            <Badge className="h-7 px-3 text-xs font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg gap-1.5">
+                              Pending
+                            </Badge>
+                          )
                         )}
                       </div>
                     </div>
@@ -238,10 +251,16 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
               )}
 
               {isConfirmed && (
-                <div className="mt-4 rounded-lg bg-secondary/5 p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Your role selections have been confirmed. Complete your payment to proceed.</p>
-                  <Button variant="hero" className="mt-3" onClick={() => navigate("/candidate-dashboard")}>
-                    Back to Dashboard
+                <div className="mt-4 rounded-xl bg-green-50 border border-green-200 p-6 text-center">
+                  <CheckCircle className="mx-auto mb-3 h-8 w-8 text-green-500" />
+                  <p className="text-sm font-semibold text-green-800 mb-1">Your role selections have been confirmed!</p>
+                  <p className="text-xs text-green-600 mb-4">Complete your payment to proceed with the marketing process.</p>
+                  <Button 
+                    variant="hero" 
+                    className="bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20 h-11 px-8 font-bold"
+                    onClick={() => navigate("/candidate-dashboard/payments")}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" /> Proceed to Payment
                   </Button>
                 </div>
               )}

@@ -380,6 +380,12 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     <p className="text-[11px] text-muted-foreground italic">No resume uploaded during registration</p>
                   )}
                 </div>
+                {intakeData?.target_roles && (
+                  <div className="pt-2 border-t mt-2">
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Candidate Written Roles</Label>
+                    <p className="font-medium text-foreground whitespace-pre-wrap text-sm leading-relaxed">{intakeData.target_roles}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
