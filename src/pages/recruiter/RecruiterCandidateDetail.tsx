@@ -21,6 +21,7 @@ import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
 import ChatTab from "@/components/recruiter/ChatTab";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
@@ -534,7 +535,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                         <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter mb-1">{key.replace(/_/g, " ")}</p>
                                         <div className="flex items-center justify-between gap-2">
                                           <p className="text-[11px] font-medium truncate flex-1">
-                                            {isPassword ? (showPasswords[`v_${v.id}_${key}`] ? val : "••••••••") : (key.includes('resume') || key.includes('url')) ? <a href={val} target="_blank" className="text-secondary underline">View File</a> : val}
+                                            {isPassword ? (showPasswords[`v_${v.id}_${key}`] ? val : "••••••••") : (key.includes('resume') || key.includes('url')) ? (
+                                              <DocumentPreview url={val} label="View File" />
+                                            ) : val}
                                           </p>
                                           {isPassword && (
                                             <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_${key}`)}>
@@ -753,9 +756,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           <p className="text-[11px] text-muted-foreground">{j.role_title || "—"}</p>
                         </div>
                         {j.job_url && (
-                          <a href={j.job_url} target="_blank" rel="noreferrer" className="text-secondary hover:underline cursor-pointer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
+                          <DocumentPreview url={j.job_url} label={<span className="flex items-center gap-1">Job Link <ExternalLink className="h-4 w-4" /></span>} className="text-secondary hover:underline cursor-pointer" />
                         )}
                       </div>
                     )
@@ -781,9 +782,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       const isUrl = j.resume_used?.startsWith('http');
                       const resumeName = isUrl ? (resumes.find(r => r.url === j.resume_used)?.label || "View Resume") : (j.resume_used || "Standard");
                       return isUrl ? (
-                        <a href={j.resume_used} target="_blank" className="text-[11px] font-bold text-secondary hover:underline flex items-center gap-1 group">
-                          <FileText className="h-3 w-3" /> {resumeName}
-                        </a>
+                        <DocumentPreview url={j.resume_used} label={resumeName} className="text-[11px] font-bold" />
                       ) : (
                         <span className="text-xs font-mono opacity-80">{resumeName}</span>
                       );

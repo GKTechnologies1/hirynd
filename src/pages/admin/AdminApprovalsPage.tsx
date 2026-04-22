@@ -292,13 +292,13 @@ const AdminApprovalsPage = () => {
                     <p className="font-semibold text-foreground">{selectedUser?.university || "—"}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Degree / Major</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Degree & Major</p>
                     <p className="font-medium text-foreground">
-                      {selectedUser?.degree || "—"} {selectedUser?.major ? ` / ${selectedUser.major}` : ""}
+                      {selectedUser?.degree || "—"} {selectedUser?.major ? ` & ${selectedUser.major}` : ""}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Graduation</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Graduation Date</p>
                     <p className="font-medium text-foreground">
                       {formatDate(selectedUser?.graduation_date)}
                     </p>
@@ -393,9 +393,9 @@ const AdminApprovalsPage = () => {
                         <p className="font-semibold text-teal-900">{selectedUser?.university || "—"}</p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Degree / Major</p>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Degree & Major</p>
                         <p className="font-medium text-teal-900">
-                          {selectedUser?.degree || "—"} {selectedUser?.major ? ` / ${selectedUser.major}` : ""}
+                          {selectedUser?.degree || "—"} {selectedUser?.major ? ` & ${selectedUser.major}` : ""}
                         </p>
                       </div>
                       <div className="col-span-2">

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { User, Mail, Phone, MapPin, Linkedin, Landmark, ShieldCheck, Wallet, Eye, EyeOff, Loader2, Save, FileUp, Check, X } from "lucide-react";
 import { motion } from "framer-motion";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 const RecruiterProfilePage = () => {
   const { user, refreshUser } = useAuth();
@@ -402,22 +403,25 @@ const RecruiterProfilePage = () => {
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">File: {documents.highest_degree_certificate_file.name}</p>
                   <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.highest_degree_certificate_file.uploaded_at).toLocaleDateString()}</p>
-                  <Button 
-                    variant="outline" 
-                    className="w-full text-xs" 
-                    disabled={uploadingDocs.highest_degree_certificate}
-                    onClick={() => degreeInputRef.current?.click()}
-                  >
-                    {uploadingDocs.highest_degree_certificate ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <FileUp className="h-4 w-4 mr-2" /> Update File
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 text-xs" 
+                      disabled={uploadingDocs.highest_degree_certificate}
+                      onClick={() => degreeInputRef.current?.click()}
+                    >
+                      {uploadingDocs.highest_degree_certificate ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="h-4 w-4 mr-2" /> Update File
+                        </>
+                      )}
+                    </Button>
+                    <DocumentPreview url={documents.highest_degree_certificate_file} label="View" variant="button" />
+                  </div>
                 </div>
               ) : (
                 <Button 
@@ -460,22 +464,25 @@ const RecruiterProfilePage = () => {
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">File: {documents.government_id_card_file.name}</p>
                   <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.government_id_card_file.uploaded_at).toLocaleDateString()}</p>
-                  <Button 
-                    variant="outline" 
-                    className="w-full text-xs" 
-                    disabled={uploadingDocs.government_id_card}
-                    onClick={() => idCardInputRef.current?.click()}
-                  >
-                    {uploadingDocs.government_id_card ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <FileUp className="h-4 w-4 mr-2" /> Update File
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 text-xs" 
+                      disabled={uploadingDocs.government_id_card}
+                      onClick={() => idCardInputRef.current?.click()}
+                    >
+                      {uploadingDocs.government_id_card ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="h-4 w-4 mr-2" /> Update File
+                        </>
+                      )}
+                    </Button>
+                    <DocumentPreview url={documents.government_id_card_file} label="View" variant="button" />
+                  </div>
                 </div>
               ) : (
                 <Button 
@@ -518,22 +525,25 @@ const RecruiterProfilePage = () => {
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">File: {documents.pan_card_file.name}</p>
                   <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.pan_card_file.uploaded_at).toLocaleDateString()}</p>
-                  <Button 
-                    variant="outline" 
-                    className="w-full text-xs" 
-                    disabled={uploadingDocs.pan_card}
-                    onClick={() => panCardInputRef.current?.click()}
-                  >
-                    {uploadingDocs.pan_card ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <FileUp className="h-4 w-4 mr-2" /> Update File
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 text-xs" 
+                      disabled={uploadingDocs.pan_card}
+                      onClick={() => panCardInputRef.current?.click()}
+                    >
+                      {uploadingDocs.pan_card ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="h-4 w-4 mr-2" /> Update File
+                        </>
+                      )}
+                    </Button>
+                    <DocumentPreview url={documents.pan_card_file} label="View" variant="button" />
+                  </div>
                 </div>
               ) : (
                 <Button 
@@ -576,22 +586,25 @@ const RecruiterProfilePage = () => {
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">File: {documents.bank_passbook_file.name}</p>
                   <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.bank_passbook_file.uploaded_at).toLocaleDateString()}</p>
-                  <Button 
-                    variant="outline" 
-                    className="w-full text-xs" 
-                    disabled={uploadingDocs.bank_passbook}
-                    onClick={() => bankPassbookInputRef.current?.click()}
-                  >
-                    {uploadingDocs.bank_passbook ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <FileUp className="h-4 w-4 mr-2" /> Update File
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 text-xs" 
+                      disabled={uploadingDocs.bank_passbook}
+                      onClick={() => bankPassbookInputRef.current?.click()}
+                    >
+                      {uploadingDocs.bank_passbook ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="h-4 w-4 mr-2" /> Update File
+                        </>
+                      )}
+                    </Button>
+                    <DocumentPreview url={documents.bank_passbook_file} label="View" variant="button" />
+                  </div>
                 </div>
               ) : (
                 <Button 

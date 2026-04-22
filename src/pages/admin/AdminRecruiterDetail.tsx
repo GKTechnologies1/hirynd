@@ -405,12 +405,12 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree / Major</Label>
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree & Major</Label>
                   <Input 
-                    value={`${formData.degree || ""}${formData.degree && formData.major ? " / " : ""}${formData.major || ""}`} 
+                    value={`${formData.degree || ""}${formData.degree && formData.major ? " & " : ""}${formData.major || ""}`} 
                     onChange={e => {
                       const val = e.target.value;
-                      const [d, ...m] = val.split("/");
+                      const [d, ...m] = val.split("&");
                       setFormData(prev => ({ 
                         ...prev, 
                         degree: (d || "").trim(), 
@@ -418,7 +418,7 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                       }));
                     }}
                     className="h-11 rounded-xl bg-muted/20"
-                    placeholder="e.g. Bachelors / CS"
+                    placeholder="e.g., Master's in Computer Science"
                   />
                 </div>
                 <div className="space-y-2">

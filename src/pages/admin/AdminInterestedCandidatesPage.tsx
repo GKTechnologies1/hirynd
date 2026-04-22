@@ -4,6 +4,7 @@ import { candidatesApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import { Eye, FileText, Download, Users, Activity, CheckCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -158,11 +159,10 @@ const AdminInterestedCandidatesPage = () => {
                 className: "text-xs",
                 render: (c: any) => (
                   c.resume_url || c.resume_file ? (
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-secondary" asChild>
-                      <a href={c.resume_url || c.resume_file} target="_blank" rel="noreferrer">
-                        <Download className="h-4 w-4" />
-                      </a>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <DocumentPreview url={c.resume_url || c.resume_file} label={<Download className="h-4 w-4" />} className="text-secondary hover:underline cursor-pointer" />
+                      <DocumentPreview url={c.resume_url || c.resume_file} label={<Eye className="h-4 w-4" />} variant="icon" className="h-7 w-7" />
+                    </div>
                   ) : <span className="text-[10px] text-muted-foreground italic">—</span>
                 )
               },

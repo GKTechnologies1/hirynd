@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe } from "lucide-react";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 
 const navItems = [
@@ -156,9 +157,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     header: "Link", 
                     render: (j: any) => (
                       j.job_url ? (
-                        <a href={j.job_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                          View <ExternalLink className="h-3 w-3" />
-                        </a>
+                        <DocumentPreview 
+                          url={j.job_url} 
+                          label="View" 
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        />
                       ) : "—"
                     )
                   },
@@ -216,9 +219,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           {candidate?.drive_folder_url && (
             <Card>
               <CardContent className="p-4">
-                <a href={candidate.drive_folder_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline">
-                  <FileText className="h-4 w-4" /> View Resume Folder <ExternalLink className="h-3 w-3" />
-                </a>
+                <DocumentPreview 
+                  url={candidate.drive_folder_url} 
+                  label="View Resume Folder" 
+                  className="inline-flex items-center gap-2 text-primary hover:underline"
+                />
               </CardContent>
             </Card>
           )}

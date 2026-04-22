@@ -48,6 +48,7 @@ const Contact = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormValues(prev => ({ ...prev, [name]: value }));
+    setErrors(prev => ({ ...prev, [name]: "" }));
   };
 
 
@@ -64,34 +65,45 @@ const Contact = () => {
     } else if (typeParam === "interest" && wantsMarketing !== "yes") {
       setWantsMarketing("yes");
     }
-  }, [typeParam]);
+  }, [typeParam, wantsMarketing]);
 
   const validateForm = (formData: FormData) => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.get("first_name")) newErrors.first_name = "First name is required";
-    if (!formData.get("last_name")) newErrors.last_name = "Last name is required";
+    const firstName = (formData.get("first_name") as string || "").trim();
+    const lastName = (formData.get("last_name") as string || "").trim();
+    const email = (formData.get("email") as string || "").trim();
+    const phone = (formData.get("phone") as string || "").trim();
+
+    if (!firstName) newErrors.first_name = "First name is required";
+    else if (/\d/.test(firstName)) newErrors.first_name = "Numbers not allowed in first name";
+
+    if (!lastName) newErrors.last_name = "Last name is required";
+    else if (/\d/.test(lastName)) newErrors.last_name = "Numbers not allowed in last name";
     
-    const email = formData.get("email") as string;
     if (!email) {
       newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = "Invalid email format";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = "Enter a valid email address";
     }
     
-    if (!formData.get("phone")) newErrors.phone = "Phone number is required";
+    if (!phone) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
+      newErrors.phone = "Phone number must be exactly 10 digits";
+    }
     
     if (wantsMarketing === "yes") {
       if (!formData.get("degree_major")) newErrors.degree_major = "Degree & Major is required";
       if (!formData.get("university")) newErrors.university = "University / College is required";
       if (!formData.get("graduation_year")) newErrors.graduation_year = "Graduation year is required";
       if (!visaStatus) newErrors.visa_status = "Please select your visa status";
-      if (visaStatus === "other" && !formData.get("visa_other")) {
+      if (visaStatus === "other" && !(formData.get("visa_other") as string || "").trim()) {
         newErrors.visa_other = "Please specify your visa status";
       }
-      if (!formData.get("current_location")) newErrors.current_location = "Current location is required";
+      if (!(formData.get("current_location") as string || "").trim()) newErrors.current_location = "Current location is required";
       if (!referralSource) newErrors.referral_source = "Please tell us how you heard about us";
-      if (referralSource === "friend" && !formData.get("referral_friend")) {
+      if (referralSource === "friend" && !(formData.get("referral_friend") as string || "").trim()) {
         newErrors.referral_friend = "Friend's name is required";
       }
       if (selectedServices.length === 0) {
@@ -105,13 +117,24 @@ const Contact = () => {
         newErrors.resume = "File size must be less than 5MB";
       }
 
-      if (!termsAccepted) newErrors.terms = "You must accept the terms and privacy policy";
+      if (!termsAccepted) newErrors.terms = "You must agree to the Terms and Conditions";
     } else {
-      if (!formData.get("message")) newErrors.message = "Message is required";
+      if (!(formData.get("message") as string || "").trim()) newErrors.message = "Message is required";
     }
     
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.keys(newErrors)[0];
+      const element = document.getElementsByName(firstError)[0] || document.getElementById(`field-${firstError}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (element as HTMLElement).focus();
+      }
+      return false;
+    }
+
+    return true;
   };
 
   const isGeneralFilled = 
@@ -254,18 +277,18 @@ const Contact = () => {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
                       <Input name="first_name" value={formValues.first_name} onChange={handleInputChange} placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
-                      {errors.first_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.first_name}</p>}
+                      {errors.first_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.first_name}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
                       <Input name="last_name" value={formValues.last_name} onChange={handleInputChange} placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
-                      {errors.last_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.last_name}</p>}
+                      {errors.last_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.last_name}</p>}
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
                     <Input name="email" type="email" value={formValues.email} onChange={handleInputChange} placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
-                    {errors.email && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
+                    {errors.email && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.email}</p>}
                   </div>
                   
                   <div className="space-y-1.5">
@@ -284,13 +307,13 @@ const Contact = () => {
                       </Select>
                       <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
                     </div>
-                    {errors.phone && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.phone}</p>}
+                    {errors.phone && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.phone}</p>}
                   </div>
                   
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Message *</Label>
                     <Textarea name="message" value={formValues.message} onChange={handleInputChange} placeholder="How can we help you?" rows={5} className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none ${errors.message ? 'border-destructive' : ''}`} />
-                    {errors.message && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.message}</p>}
+                    {errors.message && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.message}</p>}
                   </div>
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button 
@@ -374,26 +397,26 @@ const Contact = () => {
                         );
                       })}
                     </div>
-                    {errors.services && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.services}</p>}
+                    {errors.services && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.services}</p>}
                   </div>
 
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University / College *</Label>
                       <Input name="university" value={formValues.university} onChange={handleInputChange} placeholder="University name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.university ? 'border-destructive' : ''}`} />
-                      {errors.university && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.university}</p>}
+                      {errors.university && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.university}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year *</Label>
                       <Input name="graduation_year" value={formValues.graduation_year} onChange={handleInputChange} placeholder="e.g., 2025" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.graduation_year ? 'border-destructive' : ''}`} />
-                      {errors.graduation_year && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.graduation_year}</p>}
+                      {errors.graduation_year && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.graduation_year}</p>}
                     </div>
                   </div>
 
                   <div className="sm:col-span-2 space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree & Major *</Label>
                     <Input name="degree_major" value={formValues.degree_major} onChange={handleInputChange} placeholder="e.g., Master's in Computer Science" className={`h-11 rounded-xl bg-neutral-50/50 border-neutral-200 ${errors.degree_major ? 'border-destructive' : ''}`} />
-                    {errors.degree_major && <p className="text-[10px] text-destructive font-semibold tracking-tight uppercase mt-1">{errors.degree_major}</p>}
+                    {errors.degree_major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.degree_major}</p>}
                   </div>
 
                   <div className="space-y-1.5">
@@ -413,12 +436,12 @@ const Contact = () => {
                       <option value="ead">EAD</option>
                       <option value="other">Other</option>
                     </select>
-                    {errors.visa_status && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.visa_status}</p>}
+                    {errors.visa_status && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.visa_status}</p>}
                     {visaStatus === "other" && (
                       <div className="mt-3 space-y-1.5 animate-in slide-in-from-top-1">
                         <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Please Specify *</Label>
                         <Input name="visa_other" value={formValues.visa_other} onChange={handleInputChange} placeholder="Enter your visa status" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.visa_other ? 'border-destructive' : ''}`} />
-                        {errors.visa_other && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.visa_other}</p>}
+                        {errors.visa_other && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.visa_other}</p>}
                       </div>
                     )}
                     <p className="mt-1 text-[10px] text-neutral-400 font-medium">This helps us tailor our approach to your situation</p>
@@ -426,12 +449,12 @@ const Contact = () => {
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Current Location *</Label>
                     <Input name="current_location" value={formValues.current_location} onChange={handleInputChange} placeholder="City, State, Country" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.current_location ? 'border-destructive' : ''}`} />
-                    {errors.current_location && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.current_location}</p>}
+                    {errors.current_location && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.current_location}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Resume Upload *</Label>
                     <Input name="resume" type="file" accept=".pdf,.doc,.docx" className={`file:rounded-lg file:border-0 file:bg-neutral-100 file:text-neutral-700 cursor-pointer pt-2 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 file:mr-4 file:px-4 file:text-xs file:font-semibold ${errors.resume ? 'border-destructive' : ''}`} />
-                    {errors.resume && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.resume}</p>}
+                    {errors.resume && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.resume}</p>}
                     <p className="mt-1 text-[10px] text-neutral-400 font-medium">PDF or Word document required</p>
                   </div>
                   <div className="space-y-1.5">
@@ -449,13 +472,13 @@ const Contact = () => {
                       <option value="university">University / Career Center</option>
                       <option value="other">Other</option>
                     </select>
-                    {errors.referral_source && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.referral_source}</p>}
+                    {errors.referral_source && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.referral_source}</p>}
                   </div>
                   {referralSource === "friend" && (
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Friend's Name *</Label>
                       <Input name="referral_friend" value={formValues.referral_friend} onChange={handleInputChange} placeholder="Who referred you to HYRIND?" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.referral_friend ? 'border-destructive' : ''}`} />
-                      {errors.referral_friend && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.referral_friend}</p>}
+                      {errors.referral_friend && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.referral_friend}</p>}
                     </div>
                   )}
 
@@ -474,7 +497,7 @@ const Contact = () => {
                       <Link to="/privacy-policy" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</Link>. *
                     </label>
                   </div>
-                  {errors.terms && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1 ml-2">{errors.terms}</p>}
+                  {errors.terms && <p className="text-[10px] text-destructive mt-1 font-medium ml-2">{errors.terms}</p>}
 
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button 

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 interface WorkExperience {
   id?: string;
@@ -655,7 +656,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                         </div>
                         <div className="sm:col-span-2 space-y-2">
                           <Label className="text-xs font-medium">Credential URL</Label>
-                          <Input type="url" value={cert.credential_url || ''} onChange={e => handleArrayChange('certifications', idx, 'credential_url', e.target.value)} disabled={isLocked} placeholder="https://..." className="h-9 rounded-lg bg-neutral-50" />
+                          <div className="flex gap-2">
+                            <Input type="url" value={cert.credential_url || ''} onChange={e => handleArrayChange('certifications', idx, 'credential_url', e.target.value)} disabled={isLocked} placeholder="https://..." className="h-9 rounded-lg bg-neutral-50 flex-1" />
+                            {cert.credential_url && (
+                              <DocumentPreview url={cert.credential_url} variant="icon" className="h-9 w-9" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </Card>
@@ -771,9 +777,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                         <p className="text-xs text-green-700 font-bold flex items-center gap-2">
                           <CheckCircle className="h-4 w-4" /> Resume successfully attached.
                         </p>
-                        <Button variant="outline" size="sm" asChild className="h-9 px-3 text-xs bg-white border-green-300 text-green-700 hover:bg-green-600 hover:text-white">
-                          <a href={formData.resume_url} target="_blank" rel="noreferrer"><Download className="h-3 w-3 mr-1" />Download</a>
-                        </Button>
+                        <DocumentPreview 
+                          url={formData.resume_url} 
+                          label="Download" 
+                          variant="button" 
+                          className="h-9 px-3 text-xs bg-white border-green-300 text-green-700 hover:bg-green-600 hover:text-white" 
+                        />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground italic">No resume uploaded yet.</p>
@@ -887,7 +896,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       <div className="flex flex-col items-center gap-2">
                         <FileCheck className="h-6 w-6 text-green-600" />
                         <p className="text-xs font-bold text-green-700">Uploaded</p>
-                        <a href={formData.passport_url} target="_blank" rel="noreferrer" className="text-xs text-green-600 hover:underline">View</a>
+                        <DocumentPreview url={formData.passport_url} label="View" className="text-xs text-green-600 hover:underline" />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">PDF, DOCX, or image</p>
@@ -905,7 +914,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       <div className="flex flex-col items-center gap-2">
                         <FileCheck className="h-6 w-6 text-green-600" />
                         <p className="text-xs font-bold text-green-700">Uploaded</p>
-                        <a href={formData.government_id_url} target="_blank" rel="noreferrer" className="text-xs text-green-600 hover:underline">View</a>
+                        <DocumentPreview url={formData.government_id_url} label="View" className="text-xs text-green-600 hover:underline" />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">PDF, DOCX, or image</p>
@@ -923,7 +932,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       <div className="flex flex-col items-center gap-2">
                         <FileCheck className="h-6 w-6 text-green-600" />
                         <p className="text-xs font-bold text-green-700">Uploaded</p>
-                        <a href={formData.visa_url} target="_blank" rel="noreferrer" className="text-xs text-green-600 hover:underline">View</a>
+                        <DocumentPreview url={formData.visa_url} label="View" className="text-xs text-green-600 hover:underline" />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">PDF, DOCX, or image</p>
@@ -941,7 +950,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       <div className="flex flex-col items-center gap-2">
                         <FileCheck className="h-6 w-6 text-green-600" />
                         <p className="text-xs font-bold text-green-700">Uploaded</p>
-                        <a href={formData.work_authorization_url} target="_blank" rel="noreferrer" className="text-xs text-green-600 hover:underline">View</a>
+                        <DocumentPreview url={formData.work_authorization_url} label="View" className="text-xs text-green-600 hover:underline" />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">PDF, DOCX, or image</p>
@@ -959,7 +968,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       <div className="flex flex-col items-center gap-2">
                         <FileCheck className="h-6 w-6 text-green-600" />
                         <p className="text-xs font-bold text-green-700">Uploaded</p>
-                        <a href={formData.any_documents_url} target="_blank" rel="noreferrer" className="text-xs text-green-600 hover:underline">View</a>
+                        <DocumentPreview url={formData.any_documents_url} label="View" className="text-xs text-green-600 hover:underline" />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">Any additional document (PDF, DOCX, or image)</p>

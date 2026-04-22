@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { BACKEND_URL } from "@/services/api";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 interface AdminInterestedCandidateDetailProps {
   leadId: string;
@@ -144,16 +145,16 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-1">
-                <Label className="text-xs font-bold uppercase tracking-widest">Degree / Major</Label>
+                <Label className="text-xs font-bold uppercase tracking-widest">Degree & Major</Label>
                 <Input 
-                  value={`${form.degree}${form.degree && form.major ? " / " : ""}${form.major}`} 
+                  value={`${form.degree}${form.degree && form.major ? " & " : ""}${form.major}`} 
                   onChange={(event) => {
                     const val = event.target.value;
-                    const [d, ...m] = val.split("/");
-                    setForm(prev => ({ ...prev, degree: (d || "").trim(), major: m.join("/").trim() }));
+                    const [d, ...m] = val.split("&");
+                    setForm(prev => ({ ...prev, degree: (d || "").trim(), major: m.join("&").trim() }));
                   }} 
                   className="h-11 rounded-xl" 
-                  placeholder="e.g. Bachelors / CS"
+                  placeholder="e.g., Master's in Computer Science"
                 />
               </div>
               <div className="space-y-1.5">
@@ -207,14 +208,7 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <FileText className="h-4 w-4" /> Resume
                 </div>
-                <a 
-                  href={lead.resume_file?.startsWith('http') ? lead.resume_file : `${BACKEND_URL}${lead.resume_file}`} 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="text-sm text-secondary hover:underline"
-                >
-                  View uploaded resume
-                </a>
+                <DocumentPreview url={lead.resume_file || lead.resume_url} label="View uploaded resume" className="text-sm mt-1" />
               </div>
             )}
 

@@ -11,6 +11,14 @@ const VITE_API_URL = import.meta.env.VITE_API_URL || DEFAULT_URL;
 export const BACKEND_URL = VITE_API_URL.replace(/\/$/, "");
 const API_BASE_URL = `${BACKEND_URL}/api`;
 
+export const getFileUrl = (url: string | null | undefined): string => {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  // Ensure we don't have double slashes if url starts with /
+  const sanitizedUrl = url.startsWith("/") ? url : `/${url}`;
+  return `${BACKEND_URL}${sanitizedUrl}`;
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },

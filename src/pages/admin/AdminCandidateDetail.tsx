@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi, billingApi, authApi, BACKEND_URL } from "@/services/api";
+import { candidatesApi, billingApi, authApi, BACKEND_URL, getFileUrl } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -369,15 +370,12 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 <div className="pt-2 border-t mt-2">
                     <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">{status === 'lead' ? 'Submitted Resume' : 'Registered Resume'}</Label>
                     {(candidate?.resume_file || candidate?.resume_url) ? (
-                      <Button variant="outline" size="sm" className="h-9 w-full justify-start gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary" asChild>
-                        <a 
-                          href={(candidate.resume_file || candidate.resume_url).startsWith('http') ? (candidate.resume_file || candidate.resume_url) : `${BACKEND_URL}${candidate.resume_file || candidate.resume_url}`} 
-                          target="_blank" 
-                          rel="noreferrer"
-                        >
-                          <FileText className="h-4 w-4" /> View {status === 'lead' ? 'Lead' : 'Registration'} Resume
-                        </a>
-                      </Button>
+                        <div className="flex items-center gap-3">
+                          <DocumentPreview 
+                            url={candidate.resume_file || candidate.resume_url} 
+                            label={`View ${status === 'lead' ? 'Lead' : 'Registration'} Resume`}
+                          />
+                        </div>
                   ) : (
                     <p className="text-[11px] text-muted-foreground italic">No resume uploaded during registration</p>
                   )}
@@ -399,10 +397,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Degree / Major</Label>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Degree & Major</Label>
                     <p className="font-medium text-foreground">
                       {candidate?.degree || intakeData?.degree || "—"}
-                      {(candidate?.major || intakeData?.major) ? ` / ${candidate?.major || intakeData?.major}` : ""}
+                      {(candidate?.major || intakeData?.major) ? ` & ${candidate?.major || intakeData?.major}` : ""}
                     </p>
                   </div>
                 </div>
@@ -572,7 +570,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Education</h4>
                       <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Degree / Major</p><p className="font-semibold text-sm">{intakeData.degree === "other" ? intakeData.degree_other : (intakeData.degree || "—")}{intakeData.major ? ` / ${intakeData.major}` : ""}</p></div>
+                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Degree & Major</p><p className="font-semibold text-sm">{intakeData.degree === "other" ? intakeData.degree_other : (intakeData.degree || "—")}{intakeData.major ? ` & ${intakeData.major}` : ""}</p></div>
                         <div className="col-span-2"><p className="text-muted-foreground mb-1">University</p><p className="font-medium text-sm">{intakeData.university_name || "—"}</p></div>
                         <div><p className="text-muted-foreground mb-1">Graduation Date</p><p className="font-medium">{intakeData.graduation_date || "—"}</p></div>
                         <div className="col-span-2"><p className="text-muted-foreground mb-1">Certifications</p><p className="font-medium whitespace-pre-wrap">{intakeData.additional_certifications || "—"}</p></div>
@@ -609,9 +607,9 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Social & Portfolio</h4>
                       <div className="space-y-2 text-xs">
-                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>LinkedIn</span>{intakeData.linkedin_url ? <a href={intakeData.linkedin_url} target="_blank" className="text-blue-600 underline">View Profile</a> : <span>—</span>}</div>
-                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>GitHub</span>{intakeData.github_url ? <a href={intakeData.github_url} target="_blank" className="text-blue-600 underline">View GitHub</a> : <span>—</span>}</div>
-                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>Portfolio</span>{intakeData.portfolio_url ? <a href={intakeData.portfolio_url} target="_blank" className="text-blue-600 underline">View Portfolio</a> : <span>—</span>}</div>
+                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>LinkedIn</span>{intakeData.linkedin_url ? <DocumentPreview url={intakeData.linkedin_url} label="View Profile" /> : <span>—</span>}</div>
+                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>GitHub</span>{intakeData.github_url ? <DocumentPreview url={intakeData.github_url} label="View GitHub" /> : <span>—</span>}</div>
+                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>Portfolio</span>{intakeData.portfolio_url ? <DocumentPreview url={intakeData.portfolio_url} label="View Portfolio" /> : <span>—</span>}</div>
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -626,20 +624,22 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
 
                   {intakeData.resume_url && (
                     <div className="pt-4">
-                      <Button variant="outline" className="w-full flex items-center gap-2 border-primary/20 bg-primary/5 text-primary" asChild>
-                        <a href={intakeData.resume_url} target="_blank" rel="noreferrer">
-                          <FileText className="h-4 w-4" /> View Submitted Resume
-                        </a>
-                      </Button>
+                      <DocumentPreview 
+                        url={intakeData.resume_url} 
+                        label="View Submitted Resume" 
+                        variant="button" 
+                        className="w-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+                      />
                     </div>
                   )}
                   {intakeData.any_documents_url && (
                     <div className="pt-2">
-                      <Button variant="outline" className="w-full flex items-center gap-2 border-neutral-200 bg-neutral-50" asChild>
-                        <a href={intakeData.any_documents_url} target="_blank" rel="noreferrer">
-                          <Download className="h-4 w-4" /> Download Additional Documents
-                        </a>
-                      </Button>
+                      <DocumentPreview 
+                        url={intakeData.any_documents_url} 
+                        label="Download Additional Documents" 
+                        variant="button"
+                        className="w-full border-neutral-200 bg-neutral-50"
+                      />
                     </div>
                   )}
                 </div>

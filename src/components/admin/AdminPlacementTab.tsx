@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Award, CheckCircle } from "lucide-react";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import { formatDate } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
@@ -102,7 +103,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
           {placement.bgv_company_name && <div><span className="text-muted-foreground">BGV Company:</span> {placement.bgv_company_name}</div>}
           {placement.offer_letter_url && (
             <div><span className="text-muted-foreground">Offer Letter:</span>{" "}
-              <a href={placement.offer_letter_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">View</a>
+              <DocumentPreview url={placement.offer_letter_url} label="View" className="text-primary underline" />
             </div>
           )}
           {placement.notes && <div className="sm:col-span-2"><span className="text-muted-foreground">Notes:</span> {placement.notes}</div>}

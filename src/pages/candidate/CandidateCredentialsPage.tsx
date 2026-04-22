@@ -19,6 +19,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 interface CandidateCredentialsPageProps {
   candidate: any;
@@ -320,7 +321,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                       <Label className="text-sm font-medium ml-1 text-blue-900">Upload Offer Letter *</Label>
                       <div className={cn("p-4 border-2 border-dashed rounded-xl transition-all", formData.opt_offer_letter_url ? "bg-green-50 border-green-200" : "bg-white border-blue-200 hover:border-blue-400")}>
                         <Input type="file" onChange={e => handleFileUpload(e, "opt_offer_letter_url")} accept=".pdf,.doc,.docx" className="mb-2 h-10 py-1.5 cursor-pointer text-xs" />
-                        {formData.opt_offer_letter_url && <p className="text-[11px] text-green-700 font-bold flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> File attached (<a href={formData.opt_offer_letter_url} target="_blank" className="underline hover:text-green-900">Preview</a>)</p>}
+                        {formData.opt_offer_letter_url && <p className="text-[11px] text-green-700 font-bold flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> File attached (<DocumentPreview url={formData.opt_offer_letter_url} label="Preview" className="text-green-700 hover:text-green-900 underline" />)</p>}
                       </div>
                     </div>
                   )}
@@ -348,7 +349,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                   <Label className="text-sm font-medium ml-1">Primary Resume (PDF/DOCX) *</Label>
                   <div className={cn("p-4 border-2 border-dashed rounded-xl transition-all", formData.primary_resume ? "bg-green-50 border-green-200" : "bg-neutral-50 border-neutral-200 hover:border-primary/40")}>
                     <Input type="file" onChange={e => handleFileUpload(e, "primary_resume")} accept=".pdf,.doc,.docx" required={!formData.primary_resume} className="mb-2 h-10 py-1.5 cursor-pointer text-xs" />
-                    {formData.primary_resume && <p className="text-[11px] text-green-700 font-bold flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> File attached (<a href={formData.primary_resume} target="_blank" className="underline hover:text-green-900 transition-colors">Preview</a>)</p>}
+                    {formData.primary_resume && <p className="text-[11px] text-green-700 font-bold flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> File attached (<DocumentPreview url={formData.primary_resume} label="Preview" className="text-green-700 hover:text-green-900 transition-colors" />)</p>}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -358,7 +359,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     <div className="space-y-1.5">
                       {formData.alternate_resume_versions.map((url, i) => (
                         <p key={i} className="text-[10px] text-muted-foreground flex items-center justify-between gap-2 bg-white px-2 py-1 rounded-md border border-neutral-100 font-medium">
-                          <span className="truncate flex-1">Version {i+1}: <a href={url} target="_blank" className="underline text-primary">Resume Link</a></span>
+                          <span className="truncate flex-1">Version {i+1}: <DocumentPreview url={url} label="Resume Link" /></span>
                           <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive hover:bg-destructive/5" onClick={() => setFormData(prev => ({ ...prev, alternate_resume_versions: prev.alternate_resume_versions.filter((_, idx) => idx !== i) }))}><X className="h-3 w-3" /></Button>
                         </p>
                       ))}
@@ -620,9 +621,11 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                                       </div>
                                     ))
                                   : (key.includes('url') || key.includes('resume')) ? (
-                                      <a href={String(value)} target="_blank" className="text-blue-600 underline font-semibold flex items-center gap-1.5 h-6">
-                                         <Download className="h-3.5 w-3.5" /> View Attached File
-                                      </a>
+                                      <DocumentPreview 
+                                        url={String(value)} 
+                                        label="View Attached File" 
+                                        className="text-blue-600 underline font-semibold"
+                                      />
                                   ) : maskSensitive(key, String(value))}
                               </div>
                             </div>

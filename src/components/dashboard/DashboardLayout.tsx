@@ -133,6 +133,16 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
                     );
                   })}
                 </nav>
+                <div className="border-t border-white/10 p-4">
+                  <Link
+                    to="/contact?type=general"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-4 rounded-xl px-4 py-3 text-[14px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                  >
+                    <Phone className="h-4 w-4" />
+                    Help Desk
+                  </Link>
+                </div>
             </motion.aside>
             </>
           )}
