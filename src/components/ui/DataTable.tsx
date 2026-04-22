@@ -24,7 +24,7 @@ interface DataTableProps<T> {
   columns: {
     header: string;
     accessorKey?: keyof T;
-    render?: (row: T) => React.ReactNode;
+    render?: (row: T, col?: any, globalIndex?: number) => React.ReactNode;
     className?: string;
     sortable?: boolean;
   }[];
@@ -184,7 +184,7 @@ export function DataTable<T>({
                   {columns.map((col, j) => (
                     <TableCell key={j} className={cn("px-4 py-3 align-middle", col.className)}>
                       {col.render
-                        ? col.render(row)
+                        ? col.render(row, col, (currentPage - 1) * pageSize + i)
                         : col.accessorKey
                         ? (row[col.accessorKey] as React.ReactNode)
                         : "—"}

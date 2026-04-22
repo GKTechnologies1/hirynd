@@ -5,8 +5,10 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 
+from django.conf import settings
 from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
 from audit.utils import log_action
+from notifications.utils import send_email, get_styled_email_html, create_notification
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, CredentialVersion,
     Referral, InterviewLog, PlacementClosure, CandidateLegacyPayment, InterestedCandidate,
@@ -139,6 +141,30 @@ def update_candidate_status(request, candidate_id):
 
     log_action(request.user, 'status_change', str(candidate.id), 'candidate',
                {'old': old_status, 'new': new_status})
+
+    # ── Email: Roles Published to Candidate ──
+    if new_status == 'roles_published' and old_status != 'roles_published':
+        cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+        try:
+            send_email(
+                to=candidate.user.email,
+                subject='Roles Published for Your Review – Hyrind',
+                html=get_styled_email_html(
+                    cand_name,
+                    '<p>Great news! Your team has reviewed your profile and published suggested roles for your marketing.</p>'
+                    '<p>Please log in to review the suggested roles and confirm your selections.</p>',
+                    action_label="Review Roles",
+                    action_url="/candidate-dashboard"
+                ),
+            )
+            create_notification(
+                candidate.user,
+                'Roles Published',
+                'Your suggested roles are ready for review. Please confirm your selections.',
+                link='/candidate-dashboard'
+            )
+        except Exception:
+            pass
 
     return Response({'message': f'Status updated to {new_status}'})
 
@@ -371,6 +397,33 @@ def intake(request, candidate_id):
     
     candidate.save()
     log_action(request.user, 'intake_submitted', str(candidate.id), 'candidate', {})
+
+    # ── Email: Intake Submitted ──
+    cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+    try:
+        send_email(
+            to=candidate.user.email,
+            subject='Intake Form Submitted Successfully – Hyrind',
+            html=get_styled_email_html(
+                cand_name,
+                '<p>Your intake form has been submitted and locked successfully.</p>'
+                '<p>Our team will now review your profile and suggest relevant roles for your marketing.</p>'
+                '<p>You will receive a notification once roles are published for your review.</p>',
+                action_label="View Dashboard",
+                action_url="/candidate-dashboard"
+            ),
+        )
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+        send_email(
+            to=admin_email,
+            subject=f'Intake Submitted: {cand_name}',
+            html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has submitted their intake form.</p>'
+                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">Review in Admin</a></p>',
+            email_type='admin_notification'
+        )
+    except Exception:
+        pass  # Non-critical
+
     return Response(ClientIntakeSerializer(intake).data)
 
 
@@ -432,7 +485,32 @@ def confirm_roles(request, candidate_id):
         
     # AUTOMATION: Ensure the $400 subscription exists
     ensure_default_subscription(candidate)
-    
+
+    # ── Email: Roles Confirmed by Candidate ──
+    cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+    try:
+        send_email(
+            to=candidate.user.email,
+            subject='Role Selections Confirmed – Hyrind',
+            html=get_styled_email_html(
+                cand_name,
+                '<p>Your role selections have been confirmed successfully.</p>'
+                '<p>Your next step is to complete your payment to proceed with the onboarding process.</p>',
+                action_label="Proceed to Payment",
+                action_url="/candidate-dashboard"
+            ),
+        )
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+        send_email(
+            to=admin_email,
+            subject=f'Roles Confirmed: {cand_name}',
+            html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has confirmed their role selections.</p>'
+                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
+            email_type='admin_notification'
+        )
+    except Exception:
+        pass
+
     return Response({'message': 'Roles confirmed'})
 
 
@@ -489,6 +567,36 @@ def credentials(request, candidate_id):
     return Response(CredentialVersionSerializer(versions, many=True).data)
 
 
+def validate_credential_data(data):
+    """Validate required credential fields"""
+    errors = {}
+    required_fields = {
+        'full_name_as_resume': 'Full Name (as on Resume)',
+        'phone_number': 'Phone Number',
+        'linkedin_url': 'LinkedIn URL',
+        'shared_email': 'Shared Email (All Platforms)',
+        'gmail_password': 'Gmail Password',
+        'linkedin_password': 'LinkedIn Password',
+        'work_history_summary': 'Work History Summary',
+        'skills_summary': 'Skills Summary',
+        'tools_and_technologies': 'Tools & Technologies',
+        'visa_details': 'Visa Details',
+        'preferred_job_roles': 'Preferred Job Roles',
+        'preferred_locations': 'Preferred Locations',
+    }
+    for field, label in required_fields.items():
+        if not data.get(field, '').strip() if isinstance(data.get(field), str) else not data.get(field):
+            errors[field] = f"{label} is required"
+    
+    # Date validations
+    if not data.get('bachelors_graduation_date'):
+        errors['bachelors_graduation_date'] = "Bachelor's Graduation Date is required"
+    if not data.get('opt_start_date'):
+        errors['opt_start_date'] = "OPT Start Date is required"
+    
+    return errors
+
+
 @api_view(['POST'])
 @permission_classes([IsApproved])
 def upsert_credential(request, candidate_id):
@@ -499,6 +607,14 @@ def upsert_credential(request, candidate_id):
 
     # Accept both { data: {...} } and flat submission
     payload = request.data.get('data') if 'data' in request.data else request.data
+
+    # Validate credential data
+    validation_errors = validate_credential_data(payload)
+    if validation_errors:
+        return Response({
+            'error': 'Validation failed',
+            'validation_errors': validation_errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     last_version = CredentialVersion.objects.filter(candidate=candidate).order_by('-version').first()
     new_version = (last_version.version + 1) if last_version else 1
@@ -535,6 +651,33 @@ def upsert_credential(request, candidate_id):
         candidate.save(update_fields=['status'])
 
     log_action(request.user, 'credential_edit', str(candidate.id), 'credential', {'version': new_version})
+
+    # ── Email: Credential Submitted/Updated ──
+    cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+    try:
+        action_text = 'submitted' if new_version == 1 else f'updated (v{new_version})'
+        send_email(
+            to=candidate.user.email,
+            subject=f'Credentials {action_text.title()} – Hyrind',
+            html=get_styled_email_html(
+                cand_name,
+                f'<p>Your credential intake sheet has been {action_text} successfully.</p>'
+                '<p>Our marketing team will use the latest version of your credentials for job applications.</p>',
+                action_label="View Dashboard",
+                action_url="/candidate-dashboard"
+            ),
+        )
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+        send_email(
+            to=admin_email,
+            subject=f'Credentials {action_text.title()}: {cand_name}',
+            html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has {action_text} their credential intake sheet.</p>'
+                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
+            email_type='admin_notification'
+        )
+    except Exception:
+        pass
+
     return Response(CredentialVersionSerializer(cred).data, status=status.HTTP_201_CREATED)
 
 

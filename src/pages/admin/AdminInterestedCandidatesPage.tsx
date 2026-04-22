@@ -102,9 +102,9 @@ const AdminInterestedCandidatesPage = () => {
             columns={[
               { 
                 header: "ID", 
-                render: (c: any) => (
+                render: (c: any, _?: any, idx?: number) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
-                    {`HYRINT${(c.id || "").toString().slice(-6).toUpperCase()}`}
+                    {`HYRLD${String((idx ?? 0) + 1).padStart(4, '0')}`}
                   </span>
                 ),
                 sortable: true,
