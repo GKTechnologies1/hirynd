@@ -1,4 +1,5 @@
 import io
+import os
 from django.utils import timezone
 from django.db import transaction
 from reportlab.lib.pagesizes import letter
@@ -7,166 +8,190 @@ from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
 )
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+# ── Register Unicode fonts for Rupee symbol support ──
+_FONTS_READY = False
+FONT_REG = 'Helvetica'
+FONT_BOLD = 'Helvetica-Bold'
+
+def _ensure_fonts():
+    global _FONTS_READY, FONT_REG, FONT_BOLD
+    if _FONTS_READY:
+        return
+    _FONTS_READY = True
+    win_dir = os.environ.get('WINDIR', 'C:\\Windows')
+    font_dir = os.path.join(win_dir, 'Fonts')
+    # Try Segoe UI first (clean, supports Indian Rupee)
+    reg_path = os.path.join(font_dir, 'segoeui.ttf')
+    bold_path = os.path.join(font_dir, 'segoeuib.ttf')
+    if os.path.exists(reg_path) and os.path.exists(bold_path):
+        try:
+            pdfmetrics.registerFont(TTFont('SegoeUI', reg_path))
+            pdfmetrics.registerFont(TTFont('SegoeUI-Bold', bold_path))
+            FONT_REG = 'SegoeUI'
+            FONT_BOLD = 'SegoeUI-Bold'
+            return
+        except Exception:
+            pass
+    # Fallback: Arial
+    reg_path = os.path.join(font_dir, 'arial.ttf')
+    bold_path = os.path.join(font_dir, 'arialbd.ttf')
+    if os.path.exists(reg_path) and os.path.exists(bold_path):
+        try:
+            pdfmetrics.registerFont(TTFont('ArialU', reg_path))
+            pdfmetrics.registerFont(TTFont('ArialU-Bold', bold_path))
+            FONT_REG = 'ArialU'
+            FONT_BOLD = 'ArialU-Bold'
+        except Exception:
+            pass
+
+
+# ── Logo paths ──
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HYRIND_LOGO = os.path.join(BASE_DIR, 'invoice_assets', 'hyrind_logo.png')
+RAZORPAY_LOGO = os.path.join(BASE_DIR, 'invoice_assets', 'razorpay_logo.png')
+
+
+def _get_logo(path, max_w, max_h):
+    """Load a logo image scaled to fit within max_w x max_h."""
+    try:
+        if os.path.exists(path):
+            img = Image(path)
+            aspect = img.imageWidth / img.imageHeight
+            if img.imageWidth > max_w:
+                img.drawWidth = max_w
+                img.drawHeight = max_w / aspect
+            if img.drawHeight > max_h:
+                img.drawHeight = max_h
+                img.drawWidth = max_h * aspect
+            return img
+    except Exception:
+        pass
+    return ''
 
 
 def generate_invoice_pdf(invoice):
     """
-    Generates a professional, branded PDF invoice for Hyrind Private Limited.
-    Matches the standard company invoice template.
+    Generates a professional PDF invoice matching Hyrind Private Limited's
+    standard Razorpay-powered template with logos and proper ₹ symbol.
     """
+    _ensure_fonts()
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
-        rightMargin=50,
-        leftMargin=50,
-        topMargin=40,
-        bottomMargin=40,
+        rightMargin=60,
+        leftMargin=60,
+        topMargin=50,
+        bottomMargin=50,
     )
 
-    # ── Colour Palette ──
-    BRAND_NAVY = colors.HexColor('#0D1B2A')
-    BRAND_BLUE = colors.HexColor('#1B4F72')
-    BRAND_ACCENT = colors.HexColor('#2E86C1')
-    HEADER_BG = colors.HexColor('#0D1B2A')
-    ROW_ALT = colors.HexColor('#F8F9FA')
-    BORDER = colors.HexColor('#DEE2E6')
-    LIGHT_BG = colors.HexColor('#F0F4F8')
-    WHITE = colors.white
+    # ── Colours ──
+    TEXT_PRIMARY = colors.HexColor('#1A1A2E')
+    TEXT_SECONDARY = colors.HexColor('#555566')
+    TEXT_MUTED = colors.HexColor('#888899')
+    TH_BG = colors.HexColor('#F5F5F8')
+    BORDER = colors.HexColor('#E0E0E8')
 
-    # ── Styles ──
+    # ── Styles (using registered Unicode font) ──
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        'BrandTitle', parent=styles['Normal'],
-        fontSize=22, leading=26, fontName='Helvetica-Bold',
-        textColor=WHITE, alignment=TA_LEFT
-    ))
-    styles.add(ParagraphStyle(
-        'BrandSub', parent=styles['Normal'],
-        fontSize=9, leading=12, fontName='Helvetica',
-        textColor=colors.HexColor('#ADB5BD'), alignment=TA_LEFT
-    ))
-    styles.add(ParagraphStyle(
-        'InvLabel', parent=styles['Normal'],
-        fontSize=9, leading=12, fontName='Helvetica-Bold',
-        textColor=colors.HexColor('#6C757D'), alignment=TA_RIGHT
-    ))
-    styles.add(ParagraphStyle(
-        'InvValue', parent=styles['Normal'],
-        fontSize=10, leading=14, fontName='Helvetica-Bold',
-        textColor=BRAND_NAVY, alignment=TA_RIGHT
-    ))
-    styles.add(ParagraphStyle(
-        'SectionHead', parent=styles['Normal'],
-        fontSize=9, leading=11, fontName='Helvetica-Bold',
-        textColor=colors.HexColor('#6C757D'), spaceAfter=6
-    ))
-    styles.add(ParagraphStyle(
-        'CellNormal', parent=styles['Normal'],
-        fontSize=10, leading=13, fontName='Helvetica',
-        textColor=BRAND_NAVY
-    ))
-    styles.add(ParagraphStyle(
-        'CellBold', parent=styles['Normal'],
-        fontSize=10, leading=13, fontName='Helvetica-Bold',
-        textColor=BRAND_NAVY
-    ))
-    styles.add(ParagraphStyle(
-        'FooterNote', parent=styles['Normal'],
-        fontSize=8, leading=10, fontName='Helvetica',
-        textColor=colors.HexColor('#ADB5BD'), alignment=TA_CENTER
-    ))
+    FR = FONT_REG
+    FB = FONT_BOLD
+
+    styles.add(ParagraphStyle('Co', parent=styles['Normal'], fontSize=15, leading=19, fontName=FB, textColor=TEXT_PRIMARY))
+    styles.add(ParagraphStyle('Gstin', parent=styles['Normal'], fontSize=8.5, leading=11, fontName=FR, textColor=TEXT_MUTED))
+    styles.add(ParagraphStyle('RzpBrand', parent=styles['Normal'], fontSize=14, leading=18, fontName=FB, textColor=colors.HexColor('#2962FF'), alignment=TA_RIGHT))
+    styles.add(ParagraphStyle('RzpSub', parent=styles['Normal'], fontSize=7.5, leading=10, fontName=FR, textColor=TEXT_MUTED, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle('InvW', parent=styles['Normal'], fontSize=18, leading=22, fontName=FB, textColor=TEXT_PRIMARY))
+    styles.add(ParagraphStyle('DueLbl', parent=styles['Normal'], fontSize=9, leading=12, fontName=FB, textColor=TEXT_SECONDARY, spaceAfter=3))
+    styles.add(ParagraphStyle('DueAmt', parent=styles['Normal'], fontSize=16, leading=20, fontName=FB, textColor=TEXT_PRIMARY))
+    styles.add(ParagraphStyle('DtLbl', parent=styles['Normal'], fontSize=9, leading=12, fontName=FB, textColor=TEXT_SECONDARY, spaceBefore=14, spaceAfter=3))
+    styles.add(ParagraphStyle('DtVal', parent=styles['Normal'], fontSize=11, leading=14, fontName=FR, textColor=TEXT_PRIMARY))
+    styles.add(ParagraphStyle('ThL', parent=styles['Normal'], fontSize=8.5, leading=11, fontName=FB, textColor=TEXT_SECONDARY))
+    styles.add(ParagraphStyle('ThR', parent=styles['Normal'], fontSize=8.5, leading=11, fontName=FB, textColor=TEXT_SECONDARY, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle('ThC', parent=styles['Normal'], fontSize=8.5, leading=11, fontName=FB, textColor=TEXT_SECONDARY, alignment=TA_CENTER))
+    styles.add(ParagraphStyle('TdL', parent=styles['Normal'], fontSize=10, leading=14, fontName=FR, textColor=TEXT_PRIMARY))
+    styles.add(ParagraphStyle('TdR', parent=styles['Normal'], fontSize=10, leading=14, fontName=FR, textColor=TEXT_PRIMARY, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle('TdC', parent=styles['Normal'], fontSize=10, leading=14, fontName=FR, textColor=TEXT_PRIMARY, alignment=TA_CENTER))
+    styles.add(ParagraphStyle('TotL', parent=styles['Normal'], fontSize=11, leading=15, fontName=FB, textColor=TEXT_PRIMARY, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle('TotV', parent=styles['Normal'], fontSize=11, leading=15, fontName=FB, textColor=TEXT_PRIMARY, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle('Ft', parent=styles['Normal'], fontSize=8, leading=10, fontName=FR, textColor=TEXT_MUTED, alignment=TA_CENTER))
 
     Story = []
-    page_width = letter[0] - 100  # 50 margins each side
+    pw = letter[0] - 120  # page width (minus 60+60 margins)
 
-    # ═══════════════════════════════════════════════════
-    # 1. HEADER BANNER
-    # ═══════════════════════════════════════════════════
-    header_left = Paragraph(
-        '<b>HYRIND PRIVATE LIMITED</b>',
-        styles['BrandTitle']
-    )
-    header_gstin = Paragraph(
-        'GSTIN - 37AAICH2320M1ZI',
-        styles['BrandSub']
-    )
-    header_right = Paragraph(
-        'Invoicing and payments<br/>powered by Razorpay',
-        styles['BrandSub']
-    )
-    header_data = [
-        [header_left, ''],
-        [header_gstin, header_right],
-    ]
-    header_table = Table(header_data, colWidths=[page_width * 0.6, page_width * 0.4])
-    header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), HEADER_BG),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, 0), 18),
-        ('BOTTOMPADDING', (0, -1), (-1, -1), 14),
-        ('LEFTPADDING', (0, 0), (0, -1), 20),
-        ('RIGHTPADDING', (-1, 0), (-1, -1), 20),
-        ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
-    ]))
-    Story.append(header_table)
-    Story.append(Spacer(1, 24))
+    # ═══════════════════════════════════════════════════════
+    # 1. HEADER — [Hyrind Logo] Company | [Razorpay Logo]
+    # ═══════════════════════════════════════════════════════
+    hyrind_logo = _get_logo(HYRIND_LOGO, 35, 35)
+    razorpay_logo = _get_logo(RAZORPAY_LOGO, 100, 32)
+    co_text = Paragraph('<b>HYRIND PRIVATE LIMITED</b>', styles['Co'])
+    gstin = Paragraph('GSTIN - 37AAICH2320M1ZI', styles['Gstin'])
+    rzp_sub = Paragraph('Invoicing and payments<br/>powered by Razorpay', styles['RzpSub'])
 
-    # ═══════════════════════════════════════════════════
-    # 2. INVOICE META (Receipt No + Issue Date)
-    # ═══════════════════════════════════════════════════
-    invoice_number = f"HYRIND{str(invoice.id).split('-')[0][:4].upper().zfill(4)}"
-    issue_date = (invoice.created_at or timezone.now()).strftime('%d %b %Y')
+    # Left side: logo + text in a nested table to ensure alignment
+    if hyrind_logo:
+        left_side_data = [[hyrind_logo, co_text], ['', gstin]]
+        left_side_table = Table(left_side_data, colWidths=[40, pw * 0.6 - 40])
+        left_side_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('SPAN', (0, 0), (0, 1)),
+        ]))
+        left_content = left_side_table
+    else:
+        left_content = Table([[co_text], [gstin]], colWidths=[pw * 0.6])
+        left_content.setStyle(TableStyle([('LEFTPADDING', (0, 0), (-1, -1), 0), ('TOPPADDING', (0, 0), (-1, -1), 0)]))
 
-    meta_data = [
-        [
-            Paragraph(f'<b>Invoice Receipt:</b> {invoice_number}', styles['CellBold']),
-            Paragraph(f'<b>ISSUE DATE</b>', styles['InvLabel']),
-        ],
-        [
-            '',
-            Paragraph(issue_date, styles['InvValue']),
-        ]
-    ]
-    meta_table = Table(meta_data, colWidths=[page_width * 0.55, page_width * 0.45])
-    meta_table.setStyle(TableStyle([
+    # Right side: Razorpay logo + subtext (ensuring strict right alignment)
+    right_side_data = [[razorpay_logo or ''], [rzp_sub]]
+    right_side_table = Table(right_side_data, colWidths=[pw * 0.4])
+    right_side_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, 0), 4),
-        ('BOTTOMPADDING', (0, -1), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
-    Story.append(meta_table)
-    Story.append(Spacer(1, 10))
 
-    # ── Divider ──
-    Story.append(HRFlowable(
-        width='100%', thickness=1,
-        color=BORDER, spaceAfter=16, spaceBefore=4
+    header = Table([[left_content, right_side_table]], colWidths=[pw * 0.6, pw * 0.4])
+    header.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    Story.append(header)
+    Story.append(Spacer(1, 24))
+    Story.append(HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=22))
+
+    # ═══════════════════════════════════════════════════════
+    # 2. "Invoice  Receipt: HYRIND0021"
+    # ═══════════════════════════════════════════════════════
+    inv_num = f"HYRIND{str(invoice.id).split('-')[0][:4].upper().zfill(4)}"
+    try:
+        issue_date = (invoice.created_at or timezone.now()).strftime('%-d %b %Y')
+    except ValueError:
+        issue_date = (invoice.created_at or timezone.now()).strftime('%d %b %Y').lstrip('0')
+
+    Story.append(Paragraph(
+        f'<b>Invoice</b>&nbsp;&nbsp;'
+        f'<font size="11" color="#555566">Receipt: {inv_num}</font>',
+        styles['InvW']
     ))
+    Story.append(Spacer(1, 22))
 
-    # ═══════════════════════════════════════════════════
-    # 3. BILL TO
-    # ═══════════════════════════════════════════════════
-    candidate_name = (
-        invoice.candidate.user.profile.full_name
-        if hasattr(invoice.candidate.user, 'profile')
-        else invoice.candidate.user.email
-    )
-    candidate_email = invoice.candidate.user.email
-
-    Story.append(Paragraph('BILL TO', styles['SectionHead']))
-    bill_info = Paragraph(
-        f'<b>{candidate_name}</b><br/>{candidate_email}',
-        styles['CellNormal']
-    )
-    Story.append(bill_info)
-    Story.append(Spacer(1, 20))
-
-    # ═══════════════════════════════════════════════════
-    # 4. LINE ITEMS TABLE
-    # ═══════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════
+    # 3. AMOUNT DUE
+    # ═══════════════════════════════════════════════════════
     plan_name = (
         invoice.subscription.plan_name
         if invoice.subscription
@@ -174,107 +199,72 @@ def generate_invoice_pdf(invoice):
     )
     amount = invoice.amount
     currency = invoice.currency.upper() if invoice.currency else 'USD'
+    currency_sym = '\u20b9' if currency == 'INR' else '$'
+    fmt_amt = f"{currency_sym} {amount:,.2f}"
 
-    # Currency symbol
-    currency_sym = '₹' if currency == 'INR' else '$'
-    formatted_amount = f"{currency_sym} {amount:,.2f}"
+    status = invoice.status.upper() if invoice.status else 'UNPAID'
+    due_lbl = "AMOUNT PAID" if status in ('PAID', 'COMPLETED') else "AMOUNT DUE"
 
-    col_widths = [page_width * 0.45, page_width * 0.20, page_width * 0.10, page_width * 0.25]
-    
-    # Header
-    header_row = [
-        Paragraph('<b>DESCRIPTION</b>', ParagraphStyle('th', parent=styles['Normal'], fontSize=9, fontName='Helvetica-Bold', textColor=WHITE)),
-        Paragraph('<b>UNIT PRICE</b>', ParagraphStyle('th2', parent=styles['Normal'], fontSize=9, fontName='Helvetica-Bold', textColor=WHITE, alignment=TA_RIGHT)),
-        Paragraph('<b>QTY</b>', ParagraphStyle('th3', parent=styles['Normal'], fontSize=9, fontName='Helvetica-Bold', textColor=WHITE, alignment=TA_CENTER)),
-        Paragraph('<b>AMOUNT</b>', ParagraphStyle('th4', parent=styles['Normal'], fontSize=9, fontName='Helvetica-Bold', textColor=WHITE, alignment=TA_RIGHT)),
+    Story.append(Paragraph(due_lbl, styles['DueLbl']))
+    Story.append(Paragraph(f'<b>{fmt_amt}</b>', styles['DueAmt']))
+
+    # ═══════════════════════════════════════════════════════
+    # 4. ISSUE DATE
+    # ═══════════════════════════════════════════════════════
+    Story.append(Paragraph('ISSUE DATE', styles['DtLbl']))
+    Story.append(Paragraph(issue_date, styles['DtVal']))
+    Story.append(Spacer(1, 26))
+
+    # ═══════════════════════════════════════════════════════
+    # 5. LINE ITEMS TABLE
+    # ═══════════════════════════════════════════════════════
+    cw = [pw * 0.42, pw * 0.22, pw * 0.10, pw * 0.26]
+
+    hdr = [
+        Paragraph('<b>DESCRIPTION</b>', styles['ThL']),
+        Paragraph('<b>UNIT PRICE</b>', styles['ThR']),
+        Paragraph('<b>QTY</b>', styles['ThC']),
+        Paragraph('<b>AMOUNT</b>', styles['ThR']),
     ]
-    
-    # Line item
-    item_row = [
-        Paragraph(plan_name, styles['CellNormal']),
-        Paragraph(formatted_amount, ParagraphStyle('pr', parent=styles['CellNormal'], alignment=TA_RIGHT)),
-        Paragraph('1', ParagraphStyle('qty', parent=styles['CellNormal'], alignment=TA_CENTER)),
-        Paragraph(f'<b>{formatted_amount}</b>', ParagraphStyle('amt', parent=styles['CellBold'], alignment=TA_RIGHT)),
+    itm = [
+        Paragraph(plan_name, styles['TdL']),
+        Paragraph(fmt_amt, styles['TdR']),
+        Paragraph('1', styles['TdC']),
+        Paragraph(fmt_amt, styles['TdR']),
     ]
-
-    # Total row
-    total_row = [
+    spc = ['', '', '', '']
+    tot = [
         '', '',
-        Paragraph('<b>Total</b>', ParagraphStyle('tot', parent=styles['CellBold'], alignment=TA_RIGHT)),
-        Paragraph(f'<b>{formatted_amount}</b>', ParagraphStyle('tota', parent=styles['CellBold'], alignment=TA_RIGHT)),
+        Paragraph('<b>Total</b>', styles['TotL']),
+        Paragraph(f'<b>{fmt_amt}</b>', styles['TotV']),
     ]
 
-    items_table = Table([header_row, item_row, total_row], colWidths=col_widths)
-    items_table.setStyle(TableStyle([
-        # Header row
-        ('BACKGROUND', (0, 0), (-1, 0), BRAND_BLUE),
-        ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
-        ('TOPPADDING', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-        ('LEFTPADDING', (0, 0), (0, 0), 12),
-        ('RIGHTPADDING', (-1, 0), (-1, 0), 12),
-        # Item row
-        ('BACKGROUND', (0, 1), (-1, 1), WHITE),
-        ('TOPPADDING', (0, 1), (-1, 1), 12),
-        ('BOTTOMPADDING', (0, 1), (-1, 1), 12),
-        ('LEFTPADDING', (0, 1), (0, 1), 12),
-        ('RIGHTPADDING', (-1, 1), (-1, 1), 12),
-        # Total row
-        ('BACKGROUND', (0, 2), (-1, 2), LIGHT_BG),
-        ('TOPPADDING', (0, 2), (-1, 2), 10),
-        ('BOTTOMPADDING', (0, 2), (-1, 2), 10),
-        ('LEFTPADDING', (0, 2), (0, 2), 12),
-        ('RIGHTPADDING', (-1, 2), (-1, 2), 12),
-        # Borders
+    tbl = Table([hdr, itm, spc, tot], colWidths=cw)
+    tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), TH_BG),
+        ('TOPPADDING', (0, 0), (-1, 0), 10), ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('LEFTPADDING', (0, 0), (0, 0), 14), ('RIGHTPADDING', (-1, 0), (-1, 0), 14),
+        ('TOPPADDING', (0, 1), (-1, 1), 14), ('BOTTOMPADDING', (0, 1), (-1, 1), 14),
+        ('LEFTPADDING', (0, 1), (0, 1), 14), ('RIGHTPADDING', (-1, 1), (-1, 1), 14),
+        ('TOPPADDING', (0, 2), (-1, 2), 4), ('BOTTOMPADDING', (0, 2), (-1, 2), 4),
+        ('TOPPADDING', (0, 3), (-1, 3), 10), ('BOTTOMPADDING', (0, 3), (-1, 3), 10),
+        ('LEFTPADDING', (0, 3), (0, 3), 14), ('RIGHTPADDING', (-1, 3), (-1, 3), 14),
+        ('LINEABOVE', (0, 0), (-1, 0), 0.5, BORDER),
         ('LINEBELOW', (0, 0), (-1, 0), 0.5, BORDER),
         ('LINEBELOW', (0, 1), (-1, 1), 0.5, BORDER),
-        ('LINEBELOW', (0, 2), (-1, 2), 1, BRAND_BLUE),
-        # Valign
+        ('LINEBELOW', (0, 3), (-1, 3), 0.5, BORDER),
+        ('LINEBEFORE', (0, 0), (0, 3), 0.5, BORDER),
+        ('LINEAFTER', (-1, 0), (-1, 3), 0.5, BORDER),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    Story.append(items_table)
-    Story.append(Spacer(1, 30))
+    Story.append(tbl)
+    Story.append(Spacer(1, 50))
 
-    # ═══════════════════════════════════════════════════
-    # 5. AMOUNT DUE BOX
-    # ═══════════════════════════════════════════════════
-    status_text = invoice.status.upper() if invoice.status else 'UNPAID'
-    due_label = "AMOUNT PAID" if status_text in ('PAID', 'COMPLETED') else "AMOUNT DUE"
-
-    due_data = [[
-        Paragraph(f'<b>{due_label}</b>', ParagraphStyle('due_l', parent=styles['Normal'], fontSize=12, fontName='Helvetica-Bold', textColor=WHITE)),
-        Paragraph(f'<b>{formatted_amount}</b>', ParagraphStyle('due_v', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', textColor=WHITE, alignment=TA_RIGHT)),
-    ]]
-    due_bg = colors.HexColor('#28A745') if status_text in ('PAID', 'COMPLETED') else BRAND_ACCENT
-    due_table = Table(due_data, colWidths=[page_width * 0.5, page_width * 0.5])
-    due_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), due_bg),
-        ('TOPPADDING', (0, 0), (-1, -1), 14),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 14),
-        ('LEFTPADDING', (0, 0), (0, -1), 16),
-        ('RIGHTPADDING', (-1, 0), (-1, -1), 16),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ROUNDEDCORNERS', [6, 6, 6, 6]),
-    ]))
-    Story.append(due_table)
-    Story.append(Spacer(1, 40))
-
-    # ═══════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════
     # 6. FOOTER
-    # ═══════════════════════════════════════════════════
-    Story.append(HRFlowable(
-        width='100%', thickness=0.5,
-        color=BORDER, spaceAfter=10, spaceBefore=10
-    ))
-    Story.append(Paragraph(
-        'Thank you for choosing Hyrind! For questions, contact billing@hyrind.com',
-        styles['FooterNote']
-    ))
-    Story.append(Spacer(1, 4))
-    Story.append(Paragraph(
-        f'Page 1 of 1',
-        styles['FooterNote']
-    ))
+    # ═══════════════════════════════════════════════════════
+    Story.append(HRFlowable(width='100%', thickness=0.3, color=BORDER, spaceAfter=8))
+    Story.append(Paragraph('Page 1 of 1', styles['Ft']))
 
     doc.build(Story)
     pdf_value = buffer.getvalue()
@@ -290,7 +280,6 @@ def ensure_default_subscription(candidate):
     from .models import Subscription, SubscriptionPlan
     
     with transaction.atomic():
-        # 1. Get or create the default plan
         plan, _ = SubscriptionPlan.objects.get_or_create(
             name="Monthly Service Fee",
             defaults={
@@ -303,7 +292,6 @@ def ensure_default_subscription(candidate):
             }
         )
 
-        # 2. Get or create the subscription for this candidate
         sub, created = Subscription.objects.get_or_create(
             candidate=candidate,
             defaults={
@@ -316,7 +304,6 @@ def ensure_default_subscription(candidate):
             }
         )
         
-        # If it already existed but was canceled/unpaid, we might want to reactivate it as pending
         if not created and sub.status in ('canceled', 'unpaid'):
             sub.status = 'pending_payment'
             sub.save(update_fields=['status'])
