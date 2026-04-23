@@ -1036,7 +1036,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                        Plan: {subscription.plan_name || "Unknown"}
                     </CardTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Status: <span className="capitalize font-semibold">{subscription.status?.replace(/_/g, " ")}</span> | Amount: {subscription.currency === "INR" ? "₹" : "$"}{Number(subscription.amount).toLocaleString()}
+                      Status: <span className="capitalize font-semibold">{subscription.status?.replace(/_/g, " ")}</span> | Amount: ${Number(subscription.amount).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

@@ -239,7 +239,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground font-medium">Core Marketing Services</span>
                   <span className="font-semibold">
-                    {(subscription?.currency || "USD") === "INR" ? "₹" : "$"}
+                    $
                     {Number(subscription?.amount ?? 400).toLocaleString()}
                   </span>
                 </div>
@@ -254,7 +254,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                           {a.addon_detail?.name}
                         </span>
                         <span className="font-medium">
-                          {subscription.currency === "INR" ? "₹" : "$"}
+                          $
                           {Number(a.amount || a.addon_detail?.amount || 0).toLocaleString()}
                         </span>
                       </div>
@@ -266,7 +266,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                   <div>
                     <p className="text-xs text-muted-foreground font-medium">Total Amount Due</p>
                     <h2 className="text-3xl font-black tracking-tighter">
-                      {(subscription?.currency || "USD") === "INR" ? "₹" : "$"}
+                      $
                       {totalAmount.toLocaleString()}
                       <span className="text-sm font-normal text-muted-foreground ml-1">
                         {subscription?.currency || "USD"}
@@ -343,7 +343,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-bold tracking-tight">
-                          {p.currency === "INR" ? "₹" : "$"}{Number(p.amount).toLocaleString()}
+                          ${Number(p.amount).toLocaleString()}
                           <span className="text-xs font-normal text-muted-foreground ml-1">{p.currency}</span>
                         </span>
                         <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] font-bold uppercase tracking-wider">
@@ -405,7 +405,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-lg font-bold tracking-tight">
-                        {p.currency === "INR" ? "₹" : "$"}{Number(p.amount).toLocaleString()}
+                        ${Number(p.amount).toLocaleString()}
                       </span>
                       <Badge variant="outline" className="capitalize text-[10px] font-bold tracking-widest border-border/60">
                         {p.status}

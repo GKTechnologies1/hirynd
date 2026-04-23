@@ -64,8 +64,8 @@ interface StatusBadgeProps {
 const StatusBadge = ({ status, className = "" }: StatusBadgeProps) => {
   const config = statusConfig[status] || { label: status?.replace(/_/g, " ") || "Unknown", className: "bg-muted text-muted-foreground", dot: "bg-muted-foreground" };
   return (
-    <Badge className={`${config.className} border-0 gap-1.5 font-medium text-[11px] ${className}`}>
-      {config.dot && <span className={`inline-block h-1.5 w-1.5 rounded-full ${config.dot}`} />}
+    <Badge className={`${config.className} border-0 gap-1.5 font-medium text-[11px] hover:bg-inherit hover:opacity-90 transition-all ${className}`}>
+      {config.dot && <span className={`inline-block h-1.5 w-1.5 rounded-full ${config.dot} animate-pulse`} />}
       {config.label}
     </Badge>
   );

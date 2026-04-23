@@ -82,7 +82,7 @@ const CandidateLogin = () => {
 
     if (!reg.university_name) errors.university_name = "University is required";
     if (!reg.degree_major) errors.degree_major = "Degree & Major is required";
-    
+
     const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
     else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-DD-YYYY format";
@@ -93,7 +93,7 @@ const CandidateLogin = () => {
 
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
     if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) errors.friend_name = "Friend name is required when source is Friend";
-    
+
     if (!reg.visa_status) errors.visa_status = "Visa status is required";
     if (reg.visa_status === "Other" && !reg.visa_other.trim()) errors.visa_other = "Please specify your visa type";
     if (!reg.current_location.trim()) errors.current_location = "Current location is required";
@@ -107,10 +107,10 @@ const CandidateLogin = () => {
     if (!reg.consent_to_terms) errors.consent_to_terms = "You must agree to the Terms and Conditions";
 
     setRegErrors(errors);
-    
+
     if (Object.keys(errors).length > 0) {
       const firstError = Object.keys(errors)[0];
-      const element = document.getElementById(`reg-${firstError}`) || document.getElementsByName(firstError)[0];
+      const element = document.getElementById(`reg-${firstError}`) || document.getElementById(firstError) || document.getElementsByName(firstError)[0];
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         (element as HTMLElement).focus();
@@ -125,7 +125,7 @@ const CandidateLogin = () => {
     setSubmitting(true);
     setApprovalStatus(null);
     const { error, approval_status, user: loggedUser } = await signIn(loginEmail, loginPassword);
-    
+
     if (error) {
       setSubmitting(false);
       if (approval_status === "pending") {
@@ -150,7 +150,7 @@ const CandidateLogin = () => {
     e.preventDefault();
     if (!validateRegistration()) return;
     setSubmitting(true);
-    
+
     const data = new FormData();
     data.append("role", "candidate");
     data.append("first_name", reg.first_name.trim());
@@ -161,7 +161,7 @@ const CandidateLogin = () => {
     data.append("confirm_password", reg.confirm_password);
     const [degree, ...majorParts] = reg.degree_major.split("/");
     const major = majorParts.join("/").trim();
-    
+
     data.append("university_name", reg.university_name);
     data.append("degree", (degree || "").trim());
     data.append("major", major);
@@ -188,7 +188,7 @@ const CandidateLogin = () => {
     try {
       const { authApi } = await import("@/services/api");
       await authApi.register(data as any);
-      
+
       await signOut();
       setRegistrationComplete(true);
       toast({ title: "Success", description: "Registration received! Check your email." });
@@ -220,15 +220,15 @@ const CandidateLogin = () => {
                 <Clock className="h-10 w-10 text-primary" />
               </div>
             </div>
-            
+
             <h1 className="mb-3 text-2xl font-bold text-neutral-900 tracking-tight">Thank you for registering with Hyrind</h1>
             <p className="text-muted-foreground mb-6 leading-relaxed">Your registration has been received and is under review.</p>
-            
+
             <div className="bg-muted/30 rounded-2xl p-6 mb-8 border border-border/40 inline-block w-full text-center">
               <p className="text-sm font-semibold text-foreground mb-2">Expected review time: <span className="text-primary">24–48 hours</span></p>
               <p className="text-xs text-muted-foreground">You will receive an email once your profile is approved.</p>
             </div>
-            
+
             <div className="flex flex-col gap-3">
               <Button variant="hero" className="h-11 rounded-xl shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30" onClick={() => navigate("/")}>
                 Back to Home
@@ -277,7 +277,7 @@ const CandidateLogin = () => {
     );
   }
 
-  const isFormFilled = 
+  const isFormFilled =
     reg.first_name.trim() !== "" &&
     reg.last_name.trim() !== "" &&
     reg.email.trim() !== "" &&
@@ -305,7 +305,7 @@ const CandidateLogin = () => {
             <h1 className="text-3xl font-bold text-neutral-900 mb-2 tracking-tight">Candidate Portal</h1>
             <p className="text-muted-foreground italic">"Focus on your skills, let us handle the rest"</p>
           </div>
-          
+
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="w-full grid grid-cols-2 mb-8 p-1 bg-neutral-100 rounded-xl border border-neutral-200">
               <TabsTrigger value="login" className="rounded-lg py-2.5 transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-semibold">
@@ -316,43 +316,43 @@ const CandidateLogin = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="login" className="mt-0 animate-in" style={{animationDelay: '0.1s'}}>
+            <TabsContent value="login" className="mt-0 animate-in" style={{ animationDelay: '0.1s' }}>
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="login-email" className="text-sm font-medium ml-1">Email</Label>
-                  <Input 
+                  <Input
                     id="login-email"
-                    type="email" 
-                    value={loginEmail} 
-                    onChange={e => setLoginEmail(e.target.value)} 
+                    type="email"
+                    value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)}
                     placeholder="name@example.com"
                     className="h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm focus:ring-2 focus:ring-primary/20"
-                    required 
+                    required
                   />
                 </div>
-                <PasswordField 
-                  label="Password" 
-                  value={loginPassword} 
-                  onChange={setLoginPassword} 
-                  show={showLoginPassword} 
-                  onToggle={() => setShowLoginPassword(!showLoginPassword)} 
+                <PasswordField
+                  label="Password"
+                  value={loginPassword}
+                  onChange={setLoginPassword}
+                  show={showLoginPassword}
+                  onToggle={() => setShowLoginPassword(!showLoginPassword)}
                   placeholder="••••••••"
                   autoComplete="current-password"
                   className="h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm focus:ring-2 focus:ring-primary/20"
                 />
-                
+
                 <div className="flex justify-end pr-1">
-                  <Link 
-                    to="/forgot-password?returnTo=/candidate-login" 
+                  <Link
+                    to="/forgot-password?returnTo=/candidate-login"
                     className="text-xs font-semibold text-primary hover:underline underline-offset-4 decoration-primary/30"
                   >
                     Forgot password?
                   </Link>
                 </div>
-                
+
                 <div className="pt-2">
-                  <Button 
-                    variant="hero" 
+                  <Button
+                    variant="hero"
                     className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${loginEmail.trim() && loginPassword.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 shadow-none cursor-pointer'}`}
                     disabled={submitting}
                   >
@@ -362,47 +362,47 @@ const CandidateLogin = () => {
               </form>
             </TabsContent>
 
-            <TabsContent value="register" className="mt-0 animate-in" style={{animationDelay: '0.1s'}}>
-              <form onSubmit={handleRegister} className="space-y-6">
+            <TabsContent value="register" className="mt-0 animate-in" style={{ animationDelay: '0.1s' }}>
+              <form className="space-y-6">
                 <div className="space-y-6 max-h-[52vh] overflow-y-auto pr-2 custom-scrollbar py-1">
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">First Name *</Label>
-                      <Input 
+                      <Input
                         id="reg-first_name"
-                        value={reg.first_name} 
-                        onChange={e => updateReg("first_name", e.target.value)} 
-                        maxLength={60} 
+                        value={reg.first_name}
+                        onChange={e => updateReg("first_name", e.target.value)}
+                        maxLength={60}
                         className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
-                      {regErrors.first_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.first_name}</p>}
+                      {regErrors.first_name && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.first_name}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">Last Name *</Label>
-                      <Input 
+                      <Input
                         id="reg-last_name"
-                        value={reg.last_name} 
-                        onChange={e => updateReg("last_name", e.target.value)} 
-                        maxLength={60} 
+                        value={reg.last_name}
+                        onChange={e => updateReg("last_name", e.target.value)}
+                        maxLength={60}
                         className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
-                      {regErrors.last_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.last_name}</p>}
+                      {regErrors.last_name && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.last_name}</p>}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Email *</Label>
-                    <Input 
+                    <Input
                       id="reg-email"
-                      type="email" 
-                      value={reg.email} 
-                      onChange={e => updateReg("email", e.target.value)} 
+                      type="email"
+                      value={reg.email}
+                      onChange={e => updateReg("email", e.target.value)}
                       className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
-                    {regErrors.email && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.email}</p>}
+                    {regErrors.email && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.email}</p>}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Phone Number *</Label>
                     <div className="flex gap-2">
@@ -416,70 +416,70 @@ const CandidateLogin = () => {
                           <SelectItem value="+44">🇬🇧 +44</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input 
+                      <Input
                         id="reg-phone"
-                        type="tel" 
-                        value={reg.phone} 
-                        onChange={e => updateReg("phone", e.target.value.replace(/\D/g, '').slice(0, 10))} 
+                        type="tel"
+                        value={reg.phone}
+                        onChange={e => updateReg("phone", e.target.value.replace(/\D/g, '').slice(0, 10))}
                         placeholder="1234567890"
                         className="h-10 flex-1 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
                     </div>
-                    {regErrors.phone && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.phone}</p>}
+                    {regErrors.phone && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.phone}</p>}
                   </div>
-                  
-                  <PasswordField 
-                    label="Password *" 
-                    value={reg.password} 
-                    onChange={v => updateReg("password", v)} 
-                    error={regErrors.password} 
+
+                  <PasswordField
+                    label="Password *"
+                    value={reg.password}
+                    onChange={v => updateReg("password", v)}
+                    error={regErrors.password}
                     id="reg-password"
                     className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                   />
-                  
-                  <PasswordField 
-                    label="Confirm Password *" 
-                    value={reg.confirm_password} 
-                    onChange={v => updateReg("confirm_password", v)} 
-                    error={regErrors.confirm_password} 
+
+                  <PasswordField
+                    label="Confirm Password *"
+                    value={reg.confirm_password}
+                    onChange={v => updateReg("confirm_password", v)}
+                    error={regErrors.confirm_password}
                     id="reg-confirm_password"
                     className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                   />
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">University / College *</Label>
-                    <Input 
+                    <Input
                       id="reg-university_name"
-                      value={reg.university_name} 
-                      onChange={e => updateReg("university_name", e.target.value)} 
-                      maxLength={120} 
+                      value={reg.university_name}
+                      onChange={e => updateReg("university_name", e.target.value)}
+                      maxLength={120}
                       className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
-                    {regErrors.university_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.university_name}</p>}
+                    {regErrors.university_name && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.university_name}</p>}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Degree & Major *</Label>
-                    <Input 
+                    <Input
                       id="reg-degree_major"
-                      value={reg.degree_major} 
-                      onChange={e => updateReg("degree_major", e.target.value)} 
+                      value={reg.degree_major}
+                      onChange={e => updateReg("degree_major", e.target.value)}
                       placeholder="e.g., Master's in Computer Science"
-                      maxLength={250} 
+                      maxLength={250}
                       className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
-                    {regErrors.degree_major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree_major}</p>}
+                    {regErrors.degree_major && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.degree_major}</p>}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Graduation Date *</Label>
-                    <DatePicker 
+                    <DatePicker
                       id="reg-graduation_date"
-                      value={reg.graduation_date} 
-                      onChange={val => updateReg("graduation_date", val)} 
+                      value={reg.graduation_date}
+                      onChange={val => updateReg("graduation_date", val)}
                       placeholder="MM-DD-YYYY"
                     />
-                    {regErrors.graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.graduation_date}</p>}
+                    {regErrors.graduation_date && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.graduation_date}</p>}
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-neutral-100">
@@ -489,20 +489,20 @@ const CandidateLogin = () => {
                         <SelectTrigger id="reg-how_did_you_hear" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"><SelectValue placeholder="Select source" /></SelectTrigger>
                         <SelectContent>{SOURCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                       </Select>
-                      {regErrors.how_did_you_hear && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.how_did_you_hear}</p>}
+                      {regErrors.how_did_you_hear && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.how_did_you_hear}</p>}
                     </div>
-                    
+
                     {reg.how_did_you_hear === "Friend" && (
                       <div className="space-y-2 animate-in slide-in-from-top-1">
                         <Label className="text-sm font-medium ml-1">Friend's Name *</Label>
-                        <Input 
+                        <Input
                           id="reg-friend_name"
-                          value={reg.friend_name} 
-                          onChange={e => updateReg("friend_name", e.target.value)} 
-                          maxLength={120} 
+                          value={reg.friend_name}
+                          onChange={e => updateReg("friend_name", e.target.value)}
+                          maxLength={120}
                           className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                         />
-                        {regErrors.friend_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.friend_name}</p>}
+                        {regErrors.friend_name && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.friend_name}</p>}
                       </div>
                     )}
                   </div>
@@ -512,76 +512,76 @@ const CandidateLogin = () => {
                       <div className="space-y-2"><Label className="text-sm font-medium ml-1">LinkedIn URL</Label><Input id="reg-linkedin_url" type="url" value={reg.linkedin_url} onChange={e => updateReg("linkedin_url", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
                       <div className="space-y-2"><Label className="text-sm font-medium ml-1">GitHub URL</Label><Input id="reg-github_url" type="url" value={reg.github_url} onChange={e => updateReg("github_url", e.target.value)} placeholder="https://github.com/..." className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
                     </div>
-                    
+
                     <div className="space-y-2"><Label className="text-sm font-medium ml-1">Portfolio / Website</Label><Input id="reg-portfolio_url" type="url" value={reg.portfolio_url} onChange={e => updateReg("portfolio_url", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" /></div>
-                    
+
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">Visa Status *</Label>
                       <Select value={reg.visa_status} onValueChange={v => updateReg("visa_status", v)}>
                         <SelectTrigger id="reg-visa_status" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"><SelectValue placeholder="Select visa type" /></SelectTrigger>
                         <SelectContent>{VISA_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                       </Select>
-                      {regErrors.visa_status && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.visa_status}</p>}
+                      {regErrors.visa_status && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.visa_status}</p>}
                     </div>
 
                     {reg.visa_status === "Other" && (
                       <div className="space-y-2 animate-in slide-in-from-top-1">
                         <Label className="text-sm font-medium ml-1">Please Specify Visa Type *</Label>
-                        <Input 
+                        <Input
                           id="reg-visa_other"
-                          value={reg.visa_other} 
-                          onChange={e => updateReg("visa_other", e.target.value)} 
+                          value={reg.visa_other}
+                          onChange={e => updateReg("visa_other", e.target.value)}
                           placeholder="Specify visa"
                           className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                         />
-                        {regErrors.visa_other && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.visa_other}</p>}
+                        {regErrors.visa_other && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.visa_other}</p>}
                       </div>
                     )}
 
                     {reg.visa_status === "OPT" && (
                       <div className="space-y-2 animate-in slide-in-from-top-1">
                         <Label className="text-sm font-medium ml-1">OPT End Date</Label>
-                        <DatePicker 
+                        <DatePicker
                           id="reg-opt_end_date"
-                          value={reg.opt_end_date} 
-                          onChange={val => updateReg("opt_end_date", val)} 
+                          value={reg.opt_end_date}
+                          onChange={val => updateReg("opt_end_date", val)}
                           placeholder="MM-DD-YYYY"
                         />
-                        {regErrors.opt_end_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.opt_end_date}</p>}
+                        {regErrors.opt_end_date && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.opt_end_date}</p>}
                       </div>
                     )}
 
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">Current Location *</Label>
-                      <Input 
+                      <Input
                         id="reg-current_location"
-                        value={reg.current_location} 
-                        onChange={e => updateReg("current_location", e.target.value)} 
-                        placeholder="City, State, Country" 
-                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm" 
+                        value={reg.current_location}
+                        onChange={e => updateReg("current_location", e.target.value)}
+                        placeholder="City, State, Country"
+                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
-                      {regErrors.current_location && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.current_location}</p>}
+                      {regErrors.current_location && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.current_location}</p>}
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">Resume File (PDF/DOCX) *</Label>
-                      <Input 
+                      <Input
                         id="reg-resume_file"
-                        type="file" 
-                        accept=".pdf,.doc,.docx" 
+                        type="file"
+                        accept=".pdf,.doc,.docx"
                         onChange={e => updateReg("resume_file", e.target.files?.[0])}
-                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm py-1.5 px-2 text-xs" 
+                        className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm py-1.5 px-2 text-xs"
                       />
-                      {regErrors.resume_file && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.resume_file}</p>}
+                      {regErrors.resume_file && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.resume_file}</p>}
                       <p className="text-[10px] text-muted-foreground ml-1">Max file size: 5MB</p>
                     </div>
 
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">Additional Notes</Label>
-                      <Input 
+                      <Input
                         id="reg-additional_notes"
-                        value={reg.additional_notes} 
-                        onChange={e => updateReg("additional_notes", e.target.value)} 
+                        value={reg.additional_notes}
+                        onChange={e => updateReg("additional_notes", e.target.value)}
                         placeholder="Anything else we should know?"
                         className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
@@ -602,19 +602,20 @@ const CandidateLogin = () => {
                       <Label htmlFor="consent_to_terms" className="text-xs text-muted-foreground leading-normal cursor-pointer select-none">
                         I hereby confirm that all information provided is accurate and I agree to HYRIND's{" "}
                         <Link to="/terms" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>
-                         {" "}and{" "}
+                        {" "}and{" "}
                         <Link to="/privacy-policy" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Privacy Policy</Link>. *
                       </Label>
                     </div>
-                    {regErrors.consent_to_terms && <p className="text-[10px] text-destructive mt-1 font-medium ml-2">{regErrors.consent_to_terms}</p>}
+                    {regErrors.consent_to_terms && <p className="text-xs text-destructive mt-1 font-medium ml-2 animate-in fade-in slide-in-from-top-1">{regErrors.consent_to_terms}</p>}
                   </div>
 
                 </div>
 
                 <div className="pt-3 pb-1 border-t border-neutral-100">
-                  <Button 
-                    variant="hero" 
-                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${isFormFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/10' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 shadow-none cursor-pointer'}`} 
+                  <Button
+                    onClick={handleRegister}
+                    variant="hero"
+                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${isFormFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-primary/80 text-white shadow-md hover:bg-primary cursor-pointer'}`}
                     disabled={submitting}
                   >
                     {submitting ? "Processing Registration..." : "Create Account"}
@@ -623,7 +624,7 @@ const CandidateLogin = () => {
               </form>
             </TabsContent>
           </Tabs>
-          
+
           <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
             <p className="text-sm text-neutral-500">
               Need assistance? <Link to="/contact?type=general" className="font-semibold text-secondary hover:underline underline-offset-4 decoration-secondary/30">Contact Support Team</Link>

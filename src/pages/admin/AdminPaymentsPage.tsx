@@ -22,7 +22,7 @@ const AdminPaymentsPage = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [showPlanDialog, setShowPlanDialog] = useState(false);
-  const [planForm, setPlanForm] = useState({ name: "", amount: "", currency: "INR", billing_cycle: "monthly", description: "" });
+  const [planForm, setPlanForm] = useState({ name: "", amount: "", currency: "USD", billing_cycle: "monthly", description: "" });
   const [tab, setTab] = useState<"overview" | "payments" | "subscriptions" | "plans">("overview");
 
   const fetchAll = async () => {
@@ -30,7 +30,7 @@ const AdminPaymentsPage = () => {
     try {
       const [sumRes, payRes, subRes, planRes] = await Promise.all([
         billingApi.billingAnalytics(),
-        billingApi.allPayments(statusFilter ? { status: statusFilter } : undefined),
+        billingApi.allPayments(statusFilter && statusFilter !== "all" ? { status: statusFilter } : undefined),
         billingApi.allSubscriptions(),
         billingApi.listPlans(),
       ]);
@@ -49,7 +49,7 @@ const AdminPaymentsPage = () => {
       await billingApi.createPlan({ ...planForm, amount: parseFloat(planForm.amount) });
       toast({ title: "Plan created" });
       setShowPlanDialog(false);
-      setPlanForm({ name: "", amount: "", currency: "INR", billing_cycle: "monthly", description: "" });
+      setPlanForm({ name: "", amount: "", currency: "USD", billing_cycle: "monthly", description: "" });
       fetchAll();
     } catch { toast({ title: "Error creating plan", variant: "destructive" }); }
   };
@@ -113,8 +113,8 @@ const AdminPaymentsPage = () => {
       {tab === "overview" && summary && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: "Total Revenue", value: `₹${summary.total_revenue?.toLocaleString()}`, icon: <DollarSign className="h-5 w-5" />, color: "bg-secondary/10 text-secondary" },
-            { label: "Monthly Revenue", value: `₹${summary.monthly_revenue?.toLocaleString()}`, icon: <TrendingUp className="h-5 w-5" />, color: "bg-accent/10 text-accent-foreground" },
+            { label: "Total Revenue", value: `$${(summary.total_revenue || 0).toLocaleString()}`, icon: <DollarSign className="h-5 w-5" />, color: "bg-secondary/10 text-secondary" },
+            { label: "Monthly Revenue", value: `$${(summary.monthly_revenue || 0).toLocaleString()}`, icon: <TrendingUp className="h-5 w-5" />, color: "bg-accent/10 text-accent-foreground" },
             { label: "Active Subs", value: summary.active_subscriptions, icon: <CreditCard className="h-5 w-5" />, color: "bg-primary/10 text-primary" },
             { label: "Past Due", value: summary.past_due_subscriptions, icon: <AlertTriangle className="h-5 w-5" />, color: summary.past_due_subscriptions > 0 ? "bg-destructive/10 text-destructive" : "bg-muted" },
           ].map((w, i) => (
@@ -139,10 +139,10 @@ const AdminPaymentsPage = () => {
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">All Payments ({payments.length})</CardTitle>
             <div className="flex gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter || "all"} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-32 h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
@@ -173,7 +173,7 @@ const AdminPaymentsPage = () => {
                   header: "Amount",
                   sortable: true,
                   accessorKey: "amount",
-                  render: (p: any) => <span className="text-sm">₹{Number(p.amount).toLocaleString()}</span>
+                  render: (p: any) => <span className="text-sm">${Number(p.amount).toLocaleString()}</span>
                 },
                 { header: "Type", accessorKey: "payment_type", sortable: true, className: "text-sm text-muted-foreground" },
                 {
@@ -211,7 +211,7 @@ const AdminPaymentsPage = () => {
                   header: "Amount",
                   sortable: true,
                   accessorKey: "amount",
-                  render: (s: any) => <span className="text-sm">₹{Number(s.amount).toLocaleString()}</span>
+                  render: (s: any) => <span className="text-sm">${Number(s.amount).toLocaleString()}</span>
                 },
                 {
                   header: "Status",
@@ -246,7 +246,7 @@ const AdminPaymentsPage = () => {
                   header: "Amount",
                   sortable: true,
                   accessorKey: "amount",
-                  render: (p: any) => <span className="text-sm">₹{Number(p.amount).toLocaleString()} {p.currency}</span>
+                  render: (p: any) => <span className="text-sm">${Number(p.amount).toLocaleString()} {p.currency}</span>
                 },
                 { header: "Cycle", accessorKey: "billing_cycle", sortable: true, className: "text-sm text-muted-foreground" },
                 {
@@ -271,7 +271,7 @@ const AdminPaymentsPage = () => {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div><Label>Plan Name</Label><Input value={planForm.name} onChange={e => setPlanForm(p => ({ ...p, name: e.target.value }))} /></div>
-            <div><Label>Amount (₹)</Label><Input type="number" value={planForm.amount} onChange={e => setPlanForm(p => ({ ...p, amount: e.target.value }))} /></div>
+            <div><Label>Amount ($)</Label><Input type="number" value={planForm.amount} onChange={e => setPlanForm(p => ({ ...p, amount: e.target.value }))} /></div>
             <div><Label>Billing Cycle</Label>
               <Select value={planForm.billing_cycle} onValueChange={v => setPlanForm(p => ({ ...p, billing_cycle: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

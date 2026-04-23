@@ -14,9 +14,18 @@ const API_BASE_URL = `${BACKEND_URL}/api`;
 export const getFileUrl = (url: string | null | undefined): string => {
   if (!url) return "";
   if (url.startsWith("http")) return url;
-  // Ensure we don't have double slashes if url starts with /
-  const sanitizedUrl = url.startsWith("/") ? url : `/${url}`;
-  return `${BACKEND_URL}${sanitizedUrl}`;
+  
+  let path = url;
+  // If the path doesn't start with /media/ and it's a relative path from Django,
+  // we need to prepend /media/ for it to be served correctly.
+  if (!path.startsWith("/media/") && !path.startsWith("media/")) {
+    // If it's a relative path like "resumes/file.pdf" or "leads/resumes/file.pdf"
+    path = path.startsWith("/") ? `/media${path}` : `/media/${path}`;
+  } else if (path.startsWith("media/")) {
+    path = `/${path}`;
+  }
+  
+  return `${BACKEND_URL}${path}`;
 };
 
 const api = axios.create({
@@ -33,12 +42,15 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-refresh on 401
+// Response interceptor for global error handling
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const status = error.response?.status;
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+
+    // ── 401: Unauthorized (Token Refresh) ──
+    if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       const refresh = localStorage.getItem('refresh_token');
       if (refresh) {
@@ -54,6 +66,22 @@ api.interceptors.response.use(
         }
       }
     }
+
+    // ── 404: Not Found ──
+    // If an API call returns 404, we redirect to the NotFound page
+    if (status === 404) {
+      // Only redirect if it's a main resource request (GET)
+      if (originalRequest.method === 'get') {
+        window.location.href = '/404'; // React router catch-all will pick this up
+      }
+    }
+
+    // ── 500+: Server Error ──
+    // If the server crashes, show the ServerError page
+    if (status && status >= 500) {
+      window.location.href = '/500';
+    }
+
     return Promise.reject(error);
   }
 );

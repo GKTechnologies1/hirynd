@@ -171,7 +171,7 @@ const CandidateBillingPage = ({ candidate }: Props) => {
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Amount</p>
                   <p className="text-xl font-bold">
-                    {subscription.currency === "INR" ? "₹" : "$"}
+                    $
                     {Number(subscription.amount).toLocaleString()}
                     <span className="text-xs font-normal text-muted-foreground ml-1">
                       / {subscription.billing_cycle || "month"}
@@ -245,7 +245,7 @@ const CandidateBillingPage = ({ candidate }: Props) => {
                   accessorKey: "amount",
                   render: (inv: any) => (
                     <span className="font-semibold">
-                      {inv.currency === "INR" ? "₹" : "$"}{Number(inv.amount).toLocaleString()}
+                      ${Number(inv.amount).toLocaleString()}
                     </span>
                   )
                 },
@@ -316,7 +316,7 @@ const CandidateBillingPage = ({ candidate }: Props) => {
                   accessorKey: "amount",
                   render: (p: any) => (
                     <span className="font-semibold">
-                      {p.currency === "INR" ? "₹" : "$"}{Number(p.amount).toLocaleString()}
+                      ${Number(p.amount).toLocaleString()}
                     </span>
                   )
                 },

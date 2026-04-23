@@ -85,17 +85,17 @@ const RecruiterLogin = () => {
 
     if (!reg.university_name.trim()) errors.university_name = "University / College is required";
     if (!reg.degree_major.trim()) errors.degree_major = "Degree & Major is required";
-    
+
     const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
     else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-DD-YYYY format";
 
-    if (!reg.linkedin_url.trim()) 
+    if (!reg.linkedin_url.trim())
       errors.linkedin_url = "LinkedIn URL is required";
 
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
     if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) errors.friend_name = "Friend name is required";
-    
+
     if (!reg.resume_file) {
       errors.resume_file = "Resume file is required";
     } else if (reg.resume_file.size > 5 * 1024 * 1024) {
@@ -122,7 +122,7 @@ const RecruiterLogin = () => {
     setSubmitting(true);
     setApprovalStatus(null);
     const { error, approval_status, user: loggedUser } = await signIn(loginEmail, loginPassword);
-    
+
     if (error) {
       setSubmitting(false);
       if (approval_status === "pending") {
@@ -147,7 +147,7 @@ const RecruiterLogin = () => {
     e.preventDefault();
     if (!validateRegistration()) return;
     setSubmitting(true);
-    
+
     const dataToSubmit = {
       ...reg,
       first_name: reg.first_name.trim(),
@@ -168,7 +168,7 @@ const RecruiterLogin = () => {
     if (reg.resume_file) {
       data.append("resume_file", reg.resume_file, reg.resume_file.name);
     }
-    
+
     // Split combined degree_major for backend if needed, or send as is
     // Assuming backend still wants separate fields based on previous structure
     const [degree, ...majorParts] = reg.degree_major.split("/");
@@ -208,15 +208,15 @@ const RecruiterLogin = () => {
                 <Clock className="h-10 w-10 text-primary" />
               </div>
             </div>
-            
+
             <h1 className="mb-3 text-2xl font-bold text-neutral-900 tracking-tight">Thank you for registering with Hyrind</h1>
             <p className="text-muted-foreground mb-6 leading-relaxed">Your registration has been received and is under review.</p>
-            
+
             <div className="bg-muted/30 rounded-2xl p-6 mb-8 border border-border/40 inline-block w-full text-center">
               <p className="text-sm font-semibold text-foreground mb-2">Expected review time: <span className="text-primary font-bold">24–48 hours</span></p>
               <p className="text-xs text-muted-foreground">You will receive an email once your profile is approved.</p>
             </div>
-            
+
             <div className="flex flex-col gap-3">
               <Button variant="hero" className="w-full h-12 rounded-xl text-md font-semibold" onClick={() => navigate("/")}>
                 Back to Home
@@ -265,7 +265,7 @@ const RecruiterLogin = () => {
     );
   }
 
-  const isFormFilled = 
+  const isFormFilled =
     reg.first_name.trim() !== "" &&
     reg.last_name.trim() !== "" &&
     reg.email.trim() !== "" &&
@@ -291,7 +291,7 @@ const RecruiterLogin = () => {
             <h1 className="text-3xl font-bold text-neutral-900 mb-2 tracking-tight">Recruiter Portal</h1>
             <p className="text-muted-foreground italic">"Empowering recruitment with analytics and precision"</p>
           </div>
-          
+
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="w-full grid grid-cols-2 mb-8 p-1 bg-neutral-100 rounded-xl border border-neutral-200">
               <TabsTrigger value="login" className="rounded-lg py-2.5 transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-semibold">
@@ -302,42 +302,42 @@ const RecruiterLogin = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="login" className="mt-0 animate-in" style={{animationDelay: '0.1s'}}>
+            <TabsContent value="login" className="mt-0 animate-in" style={{ animationDelay: '0.1s' }}>
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="login-email" className="text-sm font-medium ml-1">Work Email</Label>
-                  <Input 
+                  <Input
                     id="login-email"
-                    type="email" 
-                    value={loginEmail} 
-                    onChange={e => setLoginEmail(e.target.value)} 
+                    type="email"
+                    value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)}
                     placeholder="official@hyrind.com"
                     className="h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm focus:ring-2 focus:ring-primary/20"
-                    required 
+                    required
                   />
                 </div>
-                <PasswordField 
-                  label="Password" 
-                  value={loginPassword} 
-                  onChange={setLoginPassword} 
-                  show={showLoginPassword} 
-                  onToggle={() => setShowLoginPassword(!showLoginPassword)} 
+                <PasswordField
+                  label="Password"
+                  value={loginPassword}
+                  onChange={setLoginPassword}
+                  show={showLoginPassword}
+                  onToggle={() => setShowLoginPassword(!showLoginPassword)}
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
-                
+
                 <div className="flex justify-end pr-1">
-                  <Link 
-                    to="/forgot-password" 
+                  <Link
+                    to="/forgot-password"
                     className="text-xs font-semibold text-primary hover:underline underline-offset-4 decoration-primary/30"
                   >
                     Forgot password?
                   </Link>
                 </div>
-                
+
                 <div className="pt-2">
-                  <Button 
-                    variant="hero" 
+                  <Button
+                    variant="hero"
                     className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${loginEmail.trim() && loginPassword.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 shadow-none cursor-pointer'}`}
                     disabled={submitting}
                   >
@@ -347,50 +347,50 @@ const RecruiterLogin = () => {
               </form>
             </TabsContent>
 
-            <TabsContent value="register" className="mt-0 animate-in" style={{animationDelay: '0.1s'}}>
-              <form onSubmit={handleRegister} className="space-y-6">
+            <TabsContent value="register" className="mt-0 animate-in" style={{ animationDelay: '0.1s' }}>
+              <form className="space-y-6">
                 <div className="space-y-6 max-h-[52vh] overflow-y-auto pr-2 custom-scrollbar py-1">
-                  
+
                   {/* Identity Section */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">First Name *</Label>
-                      <Input 
+                      <Input
                         id="reg-first_name"
-                        value={reg.first_name} 
-                        onChange={e => updateReg("first_name", e.target.value)} 
-                        maxLength={60} 
+                        value={reg.first_name}
+                        onChange={e => updateReg("first_name", e.target.value)}
+                        maxLength={60}
                         className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
                       {regErrors.first_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.first_name}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">Last Name *</Label>
-                      <Input 
+                      <Input
                         id="reg-last_name"
-                        value={reg.last_name} 
-                        onChange={e => updateReg("last_name", e.target.value)} 
-                        maxLength={60} 
+                        value={reg.last_name}
+                        onChange={e => updateReg("last_name", e.target.value)}
+                        maxLength={60}
                         className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
                       {regErrors.last_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.last_name}</p>}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Email *</Label>
-                    <Input 
+                    <Input
                       id="reg-email"
-                      type="email" 
-                      value={reg.email} 
-                      onChange={e => updateReg("email", e.target.value)} 
+                      type="email"
+                      value={reg.email}
+                      onChange={e => updateReg("email", e.target.value)}
                       className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                     />
                     {regErrors.email && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.email}</p>}
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Phone Number *</Label>
+                    <Label className="text-sm font-medium ml-1">Phone Number (WhatsApp Preferred)*</Label>
                     <div className="flex gap-2">
                       <Select value={reg.countryCode} onValueChange={(v) => updateReg("countryCode", v)}>
                         <SelectTrigger className="w-[100px] h-10 rounded-lg bg-neutral-50 border-neutral-200 transition-all shadow-sm">
@@ -402,18 +402,18 @@ const RecruiterLogin = () => {
                           <SelectItem value="+44">🇬🇧 +44</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input 
+                      <Input
                         id="reg-phone"
-                        type="tel" 
-                        value={reg.phone} 
-                        onChange={e => updateReg("phone", e.target.value.replace(/\D/g, "").slice(0, 10))} 
+                        type="tel"
+                        value={reg.phone}
+                        onChange={e => updateReg("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
                         placeholder="1234567890"
                         className="flex-1 h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                       />
                     </div>
                     {regErrors.phone && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.phone}</p>}
                   </div>
-                  
+
                   <PasswordField id="reg-password" label="Password *" value={reg.password} onChange={v => updateReg("password", v)} error={regErrors.password} placeholder="Minimum 8 characters" />
                   <PasswordField id="reg-confirm_password" label="Confirm Password *" value={reg.confirm_password} onChange={v => updateReg("confirm_password", v)} error={regErrors.confirm_password} />
 
@@ -478,7 +478,7 @@ const RecruiterLogin = () => {
                       {regErrors.country && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.country}</p>}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Prior Recruitment Experience</Label>
                     <Textarea value={reg.prior_recruitment_experience} onChange={e => updateReg("prior_recruitment_experience", e.target.value)} maxLength={500} placeholder="Briefly describe your experience" className="rounded-lg bg-neutral-50 min-h-[100px]" />
@@ -493,12 +493,12 @@ const RecruiterLogin = () => {
 
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Resume File (PDF/DOCX) *</Label>
-                    <Input 
+                    <Input
                       id="reg-resume_file"
-                      type="file" 
-                      accept=".pdf,.doc,.docx" 
+                      type="file"
+                      accept=".pdf,.doc,.docx"
                       onChange={e => updateReg("resume_file", e.target.files?.[0])}
-                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm py-1.5 px-2 text-xs" 
+                      className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm py-1.5 px-2 text-xs"
                     />
                     {regErrors.resume_file && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.resume_file}</p>}
                     <p className="text-[10px] text-muted-foreground ml-1">Max file size: 5MB</p>
@@ -521,9 +521,10 @@ const RecruiterLogin = () => {
                 </div>
 
                 <div className="pt-3 pb-1 border-t border-neutral-100">
-                  <Button 
-                    variant="hero" 
-                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${isFormFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 shadow-none cursor-pointer'}`} 
+                  <Button
+                    onClick={handleRegister}
+                    variant="hero"
+                    className={`w-full h-12 rounded-xl text-md font-semibold transition-all ${isFormFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 shadow-none cursor-pointer'}`}
                     disabled={submitting}
                   >
                     {submitting ? "Processing Application..." : "Create Recruiter Account"}

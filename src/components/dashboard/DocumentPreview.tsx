@@ -4,6 +4,8 @@ import { getFileUrl } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
+import { useToast } from "@/hooks/use-toast";
+
 interface DocumentPreviewProps {
   url: string | null | undefined;
   label?: React.ReactNode;
@@ -21,17 +23,33 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   variant = 'link',
   showLabel = true
 }) => {
+  const { toast } = useToast();
   const fileUrl = getFileUrl(url);
 
   if (!url) return null;
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const isDoc = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');
-    const finalUrl = isDoc 
-      ? `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`
-      : fileUrl;
-    window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    
+    try {
+      // Check if file exists before opening
+      const response = await fetch(fileUrl, { method: 'HEAD' });
+      if (!response.ok) {
+        throw new Error('File not found');
+      }
+
+      const isDoc = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');
+      const finalUrl = isDoc 
+        ? `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`
+        : fileUrl;
+      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast({
+        title: "Document unavailable",
+        description: "The requested file could not be found or is currently inaccessible.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (variant === 'button') {
