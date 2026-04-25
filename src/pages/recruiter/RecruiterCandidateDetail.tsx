@@ -629,22 +629,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                          </div>
                          <p className="text-xs text-foreground font-medium mb-3">{log.notes || <span className="italic text-muted-foreground opacity-60">No notes provided.</span>}</p>
                          
-                         {log.job_entries && log.job_entries.length > 0 && (
-                           <div className="space-y-1.5 border-t border-border/10 pt-3">
-                             <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground opacity-60 mb-2">Linked Submissions</p>
-                             <div className="grid gap-2">
-                               {log.job_entries.map((j: any, jIdx: number) => (
-                                 <div key={jIdx} className="bg-white/40 p-2 rounded-lg border border-border/10 flex items-center justify-between gap-3 group/item">
-                                   <div className="flex-1 overflow-hidden">
-                                     <p className="text-[11px] font-bold truncate">{j.company_name} - {j.role_title}</p>
-                                     <p className="text-[10px] text-muted-foreground truncate opacity-70 italic">{j.job_url}</p>
-                                   </div>
-                                   <Badge variant="outline" className="text-[9px] h-5 bg-white border-border/20">{j.status}</Badge>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                         )}
+
                       </div>
                     ))}
                   </div>
