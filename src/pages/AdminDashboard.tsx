@@ -24,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
@@ -67,6 +67,7 @@ const AdminDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [recruiters, setRecruiters] = useState<any[]>([]);
   const [pipelineCounts, setPipelineCounts] = useState<Record<string, number>>({});
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +105,13 @@ const AdminDashboard = () => {
     try {
       const { data: pending } = await authApi.pendingApprovals();
       setPendingApprovals(Array.isArray(pending) ? pending.length : 0);
+    } catch {}
+
+    try {
+      const { data: recData } = await authApi.allUsers();
+      const allUsers = Array.isArray(recData) ? recData : (recData?.results || []);
+      const recList = allUsers.filter((u: any) => ["recruiter", "team_lead", "team_manager"].includes(u.role));
+      setRecruiters(recList);
     } catch {}
 
     try {
@@ -340,8 +348,112 @@ const AdminDashboard = () => {
                 }
               ]}
             />
+            {filteredCandidates.length > 5 && (
+              <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Recruiters List */}
+        {!activeFilter && (
+          <Card className="mt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">All Recruiters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                data={recruiters}
+                isLoading={loading}
+                searchKey="full_name"
+                searchPlaceholder="Search recruiters by name..."
+                columns={[
+                  { 
+                    header: "Name", 
+                    accessorKey: "full_name", 
+                    className: "text-xs font-semibold", 
+                    sortable: true,
+                    render: (r: any) => {
+                      const name = r.full_name || r.profile?.full_name || "Unknown";
+                      const email = r.email;
+                      return (
+                        <div className="flex flex-col">
+                          <p className="font-bold text-sm">{name}</p>
+                          <p className="text-[11px] text-muted-foreground">{email}</p>
+                        </div>
+                      );
+                    }
+                  },
+                  { 
+                    header: "Role", 
+                    sortable: true,
+                    accessorKey: "role",
+                    className: "font-bold text-xs uppercase text-center",
+                    render: (r: any) => (
+                      <div className="flex justify-center">
+                        <StatusBadge status={r.role?.replace("_", " ")} />
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Assigned To",
+                    className: "font-bold text-xs uppercase text-center",
+                    render: (r: any) => (
+                      <div className="flex justify-center">
+                        <span className="bg-secondary/10 text-secondary px-2 py-0.5 rounded-full text-[10px] font-bold">
+                          {r.assigned_candidate_count || 0} Candidates
+                        </span>
+                      </div>
+                    )
+                  },
+                  { 
+                    header: "Status", 
+                    sortable: true,
+                    accessorKey: "approval_status",
+                    className: "text-xs text-center",
+                    render: (r: any) => (
+                      <div className="flex justify-center">
+                        <StatusBadge status={r.approval_status} />
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Joined",
+                    render: (r: any) => (
+                      <div className="text-[10px]">
+                        <p className="font-bold">{formatDate(r.created_at)}</p>
+                      </div>
+                    ),
+                    sortable: true,
+                    accessorKey: "created_at"
+                  },
+                  { 
+                    header: "Actions", 
+                    className: "text-right font-bold text-xs pr-4",
+                    render: (r: any) => (
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-7 text-xs px-2"
+                          onClick={() => navigate(`/admin-dashboard/recruiters/${r.id}`)}
+                        >
+                          <Eye className="mr-1.5 h-3.5 w-3.5" /> View Detail
+                        </Button>
+                      </div>
+                    )
+                  }
+                ]}
+              />
+              {recruiters.length > 5 && (
+                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </>
     );
   };

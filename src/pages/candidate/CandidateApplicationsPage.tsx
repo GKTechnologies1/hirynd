@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown } from "lucide-react";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 
@@ -216,6 +216,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   }
                 ]}
               />
+              {jobPostings.length > 5 && (
+                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -238,6 +243,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   </AccordionItem>
                 ))}
               </Accordion>
+              {dailyLogs.length > 5 && (
+                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group mt-2">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                </div>
+              )}
             </CardContent>
           </Card>
 

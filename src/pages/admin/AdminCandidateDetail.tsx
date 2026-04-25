@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -70,7 +70,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [credForm, setCredForm] = useState<Record<string, any>>({});
   const [savingCred, setSavingCred] = useState(false);
   const [showCredPasswords, setShowCredPasswords] = useState<Record<string, boolean>>({});
-  const toggleCredPw = (k: string) => setShowCredPasswords(p => ({...p, [k]: !p[k]}));
+  const toggleCredPw = (k: string) => setShowCredPasswords(p => ({ ...p, [k]: !p[k] }));
 
   const fetchAll = async () => {
     try {
@@ -97,7 +97,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
         setSubscription(subRes.data?.id ? subRes.data : null);
         setInterviewLogs(interviewRes.data || []);
       }
-    } catch {}
+    } catch { }
     setLoading(false);
   };
 
@@ -235,9 +235,9 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const status = candidate.status;
   const isPlaced = status === "placed_closed";
   const STATUSES = [
-    "pending_approval", "lead", "approved", "intake_submitted", "roles_published", 
-    "roles_candidate_responded", "roles_confirmed", "payment_pending", "pending_payment", "payment_completed", 
-    "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due", 
+    "pending_approval", "lead", "approved", "intake_submitted", "roles_published",
+    "roles_candidate_responded", "roles_confirmed", "payment_pending", "pending_payment", "payment_completed",
+    "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due",
     "cancelled", "placed_closed"
   ];
 
@@ -368,14 +368,14 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   </div>
                 </div>
                 <div className="pt-2 border-t mt-2">
-                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">{status === 'lead' ? 'Submitted Resume' : 'Registered Resume'}</Label>
-                    {(candidate?.resume_file || candidate?.resume_url) ? (
-                        <div className="flex items-center gap-3">
-                          <DocumentPreview 
-                            url={candidate.resume_file || candidate.resume_url} 
-                            label={`View ${status === 'lead' ? 'Lead' : 'Registration'} Resume`}
-                          />
-                        </div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">{status === 'lead' ? 'Submitted Resume' : 'Registered Resume'}</Label>
+                  {(candidate?.resume_file || candidate?.resume_url) ? (
+                    <div className="flex items-center gap-3">
+                      <DocumentPreview
+                        url={candidate.resume_file || candidate.resume_url}
+                        label={`View ${status === 'lead' ? 'Lead' : 'Registration'} Resume`}
+                      />
+                    </div>
                   ) : (
                     <p className="text-[11px] text-muted-foreground italic">No resume uploaded during registration</p>
                   )}
@@ -413,7 +413,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Graduation Date</Label>
                   <p className="font-medium text-foreground">
-                    {formatDate(candidate?.graduation_date || intakeData?.graduation_date)} 
+                    {formatDate(candidate?.graduation_date || intakeData?.graduation_date)}
                     {candidate?.graduation_year && !candidate?.graduation_date && ` (${candidate.graduation_year})`}
                   </p>
                 </div>
@@ -488,14 +488,14 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
 
           {candidate?.notes && (
             <Card className="border-none shadow-sm overflow-hidden">
-               <CardHeader className="bg-muted/10 pb-2">
-                 <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1.5">
-                   <FileText className="h-3 w-3" /> Additional Candidate Notes
-                 </CardTitle>
-               </CardHeader>
-               <CardContent className="p-4 pt-1">
-                 <p className="text-sm text-foreground/80 italic leading-relaxed">"{candidate.notes}"</p>
-               </CardContent>
+              <CardHeader className="bg-muted/10 pb-2">
+                <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1.5">
+                  <FileText className="h-3 w-3" /> Additional Candidate Notes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-1">
+                <p className="text-sm text-foreground/80 italic leading-relaxed">"{candidate.notes}"</p>
+              </CardContent>
             </Card>
           )}
 
@@ -535,7 +535,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 <div className="space-y-8">
                   {!intake.is_locked && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs flex items-center gap-2">
-                       <Clock className="h-4 w-4" /> This is a draft version. The candidate has not yet submitted and locked this form.
+                      <Clock className="h-4 w-4" /> This is a draft version. The candidate has not yet submitted and locked this form.
                     </div>
                   )}
 
@@ -630,19 +630,19 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
 
                   {intakeData.resume_url && (
                     <div className="pt-4">
-                      <DocumentPreview 
-                        url={intakeData.resume_url} 
-                        label="View Submitted Resume" 
-                        variant="button" 
+                      <DocumentPreview
+                        url={intakeData.resume_url}
+                        label="View Submitted Resume"
+                        variant="button"
                         className="w-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
                       />
                     </div>
                   )}
                   {intakeData.any_documents_url && (
                     <div className="pt-2">
-                      <DocumentPreview 
-                        url={intakeData.any_documents_url} 
-                        label="Download Additional Documents" 
+                      <DocumentPreview
+                        url={intakeData.any_documents_url}
+                        label="Download Additional Documents"
                         variant="button"
                         className="w-full border-neutral-200 bg-neutral-50"
                       />
@@ -683,17 +683,17 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 searchKey="role_title"
                 emptyMessage="No roles suggested yet."
                 columns={[
-                  { 
-                    header: "Title", 
+                  {
+                    header: "Title",
                     accessorKey: "role_title",
                     className: "font-medium text-sm pl-6"
                   },
-                  { 
-                    header: "Description", 
+                  {
+                    header: "Description",
                     render: (r: any) => <span className="text-xs text-muted-foreground line-clamp-1">{r.description || "—"}</span>
                   },
-                  { 
-                    header: "Candidate Response", 
+                  {
+                    header: "Candidate Response",
                     render: (r: any) => (
                       <div className="space-y-1">
                         <StatusBadge status={r.candidate_confirmed === true ? "active" : r.candidate_confirmed === false ? "rejected" : "pending"} />
@@ -707,6 +707,11 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   }
                 ]}
               />
+              {roles.length > 5 && (
+                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -759,6 +764,11 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                     }
                   ]}
                 />
+                {proposedRoles.length > 5 && (
+                  <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                    <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -770,8 +780,8 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 <div><Label>Description / Rationale</Label><Textarea value={newRoleDescription} onChange={e => setNewRoleDescription(e.target.value)} /></div>
                 <div className="flex gap-3">
                   <Button onClick={handleAddRole} disabled={addingRole || !newRoleTitle.trim()}>{addingRole ? "Adding..." : "Add Role"}</Button>
-                  <Button 
-                    variant="hero" 
+                  <Button
+                    variant="hero"
                     className={`font-bold transition-all ${status === "intake_submitted" && roles.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
                     onClick={handleSuggestRoles}
                   >
@@ -821,22 +831,22 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                       <Shield className="h-3.5 w-3.5" /> Education & OPT Dates
                     </h4>
                     <div className="grid gap-4 sm:grid-cols-2">
-                       <div className="space-y-1.5">
-                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Grad Date</Label>
-                         <DatePicker id="admin-cred-bach" value={credForm.bachelors_graduation_date} onChange={val => setCredForm(p => ({...p, bachelors_graduation_date: val}))} />
-                       </div>
-                       <div className="space-y-1.5">
-                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Grad Date</Label>
-                         <DatePicker id="admin-cred-mast" value={credForm.masters_graduation_date} onChange={val => setCredForm(p => ({...p, masters_graduation_date: val}))} />
-                       </div>
-                       <div className="space-y-1.5">
-                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US</Label>
-                         <DatePicker id="admin-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({...p, first_entry_us: val}))} />
-                       </div>
-                       <div className="space-y-1.5">
-                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date</Label>
-                         <DatePicker id="admin-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({...p, opt_start_date: val}))} />
-                       </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Grad Date</Label>
+                        <DatePicker id="admin-cred-bach" value={credForm.bachelors_graduation_date} onChange={val => setCredForm(p => ({ ...p, bachelors_graduation_date: val }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Grad Date</Label>
+                        <DatePicker id="admin-cred-mast" value={credForm.masters_graduation_date} onChange={val => setCredForm(p => ({ ...p, masters_graduation_date: val }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US</Label>
+                        <DatePicker id="admin-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({ ...p, first_entry_us: val }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date</Label>
+                        <DatePicker id="admin-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({ ...p, opt_start_date: val }))} />
+                      </div>
                     </div>
                   </div>
 
@@ -913,10 +923,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Button 
-                      variant="hero" 
-                      className={`flex-1 h-11 font-bold transition-all ${credForm.full_legal_name?.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
-                      onClick={handleSaveCredential} 
+                    <Button
+                      variant="hero"
+                      className={`flex-1 h-11 font-bold transition-all ${credForm.full_legal_name?.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                      onClick={handleSaveCredential}
                       disabled={savingCred}
                     >
                       {savingCred ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
@@ -932,92 +942,93 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   {credentials.map((v: any) => {
                     const cData = v.data as Record<string, string>;
                     return (
-                    <AccordionItem key={v.id} value={v.id} className="border-none shadow-sm mb-4 bg-muted/20 rounded-xl overflow-hidden px-4">
-                      <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-3 text-left">
-                          <Badge variant="secondary" className="h-6">v{v.version}</Badge>
-                          <div>
-                            <span className="font-semibold block">{v.editor_name || "Candidate Submission"}</span>
-                            <span className="text-[10px] uppercase text-muted-foreground font-bold">{formatDate(v.created_at)}</span>
-                          </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-6">
-                        <div className="space-y-8 pt-4">
-                          {/* Top Identity Grid */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Personal Email</p><p className="font-medium">{cData.personal_email || cData.personalEmail || "—"}</p></div>
-                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Phone</p><p className="font-medium">{cData.phone_number || cData.phoneNumber || "—"}</p></div>
-                            <div className="col-span-2"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || "—"}</p></div>
-                          </div>
-
-                          {/* OPT & Entry */}
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-white p-4 rounded-lg shadow-sm border border-muted">
-                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
-                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{cData.first_entry_us || cData.firstEntryUS || "—"}</p></div>
-                            <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{cData.opt_offer_letter_submitted || cData.optOfferLetterSubmitted || "No"}</Badge></div>
-                          </div>
-
-                          {/* Job Portals - CRITICAL DATA */}
-                          <div className="space-y-3">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-destructive flex items-center gap-2">
-                               <Shield className="h-3 w-3" /> Job Portal Credentials
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                               {[
-                                 { label: 'LinkedIn', id: 'linkedin_login_id', pw: 'linkedin_password' },
-                                 { label: 'Gmail', id: 'shared_email', pw: 'gmail_password' },
-                                 { label: 'Indeed', id: 'indeed_login_id', pw: 'indeed_password' },
-                                 { label: 'Dice', id: 'dice_login_id', pw: 'dice_password' },
-                                 { label: 'Monster', id: 'monster_login_id', pw: 'monster_password' },
-                                 { label: 'ZipRecruiter', id: 'ziprecruiter_login_id', pw: 'ziprecruiter_password' },
-                                 { label: 'Foundit', id: 'shared_email', pw: 'foundit_password' }
-                               ].map(portal => (
-                                 <div key={portal.label} className="bg-white border rounded-lg p-3">
-                                   <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
-                                   <div className="space-y-1">
-                                     <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cData[portal.id] || cData.shared_email || "N/A"}</span></p>
-                                     <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => alert(`${portal.label} Password: ${cData[portal.pw] || 'N/A'}`)}>{cData[portal.pw] ? "••••••••" : "N/A"}</span></p>
-                                   </div>
-                                 </div>
-                               ))}
+                      <AccordionItem key={v.id} value={v.id} className="border-none shadow-sm mb-4 bg-muted/20 rounded-xl overflow-hidden px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-3 text-left">
+                            <Badge variant="secondary" className="h-6">v{v.version}</Badge>
+                            <div>
+                              <span className="font-semibold block">{v.editor_name || "Candidate Submission"}</span>
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">{formatDate(v.created_at)}</span>
                             </div>
-                            
-                            {cData.custom_platforms && Array.isArray(cData.custom_platforms) && cData.custom_platforms.length > 0 && (
-                              <div className="mt-4">
-                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2 mb-3">
-                                  <Shield className="h-3 w-3" /> Custom Platforms
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                  {cData.custom_platforms.map((cp: any, idx: number) => (
-                                    <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3">
-                                      <p className="font-bold text-[10px] text-amber-700 mb-2">{cp.platform_name || "Platform"}</p>
-                                      <div className="space-y-1">
-                                        <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded">{cp.password ? "••••••••" : "N/A"}</span></p>
-                                      </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-6">
+                          <div className="space-y-8 pt-4">
+                            {/* Top Identity Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Personal Email</p><p className="font-medium">{cData.personal_email || cData.personalEmail || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Phone</p><p className="font-medium">{cData.phone_number || cData.phoneNumber || "—"}</p></div>
+                              <div className="col-span-2"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || "—"}</p></div>
+                            </div>
+
+                            {/* OPT & Entry */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-white p-4 rounded-lg shadow-sm border border-muted">
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{cData.first_entry_us || cData.firstEntryUS || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{cData.opt_offer_letter_submitted || cData.optOfferLetterSubmitted || "No"}</Badge></div>
+                            </div>
+
+                            {/* Job Portals - CRITICAL DATA */}
+                            <div className="space-y-3">
+                              <h4 className="text-[10px] font-bold uppercase tracking-widest text-destructive flex items-center gap-2">
+                                <Shield className="h-3 w-3" /> Job Portal Credentials
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {[
+                                  { label: 'LinkedIn', id: 'linkedin_login_id', pw: 'linkedin_password' },
+                                  { label: 'Gmail', id: 'shared_email', pw: 'gmail_password' },
+                                  { label: 'Indeed', id: 'indeed_login_id', pw: 'indeed_password' },
+                                  { label: 'Dice', id: 'dice_login_id', pw: 'dice_password' },
+                                  { label: 'Monster', id: 'monster_login_id', pw: 'monster_password' },
+                                  { label: 'ZipRecruiter', id: 'ziprecruiter_login_id', pw: 'ziprecruiter_password' },
+                                  { label: 'Foundit', id: 'shared_email', pw: 'foundit_password' }
+                                ].map(portal => (
+                                  <div key={portal.label} className="bg-white border rounded-lg p-3">
+                                    <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
+                                    <div className="space-y-1">
+                                      <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cData[portal.id] || cData.shared_email || "N/A"}</span></p>
+                                      <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => alert(`${portal.label} Password: ${cData[portal.pw] || 'N/A'}`)}>{cData[portal.pw] ? "••••••••" : "N/A"}</span></p>
                                     </div>
-                                  ))}
-                                </div>
+                                  </div>
+                                ))}
                               </div>
-                            )}
 
-                          </div>
+                              {cData.custom_platforms && Array.isArray(cData.custom_platforms) && cData.custom_platforms.length > 0 && (
+                                <div className="mt-4">
+                                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2 mb-3">
+                                    <Shield className="h-3 w-3" /> Custom Platforms
+                                  </h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {cData.custom_platforms.map((cp: any, idx: number) => (
+                                      <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3">
+                                        <p className="font-bold text-[10px] text-amber-700 mb-2">{cp.platform_name || "Platform"}</p>
+                                        <div className="space-y-1">
+                                          <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded">{cp.password ? "••••••••" : "N/A"}</span></p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
 
-                          {/* Preferences */}
-                          <div className="grid gap-4 md:grid-cols-2">
-                             <div className="bg-primary/5 p-3 rounded-lg">
-                               <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Roles</p>
-                               <p className="text-xs font-medium">{cData.preferred_job_roles || cData.preferredRoles || "—"}</p>
-                             </div>
-                             <div className="bg-primary/5 p-3 rounded-lg">
-                               <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Locations</p>
-                               <p className="text-xs font-medium">{cData.preferred_locations || cData.preferredLocations || "—"}</p>
-                             </div>
+                            </div>
+
+                            {/* Preferences */}
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="bg-primary/5 p-3 rounded-lg">
+                                <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Roles</p>
+                                <p className="text-xs font-medium">{cData.preferred_job_roles || cData.preferredRoles || "—"}</p>
+                              </div>
+                              <div className="bg-primary/5 p-3 rounded-lg">
+                                <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Locations</p>
+                                <p className="text-xs font-medium">{cData.preferred_locations || cData.preferredLocations || "—"}</p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )})}
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })}
                 </Accordion>
               )}
             </CardContent>
@@ -1032,8 +1043,8 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                       <CreditCard className="h-4 w-4 text-secondary" />
-                       Plan: {subscription.plan_name || "Unknown"}
+                      <CreditCard className="h-4 w-4 text-secondary" />
+                      Plan: {subscription.plan_name || "Unknown"}
                     </CardTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Status: <span className="capitalize font-semibold">{subscription.status?.replace(/_/g, " ")}</span> | Amount: ${Number(subscription.amount).toLocaleString()}
@@ -1041,18 +1052,18 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   </div>
                   <div className="flex items-center gap-2">
                     {subscription.status === 'active' && payments.filter(p => p.status === 'completed').length === 0 && (
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
+                      <Button
+                        variant="destructive"
+                        size="sm"
                         className="h-8 text-[10px] uppercase font-bold"
                         onClick={async () => {
-                           if(confirm("No completed payments found. Revert status to Pending Payment?")) {
-                             try {
-                               await billingApi.updateSubscription(candidateId, { status: 'pending_payment' });
-                               toast({ title: "Status reverted to Pending Payment" });
-                               fetchAll();
-                             } catch(err: any) { toast({ title: "Sync failed", variant: "destructive" }); }
-                           }
+                          if (confirm("No completed payments found. Revert status to Pending Payment?")) {
+                            try {
+                              await billingApi.updateSubscription(candidateId, { status: 'pending_payment' });
+                              toast({ title: "Status reverted to Pending Payment" });
+                              fetchAll();
+                            } catch (err: any) { toast({ title: "Sync failed", variant: "destructive" }); }
+                          }
                         }}
                       >
                         Revert to Pending
@@ -1069,10 +1080,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
 
           {!isPlaced && (
             <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Manual Payment</CardTitle>
-            <CardDescription>Manually record a payment received outside the gateway (e.g. bank transfer). To request a subscription payment from the candidate, use the Billing tab.</CardDescription>
-          </CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Manual Payment</CardTitle>
+                <CardDescription>Manually record a payment received outside the gateway (e.g. bank transfer). To request a subscription payment from the candidate, use the Billing tab.</CardDescription>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div><Label>Amount ($) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
@@ -1092,10 +1103,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   <div><Label>Status</Label><Select value={payStatus} onValueChange={setPayStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completed">Completed</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="refunded">Refunded</SelectItem></SelectContent></Select></div>
                 </div>
                 <div><Label>Notes</Label><Textarea value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Manual check, wire transfer, etc." /></div>
-                <Button 
-                  variant="hero" 
-                  className={`w-full h-11 font-bold transition-all ${payAmount && Number(payAmount) > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
-                  onClick={handleRecordPayment} 
+                <Button
+                  variant="hero"
+                  className={`w-full h-11 font-bold transition-all ${payAmount && Number(payAmount) > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                  onClick={handleRecordPayment}
                   disabled={addingPayment || !payAmount}
                 >
                   {addingPayment ? "Recording..." : "Record Payment"}
@@ -1113,24 +1124,24 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 searchKey="payment_type"
                 emptyMessage="No payments recorded."
                 columns={[
-                  { 
-                    header: "Date", 
+                  {
+                    header: "Date",
                     render: (p: any) => <span className="text-sm pl-6">{new Date(p.payment_date || p.created_at).toLocaleDateString()}</span>
                   },
-                  { 
-                    header: "Amount", 
+                  {
+                    header: "Amount",
                     render: (p: any) => (
                       <span className="font-bold text-foreground flex items-center gap-0.5 text-sm">
                         <DollarSign className="h-3 w-3" />{Number(p.amount).toLocaleString()}
                       </span>
                     )
                   },
-                  { 
-                    header: "Type", 
+                  {
+                    header: "Type",
                     render: (p: any) => <span className="text-sm capitalize text-muted-foreground">{p.payment_type?.replace(/_/g, " ")}</span>
                   },
-                  { 
-                    header: "Status", 
+                  {
+                    header: "Status",
                     render: (p: any) => (
                       <div className="flex items-center gap-1.5">
                         {p.status === "completed" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> : p.status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> : <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
@@ -1164,6 +1175,11 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                   }
                 ]}
               />
+              {payments.length > 5 && (
+                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

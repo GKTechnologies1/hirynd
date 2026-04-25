@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Mail, Phone, MapPin, UserCheck, UserPlus, RefreshCw, BarChart3, TrendingUp, Calendar, Briefcase, Award, Loader2, Eye, Settings2 } from "lucide-react";
+import { Search, Mail, Phone, MapPin, UserCheck, UserPlus, RefreshCw, BarChart3, TrendingUp, Calendar, Briefcase, Award, Loader2, Eye, Settings2, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -54,7 +54,7 @@ const AdminRecruitersPage = () => {
   };
 
   const filtered = recruiters.filter(r => 
-    (r.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+    (r.full_name || r.profile?.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
     (r.email || "").toLowerCase().includes(search.toLowerCase())
   );
 
@@ -108,15 +108,31 @@ const AdminRecruitersPage = () => {
                 sortable: true,
                 accessorKey: "full_name",
                 className: "py-4 font-bold text-xs uppercase tracking-widest",
+                render: (r: any) => {
+                  const name = r.full_name || r.profile?.full_name || "Unset Name";
+                  const email = r.email;
+                  return (
+                    <div className="flex items-center gap-3 py-1 pl-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold shadow-sm ring-1 ring-primary/20">
+                        {name?.[0] || email?.[0]?.toUpperCase()}
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{name}</p>
+                        <p className="text-[11px] text-muted-foreground font-medium opacity-80">{email}</p>
+                      </div>
+                    </div>
+                  );
+                }
+              },
+              {
+                header: "Assigned To",
+                className: "font-bold text-xs uppercase tracking-widest text-center",
                 render: (r: any) => (
-                  <div className="flex items-center gap-3 py-1">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold shadow-sm ring-1 ring-primary/20">
-                      {r.full_name?.[0] || r.email?.[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex flex-col">
-                      <p className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{r.full_name || "Unset Name"}</p>
-                      <p className="text-[11px] text-muted-foreground font-medium opacity-80">{r.email}</p>
-                    </div>
+                  <div className="flex flex-col items-center justify-center gap-1">
+                    <Badge variant="outline" className="h-7 px-3 rounded-xl bg-secondary/5 text-secondary border-secondary/20 font-black text-xs">
+                      {r.assigned_candidate_count || 0}
+                    </Badge>
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Candidates</span>
                   </div>
                 )
               },
@@ -136,46 +152,61 @@ const AdminRecruitersPage = () => {
               { 
                 header: "Professional Background", 
                 className: "font-bold text-xs uppercase tracking-widest",
-                render: (r: any) => (
-                  <div className="space-y-1.5 py-1">
-                    {r.university && (
-                      <p className="text-[11px] flex items-center gap-2 text-foreground font-bold">
-                        <Award className="h-3 w-3 text-secondary" /> {r.university}
-                      </p>
-                    )}
-                    {(r.degree || r.major) && (
-                      <p className="text-[10px] text-muted-foreground font-medium pl-5">{r.degree || "—"}{r.major ? ` / ${r.major}` : ""}</p>
-                    )}
-                    <div className="flex gap-3 mt-1 pl-5">
-                      {r.linkedin_url && (
-                        <a href={r.linkedin_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
-                           LinkedIn
-                        </a>
+                render: (r: any) => {
+                  const university = r.university || r.profile?.university;
+                  const degree = r.degree || r.profile?.degree;
+                  const major = r.major || r.profile?.major;
+                  const linkedin = r.linkedin_url || r.profile?.linkedin_url;
+                  const social = r.social_profile_url || r.profile?.social_profile_url;
+                  
+                  return (
+                    <div className="space-y-1.5 py-1">
+                      {university && (
+                        <p className="text-[11px] flex items-center gap-2 text-foreground font-bold">
+                          <Award className="h-3 w-3 text-secondary" /> {university}
+                        </p>
                       )}
-                      {r.social_profile_url && (
-                        <a href={r.social_profile_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
-                           Social
-                        </a>
+                      {(degree || major) && (
+                        <p className="text-[10px] text-muted-foreground font-medium pl-5">{degree || "—"}{major ? ` / ${major}` : ""}</p>
                       )}
+                      <div className="flex gap-3 mt-1 pl-5">
+                        {linkedin && (
+                          <a href={linkedin} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
+                             LinkedIn
+                          </a>
+                        )}
+                        {social && (
+                          <a href={social} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
+                             Social
+                          </a>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
+                  );
+                }
               },
               { 
                 header: "Contact Details", 
                 className: "font-bold text-xs uppercase tracking-widest",
-                render: (r: any) => (
-                  <div className="space-y-1">
-                    <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
-                      <Phone className="h-3 w-3 opacity-60" /> {r.phone || "No phone listed"}
-                    </p>
-                    {r.city && (
+                render: (r: any) => {
+                  const phone = r.phone || r.profile?.phone;
+                  const city = r.city || r.profile?.city;
+                  const state = r.state || r.profile?.state;
+                  const country = r.country || r.profile?.country;
+                  
+                  return (
+                    <div className="space-y-1">
                       <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
-                        <MapPin className="h-3 w-3 opacity-60" /> {r.city}, {r.state ? `${r.state}, ` : ""}{r.country}
+                        <Phone className="h-3 w-3 opacity-60" /> {phone || "No phone listed"}
                       </p>
-                    )}
-                  </div>
-                )
+                      {city && (
+                        <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
+                          <MapPin className="h-3 w-3 opacity-60" /> {city}, {state ? `${state}, ` : ""}{country}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
               },
               { 
                 header: "Status", 
@@ -219,6 +250,11 @@ const AdminRecruitersPage = () => {
               }
             ]}
           />
+          {filtered.length > 5 && (
+            <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+              <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+            </div>
+          )}
         </CardContent>
       </Card>
 

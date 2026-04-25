@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, XCircle, Rocket, Users } from "lucide-react";
+import { UserPlus, XCircle, Rocket, Users, ChevronDown } from "lucide-react";
 
 interface AdminAssignmentsTabProps {
   candidateId: string;
@@ -112,8 +112,8 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
             searchKey="recruiter_name"
             emptyMessage="No recruiters assigned yet."
             columns={[
-              { 
-                header: "Recruiter", 
+              {
+                header: "Recruiter",
                 sortable: true,
                 accessorKey: "recruiter_name",
                 render: (a: any) => (
@@ -123,8 +123,8 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                   </div>
                 )
               },
-              { 
-                header: "Designation", 
+              {
+                header: "Designation",
                 sortable: true,
                 accessorKey: "role_type",
                 render: (a: any) => (
@@ -134,8 +134,8 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                   </div>
                 )
               },
-              { 
-                header: "Actions", 
+              {
+                header: "Actions",
                 className: "pr-6 text-right",
                 render: (a: any) => (
                   <Button variant="ghost" size="sm" onClick={() => handleUnassign(a.id)} className="h-8 w-8 p-0 hover:bg-destructive/10">
@@ -145,6 +145,11 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
               }
             ]}
           />
+          {assignments.length > 5 && (
+            <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+              <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -163,7 +168,14 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                   <SelectTrigger><SelectValue placeholder="Select recruiter" /></SelectTrigger>
                   <SelectContent>
                     {recruiters.map((r: any) => (
-                      <SelectItem key={r.id} value={r.id}>{r.profile?.full_name || r.email} ({r.email})</SelectItem>
+                      <SelectItem key={r.id} value={r.id}>
+                        <div className="flex justify-between items-center w-full gap-2">
+                          <span className="truncate">{r.profile?.full_name || r.email} ({r.email})</span>
+                          <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary border border-primary/20">
+                            {r.assigned_candidate_count ?? 0}
+                          </span>
+                        </div>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

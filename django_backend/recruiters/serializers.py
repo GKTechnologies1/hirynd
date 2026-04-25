@@ -178,6 +178,7 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
     recruiter_email = serializers.SerializerMethodField()
     recruiter_phone = serializers.SerializerMethodField()
     candidate_name = serializers.SerializerMethodField()
+    assigned_candidate_count = serializers.SerializerMethodField()
 
     class Meta:
         model = RecruiterAssignment
@@ -195,6 +196,13 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
 
     def get_candidate_name(self, obj):
         return obj.candidate.user.profile.full_name if hasattr(obj.candidate.user, 'profile') else ''
+
+    def get_assigned_candidate_count(self, obj):
+        if hasattr(obj, 'recruiter_active_count'):
+            return obj.recruiter_active_count
+        # Fallback
+        from .models import RecruiterAssignment
+        return RecruiterAssignment.objects.filter(recruiter=obj.recruiter, is_active=True).count()
 
 
 class MyAssignmentSerializer(serializers.ModelSerializer):

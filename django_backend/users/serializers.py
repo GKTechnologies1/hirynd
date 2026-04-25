@@ -211,6 +211,7 @@ class UserListSerializer(serializers.ModelSerializer):
     max_clients = serializers.SerializerMethodField()
     prior_recruitment_experience = serializers.SerializerMethodField()
     work_type_preference = serializers.SerializerMethodField()
+    assigned_candidate_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -222,7 +223,7 @@ class UserListSerializer(serializers.ModelSerializer):
             'city', 'state', 'country',
             'candidate_id', 'opt_end_date', 'github_url', 'visa_status', 'referral_source', 'referral_friend_name', 'notes',
             'recruiter_id', 'company_name', 'employee_id', 'date_of_joining', 'department', 'specialization', 'max_clients',
-            'prior_recruitment_experience', 'work_type_preference'
+            'prior_recruitment_experience', 'work_type_preference', 'assigned_candidate_count'
         ]
 
     def get_full_name(self, obj):
@@ -361,6 +362,14 @@ class UserListSerializer(serializers.ModelSerializer):
         if obj.role != 'recruiter': return ''
         p = getattr(obj, 'recruiter_profile', None)
         return getattr(p, 'work_type_preference', '') or ''
+
+    def get_assigned_candidate_count(self, obj):
+        if obj.role not in ['recruiter', 'team_lead', 'team_manager']:
+            return None
+        # Check if already annotated for performance
+        if hasattr(obj, 'assigned_candidate_count'):
+            return obj.assigned_candidate_count
+        return getattr(obj, 'recruiter_assignments', getattr(obj, 'assignments', None)) and obj.recruiter_assignments.filter(is_active=True).count() or 0
 
 
 class ChangePasswordSerializer(serializers.Serializer):

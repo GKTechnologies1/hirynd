@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/DatePicker";
 
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar, ChevronDown } from "lucide-react";
 
 const navItems = [
   { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -283,6 +283,11 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                   }
                 ]}
               />
+              {logs.length > 5 && (
+                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                </div>
+              )}
             </CardContent>
           </Card>
 

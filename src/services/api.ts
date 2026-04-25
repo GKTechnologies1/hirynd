@@ -173,6 +173,7 @@ export const recruitersApi = {
   updateBankDetails: (data: any) => api.post('/recruiters/bank-details/', data),
   adminGetDetail: (userId: string) => api.get(`/recruiters/admin/profile/${userId}/`),
   adminUpdateProfile: (userId: string, data: any) => api.patch(`/recruiters/admin/profile/${userId}/`, data),
+  adminGetAssignments: (userId: string) => api.get(`/recruiters/admin/profile/${userId}/assignments/`),
   uploadHighestDegreeCertificate: (fileId: string) =>
     api.patch('/recruiters/profile/', { highest_degree_certificate_id: fileId }),
   uploadGovernmentIdCard: (fileId: string) =>

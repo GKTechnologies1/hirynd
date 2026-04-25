@@ -227,7 +227,10 @@ def approve_user(request):
 def all_users(request):
     role = request.query_params.get('role')
     search = request.query_params.get('search', '').strip()
-    qs = User.objects.select_related('profile', 'candidate', 'recruiter_profile').order_by('-created_at')
+    from django.db.models import Count, Q
+    qs = User.objects.select_related('profile', 'candidate', 'recruiter_profile').annotate(
+        assigned_candidate_count=Count('recruiter_assignments', filter=Q(recruiter_assignments__is_active=True))
+    ).order_by('-created_at')
     if role:
         qs = qs.filter(role=role)
     if search:

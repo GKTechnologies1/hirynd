@@ -485,6 +485,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </div>
                         ))}
                       </div>
+                      {intakeData.experiences.length > 4 && (
+                        <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group mt-4">
+                          <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -509,6 +514,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </div>
                         ))}
                       </div>
+                      {intakeData.certifications.length > 6 && (
+                        <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group mt-4">
+                          <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -572,6 +582,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       {r.description && <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{r.description}</p>}
                     </div>
                   ))}
+                </div>
+              )}
+              {roles.length > 4 && (
+                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group mt-4">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
                 </div>
               )}
             </CardContent>
@@ -788,6 +803,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     </AccordionItem>
                   ))}
                 </Accordion>
+                {credentials.length > 5 && (
+                  <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                    <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                  </div>
+                )}
                 {credentials.length === 0 && <p className="p-6 text-center text-xs text-muted-foreground italic">No prior versions recorded.</p>}
               </CardContent>
             </Card>
@@ -836,10 +856,13 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           <Badge variant="secondary" className="text-[9px] font-bold py-0">{log.applications_count} Apps</Badge>
                         </div>
                         <p className="text-xs text-foreground font-medium mb-3">{log.notes || <span className="italic text-muted-foreground opacity-60">No notes provided.</span>}</p>
-
-
                       </div>
                     ))}
+                    {dailyLogs.length > 5 && (
+                      <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
+                        <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

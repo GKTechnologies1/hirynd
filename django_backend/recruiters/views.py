@@ -20,8 +20,11 @@ from .serializers import (
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def assignments(request, candidate_id):
+    from django.db.models import Count, Q
     qs = RecruiterAssignment.objects.filter(candidate_id=candidate_id).select_related(
         'recruiter__profile', 'candidate__user__profile'
+    ).annotate(
+        recruiter_active_count=Count('recruiter__recruiter_assignments', filter=Q(recruiter__recruiter_assignments__is_active=True))
     )
     return Response(RecruiterAssignmentSerializer(qs, many=True).data)
 
@@ -234,6 +237,24 @@ def admin_update_profile(request, user_id):
         return Response(serializer.data)
 
     return Response(AdminRecruiterFullSerializer(profile).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_get_assignments(request, user_id):
+    """Admin: get all active assignments for a specific recruiter."""
+    from users.models import User
+    try:
+        user_obj = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    qs = RecruiterAssignment.objects.filter(
+        recruiter=user_obj, is_active=True
+    ).select_related('candidate__user__profile').order_by('-assigned_at')
+    
+    return Response(MyAssignmentSerializer(qs, many=True).data)
+
 
 
 @api_view(['GET', 'POST'])

@@ -18,6 +18,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
+import StatusBadge from "@/components/dashboard/StatusBadge";
 
 interface AdminRecruiterDetailProps {
   id?: string;
@@ -34,6 +35,8 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -92,47 +95,59 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
       const { data } = await recruitersApi.adminGetDetail(id);
       setRecruiter(data);
       setFormData({
-        full_name: data.full_name || "",
-        phone: data.phone || "",
-        city: data.city || "",
-        state: data.state || "",
-        country: data.country || "",
-        university: data.university || "",
-        degree: data.degree || "",
-        major: data.major || "",
-        graduation_date: data.graduation_date || "",
-        linkedin_url: data.linkedin_url || "",
-        social_profile_url: data.social_profile_url || "",
-        company_name: data.company_name || "",
-        employee_id: data.employee_id || "",
-        date_of_joining: data.date_of_joining || "",
-        department: data.department || "",
-        specialization: data.specialization || "",
-        max_clients: data.max_clients || 3,
-        prior_recruitment_experience: data.prior_recruitment_experience || "",
-        work_type_preference: data.work_type_preference || ""
+        full_name: data.full_name || data.profile?.full_name || "",
+        phone: data.phone || data.profile?.phone || "",
+        city: data.city || data.profile?.city || "",
+        state: data.state || data.profile?.state || "",
+        country: data.country || data.profile?.country || "",
+        university: data.university || data.profile?.university || "",
+        degree: data.degree || data.profile?.degree || "",
+        major: data.major || data.profile?.major || "",
+        graduation_date: data.graduation_date || data.profile?.graduation_date || "",
+        linkedin_url: data.linkedin_url || data.profile?.linkedin_url || "",
+        social_profile_url: data.social_profile_url || data.profile?.social_profile_url || "",
+        company_name: data.company_name || data.profile?.company_name || "",
+        employee_id: data.employee_id || data.profile?.employee_id || "",
+        date_of_joining: data.date_of_joining || data.profile?.date_of_joining || "",
+        department: data.department || data.profile?.department || "",
+        specialization: data.specialization || data.profile?.specialization || "",
+        max_clients: data.max_clients || data.profile?.max_clients || 3,
+        prior_recruitment_experience: data.prior_recruitment_experience || data.profile?.prior_recruitment_experience || "",
+        work_type_preference: data.work_type_preference || data.profile?.work_type_preference || ""
       });
 
-      if (data.bank_details) {
+      if (data.bank_details || data.profile?.bank_details) {
+        const bank = data.bank_details || data.profile?.bank_details;
         setBankDetails({
-          bank_name: data.bank_details.bank_name || "",
-          account_number: data.bank_details.account_number_last4 ? `****${data.bank_details.account_number_last4}` : data.bank_details.account_number || "",
-          routing_number: data.bank_details.routing_number_last4 ? `****${data.bank_details.routing_number_last4}` : data.bank_details.routing_number || ""
+          bank_name: bank.bank_name || "",
+          account_number: bank.account_number_last4 ? `****${bank.account_number_last4}` : bank.account_number || "",
+          routing_number: bank.routing_number_last4 ? `****${bank.routing_number_last4}` : bank.routing_number || ""
         });
       }
 
       // Load document information
       setDocuments({
-        highest_degree_certificate_file: data.highest_degree_certificate_file,
-        government_id_card_file: data.government_id_card_file,
-        pan_card_file: data.pan_card_file,
-        bank_passbook_file: data.bank_passbook_file
+        highest_degree_certificate_file: data.highest_degree_certificate_file || data.profile?.highest_degree_certificate_file,
+        government_id_card_file: data.government_id_card_file || data.profile?.government_id_card_file,
+        pan_card_file: data.pan_card_file || data.profile?.pan_card_file,
+        bank_passbook_file: data.bank_passbook_file || data.profile?.bank_passbook_file
       });
       
       // Fetch stats
       setLoadingStats(true);
       const { data: statsData } = await recruitersApi.stats({ user_id: id });
       setStats(statsData);
+
+      // Fetch assignments
+      setLoadingAssignments(true);
+      try {
+        const { data: assignData } = await recruitersApi.adminGetAssignments(id);
+        setAssignments(assignData || []);
+      } catch (err) {
+        console.error("Failed to fetch assignments", err);
+      } finally {
+        setLoadingAssignments(false);
+      }
     } catch (err: any) {
       toast({ title: "Error", description: "Failed to load recruiter data", variant: "destructive" });
     } finally {
@@ -432,6 +447,107 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Assigned Candidates Tab */}
+        <TabsContent value="assigned_candidates">
+          <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40 overflow-hidden rounded-3xl">
+            <CardHeader className="bg-primary/5 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" /> Assigned Candidates
+                  </CardTitle>
+                  <CardDescription className="text-[10px] uppercase font-bold tracking-tight text-primary/70 mt-1">
+                    Manage and monitor candidates assigned to this recruiter
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary" className="h-6 px-3 rounded-full bg-primary/10 text-primary border-primary/20 font-bold text-[10px]">
+                  {assignments.length} Total Assignments
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataTable
+                data={assignments}
+                isLoading={loadingAssignments}
+                searchKey="candidate_name"
+                searchPlaceholder="Search candidates..."
+                emptyMessage="No candidates assigned to this recruiter."
+                columns={[
+                  {
+                    header: "Candidate ID",
+                    className: "pl-6",
+                    render: (a: any) => (
+                      <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
+                        {`HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`}
+                      </span>
+                    )
+                  },
+                  {
+                    header: "Candidate Name",
+                    sortable: true,
+                    accessorKey: "candidate_name",
+                    className: "font-bold text-xs uppercase tracking-widest",
+                    render: (a: any) => (
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm tracking-tight">{a.candidate_name || "Unknown"}</span>
+                        <span className="text-[10px] text-muted-foreground font-medium">{a.candidate_email}</span>
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Relation Type",
+                    sortable: true,
+                    accessorKey: "role_type",
+                    className: "text-center",
+                    render: (a: any) => (
+                      <div className="flex justify-center">
+                        <Badge variant="outline" className="capitalize bg-secondary/5 border-secondary/20 text-secondary text-[10px] font-bold tracking-wider px-3 h-6 rounded-full">
+                          {a.role_type?.replace(/_/g, " ")}
+                        </Badge>
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Status",
+                    sortable: true,
+                    accessorKey: "status",
+                    className: "text-center",
+                    render: (a: any) => (
+                      <div className="flex justify-center">
+                        <StatusBadge status={a.status} className="text-[9px]" />
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Assigned Date",
+                    sortable: true,
+                    accessorKey: "assigned_at",
+                    render: (a: any) => (
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {a.assigned_at ? format(new Date(a.assigned_at), "MMM dd, yyyy") : "—"}
+                      </span>
+                    )
+                  },
+                  {
+                    header: "Actions",
+                    className: "text-right pr-6",
+                    render: (a: any) => (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 rounded-lg hover:bg-primary/10 text-primary"
+                        onClick={() => navigate(`/admin-dashboard/candidates/${a.candidate_id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )
+                  }
+                ]}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Professional Tab */}
