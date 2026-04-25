@@ -862,18 +862,7 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                   <span className="text-4xl font-black text-amber-600 pr-4">{stats.interviews_week}</span>
                 </div>
 
-                <div className="p-6 rounded-[2rem] bg-green-500/5 ring-1 ring-green-500/10 flex items-center justify-between group hover:bg-green-500/10 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-600 shadow-sm ring-1 ring-green-500/20 group-hover:rotate-12 transition-transform">
-                      <Award className="h-7 w-7" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-green-600/60 uppercase tracking-widest leading-tight">Success</p>
-                      <p className="text-xl font-black text-foreground tracking-tight">Confirmed Offers</p>
-                    </div>
-                  </div>
-                  <span className="text-4xl font-black text-green-600 pr-4">{stats.offers_week}</span>
-                </div>
+
               </div>
             </div>
           ) : (

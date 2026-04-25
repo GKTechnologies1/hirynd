@@ -8,13 +8,14 @@ import RecruiterCandidateDetail from "@/pages/recruiter/RecruiterCandidateDetail
 import DailyLogPage from "@/pages/recruiter/DailyLogPage";
 import RecruiterProfilePage from "@/pages/recruiter/RecruiterProfilePage";
 import RecruiterSettingsPage from "@/pages/recruiter/RecruiterSettingsPage";
+import RecruiterAssignedToPage from "@/pages/recruiter/RecruiterAssignedToPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, Award, TrendingUp, Settings, ChevronDown } from "lucide-react";
+import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, TrendingUp, Settings, ChevronDown, UserCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
@@ -22,6 +23,7 @@ import { parse, format } from "date-fns";
 
 const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
+  { label: "Assigned To", path: "/recruiter-dashboard/assigned-to", icon: <UserCheck className="h-4 w-4" /> },
   { label: "Daily Log", path: "/recruiter-dashboard/daily-log", icon: <ClipboardList className="h-4 w-4" /> },
   { label: "My Profile", path: "/recruiter-dashboard/profile", icon: <User className="h-4 w-4" /> },
   { label: "Settings", path: "/recruiter-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
@@ -285,6 +287,7 @@ const RecruiterDashboard = () => {
       <Routes>
         <Route path="/" element={<RecruiterHome />} />
         <Route path="/candidates/:candidateId" element={<CandidateDetailWrapper />} />
+        <Route path="/assigned-to" element={<RecruiterAssignedToPage />} />
         <Route path="/daily-log" element={<DailyLogPage />} />
         <Route path="/profile" element={<RecruiterProfilePage />} />
         <Route path="/settings" element={<RecruiterSettingsPage />} />

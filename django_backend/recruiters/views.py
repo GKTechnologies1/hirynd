@@ -13,7 +13,7 @@ from .models import RecruiterAssignment, DailySubmissionLog, JobLinkEntry
 from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
     RecruiterProfileSerializer, RecruiterBankDetailsSerializer,
-    AdminRecruiterFullSerializer,
+    AdminRecruiterFullSerializer, MyAssignmentSerializer,
 )
 
 
@@ -62,6 +62,16 @@ def my_candidates(request):
     from candidates.serializers import CandidateListSerializer
     candidates = Candidate.objects.filter(id__in=assigned_ids).select_related('user__profile')
     return Response(CandidateListSerializer(candidates, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsRecruiter])
+def my_assignments(request):
+    """Return all active assignments for the logged-in recruiter with candidate details."""
+    qs = RecruiterAssignment.objects.filter(
+        recruiter=request.user, is_active=True
+    ).select_related('candidate__user__profile').order_by('-assigned_at')
+    return Response(MyAssignmentSerializer(qs, many=True).data)
 
 
 @api_view(['GET', 'POST'])
@@ -124,7 +134,7 @@ def update_job_status(request, job_id):
 
     new_status = request.data.get('status')
     if new_status:
-        job.candidate_response_status = new_status
+        job.application_status = new_status
         job.save()
     return Response(JobLinkEntrySerializer(job).data)
 

@@ -157,6 +157,7 @@ export const candidatesApi = {
 // ─── Recruiters ───
 export const recruitersApi = {
   myCandidates: () => api.get('/recruiters/my-candidates/'),
+  myAssignments: () => api.get('/recruiters/my-assignments/'),
   assignments: (candidateId: string) => api.get(`/recruiters/${candidateId}/assignments/`),
   assign: (data: { candidate: string; recruiter: string; role_type: string }) =>
     api.post('/recruiters/assign/', data),

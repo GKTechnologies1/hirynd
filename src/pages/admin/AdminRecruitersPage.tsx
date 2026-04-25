@@ -297,18 +297,7 @@ const AdminRecruitersPage = () => {
                     <span className="text-3xl font-black text-amber-600 opacity-60 group-hover:opacity-100 transition-opacity pr-2">{stats.interviews_week}</span>
                   </div>
 
-                  <div className="p-5 rounded-3xl bg-muted/40 border border-border/30 flex items-center justify-between group hover:bg-muted/60 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-600 shadow-sm ring-1 ring-green-500/20 group-hover:rotate-12 transition-transform">
-                        <Award className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-tight">Placements</p>
-                        <p className="text-xl font-black text-foreground">Offers This Week</p>
-                      </div>
-                    </div>
-                    <span className="text-3xl font-black text-green-600 opacity-60 group-hover:opacity-100 transition-opacity pr-2">{stats.offers_week}</span>
-                  </div>
+
                 </div>
 
                 <div className="bg-primary/5 rounded-2xl p-4 flex gap-3 text-xs text-primary font-medium border border-primary/10">

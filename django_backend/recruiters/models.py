@@ -120,7 +120,9 @@ class JobLinkEntry(models.Model):
     APPLICATION_STATUS_CHOICES = [
         ('applied', 'Applied'),
         ('screening', 'Screening'),
+        ('screening_scheduled', 'Screening Scheduled'),
         ('interview', 'Interview'),
+        ('interview_scheduled', 'Interview Scheduled'),
         ('rejected', 'Rejected'),
         ('offer', 'Offer'),
     ]

@@ -197,6 +197,37 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
         return obj.candidate.user.profile.full_name if hasattr(obj.candidate.user, 'profile') else ''
 
 
+class MyAssignmentSerializer(serializers.ModelSerializer):
+    """Serializer for a recruiter viewing their own assignments – rich candidate data."""
+    candidate_id = serializers.UUIDField(source='candidate.id', read_only=True)
+    candidate_name = serializers.SerializerMethodField()
+    candidate_email = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RecruiterAssignment
+        fields = [
+            'id', 'candidate_id', 'candidate_name', 'candidate_email',
+            'role_type', 'is_active', 'assigned_at', 'unassigned_at', 'status',
+        ]
+        read_only_fields = fields
+
+    def get_candidate_name(self, obj):
+        try:
+            return obj.candidate.user.profile.full_name
+        except Exception:
+            return obj.candidate.user.email
+
+    def get_candidate_email(self, obj):
+        try:
+            return obj.candidate.user.profile.email or obj.candidate.user.email
+        except Exception:
+            return obj.candidate.user.email
+
+    def get_status(self, obj):
+        return obj.candidate.status
+
+
 class JobLinkEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = JobLinkEntry

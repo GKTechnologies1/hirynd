@@ -425,7 +425,7 @@ const RecruiterLogin = () => {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Degree & Major *</Label>
-                    <Input id="reg-degree_major" value={reg.degree_major} onChange={e => updateReg("degree_major", e.target.value)} placeholder="e.g., Master's in Computer Science" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
+                    <Input id="reg-degree_major" value={reg.degree_major} onChange={e => updateReg("degree_major", e.target.value)} placeholder="Master's in Computer Science" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
                     {regErrors.degree_major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.degree_major}</p>}
                   </div>
                   <div className="space-y-2">

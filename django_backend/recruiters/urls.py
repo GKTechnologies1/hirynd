@@ -6,6 +6,7 @@ from . import views
 
 urlpatterns = [
     path('my-candidates/', views.my_candidates, name='my_candidates'),
+    path('my-assignments/', views.my_assignments, name='my_assignments'),
     path('assign/', views.assign_recruiter, name='assign_recruiter'),
     path('unassign/<uuid:assignment_id>/', views.unassign_recruiter, name='unassign_recruiter'),
     path('<uuid:candidate_id>/assignments/', views.assignments, name='assignments'),

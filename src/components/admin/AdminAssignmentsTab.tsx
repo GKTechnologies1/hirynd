@@ -129,7 +129,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                 accessorKey: "role_type",
                 render: (a: any) => (
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={a.role_type === "primary_recruiter" ? "active" : "pending"} className="text-[10px]" />
+                    <StatusBadge status={a.is_active ? "active" : "inactive"} className="text-[10px]" />
                     <span className="text-xs text-muted-foreground capitalize">{a.role_type?.replace(/_/g, " ")}</span>
                   </div>
                 )

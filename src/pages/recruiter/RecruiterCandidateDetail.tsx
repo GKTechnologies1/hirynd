@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon } from "lucide-react";
+import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
@@ -25,6 +25,7 @@ import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
+  { label: "Assigned To", path: "/recruiter-dashboard/assigned-to", icon: <UserCheck className="h-4 w-4" /> },
   { label: "Daily Log", path: "/recruiter-dashboard/daily-log", icon: <ClipboardList className="h-4 w-4" /> },
   { label: "My Profile", path: "/recruiter-dashboard/profile", icon: <User className="h-4 w-4" /> },
 ];
@@ -52,7 +53,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [savingCred, setSavingCred] = useState(false);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
-  const togglePassword = (k: string) => setShowPasswords(p => ({...p, [k]: !p[k]}));
+  const togglePassword = (k: string) => setShowPasswords(p => ({ ...p, [k]: !p[k] }));
 
   // Daily log form
   const [logCount, setLogCount] = useState("");
@@ -79,7 +80,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         setRoles(roleRes.data || []);
         const creds = credRes.data || [];
         setCredentials(creds);
-        
+
         // Pre-fill form with existing credentials OR candidate data
         if (creds.length > 0 && creds[0].data) {
           setCredForm(creds[0].data as Record<string, any>);
@@ -106,14 +107,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
             preferred_locations: ""
           });
         }
-        
+
         const logs = logsRes.data || [];
         setDailyLogs(logs);
         const allJobs = logs.flatMap((l: any) => (l.job_entries || []).map((j: any) => ({ ...j, log_date: l.log_date })));
         setJobPostings(allJobs);
         setSubscription(subRes?.data?.id ? subRes.data : null);
       }
-    } catch {}
+    } catch { }
     setLoading(false);
   };
 
@@ -350,8 +351,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 <p className="font-medium bg-secondary/10 text-secondary w-fit px-2 py-0.5 rounded text-xs">{candidate?.profile?.visa_status || candidate.visa_status || "N/A"}</p>
               </div>
               <div className="space-y-1">
-                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Current Location</p>
-                 <p className="font-medium">{candidate?.profile?.current_location || "—"}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Current Location</p>
+                <p className="font-medium">{candidate?.profile?.current_location || "—"}</p>
               </div>
             </CardContent>
           </Card>
@@ -429,7 +430,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                             const value = intakeData[field];
                             if (!value) return null;
                             const isUrl = String(value).startsWith("http") || field.endsWith("_url");
-                            
+
                             return (
                               <div key={field} className="space-y-1">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">
@@ -437,10 +438,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                 </p>
                                 <div className="font-medium text-card-foreground break-words text-sm">
                                   {isUrl ? (
-                                    <DocumentPreview 
-                                      url={String(value)} 
-                                      label={field.replace(/_/g, " ").replace(" url", "")} 
-                                      className="text-blue-600 hover:underline flex items-center gap-1" 
+                                    <DocumentPreview
+                                      url={String(value)}
+                                      label={field.replace(/_/g, " ").replace(" url", "")}
+                                      className="text-blue-600 hover:underline flex items-center gap-1"
                                     />
                                   ) : (
                                     <span>{String(value)}</span>
@@ -525,7 +526,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       "experiences", "certifications", "has_work_experience", "has_certifications"
                     ];
                     const otherFields = Object.entries(intakeData).filter(([k]) => !allGroupFields.includes(k) && intakeData[k]);
-                    
+
                     if (otherFields.length === 0) return null;
 
                     return (
@@ -586,26 +587,26 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                    {["full_legal_name", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
-                      <div key={field} className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
-                        <Input 
-                          className="bg-background/50 text-sm h-10 border-border/50"
-                          value={credForm[field] || ""} 
-                          onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} 
-                        />
-                      </div>
-                    ))}
-                    {["personal_email", "location_city_state", "preferred_job_roles", "preferred_locations"].map((field) => (
-                      <div key={field} className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
-                        <Input 
-                          className="bg-background/50 text-sm h-10 border-border/50"
-                          value={credForm[field] || ""} 
-                          onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} 
-                        />
-                      </div>
-                    ))}
+                  {["full_legal_name", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
+                    <div key={field} className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
+                      <Input
+                        className="bg-background/50 text-sm h-10 border-border/50"
+                        value={credForm[field] || ""}
+                        onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                  {["personal_email", "location_city_state", "preferred_job_roles", "preferred_locations"].map((field) => (
+                    <div key={field} className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
+                      <Input
+                        className="bg-background/50 text-sm h-10 border-border/50"
+                        value={credForm[field] || ""}
+                        onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
                 </div>
 
                 <div className="bg-blue-50/30 border border-blue-100 rounded-xl p-4 space-y-4">
@@ -615,19 +616,19 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Grad Date</Label>
-                      <DatePicker id="rec-cred-bach" value={credForm.bachelors_graduation_date} onChange={val => setCredForm(p => ({...p, bachelors_graduation_date: val}))} />
+                      <DatePicker id="rec-cred-bach" value={credForm.bachelors_graduation_date} onChange={val => setCredForm(p => ({ ...p, bachelors_graduation_date: val }))} />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Grad Date</Label>
-                      <DatePicker id="rec-cred-mast" value={credForm.masters_graduation_date} onChange={val => setCredForm(p => ({...p, masters_graduation_date: val}))} />
+                      <DatePicker id="rec-cred-mast" value={credForm.masters_graduation_date} onChange={val => setCredForm(p => ({ ...p, masters_graduation_date: val }))} />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US</Label>
-                      <DatePicker id="rec-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({...p, first_entry_us: val}))} />
+                      <DatePicker id="rec-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({ ...p, first_entry_us: val }))} />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date</Label>
-                      <DatePicker id="rec-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({...p, opt_start_date: val}))} />
+                      <DatePicker id="rec-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({ ...p, opt_start_date: val }))} />
                     </div>
                   </div>
                 </div>
@@ -639,12 +640,12 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2 space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Shared Email (All Platforms) *</Label>
-                      <Input 
+                      <Input
                         disabled
-                        type="email" 
-                        className="bg-muted/30 text-sm h-10 border-border/50 opacity-70 cursor-not-allowed" 
-                        value={credForm["shared_email"] || ""} 
-                        onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))} 
+                        type="email"
+                        className="bg-muted/30 text-sm h-10 border-border/50 opacity-70 cursor-not-allowed"
+                        value={credForm["shared_email"] || ""}
+                        onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))}
                       />
                       <p className="text-[9px] text-muted-foreground italic">Email is read-only and automatically set from candidate profile</p>
                     </div>
@@ -654,21 +655,21 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <div className="relative">
                           <Input type={showPasswords[field] ? "text" : "password"} className="bg-white text-sm h-10 border-border/50 pr-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
                           <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword(field)}>
-                             {showPasswords[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showPasswords[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="border-t border-amber-200/50 pt-4 mt-4 space-y-4">
                     <div className="flex items-center justify-between">
                       <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-800">Custom Job Platforms</Label>
                       <Button variant="outline" size="sm" className="h-7 text-xs bg-white text-amber-900 border-amber-200" onClick={() => {
-                         setCredForm(p => ({
-                           ...p,
-                           custom_platforms: [...(p.custom_platforms || []), { platform_name: "", password: "" }]
-                         }));
+                        setCredForm(p => ({
+                          ...p,
+                          custom_platforms: [...(p.custom_platforms || []), { platform_name: "", password: "" }]
+                        }));
                       }}>
                         <Plus className="h-3 w-3 mr-1" /> Add
                       </Button>
@@ -678,30 +679,30 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <div className="flex-1 space-y-1">
                           <Label className="text-[9px] font-bold uppercase text-amber-700">Platform</Label>
                           <Input className="h-8 text-xs bg-white" placeholder="e.g. Glassdoor" value={cp.platform_name} onChange={e => {
-                             const n = [...credForm.custom_platforms];
-                             n[idx].platform_name = e.target.value;
-                             setCredForm({ ...credForm, custom_platforms: n });
+                            const n = [...credForm.custom_platforms];
+                            n[idx].platform_name = e.target.value;
+                            setCredForm({ ...credForm, custom_platforms: n });
                           }} />
                         </div>
                         <div className="flex-1 space-y-1 relative">
                           <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
                           <div className="relative">
                             <Input className="h-8 text-xs bg-white pr-8" type={showPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
-                               const n = [...credForm.custom_platforms];
-                               n[idx].password = e.target.value;
-                               setCredForm({ ...credForm, custom_platforms: n });
+                              const n = [...credForm.custom_platforms];
+                              n[idx].password = e.target.value;
+                              setCredForm({ ...credForm, custom_platforms: n });
                             }} />
                             <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword(`cp_${idx}`)}>
-                               {showPasswords[`cp_${idx}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                              {showPasswords[`cp_${idx}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                             </Button>
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-destructive/10 text-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
-                           const n = [...credForm.custom_platforms];
-                           n.splice(idx, 1);
-                           setCredForm({ ...credForm, custom_platforms: n });
+                          const n = [...credForm.custom_platforms];
+                          n.splice(idx, 1);
+                          setCredForm({ ...credForm, custom_platforms: n });
                         }}>
-                           <Trash2 className="h-2.5 w-2.5" />
+                          <Trash2 className="h-2.5 w-2.5" />
                         </Button>
                       </div>
                     ))}
@@ -709,8 +710,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 </div>
 
                 <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Skills Summary & Keywords</Label>
-                    <Textarea rows={5} className="bg-background/50 text-sm border-border/50 italic" value={credForm["skills_summary"] || ""} onChange={e => setCredForm(prev => ({ ...prev, ["skills_summary"]: e.target.value }))} />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Skills Summary & Keywords</Label>
+                  <Textarea rows={5} className="bg-background/50 text-sm border-border/50 italic" value={credForm["skills_summary"] || ""} onChange={e => setCredForm(prev => ({ ...prev, ["skills_summary"]: e.target.value }))} />
                 </div>
                 <Button variant="secondary" className="w-full h-11 text-white font-bold rounded-xl gap-2 shadow-lg shadow-secondary/20" onClick={handleSaveCredential} disabled={savingCred}>
                   {savingCred ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -727,62 +728,62 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     <AccordionItem key={v.id} value={v.id} className="border-b border-border/40 px-4">
                       <AccordionTrigger className="hover:no-underline py-4">
                         <div className="flex flex-col items-start gap-1">
-                            <span className="text-xs font-bold">Version {v.version}</span>
-                            <span className="text-[10px] text-muted-foreground font-medium">{formatDate(v.created_at)} by {v.edited_by?.profile?.full_name || "Admin"}</span>
+                          <span className="text-xs font-bold">Version {v.version}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">{formatDate(v.created_at)} by {v.edited_by?.profile?.full_name || "Admin"}</span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pb-4">
-                         <div className="space-y-4 pt-4">
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                {Object.entries(v.data as Record<string, any>).map(([key, val]) => {
-                                  if (!val || key === "custom_platforms") return null;
-                                  const isPassword = ["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].includes(key);
-                                  return (
-                                    <div key={key} className="bg-muted/30 p-2 rounded-lg border border-border/20 relative group">
-                                        <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter mb-1">{key.replace(/_/g, " ")}</p>
-                                        <div className="flex items-center justify-between gap-2">
-                                          <p className="text-[11px] font-medium truncate flex-1">
-                                            {isPassword ? (showPasswords[`v_${v.id}_${key}`] ? val : "••••••••") : (key.includes('resume') || key.includes('url')) ? (
-                                              <DocumentPreview url={val} label="View File" />
-                                            ) : val}
-                                          </p>
-                                          {isPassword && (
-                                            <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_${key}`)}>
-                                              {showPasswords[`v_${v.id}_${key}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                            </Button>
-                                          )}
-                                        </div>
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                            
-                            {v.data?.custom_platforms && Array.isArray(v.data.custom_platforms) && v.data.custom_platforms.length > 0 && (
-                              <div className="border-t border-border/10 pt-3">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-2">Custom Platforms</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {v.data.custom_platforms.map((cp: any, idx: number) => (
-                                    <div key={idx} className="bg-amber-50/50 p-2 rounded-lg border border-amber-100 flex items-center justify-between gap-2">
-                                      <div className="flex-1 overflow-hidden">
-                                        <p className="text-[10px] font-bold text-amber-900 truncate">{cp.platform_name}</p>
-                                        <p className="text-[11px] font-mono text-amber-700 truncate">{showPasswords[`v_${v.id}_cp_${idx}`] ? cp.password : "••••••••"}</p>
-                                      </div>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-amber-800/60 hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_cp_${idx}`)}>
-                                        {showPasswords[`v_${v.id}_cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        <div className="space-y-4 pt-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {Object.entries(v.data as Record<string, any>).map(([key, val]) => {
+                              if (!val || key === "custom_platforms") return null;
+                              const isPassword = ["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].includes(key);
+                              return (
+                                <div key={key} className="bg-muted/30 p-2 rounded-lg border border-border/20 relative group">
+                                  <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter mb-1">{key.replace(/_/g, " ")}</p>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-[11px] font-medium truncate flex-1">
+                                      {isPassword ? (showPasswords[`v_${v.id}_${key}`] ? val : "••••••••") : (key.includes('resume') || key.includes('url')) ? (
+                                        <DocumentPreview url={val} label="View File" />
+                                      ) : val}
+                                    </p>
+                                    {isPassword && (
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_${key}`)}>
+                                        {showPasswords[`v_${v.id}_${key}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                                       </Button>
-                                    </div>
-                                  ))}
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              );
+                            })}
+                          </div>
 
-                            {v.data?.skills_summary && (
-                              <div className="bg-muted/10 p-3 rounded-lg border border-border/20">
-                                <p className="text-[9px] font-bold uppercase opacity-50 mb-1 tracking-widest">Skills & Notes</p>
-                                <p className="text-xs italic leading-relaxed text-muted-foreground whitespace-pre-wrap">{v.data.skills_summary}</p>
+                          {v.data?.custom_platforms && Array.isArray(v.data.custom_platforms) && v.data.custom_platforms.length > 0 && (
+                            <div className="border-t border-border/10 pt-3">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-2">Custom Platforms</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {v.data.custom_platforms.map((cp: any, idx: number) => (
+                                  <div key={idx} className="bg-amber-50/50 p-2 rounded-lg border border-amber-100 flex items-center justify-between gap-2">
+                                    <div className="flex-1 overflow-hidden">
+                                      <p className="text-[10px] font-bold text-amber-900 truncate">{cp.platform_name}</p>
+                                      <p className="text-[11px] font-mono text-amber-700 truncate">{showPasswords[`v_${v.id}_cp_${idx}`] ? cp.password : "••••••••"}</p>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-amber-800/60 hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_cp_${idx}`)}>
+                                      {showPasswords[`v_${v.id}_cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                    </Button>
+                                  </div>
+                                ))}
                               </div>
-                            )}
-                         </div>
+                            </div>
+                          )}
+
+                          {v.data?.skills_summary && (
+                            <div className="bg-muted/10 p-3 rounded-lg border border-border/20">
+                              <p className="text-[9px] font-bold uppercase opacity-50 mb-1 tracking-widest">Skills & Notes</p>
+                              <p className="text-xs italic leading-relaxed text-muted-foreground whitespace-pre-wrap">{v.data.skills_summary}</p>
+                            </div>
+                          )}
+                        </div>
                       </AccordionContent>
                     </AccordionItem>
                   ))}
@@ -795,7 +796,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
         <TabsContent value="daily-log" className="space-y-6">
           <Card className="border-none shadow-sm bg-card/60 overflow-hidden">
-             <div className="h-1 bg-secondary w-full" />
+            <div className="h-1 bg-secondary w-full" />
             <CardHeader>
               <CardTitle className="text-base font-bold flex items-center gap-2"><ClipboardList className="h-5 w-5 text-secondary" /> Daily Submission Journal</CardTitle>
             </CardHeader>
@@ -811,10 +812,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 </div>
               </div>
 
-              <Button 
-                variant="hero" 
-                className={`w-full h-12 text-sm font-bold tracking-tight rounded-2xl transition-all ${logCount ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/10' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
-                onClick={handleSubmitDailyLog} 
+              <Button
+                variant="hero"
+                className={`w-full h-12 text-sm font-bold tracking-tight rounded-2xl transition-all ${logCount ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/10' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                onClick={handleSubmitDailyLog}
                 disabled={savingLog || !logCount}
               >
                 {savingLog ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-white" />}
@@ -830,12 +831,12 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   <div className="space-y-3">
                     {dailyLogs.map((log: any, idx: number) => (
                       <div key={idx} className="bg-muted/10 p-4 rounded-xl border border-border/40">
-                         <div className="flex items-center justify-between mb-2">
-                           <span className="text-[10px] uppercase font-bold text-muted-foreground">{formatDate(log.log_date || log.created_at)}</span>
-                           <Badge variant="secondary" className="text-[9px] font-bold py-0">{log.applications_count} Apps</Badge>
-                         </div>
-                         <p className="text-xs text-foreground font-medium mb-3">{log.notes || <span className="italic text-muted-foreground opacity-60">No notes provided.</span>}</p>
-                         
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">{formatDate(log.log_date || log.created_at)}</span>
+                          <Badge variant="secondary" className="text-[9px] font-bold py-0">{log.applications_count} Apps</Badge>
+                        </div>
+                        <p className="text-xs text-foreground font-medium mb-3">{log.notes || <span className="italic text-muted-foreground opacity-60">No notes provided.</span>}</p>
+
 
                       </div>
                     ))}
@@ -854,49 +855,49 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 <div className="flex items-center justify-between border-b pb-2 mb-2">
                   <h4 className="text-sm font-bold flex items-center gap-2">Jobs & URLs <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">{jobLinks.length}</span></h4>
                   <Button variant="ghost" size="sm" onClick={addJobLink} className="h-8 text-[11px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 rounded-lg border border-secondary/20">
-                     <Plus className="mr-1 h-3 w-3" /> Add Job Link
+                    <Plus className="mr-1 h-3 w-3" /> Add Job Link
                   </Button>
                 </div>
-                
+
                 {jobLinks.length === 0 && (
-                   <div className="p-8 text-center bg-muted/10 rounded-2xl border border-dashed border-border/50 text-xs text-muted-foreground italic">
-                      Add specific job links that were submitted for more granular tracking.
-                   </div>
+                  <div className="p-8 text-center bg-muted/10 rounded-2xl border border-dashed border-border/50 text-xs text-muted-foreground italic">
+                    Add specific job links that were submitted for more granular tracking.
+                  </div>
                 )}
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   {jobLinks.map((job, idx) => (
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={idx} className="rounded-2xl border border-border/50 p-4 bg-muted/5 space-y-3 relative group">
-                        <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeJobLink(idx)}>
-                            <Trash2 className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeJobLink(idx)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <div className="grid gap-3 grid-cols-2">
+                        <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
+                        <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
+                      </div>
+                      <div className="relative">
+                        <Input placeholder="Paste Job URL here..." className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
+                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
+                          {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                         </Button>
-                        <div className="grid gap-3 grid-cols-2">
-                           <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
-                           <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
-                        </div>
-                        <div className="relative">
-                            <Input placeholder="Paste Job URL here..." className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
-                            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
-                                {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                            </Button>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Select value={job.resume_used} onValueChange={v => updateJobLink(idx, "resume_used", v)}>
-                                <SelectTrigger className="flex-1 h-9 text-[10px] font-bold bg-background/50">
-                                    <SelectValue placeholder="Select Resume" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {resumes.map(r => <SelectItem key={r.url} value={r.url} className="text-xs">{r.label}</SelectItem>)}
-                                    {resumes.length === 0 && <SelectItem value="Standard" className="text-xs">Standard Resume</SelectItem>}
-                                </SelectContent>
-                            </Select>
-                            <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
-                                <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {JOB_STATUSES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Select value={job.resume_used} onValueChange={v => updateJobLink(idx, "resume_used", v)}>
+                          <SelectTrigger className="flex-1 h-9 text-[10px] font-bold bg-background/50">
+                            <SelectValue placeholder="Select Resume" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {resumes.map(r => <SelectItem key={r.url} value={r.url} className="text-xs">{r.label}</SelectItem>)}
+                            {resumes.length === 0 && <SelectItem value="Standard" className="text-xs">Standard Resume</SelectItem>}
+                          </SelectContent>
+                        </Select>
+                        <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
+                          <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {JOB_STATUSES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
                       {jobLinks.length > 3 && (
                         <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
                           <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
@@ -907,10 +908,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 </div>
               </div>
 
-              <Button 
-                variant="hero" 
-                className={`w-full h-12 text-sm font-bold tracking-tight rounded-2xl transition-all ${jobLinks.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/10' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`} 
-                onClick={handleSubmitJobApplication} 
+              <Button
+                variant="hero"
+                className={`w-full h-12 text-sm font-bold tracking-tight rounded-2xl transition-all ${jobLinks.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/10' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                onClick={handleSubmitJobApplication}
                 disabled={savingLog || jobLinks.length === 0}
               >
                 {savingLog ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-white" />}
@@ -929,8 +930,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 searchKey="company_name"
                 emptyMessage="No applications recorded in the system."
                 columns={[
-                  { 
-                    header: "ID", 
+                  {
+                    header: "ID",
                     className: "pl-6 py-4",
                     render: (j: any) => (
                       <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
@@ -938,8 +939,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       </span>
                     )
                   },
-                  { 
-                    header: "Company & Role", 
+                  {
+                    header: "Company & Role",
                     className: "px-6 py-4",
                     render: (j: any) => (
                       <div className="flex items-center gap-2">
@@ -953,11 +954,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       </div>
                     )
                   },
-                  { 
-                    header: "Application Status", 
+                  {
+                    header: "Application Status",
                     className: "px-6 py-4",
                     render: (j: any) => (
-                      <Select defaultValue={(j.status || j.application_status || "").toLowerCase().replace(/ /g, "_")} onValueChange={(v) => handleUpdateJobStatus(j.id, v)}>
+                      <Select value={(j.application_status || j.status || "").toLowerCase().replace(/ /g, "_")} onValueChange={(v) => handleUpdateJobStatus(j.id, v)}>
                         <SelectTrigger className="w-40 h-8 text-[11px] font-bold border-none bg-muted/50 focus-visible:ring-0">
                           <SelectValue placeholder="Update status" />
                         </SelectTrigger>
@@ -967,8 +968,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       </Select>
                     )
                   },
-                  { 
-                    header: "Resume Used", 
+                  {
+                    header: "Resume Used",
                     className: "px-6 py-4",
                     render: (j: any) => {
                       const isUrl = j.resume_used?.startsWith('http');
@@ -980,8 +981,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       );
                     }
                   },
-                  { 
-                    header: "Logged Date", 
+                  {
+                    header: "Logged Date",
                     className: "px-6 py-4 text-right pr-6",
                     render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{formatDate(j.log_date || j.created_at)}</span>
                   }
