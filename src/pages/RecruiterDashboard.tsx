@@ -33,7 +33,6 @@ const RecruiterHome = () => {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [candidateStats, setCandidateStats] = useState<Record<string, { total_apps: number; total_interviews: number }>>({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [visaFilter, setVisaFilter] = useState("all");
@@ -50,28 +49,6 @@ const RecruiterHome = () => {
         
         setCandidates(candData || []);
         setStats(statsData);
-
-        // Fetch per-candidate application and interview counts
-        if (candData?.length) {
-          const statsMap: Record<string, { total_apps: number; total_interviews: number }> = {};
-          await Promise.all(
-            candData.map(async (c: any) => {
-              try {
-                const [logsRes, interviewsRes] = await Promise.all([
-                  recruitersApi.getDailyLogs(c.id).catch(() => ({ data: [] })),
-                  candidatesApi.getInterviews(c.id).catch(() => ({ data: [] })),
-                ]);
-                const logs = logsRes.data || [];
-                const totalApps = logs.reduce((sum: number, l: any) => sum + (l.applications_count || 0), 0);
-                const totalInterviews = (interviewsRes.data || []).length;
-                statsMap[c.id] = { total_apps: totalApps, total_interviews: totalInterviews };
-              } catch {
-                statsMap[c.id] = { total_apps: 0, total_interviews: 0 };
-              }
-            })
-          );
-          setCandidateStats(statsMap);
-        }
 
         // Auto-open if only one candidate is assigned
         if (candData?.length === 1) {
@@ -247,7 +224,7 @@ const RecruiterHome = () => {
                 className: "px-6 text-center",
                 render: (c: any) => (
                   <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
-                    {candidateStats[c.id]?.total_apps ?? "—"}
+                    {c.total_applications ?? 0}
                   </span>
                 )
               },
@@ -256,7 +233,7 @@ const RecruiterHome = () => {
                 className: "px-6 text-center",
                 render: (c: any) => (
                   <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-secondary/10 text-secondary">
-                    {candidateStats[c.id]?.total_interviews ?? "—"}
+                    {c.total_interviews ?? 0}
                   </span>
                 )
               },

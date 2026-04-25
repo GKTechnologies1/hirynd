@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, Award, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
@@ -301,6 +301,35 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="border-none shadow-sm bg-card/60">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Total Applications</p>
+                    <h3 className="text-2xl font-bold mt-1">{candidate?.total_applications || 0}</h3>
+                  </div>
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Briefcase className="h-5 w-5 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-sm bg-card/60">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Total Interviews</p>
+                    <h3 className="text-2xl font-bold mt-1">{candidate?.total_interviews || 0}</h3>
+                  </div>
+                  <div className="h-10 w-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <Phone className="h-5 w-5 text-secondary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card className="border-none shadow-sm bg-card/60">
             <CardHeader><CardTitle className="text-base font-bold">Registration Data</CardTitle></CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 text-sm">
@@ -328,23 +357,201 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           </Card>
         </TabsContent>
 
-        <TabsContent value="intake" className="space-y-4">
+        <TabsContent value="intake" className="space-y-6">
           <Card className="border-none shadow-sm bg-card/60">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Client Intake Sheet</CardTitle>
-              <CardDescription>Comprehensive details provided by the candidate at onboarding.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {intakeData ? (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-                  {Object.entries(intakeData).map(([key, value]) => (
-                    <div key={key} className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">{key.replace(/_/g, " ")}</p>
-                      <p className="font-medium text-card-foreground break-words">{String(value) || "—"}</p>
-                    </div>
-                  ))}
+            <CardHeader className="border-b border-border/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-blue-600" />
                 </div>
-              ) : <div className="p-8 text-center text-muted-foreground bg-muted/20 rounded-2xl border border-dashed italic">Intake sheet not yet submitted by candidate.</div>}
+                <div>
+                  <CardTitle className="text-lg font-bold">Client Intake Sheet</CardTitle>
+                  <CardDescription className="text-xs">Comprehensive details provided by the candidate at onboarding.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-10">
+              {intakeData ? (
+                <>
+                  {[
+                    {
+                      title: "Personal Details",
+                      icon: <User className="h-4 w-4 text-blue-500" />,
+                      fields: ["first_name", "last_name", "date_of_birth", "phone_number", "email", "marketing_email", "marketing_phone", "alternate_phone", "current_address", "mailing_address", "city", "state", "country", "zip_code", "first_entry_us", "total_years_us"]
+                    },
+                    {
+                      title: "Education",
+                      icon: <Award className="h-4 w-4 text-purple-500" />,
+                      fields: ["highest_degree", "highest_field_of_study", "highest_university", "highest_country", "highest_graduation_date", "bachelors_degree", "bachelors_field_of_study", "bachelors_university", "bachelors_country", "bachelors_graduation_date"]
+                    },
+                    {
+                      title: "Work Authorization",
+                      icon: <Shield className="h-4 w-4 text-orange-500" />,
+                      fields: ["visa_type", "visa_type_other", "visa_expiry_date", "work_authorization_status", "sponsorship_required"]
+                    },
+                    {
+                      title: "Professional Background",
+                      icon: <Briefcase className="h-4 w-4 text-indigo-500" />,
+                      fields: ["years_of_experience", "current_job_title", "recent_employer", "linkedin_url", "github_url", "portfolio_url", "resume_url"]
+                    },
+                    {
+                      title: "Skills & Tools",
+                      icon: <Sparkles className="h-4 w-4 text-green-500" />,
+                      fields: ["primary_skills", "currently_learning", "experienced_tools", "learning_tools", "non_technical_skills"]
+                    },
+                    {
+                      title: "Job Preferences",
+                      icon: <LayoutDashboard className="h-4 w-4 text-cyan-500" />,
+                      fields: ["desired_experience", "desired_years_of_experience", "industry_preference", "shift_preference", "target_roles", "preferred_locations", "remote_preference", "salary_expectation", "relocation_preference"]
+                    },
+                    {
+                      title: "Documents",
+                      icon: <FileCheck className="h-4 w-4 text-red-500" />,
+                      fields: ["passport_url", "government_id_url", "visa_url", "work_authorization_url", "any_documents_url"]
+                    },
+                    {
+                      title: "Additional Information",
+                      icon: <Plus className="h-4 w-4 text-neutral-500" />,
+                      fields: ["ready_to_start_date", "preferred_employment_type", "additional_notes"]
+                    }
+                  ].map((group, gIdx) => {
+                    const groupData = Object.entries(intakeData).filter(([k]) => group.fields.includes(k) && intakeData[k]);
+                    if (groupData.length === 0) return null;
+
+                    return (
+                      <div key={gIdx} className="space-y-4">
+                        <div className="flex items-center gap-2 border-b border-border/30 pb-2">
+                          {group.icon}
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{group.title}</h3>
+                        </div>
+                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          {group.fields.map((field) => {
+                            const value = intakeData[field];
+                            if (!value) return null;
+                            const isUrl = String(value).startsWith("http") || field.endsWith("_url");
+                            
+                            return (
+                              <div key={field} className="space-y-1">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">
+                                  {field.replace(/_/g, " ")}
+                                </p>
+                                <div className="font-medium text-card-foreground break-words text-sm">
+                                  {isUrl ? (
+                                    <DocumentPreview 
+                                      url={String(value)} 
+                                      label={field.replace(/_/g, " ").replace(" url", "")} 
+                                      className="text-blue-600 hover:underline flex items-center gap-1" 
+                                    />
+                                  ) : (
+                                    <span>{String(value)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Experiences Array */}
+                  {intakeData.experiences && Array.isArray(intakeData.experiences) && intakeData.experiences.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 border-b border-border/30 pb-2">
+                        <Briefcase className="h-4 w-4 text-orange-500" />
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Work History</h3>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {intakeData.experiences.map((exp: any, idx: number) => (
+                          <div key={idx} className="p-4 rounded-2xl bg-muted/20 border border-border/50 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <p className="font-bold text-sm">{exp.job_title}</p>
+                              <Badge variant="outline" className="text-[10px] uppercase">{exp.job_type?.replace("_", " ")}</Badge>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold">{exp.company_name}</p>
+                              <p className="text-[11px] text-muted-foreground">{exp.company_address}</p>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground">
+                              <CalendarIcon className="h-3 w-3" />
+                              <span>{formatDate(exp.start_date)} — {exp.end_date ? formatDate(exp.end_date) : "Present"}</span>
+                            </div>
+                            {exp.responsibilities && (
+                              <p className="text-[11px] text-muted-foreground leading-relaxed italic line-clamp-3 border-t border-border/20 pt-2">
+                                {exp.responsibilities}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Certifications Array */}
+                  {intakeData.certifications && Array.isArray(intakeData.certifications) && intakeData.certifications.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 border-b border-border/30 pb-2">
+                        <Award className="h-4 w-4 text-red-500" />
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Certifications</h3>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {intakeData.certifications.map((cert: any, idx: number) => (
+                          <div key={idx} className="p-4 rounded-2xl bg-muted/20 border border-border/50 space-y-2">
+                            <p className="font-bold text-sm">{cert.name}</p>
+                            <p className="text-xs text-muted-foreground">{cert.organization}</p>
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/10">
+                              <span className="text-[10px] text-muted-foreground">Issued: {formatDate(cert.issued_date)}</span>
+                              {cert.credential_url && (
+                                <DocumentPreview url={cert.credential_url} label="View Credential" className="text-[10px] font-bold text-blue-600 hover:underline" />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Catch-all for any other fields not in groups */}
+                  {(() => {
+                    const allGroupFields = [
+                      "first_name", "last_name", "date_of_birth", "phone_number", "email", "marketing_email", "marketing_phone", "alternate_phone", "current_address", "mailing_address", "city", "state", "country", "zip_code", "first_entry_us", "total_years_us",
+                      "highest_degree", "highest_field_of_study", "highest_university", "highest_country", "highest_graduation_date", "bachelors_degree", "bachelors_field_of_study", "bachelors_university", "bachelors_country", "bachelors_graduation_date",
+                      "visa_type", "visa_type_other", "visa_expiry_date", "work_authorization_status", "sponsorship_required",
+                      "years_of_experience", "current_job_title", "recent_employer", "linkedin_url", "github_url", "portfolio_url", "resume_url",
+                      "primary_skills", "currently_learning", "experienced_tools", "learning_tools", "non_technical_skills",
+                      "desired_experience", "desired_years_of_experience", "industry_preference", "shift_preference", "target_roles", "preferred_locations", "remote_preference", "salary_expectation", "relocation_preference",
+                      "passport_url", "government_id_url", "visa_url", "work_authorization_url", "any_documents_url",
+                      "ready_to_start_date", "preferred_employment_type", "additional_notes",
+                      "experiences", "certifications", "has_work_experience", "has_certifications"
+                    ];
+                    const otherFields = Object.entries(intakeData).filter(([k]) => !allGroupFields.includes(k) && intakeData[k]);
+                    
+                    if (otherFields.length === 0) return null;
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 border-b border-border/30 pb-2">
+                          <Plus className="h-4 w-4 text-muted-foreground" />
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Other Information</h3>
+                        </div>
+                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                          {otherFields.map(([key, value]) => (
+                            <div key={key} className="space-y-1">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">{key.replace(/_/g, " ")}</p>
+                              <p className="font-medium text-card-foreground break-words text-sm">{String(value) || "—"}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <div className="p-12 text-center text-muted-foreground bg-muted/10 rounded-3xl border border-dashed border-border/50 italic flex flex-col items-center gap-3">
+                  <AlertTriangle className="h-8 w-8 opacity-20" />
+                  Intake sheet not yet submitted by candidate.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

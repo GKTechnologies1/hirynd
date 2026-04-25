@@ -136,6 +136,24 @@ const DailyLogPage = () => {
                       render: (c: any) => <StatusBadge status={c.status} />
                     },
                     { 
+                      header: "Total Apps", 
+                      sortable: true,
+                      accessorKey: "total_applications",
+                      className: "px-6 py-4 text-center",
+                      render: (c: any) => (
+                        <span className="font-bold text-sm text-primary">{c.total_applications || 0}</span>
+                      )
+                    },
+                    { 
+                      header: "Interviews", 
+                      sortable: true,
+                      accessorKey: "total_interviews",
+                      className: "px-6 py-4 text-center",
+                      render: (c: any) => (
+                        <span className="font-bold text-sm text-amber-600">{c.total_interviews || 0}</span>
+                      )
+                    },
+                    { 
                       header: "Today's Log", 
                       className: "px-6 py-4 text-center",
                       render: (c: any) => logsSummary[c.id] ? (

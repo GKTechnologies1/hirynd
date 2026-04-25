@@ -33,11 +33,13 @@ class CandidateSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
+    total_applications = serializers.SerializerMethodField()
+    total_interviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
         fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'subscription_status']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'subscription_status', 'total_applications', 'total_interviews']
 
     def get_subscription_status(self, obj):
         if hasattr(obj, 'subscription'):
@@ -55,17 +57,29 @@ class CandidateSerializer(serializers.ModelSerializer):
     def get_email(self, obj):
         return obj.user.email
 
+    def get_total_applications(self, obj):
+        from recruiters.models import DailySubmissionLog
+        from django.db.models import Sum
+        return DailySubmissionLog.objects.filter(candidate=obj).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
+
+    def get_total_interviews(self, obj):
+        from .models import InterviewLog
+        return InterviewLog.objects.filter(candidate=obj).count()
+
 
 class CandidateListSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
+    total_applications = serializers.SerializerMethodField()
+    total_interviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
         fields = [
             'id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
             'university', 'degree', 'major', 'graduation_year', 'graduation_date', 'referral_source',
-            'referral_friend_name', 'current_location', 'notes'
+            'referral_friend_name', 'current_location', 'notes',
+            'total_applications', 'total_interviews'
         ]
 
     def get_full_name(self, obj):
@@ -73,6 +87,15 @@ class CandidateListSerializer(serializers.ModelSerializer):
 
     def get_email(self, obj):
         return obj.user.email
+
+    def get_total_applications(self, obj):
+        from recruiters.models import DailySubmissionLog
+        from django.db.models import Sum
+        return DailySubmissionLog.objects.filter(candidate=obj).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
+
+    def get_total_interviews(self, obj):
+        from .models import InterviewLog
+        return InterviewLog.objects.filter(candidate=obj).count()
 
 
 class ClientIntakeSerializer(serializers.ModelSerializer):

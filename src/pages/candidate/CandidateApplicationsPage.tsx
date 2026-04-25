@@ -47,26 +47,40 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   useEffect(() => {
     if (!candidate?.id) return;
     const fetchData = async () => {
+      setLoading(true);
       try {
         const { data: logs } = await recruitersApi.getDailyLogs(candidate.id);
         setDailyLogs(logs || []);
-        const allJobs = (logs || []).flatMap((l: any) => l.job_entries || []);
+        // Map log_date to each job entry like in the recruiter view
+        const allJobs = (logs || []).flatMap((l: any) => 
+          (l.job_entries || []).map((j: any) => ({ 
+            ...j, 
+            log_date: l.log_date || l.created_at 
+          }))
+        );
         setJobPostings(allJobs);
-      } catch {
+      } catch (err: any) {
+        console.error("Error fetching applications:", err);
+        toast({ 
+          title: "Failed to load applications", 
+          description: "There was an error fetching your application history. Please try again later.",
+          variant: "destructive" 
+        });
         setDailyLogs([]);
         setJobPostings([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchData();
-  }, [candidate?.id]);
+  }, [candidate?.id, candidate?.updated_at]); // Depend on updated_at to refresh when parent refreshes
 
   const handleStatusUpdate = async (jobId: string, newStatus: string) => {
     setUpdatingJob(jobId);
     try {
       await recruitersApi.updateJobStatus(jobId, newStatus);
       toast({ title: "Status updated" });
-      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
+      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, candidate_response_status: newStatus } : j));
       setStatusNotes(prev => ({ ...prev, [jobId]: "" }));
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -78,9 +92,18 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
 
-  const todayCount = dailyLogs.filter(l => l.log_date === today).reduce((s, l) => s + l.applications_count, 0);
-  const weekCount = dailyLogs.filter(l => l.log_date >= weekAgo).reduce((s, l) => s + l.applications_count, 0);
-  const monthCount = dailyLogs.filter(l => l.log_date >= monthAgo).reduce((s, l) => s + l.applications_count, 0);
+  // Robust count logic using date slicing and created_at fallback
+  const todayCount = dailyLogs
+    .filter(l => (l.log_date || l.created_at)?.split("T")[0] === today)
+    .reduce((s, l) => s + (l.applications_count || 0), 0);
+    
+  const weekCount = dailyLogs
+    .filter(l => (l.log_date || l.created_at)?.split("T")[0] >= weekAgo)
+    .reduce((s, l) => s + (l.applications_count || 0), 0);
+    
+  const monthCount = dailyLogs
+    .filter(l => (l.log_date || l.created_at)?.split("T")[0] >= monthAgo)
+    .reduce((s, l) => s + (l.applications_count || 0), 0);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -141,7 +164,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   },
                   { 
                     header: "Recruiter Status", 
-                    render: (j: any) => <StatusBadge status={j.status} />
+                    render: (j: any) => <StatusBadge status={j.status || j.application_status} />
                   },
                   { 
                     header: "Your Update", 
@@ -164,6 +187,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                         />
                       ) : "—"
                     )
+                  },
+                  { 
+                    header: "Logged Date", 
+                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{formatDate(j.log_date)}</span>
                   },
                   { 
                     header: "Actions", 

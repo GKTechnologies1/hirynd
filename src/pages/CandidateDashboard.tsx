@@ -260,9 +260,40 @@ const CandidateDashboard = () => {
             </div>
           </header>
 
+          {/* Stats row */}
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="glass-card border-none shadow-sm bg-card/40 backdrop-blur-md overflow-hidden group hover:shadow-primary/10 transition-all">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground opacity-80">Total Applications</p>
+                    <h3 className="text-3xl font-bold mt-2 text-card-foreground group-hover:text-primary transition-colors">{candidate?.total_applications || 0}</h3>
+                  </div>
+                  <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Briefcase className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="glass-card border-none shadow-sm bg-card/40 backdrop-blur-md overflow-hidden group hover:shadow-secondary/10 transition-all">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground opacity-80">Total Interviews</p>
+                    <h3 className="text-3xl font-bold mt-2 text-card-foreground group-hover:text-secondary transition-colors">{candidate?.total_interviews || 0}</h3>
+                  </div>
+                  <div className="h-14 w-14 rounded-2xl bg-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Phone className="h-6 w-6 text-secondary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="grid gap-8 lg:grid-cols-12 items-start">
             {/* Left Column (Main Journey) */}
             <div className="lg:col-span-7 space-y-8">
+
               {/* Timeline Visualization */}
               <div className="glass-card rounded-3xl p-8 shadow-sm border border-border/30 bg-card/40 backdrop-blur-md">
                 <div className="flex items-center justify-between mb-8">

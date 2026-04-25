@@ -73,10 +73,11 @@ def daily_logs(request, candidate_id):
         return Response({'error': 'Candidate not found'}, status=404)
 
     is_allowed = request.user.role in ('admin', 'recruiter', 'team_lead', 'team_manager')
+    
     if request.user.role == 'candidate':
-        # Check against the User ID, not the Candidate Record ID
-        if str(request.user.id) != str(candidate_obj.user_id) or request.method != 'GET':
-            is_allowed = False
+        # Allow candidates to view their own logs via GET
+        if str(request.user.id) == str(candidate_obj.user_id) and request.method == 'GET':
+            is_allowed = True
     
     if not is_allowed:
         return Response({'error': 'Forbidden'}, status=403)
@@ -158,6 +159,8 @@ def recruiter_stats(request):
     return Response({
         'apps_today': sum(l.applications_count for l in today_logs),
         'apps_week': sum(l.applications_count for l in week_logs),
+        'total_apps': sum(l.applications_count for l in logs),
+        'total_interviews': JobLinkEntry.objects.filter(submitted_by=user, application_status__icontains='interview').count(),
         'interviews_week': week_interviews,
         'offers_week': week_offers
     })
