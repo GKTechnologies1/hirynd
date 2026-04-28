@@ -59,6 +59,7 @@ const AdminUsersPage = () => {
     const searchStr = (
       (u.full_name || "") + 
       (u.email || "") + 
+      (u.display_id || "") +
       (u.university || "") + 
       (u.major || "") +
       (u.company_name || "")
@@ -226,7 +227,7 @@ const AdminUsersPage = () => {
                 header: "ID",
                 render: (u: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
-                    {`${u.role === 'recruiter' ? 'HYRREC' : 'HYRCDT'}${u.id.toString().slice(-6).toUpperCase()}`}
+                    {u.display_id || (u.id.toString().slice(0, 8).toUpperCase())}
                   </span>
                 ),
                 sortable: true,

@@ -11,11 +11,12 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
+    display_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'role', 'approval_status', 'created_at', 'profile']
-        read_only_fields = ['id', 'role', 'approval_status', 'created_at']
+        fields = ['id', 'display_id', 'email', 'role', 'approval_status', 'created_at', 'profile']
+        read_only_fields = ['id', 'display_id', 'role', 'approval_status', 'created_at']
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -182,6 +183,7 @@ class ApproveUserSerializer(serializers.Serializer):
 class UserListSerializer(serializers.ModelSerializer):
     """Flat serialiser — frontend gets full_name/phone directly without nested profile access."""
     profile = ProfileSerializer(read_only=True)
+    display_id = serializers.CharField(read_only=True)
     full_name = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
     university = serializers.SerializerMethodField()
@@ -216,7 +218,7 @@ class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'role', 'approval_status', 'is_active', 'created_at', 
+            'id', 'display_id', 'email', 'role', 'approval_status', 'is_active', 'created_at', 
             'full_name', 'phone', 'profile', 
             'university', 'degree', 'major', 'graduation_date', 
             'linkedin_url', 'social_profile_url', 

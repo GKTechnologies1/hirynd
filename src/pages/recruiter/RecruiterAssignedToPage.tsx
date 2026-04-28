@@ -44,7 +44,7 @@ const RecruiterAssignedToPage = () => {
       !search ||
       a.candidate_name?.toLowerCase().includes(search.toLowerCase()) ||
       a.candidate_email?.toLowerCase().includes(search.toLowerCase()) ||
-      `HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`.toLowerCase().includes(search.toLowerCase());
+      (a.display_id || `HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`).toLowerCase().includes(search.toLowerCase());
     const matchesRole = roleFilter === "all" || a.role_type === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -146,7 +146,7 @@ const RecruiterAssignedToPage = () => {
                 className: "px-6",
                 render: (a: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
-                    {`HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`}
+                    {a.display_id || `HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`}
                   </span>
                 ),
               },

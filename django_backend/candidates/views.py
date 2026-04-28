@@ -464,36 +464,28 @@ def confirm_roles(request, candidate_id):
     payload = request.data
     decisions = payload.get('decisions', {})
     notes = payload.get('notes', {})
-    custom_role = payload.get('custom_role')
     custom_roles = payload.get('custom_roles', [])
+    # Support single custom_role if provided instead of list
+    if not custom_roles and payload.get('custom_role'):
+        custom_roles = [payload.get('custom_role')]
     
     for role_id, decision in decisions.items():
         status_val = True if decision == 'accepted' else False if decision == 'declined' else None
-        # Save rejection reason note for 'declined' as well as 'change_requested'
         save_note = notes.get(role_id, '') if decision in ('declined', 'change_requested') else None
         RoleSuggestion.objects.filter(id=role_id, candidate_id=candidate_id).update(
             candidate_confirmed=status_val,
             confirmed_at=timezone.now(),
             change_request_note=save_note
         )
-    
-    if custom_role and custom_role.get('title'):
-        RoleConfirmation.objects.create(
-            candidate_id=candidate_id,
-            response='change_requested',
-            custom_role_title=custom_role['title'],
-            custom_reason=custom_role.get('reason')
-        )
-        
-    if isinstance(custom_roles, list):
-        for role in custom_roles:
-            if role.get('title'):
-                RoleConfirmation.objects.create(
-                    candidate_id=candidate_id,
-                    response='change_requested',
-                    custom_role_title=role['title'],
-                    custom_reason=role.get('reason')
-                )
+
+    for cr in custom_roles:
+        if cr.get('title'):
+            RoleConfirmation.objects.create(
+                candidate_id=candidate_id,
+                response='change_requested',
+                custom_role_title=cr['title'],
+                custom_reason=cr.get('reason')
+            )
 
     if candidate.status in ('roles_suggested', 'roles_published', 'intake_submitted'):
         candidate.status = 'payment_pending'

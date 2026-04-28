@@ -126,7 +126,13 @@ const AdminAuditTab = ({ targetId }: AdminAuditTabProps) => {
                 header: "Actor", 
                 accessorKey: "actor_name",
                 sortable: true,
-                className: "text-sm"
+                className: "text-sm",
+                render: (log: any) => (
+                  <div className="flex flex-col">
+                    <span className="font-medium">{log.actor_name}</span>
+                    {log.actor_display_id && <span className="text-[10px] font-bold text-muted-foreground opacity-60">{log.actor_display_id}</span>}
+                  </div>
+                )
               },
               { 
                 header: "Action", 

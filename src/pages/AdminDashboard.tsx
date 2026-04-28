@@ -11,7 +11,8 @@ import AdminReportsPage from "@/pages/admin/AdminReportsPage";
 import AdminGlobalAuditTab from "@/components/admin/AdminGlobalAuditTab";
 import AdminApprovalsPage from "@/pages/admin/AdminApprovalsPage";
 import AdminBillingRunPage from "@/pages/admin/AdminBillingRunPage";
-import AdminSubscriptionPlansPage from "@/pages/admin/AdminSubscriptionPlansPage";
+import AdminSubscriptionPage from "@/pages/admin/AdminSubscriptionPage";
+import AdminFinancialsPage from "@/pages/admin/AdminFinancialsPage";
 import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminJobsPage from "@/pages/admin/AdminJobsPage";
 import AdminCandidatesPage from "@/pages/admin/AdminCandidatesPage";
@@ -34,7 +35,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 
-import AdminPaymentsPage from "@/pages/admin/AdminPaymentsPage";
+
 import AdminNotificationsPage from "@/pages/admin/AdminNotificationsPage";
 
 const navItems = [
@@ -45,7 +46,7 @@ const navItems = [
   { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Users className="h-4 w-4" /> },
   { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
   { label: "Jobs", path: "/admin-dashboard/jobs", icon: <Briefcase className="h-4 w-4" /> },
-  { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
+  { label: "Financials", path: "/admin-dashboard/financials", icon: <DollarSign className="h-4 w-4" /> },
   { label: "Subscriptions", path: "/admin-dashboard/subscriptions", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <AlertTriangle className="h-4 w-4" /> },
   { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
@@ -179,13 +180,13 @@ const AdminDashboard = () => {
       case "reports": return <AdminReportsPage />;
       case "audit": return <AdminGlobalAuditTab />;
       case "billing-run": return <AdminBillingRunPage />;
-      case "subscriptions": return <AdminSubscriptionPlansPage />;
+      case "subscriptions": return <AdminSubscriptionPage />;
       case "users": return <AdminUsersPage />;
       case "jobs": return <AdminJobsPage />;
       case "candidates": return <AdminCandidatesPage />;
       case "interested-candidates": return <AdminInterestedCandidatesPage />;
       case "recruiters": return <AdminRecruitersPage />;
-      case "payments": return <AdminPaymentsPage />;
+      case "financials": return <AdminFinancialsPage />;
       case "notifications": return <AdminNotificationsPage />;
       case "settings": return <AdminSettingsPage />;
       default: break;
@@ -296,13 +297,13 @@ const AdminDashboard = () => {
               columns={[
                 { 
                   header: "ID", 
-                  render: (c: any, _?: any, idx?: number) => (
+                  render: (c: any) => (
                     <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
-                      {`HYRCDT${String((idx ?? 0) + 1).padStart(6, '0')}`}
+                      {c.display_id || `HYRCDT${String(c.id).slice(-6).toUpperCase()}`}
                     </span>
                   ),
                   sortable: true,
-                  accessorKey: "id",
+                  accessorKey: "display_id",
                   className: "text-xs pl-4" 
                 },
                 { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold", sortable: true },

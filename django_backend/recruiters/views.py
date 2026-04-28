@@ -32,12 +32,18 @@ def assignments(request, candidate_id):
 @api_view(['POST'])
 @permission_classes([IsAdmin])
 def assign_recruiter(request):
+    candidate_id = request.data.get('candidate')
+    recruiter_id = request.data.get('recruiter')
+    
+    if RecruiterAssignment.objects.filter(candidate_id=candidate_id, recruiter_id=recruiter_id, is_active=True).exists():
+        return Response({'error': 'This recruiter is already actively assigned to this candidate.'}, status=status.HTTP_400_BAD_REQUEST)
+
     data = request.data.copy()
     data['assigned_by'] = request.user.id
     serializer = RecruiterAssignmentSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     serializer.save()
-    log_action(request.user, 'recruiter_assigned', str(data.get('candidate')), 'assignment', data)
+    log_action(request.user, 'recruiter_assigned', str(candidate_id), 'assignment', data)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 

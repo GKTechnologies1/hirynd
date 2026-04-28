@@ -87,7 +87,12 @@ const AdminActivityPage = () => {
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {l.created_at ? format(new Date(l.created_at), "MMM d, HH:mm") : "—"}
                       </TableCell>
-                      <TableCell className="text-sm">{l.actor_name || l.actor?.profile?.full_name || "System"}</TableCell>
+                      <TableCell className="text-sm">
+                        <div className="flex flex-col">
+                          <span>{l.actor_name || l.actor?.profile?.full_name || "System"}</span>
+                          {l.actor_display_id && <span className="text-[10px] font-bold text-muted-foreground opacity-60">{l.actor_display_id}</span>}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={`text-xs ${actionColor(l.action)}`}>
                           {l.action.replace(/_/g, " ")}

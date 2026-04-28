@@ -275,7 +275,12 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
               {recruiter.full_name?.[0] || "?"}
             </div>
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-foreground">{recruiter.full_name}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-black tracking-tight text-foreground">{recruiter.full_name}</h2>
+                <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
+                  {recruiter.display_id}
+                </span>
+              </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge variant="outline" className="h-5 px-2 text-[10px] uppercase font-bold tracking-widest border-primary/20 bg-primary/5 text-primary">
                   {recruiter.role}
@@ -480,7 +485,7 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                     className: "pl-6",
                     render: (a: any) => (
                       <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
-                        {`HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`}
+                        {a.display_id || `HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`}
                       </span>
                     )
                   },

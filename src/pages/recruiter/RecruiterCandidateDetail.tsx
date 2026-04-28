@@ -253,8 +253,15 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <StatusBadge status={candidate.status} />
-          <h2 className="text-xl font-bold">{candidate?.profile?.full_name || candidate?.full_name || "Unknown"}</h2>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">{candidate?.email || candidate?.profile?.email || ""}</span>
+          <div className="flex flex-col">
+            <h2 className="text-xl font-bold">{candidate?.profile?.full_name || candidate?.full_name || "Unknown"}</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded uppercase tracking-widest">
+                {candidate?.display_id || "HYRCDTXXXX"}
+              </span>
+              <span className="text-xs text-muted-foreground">{candidate?.email || candidate?.profile?.email || ""}</span>
+            </div>
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => window.history.back()} className="rounded-xl px-4">
           ← Back to Dashboard

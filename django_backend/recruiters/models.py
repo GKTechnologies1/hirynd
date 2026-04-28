@@ -76,6 +76,7 @@ class RecruiterAssignment(models.Model):
 
     class Meta:
         db_table = 'recruiter_assignments'
+        unique_together = ('candidate', 'recruiter')
 
     def __str__(self):
         return f"{self.recruiter.email} -> {self.candidate.user.email} ({self.role_type})"

@@ -22,10 +22,19 @@ class CertificationSerializer(serializers.ModelSerializer):
 
 
 class InterestedCandidateSerializer(serializers.ModelSerializer):
+    display_id = serializers.CharField(read_only=True)
+
     class Meta:
         model = InterestedCandidate
-        fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        fields = [
+            'id', 'display_id', 'user', 'status', 'name', 'email', 'phone', 
+            'university', 'degree', 'major', 'graduation_year', 'visa_status', 
+            'current_location', 'referral_source', 'referral_friend_name', 
+            'notes', 'resume_url', 'resume_file', 'marketing_email', 
+            'marketing_phone', 'desired_years_of_experience', 'selected_services',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'display_id', 'user', 'created_at', 'updated_at']
 
 
 class CandidateSerializer(serializers.ModelSerializer):
@@ -33,13 +42,24 @@ class CandidateSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
+    display_id = serializers.SerializerMethodField()
     total_applications = serializers.SerializerMethodField()
     total_interviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
-        fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'subscription_status', 'total_applications', 'total_interviews']
+        fields = [
+            'id', 'display_id', 'user', 'profile', 'full_name', 'email', 'status', 'visa_status', 'university', 'degree', 'major', 
+            'graduation_year', 'graduation_date', 'resume_url', 'resume_file', 'services', 
+            'drive_folder_url', 'linkedin_url', 'portfolio_url', 'referral_source', 
+            'referral_friend_name', 'current_location', 'github_url', 'marketing_email', 
+            'marketing_phone', 'personal_email', 'bachelors_graduation_date', 
+            'masters_graduation_date', 'first_entry_us', 'opt_start_date', 'opt_end_date', 
+            'desired_years_of_experience', 'notes', 'cal_training_url', 'cal_mock_practice_url', 
+            'cal_interview_training_url', 'cal_interview_support_url', 'cal_operations_call_url', 
+            'created_at', 'updated_at', 'subscription_status', 'total_applications', 'total_interviews'
+        ]
+        read_only_fields = ['id', 'display_id', 'user', 'profile', 'full_name', 'email', 'created_at', 'updated_at', 'subscription_status', 'total_applications', 'total_interviews']
 
     def get_subscription_status(self, obj):
         if hasattr(obj, 'subscription'):
@@ -57,6 +77,9 @@ class CandidateSerializer(serializers.ModelSerializer):
     def get_email(self, obj):
         return obj.user.email
 
+    def get_display_id(self, obj):
+        return obj.user.display_id
+
     def get_total_applications(self, obj):
         from recruiters.models import DailySubmissionLog
         from django.db.models import Sum
@@ -70,13 +93,14 @@ class CandidateSerializer(serializers.ModelSerializer):
 class CandidateListSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
+    display_id = serializers.SerializerMethodField()
     total_applications = serializers.SerializerMethodField()
     total_interviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
         fields = [
-            'id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
+            'id', 'display_id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
             'university', 'degree', 'major', 'graduation_year', 'graduation_date', 'referral_source',
             'referral_friend_name', 'current_location', 'notes',
             'total_applications', 'total_interviews'
@@ -87,6 +111,9 @@ class CandidateListSerializer(serializers.ModelSerializer):
 
     def get_email(self, obj):
         return obj.user.email
+
+    def get_display_id(self, obj):
+        return obj.user.display_id
 
     def get_total_applications(self, obj):
         from recruiters.models import DailySubmissionLog
@@ -162,19 +189,21 @@ class CredentialVersionSerializer(serializers.ModelSerializer):
 
 
 class ReferralSerializer(serializers.ModelSerializer):
+    display_id = serializers.CharField(read_only=True)
     class Meta:
         model = Referral
         fields = '__all__'
-        read_only_fields = ['id', 'referrer', 'created_at']
+        read_only_fields = ['id', 'referrer', 'created_at', 'display_id']
 
 
 class InterviewLogSerializer(serializers.ModelSerializer):
     submitted_by_name = serializers.SerializerMethodField()
+    display_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = InterviewLog
         fields = '__all__'
-        read_only_fields = ['id', 'submitted_by', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'submitted_by', 'created_at', 'updated_at', 'display_id']
 
     def get_submitted_by_name(self, obj):
         if obj.submitted_by and hasattr(obj.submitted_by, 'profile'):
@@ -190,10 +219,11 @@ class PlacementClosureSerializer(serializers.ModelSerializer):
 
 
 class PaymentSerializer(serializers.ModelSerializer):
+    display_id = serializers.CharField(read_only=True)
     class Meta:
         model = Payment
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'display_id']
 
 
 class TrainingScheduleClickSerializer(serializers.ModelSerializer):

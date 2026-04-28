@@ -162,6 +162,14 @@ class Payment(models.Model):
         ('interview_support', 'Interview Support Fee'),
         ('operations_support', 'Operations Support Fee'),
         ('manual', 'Manual / Other'),
+        ('refund', 'Refund'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -171,11 +179,26 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=10, default='USD')
     payment_type = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES, default='subscription')
-    status = models.CharField(max_length=20, default='completed')   # completed / refunded / failed
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='completed')   # completed / refunded / failed
     payment_date = models.DateField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     recorded_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='recorded_payments')
+    seq_number = models.PositiveIntegerField(null=True, blank=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def display_id(self):
+        """Human-readable ID: e.g. HYRPAY001"""
+        if not self.seq_number:
+            return f"PAY-{str(self.id)[:8].upper()}"
+        return f"HYRPAY{str(self.seq_number).zfill(6)}"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.seq_number:
+            from django.db.models import Max
+            max_seq = Payment.objects.aggregate(Max('seq_number'))['seq_number__max'] or 0
+            self.seq_number = max_seq + 1
+        super().save(*args, **kwargs)
 
     class Meta:
         db_table = 'billing_payments'
@@ -201,11 +224,41 @@ class Invoice(models.Model):
     paid_at = models.DateTimeField(blank=True, null=True)
     payment_reference = models.CharField(max_length=255, blank=True, null=True)
     failure_reason = models.TextField(blank=True, null=True)
+    seq_number = models.PositiveIntegerField(unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def display_id(self):
+        if not self.seq_number:
+            return f"HYRINV-{str(self.id).split('-')[0][:8].upper()}"
+        return f"HYRINV{str(self.seq_number).zfill(6)}"
+
+    def save(self, *args, **kwargs):
+        if not self.seq_number:
+            from django.db.models import Max
+            max_seq = Invoice.objects.aggregate(Max('seq_number'))['seq_number__max'] or 0
+            self.seq_number = max_seq + 1
+        super().save(*args, **kwargs)
 
     class Meta:
         db_table = 'invoices'
         ordering = ['-period_start']
 
     def __str__(self):
-        return f"Invoice {self.period_start} to {self.period_end} - {self.candidate.user.email}"
+        return f"Invoice {self.display_id} - {self.candidate.user.email}"
+
+
+class InvoiceItem(models.Model):
+    """Line items for an invoice (Plan, Addons, etc.)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
+    name = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    item_type = models.CharField(max_length=50, choices=[('plan', 'Base Plan'), ('addon', 'Addon')], default='plan')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'invoice_items'
+
+    def __str__(self):
+        return f"{self.name} - {self.amount} ({self.invoice.display_id})"

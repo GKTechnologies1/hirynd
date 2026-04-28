@@ -27,13 +27,16 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   const [decisions, setDecisions] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [customRoles, setCustomRoles] = useState<{title: string, reason: string}[]>([]);
+  const [newRole, setNewRole] = useState({ title: "", reason: "" });
 
-  const addCustomRole = () => setCustomRoles([...customRoles, { title: "", reason: "" }]);
-  const removeCustomRole = (index: number) => setCustomRoles(customRoles.filter((_, i) => i !== index));
-  const updateCustomRole = (index: number, field: 'title' | 'reason', value: string) => {
-    const updated = [...customRoles];
-    updated[index][field] = value;
-    setCustomRoles(updated);
+  const addCustomRole = () => {
+    if (!newRole.title.trim()) return;
+    setCustomRoles([...customRoles, { ...newRole }]);
+    setNewRole({ title: "", reason: "" });
+  };
+
+  const removeCustomRole = (index: number) => {
+    setCustomRoles(customRoles.filter((_, i) => i !== index));
   };
 
   const isConfirmedStatus = [
@@ -42,8 +45,9 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   ].includes(candidate?.status);
 
   const canConfirm = ["roles_suggested", "roles_published"].includes(candidate?.status);
+  const canPropose = ["intake_submitted", "roles_suggested", "roles_published"].includes(candidate?.status);
   const hasUndecided = roles.length > 0 && roles.some(r => r.candidate_confirmed === null);
-  const isConfirmed = isConfirmedStatus && !hasUndecided;
+  const isConfirmed = isConfirmedStatus && !hasUndecided && customRoles.length === 0;
 
   useEffect(() => {
     if (!candidate) return;
@@ -65,7 +69,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
       setLoading(false);
     };
     fetchRoles();
-  }, [candidate?.id]); // Also updated to depend on candidate.id
+  }, [candidate?.id]);
 
   const statusAllowed = [
     "roles_suggested", "roles_published", "roles_candidate_responded", "roles_confirmed", "payment_pending", "pending_payment", "payment_completed", "paid", 
@@ -94,17 +98,19 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
     setNotes((prev) => ({ ...prev, [roleId]: note }));
   };
 
-  const allDecided = roles.length > 0 && roles.every((r: any) => !!decisions[r.id]);
+  const allDecided = roles.length === 0 || roles.every((r: any) => !!decisions[r.id]);
+  const hasCustom = customRoles.length > 0;
+  const canSubmit = (canConfirm || canPropose) && (allDecided || hasCustom);
 
   const handleSubmit = async () => {
-    if (!allDecided || (!canConfirm && !hasUndecided)) return;
+    if (!canSubmit) return;
     setSubmitting(true);
 
     try {
       await candidatesApi.confirmRoles(candidate.id, {
         decisions,
         notes,
-        custom_roles: customRoles.filter(r => r.title.trim() !== "")
+        custom_roles: customRoles
       });
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -137,11 +143,14 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
           </div>
         </CardHeader>
         <CardContent>
-          {roles.length === 0 ? (
-            <p className="text-muted-foreground">No roles have been suggested yet. Please wait for your team to review your intake form.</p>
-          ) : (
-            <div className="space-y-4">
-              {roles.map((role: any) => {
+          <div className="space-y-4">
+            {roles.length === 0 ? (
+              <div className="bg-muted/30 p-6 rounded-xl border border-dashed text-center">
+                <Briefcase className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Our team is currently reviewing your profile to suggest the best marketing roles. You can also suggest roles you are interested in below.</p>
+              </div>
+            ) : (
+              roles.map((role: any) => {
                 const decision = decisions[role.id];
                 return (
                   <div key={role.id} className="space-y-4 rounded-xl border border-border p-5 bg-card/50">
@@ -219,94 +228,88 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                     )}
                   </div>
                 );
-              })}
+              })
+            )}
 
-              {/* Propose Custom Role */}
-              {(canConfirm || hasUndecided) && (
-                <div className="mt-6 space-y-4 rounded-xl border border-dashed border-secondary/30 p-5 bg-secondary/5">
-                  <div className="flex items-center justify-between text-secondary">
-                    <div className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      <h4 className="font-semibold">Propose Custom Roles</h4>
+            {/* Propose Custom Role */}
+            {canPropose && (
+              <div className="mt-6 space-y-4 rounded-xl border border-dashed border-secondary/30 p-5 bg-secondary/5">
+                <div className="flex items-center gap-2 text-secondary">
+                  <Plus className="h-4 w-4" />
+                  <h4 className="font-semibold">Propose Custom Roles</h4>
+                </div>
+                
+                {customRoles.length > 0 && (
+                  <div className="space-y-2">
+                    {customRoles.map((cr, i) => (
+                      <div key={i} className="flex items-center justify-between bg-card p-3 rounded-lg border border-border shadow-sm">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold">{cr.title}</span>
+                          {cr.reason && <span className="text-xs text-muted-foreground">{cr.reason}</span>}
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => removeCustomRole(i)} className="text-destructive h-8 w-8 p-0">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">Is there another role you'd like us to consider for your marketing? Propose it here.</p>
+                <div className="grid gap-4 sm:grid-cols-2 items-end">
+                  <div>
+                    <Label className="text-xs">Role Title</Label>
+                    <Input 
+                      placeholder="e.g. Senior Product Manager" 
+                      value={newRole.title}
+                      onChange={(e) => setNewRole({...newRole, title: e.target.value})}
+                      className="bg-card"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Label className="text-xs">Reason / Context</Label>
+                      <Input 
+                        placeholder="Why is this role a good fit?" 
+                        value={newRole.reason}
+                        onChange={(e) => setNewRole({...newRole, reason: e.target.value})}
+                        className="bg-card"
+                      />
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-8 text-xs bg-white/50"
-                      onClick={addCustomRole}
-                    >
-                      <Plus className="h-3 w-3 mr-1" /> Add Role
+                    <Button onClick={addCustomRole} variant="outline" className="shrink-0 border-secondary/30 text-secondary hover:bg-secondary/10 font-bold h-10 px-4">
+                      Add Role
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Is there another role you'd like us to consider for your marketing? Propose it here.</p>
-                  
-                  {customRoles.map((role, index) => (
-                    <div key={index} className="relative grid gap-4 sm:grid-cols-2 p-4 bg-white/50 rounded-lg border border-border/50">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute -top-3 -right-3 h-6 w-6 rounded-full bg-background border shadow-sm text-muted-foreground hover:text-destructive"
-                        onClick={() => removeCustomRole(index)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                      <div>
-                        <Label className="text-xs">Role Title</Label>
-                        <Input 
-                          placeholder="e.g. Senior Product Manager" 
-                          value={role.title}
-                          onChange={(e) => updateCustomRole(index, 'title', e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Reason / Context</Label>
-                        <Input 
-                          placeholder="Why is this role a good fit?" 
-                          value={role.reason}
-                          onChange={(e) => updateCustomRole(index, 'reason', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {customRoles.length === 0 && (
-                    <div className="text-center py-4 border-2 border-dashed border-border/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-2">No custom roles added.</p>
-                      <Button variant="outline" size="sm" onClick={addCustomRole}>
-                        <Plus className="h-3 w-3 mr-1" /> Propose a Role
-                      </Button>
-                    </div>
-                  )}
                 </div>
-              )}
+              </div>
+            )}
 
-              {(canConfirm || hasUndecided) && (
-                <Button
-                  variant="hero"
-                  className={`mt-4 w-full h-11 font-bold transition-all ${allDecided ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
-                  onClick={handleSubmit}
-                  disabled={!allDecided || submitting}
+            {(canConfirm || canPropose) && (
+              <Button
+                variant="hero"
+                className={`mt-4 w-full h-11 font-bold transition-all ${canSubmit ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                onClick={handleSubmit}
+                disabled={!canSubmit || submitting}
+              >
+                {submitting ? "Confirming..." : "Confirm Role Selections"}
+              </Button>
+            )}
+
+            {isConfirmed && (
+              <div className="mt-4 rounded-xl bg-green-50 border border-green-200 p-6 text-center">
+                <CheckCircle className="mx-auto mb-3 h-8 w-8 text-green-500" />
+                <p className="text-sm font-semibold text-green-800 mb-1">Your role selections have been confirmed!</p>
+                <p className="text-xs text-green-600 mb-4">Complete your payment to proceed with the marketing process.</p>
+                <Button 
+                  variant="hero" 
+                  className="bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20 h-11 px-8 font-bold"
+                  onClick={() => navigate("/candidate-dashboard/payments")}
                 >
-                  {submitting ? "Confirming..." : "Confirm Role Selections"}
+                  <DollarSign className="h-4 w-4 mr-2" /> Proceed to Payment
                 </Button>
-              )}
-
-              {isConfirmed && (
-                <div className="mt-4 rounded-xl bg-green-50 border border-green-200 p-6 text-center">
-                  <CheckCircle className="mx-auto mb-3 h-8 w-8 text-green-500" />
-                  <p className="text-sm font-semibold text-green-800 mb-1">Your role selections have been confirmed!</p>
-                  <p className="text-xs text-green-600 mb-4">Complete your payment to proceed with the marketing process.</p>
-                  <Button 
-                    variant="hero" 
-                    className="bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20 h-11 px-8 font-bold"
-                    onClick={() => navigate("/candidate-dashboard/payments")}
-                  >
-                    <DollarSign className="h-4 w-4 mr-2" /> Proceed to Payment
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

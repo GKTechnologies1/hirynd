@@ -422,10 +422,10 @@ def admin_analytics(request):
         .annotate(count=Count('id'))
         .order_by('month')
     )
-    registrations = [
-        {'month': r['month'].strftime('%b %Y'), 'count': r['count']}
-        for r in reg_qs
-    ]
+    registrations = []
+    for r in reg_qs:
+        if r['month']:
+            registrations.append({'month': r['month'].strftime('%b %Y'), 'count': r['count']})
 
     # Logins per month (from audit log)
     login_qs = (
@@ -435,10 +435,10 @@ def admin_analytics(request):
         .annotate(count=Count('id'))
         .order_by('month')
     )
-    logins = [
-        {'month': l['month'].strftime('%b %Y'), 'count': l['count']}
-        for l in login_qs
-    ]
+    logins = []
+    for l in login_qs:
+        if l['month']:
+            logins.append({'month': l['month'].strftime('%b %Y'), 'count': l['count']})
 
     # Role counts
     role_counts = list(User.objects.values('role').annotate(count=Count('id')))

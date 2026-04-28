@@ -174,9 +174,11 @@ def generate_invoice_pdf(invoice):
     Story.append(HRFlowable(width='100%', thickness=0.5, color=BORDER, spaceAfter=22))
 
     # ═══════════════════════════════════════════════════════
-    # 2. "Invoice  Receipt: HYRIND0021"
+    # 2. "Invoice  Receipt: HYRINV000001"
     # ═══════════════════════════════════════════════════════
-    inv_num = f"HYRIND{str(invoice.id).split('-')[0][:4].upper().zfill(4)}"
+    inv_num = invoice.display_id
+    candidate_id_display = getattr(invoice.candidate, 'display_id', 'N/A')
+    
     try:
         issue_date = (invoice.created_at or timezone.now()).strftime('%-d %b %Y')
     except ValueError:
@@ -184,7 +186,8 @@ def generate_invoice_pdf(invoice):
 
     Story.append(Paragraph(
         f'<b>Invoice</b>&nbsp;&nbsp;'
-        f'<font size="11" color="#555566">Receipt: {inv_num}</font>',
+        f'<font size="10" color="#555566">Receipt: {inv_num}</font>&nbsp;&nbsp;'
+        f'<font size="9" color="#888899">|&nbsp;&nbsp;Client ID: {candidate_id_display}</font>',
         styles['InvW']
     ))
     Story.append(Spacer(1, 22))
@@ -226,35 +229,49 @@ def generate_invoice_pdf(invoice):
         Paragraph('<b>QTY</b>', styles['ThC']),
         Paragraph('<b>AMOUNT</b>', styles['ThR']),
     ]
-    itm = [
-        Paragraph(plan_name, styles['TdL']),
-        Paragraph(fmt_amt, styles['TdR']),
-        Paragraph('1', styles['TdC']),
-        Paragraph(fmt_amt, styles['TdR']),
-    ]
-    spc = ['', '', '', '']
-    tot = [
+    
+    rows = [hdr]
+    invoice_items = invoice.items.all()
+    if invoice_items.exists():
+        for item in invoice_items:
+            item_amt = f"{currency_sym} {item.amount:,.2f}"
+            rows.append([
+                Paragraph(item.name, styles['TdL']),
+                Paragraph(item_amt, styles['TdR']),
+                Paragraph('1', styles['TdC']),
+                Paragraph(item_amt, styles['TdR']),
+            ])
+    else:
+        # Fallback to single row if no InvoiceItems exist
+        rows.append([
+            Paragraph(plan_name, styles['TdL']),
+            Paragraph(fmt_amt, styles['TdR']),
+            Paragraph('1', styles['TdC']),
+            Paragraph(fmt_amt, styles['TdR']),
+        ])
+
+    rows.append(['', '', '', '']) # Spacer row
+    rows.append([
         '', '',
         Paragraph('<b>Total</b>', styles['TotL']),
         Paragraph(f'<b>{fmt_amt}</b>', styles['TotV']),
-    ]
+    ])
 
-    tbl = Table([hdr, itm, spc, tot], colWidths=cw)
+    tbl = Table(rows, colWidths=cw)
     tbl.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), TH_BG),
         ('TOPPADDING', (0, 0), (-1, 0), 10), ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('LEFTPADDING', (0, 0), (0, 0), 14), ('RIGHTPADDING', (-1, 0), (-1, 0), 14),
-        ('TOPPADDING', (0, 1), (-1, 1), 14), ('BOTTOMPADDING', (0, 1), (-1, 1), 14),
-        ('LEFTPADDING', (0, 1), (0, 1), 14), ('RIGHTPADDING', (-1, 1), (-1, 1), 14),
-        ('TOPPADDING', (0, 2), (-1, 2), 4), ('BOTTOMPADDING', (0, 2), (-1, 2), 4),
-        ('TOPPADDING', (0, 3), (-1, 3), 10), ('BOTTOMPADDING', (0, 3), (-1, 3), 10),
-        ('LEFTPADDING', (0, 3), (0, 3), 14), ('RIGHTPADDING', (-1, 3), (-1, 3), 14),
+        # Apply padding to all data rows
+        ('TOPPADDING', (0, 1), (-1, -2), 10), ('BOTTOMPADDING', (0, 1), (-1, -2), 10),
+        ('LEFTPADDING', (0, 1), (0, -1), 14), ('RIGHTPADDING', (-1, 1), (-1, -1), 14),
+        ('TOPPADDING', (0, -1), (-1, -1), 10), ('BOTTOMPADDING', (0, -1), (-1, -1), 10),
         ('LINEABOVE', (0, 0), (-1, 0), 0.5, BORDER),
         ('LINEBELOW', (0, 0), (-1, 0), 0.5, BORDER),
-        ('LINEBELOW', (0, 1), (-1, 1), 0.5, BORDER),
-        ('LINEBELOW', (0, 3), (-1, 3), 0.5, BORDER),
-        ('LINEBEFORE', (0, 0), (0, 3), 0.5, BORDER),
-        ('LINEAFTER', (-1, 0), (-1, 3), 0.5, BORDER),
+        ('LINEBELOW', (0, 1), (-1, -3), 0.2, BORDER), # Thin line between items
+        ('LINEBELOW', (0, -1), (-1, -1), 0.5, BORDER),
+        ('LINEBEFORE', (0, 0), (0, -1), 0.5, BORDER),
+        ('LINEAFTER', (-1, 0), (-1, -1), 0.5, BORDER),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     Story.append(tbl)

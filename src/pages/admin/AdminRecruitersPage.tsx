@@ -55,7 +55,8 @@ const AdminRecruitersPage = () => {
 
   const filtered = recruiters.filter(r => 
     (r.full_name || r.profile?.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (r.email || "").toLowerCase().includes(search.toLowerCase())
+    (r.email || "").toLowerCase().includes(search.toLowerCase()) ||
+    (r.display_id || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -99,7 +100,7 @@ const AdminRecruitersPage = () => {
                 className: "pl-6 py-4",
                 render: (r: any, _?: any, idx?: number) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
-                    {`HYRREC${String((idx ?? 0) + 1).padStart(6, '0')}`}
+                    {r.display_id || `HYRREC${String((idx ?? 0) + 1).padStart(6, '0')}`}
                   </span>
                 )
               },

@@ -104,7 +104,7 @@ const AdminInterestedCandidatesPage = () => {
                 header: "ID", 
                 render: (c: any, _?: any, idx?: number) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
-                    {`HYRLD${String((idx ?? 0) + 1).padStart(4, '0')}`}
+                    {c.display_id || `HYRLD${String((idx ?? 0) + 1).padStart(4, '0')}`}
                   </span>
                 ),
                 sortable: true,

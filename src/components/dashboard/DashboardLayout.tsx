@@ -73,16 +73,20 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
             })}
           </nav>
           <div className={`border-t border-white/10 p-4 ${sidebarCollapsed ? "flex flex-col items-center" : ""}`}>
-          <Link
-            to="/contact?type=general"
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition-all ${
-              sidebarCollapsed ? "justify-center px-2" : ""
-            }`}
-          >
-            <Phone className="h-4 w-4" />
-            {!sidebarCollapsed && <span>Help Desk</span>}
-          </Link>
-        </div>
+            <div className={`mb-4 px-3 py-2 bg-white/5 rounded-xl border border-white/10 ${sidebarCollapsed ? "hidden" : ""}`}>
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">Authenticated ID</p>
+              <p className="text-xs font-black text-white tracking-tight">{user?.display_id}</p>
+            </div>
+            <Link
+              to="/contact?type=general"
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-bold text-white/70 hover:bg-white/10 hover:text-white transition-all ${
+                sidebarCollapsed ? "justify-center px-2" : ""
+              }`}
+            >
+              <Phone className="h-4 w-4" />
+              {!sidebarCollapsed && <span>Help Desk</span>}
+            </Link>
+          </div>
         </aside>
 
         {/* Mobile Sidebar Overlay */}

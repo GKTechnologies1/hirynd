@@ -121,6 +121,7 @@ export const authApi = {
 export const candidatesApi = {
   me: () => api.get('/candidates/me/'),
   list: (statusFilter?: string) => api.get('/candidates/', { params: statusFilter ? { status: statusFilter } : {} }),
+  all: () => api.get('/candidates/'),
   detail: (id: string) => api.get(`/candidates/${id}/`),
   updateStatus: (id: string, status: string) => api.post(`/candidates/${id}/status/`, { status }),
   getIntake: (id: string) => api.get(`/candidates/${id}/intake/`),
@@ -204,6 +205,8 @@ export const billingApi = {
     api.get('/billing/subscriptions/', { params: statusFilter ? { status: statusFilter } : {} }),
   allPayments: (params?: { status?: string }) =>
     api.get('/billing/payments/all/', { params }),
+  allInvoices: (params?: { status?: string }) =>
+    api.get('/billing/invoices/all/', { params }),
   billingAlerts: () => api.get('/billing/alerts/'),
   billingAnalytics: () => api.get('/billing/analytics/'),
 
@@ -301,4 +304,12 @@ export const jobsApi = {
     api.patch(`/jobs/submissions/${submissionId}/`, data),
   deleteSubmission: (submissionId: string) =>
     api.delete(`/jobs/submissions/${submissionId}/`),
+};
+
+// ─── Reports ───
+export const reportsApi = {
+  pipeline: () => api.get('/admin/reports/pipeline/'),
+  recruiterProductivity: () => api.get('/admin/reports/recruiter-productivity/'),
+  candidateActivity: () => api.get('/admin/reports/candidate-activity/'),
+  subscriptionLedger: () => api.get('/admin/reports/subscription-ledger/'),
 };

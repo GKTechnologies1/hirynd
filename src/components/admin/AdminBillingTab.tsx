@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/DataTable";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban } from "lucide-react";
+import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban, History, Pencil, Trash, FileText, ArrowUpRight } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
 
@@ -29,11 +30,9 @@ const statusBadgeClass: Record<string, string> = {
   unpaid: "bg-destructive/10 text-destructive",
 };
 
-const invoiceStatusBadge: Record<string, string> = {
-  scheduled: "bg-primary/10 text-primary",
-  paid: "bg-secondary/10 text-secondary",
-  failed: "bg-destructive/10 text-destructive",
-  waived: "bg-muted text-muted-foreground",
+const transactionTypeBadge: Record<string, string> = {
+  invoice: "bg-blue-500/10 text-blue-600 border-blue-200",
+  payment: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
 };
 
 const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
@@ -43,12 +42,10 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Create/update form
-  const [formAmount, setFormAmount] = useState("400.00");
-  const [formNextDate, setFormNextDate] = useState("");
-  const [formGraceDays, setFormGraceDays] = useState("5");
-  const [formStatus, setFormStatus] = useState("pending_payment");
-  const [formPlanName, setFormPlanName] = useState("Monthly Service Fee");
+  const [plans, setPlans] = useState<any[]>([]);
+  const [addons, setAddons] = useState<any[]>([]);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignForm, setAssignForm] = useState({ plan_id: "", addon_ids: [] as string[] });
   const [saving, setSaving] = useState(false);
 
   // Record payment
@@ -56,33 +53,37 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const [payInvoiceId, setPayInvoiceId] = useState("");
   const [recordingPay, setRecordingPay] = useState(false);
 
-  // Mark failed
-  const [failInvoiceId, setFailInvoiceId] = useState("");
-  const [failReason, setFailReason] = useState("");
-  const [markingFailed, setMarkingFailed] = useState(false);
+  // Manual Payment recording
+  const [payAmount, setPayAmount] = useState("");
+  const [payType, setPayType] = useState("monthly_service");
+  const [payStatus, setPayStatus] = useState("completed");
+  const [payNotes, setPayNotes] = useState("");
+  const [recordingManual, setRecordingManual] = useState(false);
 
-  // Pause/cancel/resume
+  // Action loading
   const [actionLoading, setActionLoading] = useState("");
 
   const fetchBilling = async () => {
     try {
-      const [subRes, invRes, payRes] = await Promise.all([
+      const [subRes, invRes, payRes, planRes, addRes] = await Promise.all([
         billingApi.subscription(candidateId).catch(() => ({ data: null })),
         billingApi.invoices(candidateId).catch(() => ({ data: [] })),
         billingApi.payments(candidateId).catch(() => ({ data: [] })),
+        billingApi.listPlans(),
+        billingApi.listAddons(),
       ]);
       const hasSub = subRes.data && Object.keys(subRes.data).length > 0;
       setSubscription(hasSub ? subRes.data : null);
       setInvoices(invRes.data || []);
       setPayments(payRes.data || []);
+      setPlans(planRes.data || []);
+      setAddons(addRes.data || []);
+      
       if (hasSub) {
-        setFormAmount(String(subRes.data.amount));
-        setFormStatus(subRes.data.status);
-        setFormGraceDays(String(subRes.data.grace_days || 5));
-        setFormPlanName(subRes.data.plan_name || "Monthly Marketing");
-        if (subRes.data.next_billing_at) {
-          setFormNextDate(new Date(subRes.data.next_billing_at).toISOString().split("T")[0]);
-        }
+        setAssignForm({
+          plan_id: subRes.data.plan || "",
+          addon_ids: subRes.data.addon_assignments?.map((a: any) => a.addon) || []
+        });
       }
     } catch {}
     setLoading(false);
@@ -90,32 +91,13 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
 
   useEffect(() => { fetchBilling(); }, [candidateId]);
 
-  const handleCreateOrUpdate = async () => {
-    if (!formAmount || Number(formAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
-    setSaving(true);
+  const handleAssignPlan = async () => {
+    if (!assignForm.plan_id) return;
     setSaving(true);
     try {
-      let nextBilling = formNextDate;
-      if (nextBilling && nextBilling.includes("-") && nextBilling.split("-")[0].length === 2) {
-        try {
-          const parsed = parse(nextBilling, "MM-dd-yyyy", new Date());
-          if (!isNaN(parsed.getTime())) nextBilling = format(parsed, "yyyy-MM-dd");
-        } catch(e) {}
-      }
-
-      const payload = {
-        amount: Number(formAmount),
-        next_billing_at: nextBilling || undefined,
-        grace_days: Number(formGraceDays),
-        status: formStatus,
-        plan_name: formPlanName,
-      };
-      if (subscription) {
-        await billingApi.updateSubscription(candidateId, payload);
-      } else {
-        await billingApi.createSubscription(candidateId, payload);
-      }
-      toast({ title: subscription ? "Subscription updated" : "Subscription created" });
+      await billingApi.assignPlan(candidateId, { plan_id: assignForm.plan_id, addons: assignForm.addon_ids });
+      toast({ title: "Plan assigned and candidate notified" });
+      setShowAssignModal(false);
       fetchBilling(); onRefresh();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -135,16 +117,49 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
     setRecordingPay(false);
   };
 
-  const handleMarkFailed = async () => {
-    if (!failInvoiceId) { toast({ title: "Select an invoice", variant: "destructive" }); return; }
-    setMarkingFailed(true);
+  const handleRecordManualPayment = async () => {
+    if (!payAmount || Number(payAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+    setRecordingManual(true);
     try {
-      await billingApi.updateInvoice(failInvoiceId, { status: "failed", failure_reason: failReason || "Payment failed" });
-      toast({ title: "Invoice marked failed" }); setFailInvoiceId(""); setFailReason(""); fetchBilling(); onRefresh();
+      await billingApi.recordPayment(candidateId, { 
+        amount: Number(payAmount), 
+        payment_type: payType, 
+        status: payStatus, 
+        notes: payNotes 
+      });
+      setPayAmount(""); setPayNotes("");
+      toast({ title: "Manual payment recorded" }); 
+      fetchBilling(); onRefresh();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
-    setMarkingFailed(false);
+    setRecordingManual(false);
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!confirm("Are you sure you want to delete this payment record?")) return;
+    try {
+      await billingApi.deletePayment(paymentId);
+      toast({ title: "Payment deleted" });
+      fetchBilling(); onRefresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleUpdatePayment = async (paymentId: string, currentAmount: string, currentNotes: string) => {
+    const amount = prompt("Update Amount ($):", currentAmount);
+    if (amount === null) return;
+    const notes = prompt("Update Notes:", currentNotes);
+    if (notes === null) return;
+
+    try {
+      await billingApi.updatePayment(paymentId, { amount: parseFloat(amount), notes });
+      toast({ title: "Payment updated" });
+      fetchBilling(); onRefresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleAction = async (action: "pause" | "cancel" | "resume") => {
@@ -160,268 +175,287 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
     setActionLoading("");
   };
 
-  const handleBillingCheck = async () => {
-    toast({ title: "Feature not available", description: "Automated billing checks are not supported in this environment.", variant: "destructive" });
-    setActionLoading("");
-  };
+  // Consolidate Invoices and Standalone Payments
+  const invoiceRefs = new Set(invoices.map(i => i.payment_reference).filter(Boolean));
+  const standalonePayments = payments.filter(p => {
+    const razorpayId = (p.notes || "").match(/Razorpay:\s*(\S+)/)?.[1];
+    return !invoiceRefs.has(p.display_id) && !invoiceRefs.has(razorpayId);
+  });
 
-  if (loading) return <p className="text-muted-foreground">Loading billing...</p>;
+  const ledger = [
+    ...invoices.map(i => ({
+      ...i,
+      type: 'invoice',
+      date: i.period_start,
+      display_type: 'Invoice / Subscription',
+      badge_color: transactionTypeBadge.invoice
+    })),
+    ...standalonePayments.map(p => ({
+      ...p,
+      type: 'payment',
+      date: p.payment_date || p.created_at,
+      display_type: p.payment_type?.replace(/_/g, " "),
+      badge_color: transactionTypeBadge.payment,
+      period_start: p.payment_date || p.created_at,
+      period_end: p.payment_date || p.created_at
+    }))
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const pendingInvoices = invoices.filter((i: any) => i.status === "scheduled");
+  if (loading) return <p className="text-muted-foreground animate-pulse">Loading billing data...</p>;
 
   return (
-    <div className="space-y-4">
-      {/* Run Billing Checks */}
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={handleBillingCheck} disabled={actionLoading === "check"}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${actionLoading === "check" ? "animate-spin" : ""}`} />
-          {actionLoading === "check" ? "Running..." : "Run Billing Checks"}
-        </Button>
-      </div>
-
-      {/* Create / Update Subscription */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {subscription ? <CreditCard className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            {subscription ? "Subscription" : "Create Subscription"}
+    <div className="space-y-6">
+      {/* Subscription Summary */}
+      <Card className="border-none shadow-sm ring-1 ring-border/40 overflow-hidden">
+        <CardHeader className="bg-muted/30 pb-4">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-primary" /> Subscription Overview
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {subscription && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4 pb-4 border-b border-border">
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge className={statusBadgeClass[subscription.status] || ""}>{subscription.status?.replace(/_/g, " ").toUpperCase() || "UNKNOWN"}</Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Amount</p>
-                <p className="font-bold text-card-foreground flex items-center gap-0.5"><DollarSign className="h-3.5 w-3.5" />{Number(subscription.amount).toLocaleString()}/mo</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Next Charge</p>
-                <p className="text-card-foreground">{formatDate(subscription.next_billing_at)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Failed Attempts</p>
-                <p className="text-card-foreground">{subscription.failed_attempts || 0}</p>
-              </div>
-              {subscription.grace_period_ends_at && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Grace Period Ends</p>
-                  <p className="text-destructive font-semibold">{formatDate(subscription.grace_period_ends_at)}</p>
+        <CardContent className="pt-6">
+          {subscription ? (
+            <div className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Status</p>
+                  <Badge className={statusBadgeClass[subscription.status] || ""}>{subscription.status?.replace(/_/g, " ").toUpperCase()}</Badge>
                 </div>
-              )}
-              {subscription.last_payment_at && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Last Payment</p>
-                  <p className="text-card-foreground">{formatDate(subscription.last_payment_at)}</p>
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Base Plan</p>
+                  <p className="font-bold text-foreground text-sm">{subscription.plan_name}</p>
                 </div>
-              )}
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Addons</p>
+                  <div className="flex flex-wrap gap-1">
+                    {subscription.addon_assignments?.length > 0 ? (
+                      subscription.addon_assignments.map((a: any) => (
+                        <Badge key={a.id} variant="outline" className="text-[8px] border-none bg-muted px-1.5 h-4">+{a.addon_detail?.name}</Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">None</span>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Commitment</p>
+                  <p className="font-black text-foreground text-lg flex items-center gap-0.5">
+                    <DollarSign className="h-4 w-4 opacity-40" />
+                    {(Number(subscription.amount) + (subscription.total_addons_amount || 0)).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-border/40">
+                <Button variant="hero" size="sm" onClick={() => setShowAssignModal(true)} className="font-bold">
+                  <Pencil className="mr-2 h-3.5 w-3.5" /> Modify Plan / Addons
+                </Button>
+                <Button variant="outline" size="sm" className="font-bold" onClick={() => handleAction(subscription.status === 'active' ? 'pause' : 'resume')} disabled={!!actionLoading}>
+                  {subscription.status === 'active' ? <><Pause className="mr-2 h-3.5 w-3.5" /> Pause</> : <><Play className="mr-2 h-3.5 w-3.5" /> Resume</>}
+                </Button>
+                <Button variant="ghost" size="sm" className="text-destructive font-bold hover:bg-destructive/5" onClick={() => handleAction('cancel')} disabled={!!actionLoading}>
+                  <Ban className="mr-2 h-3.5 w-3.5" /> Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">No subscription assigned to this candidate.</p>
+              <Button variant="hero" onClick={() => setShowAssignModal(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Assign Subscription Plan
+              </Button>
             </div>
           )}
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div><Label>Plan Name</Label><Input value={formPlanName} onChange={e => setFormPlanName(e.target.value)} /></div>
-            <div><Label>Monthly Amount ($) *</Label><Input type="number" min="1" value={formAmount} onChange={e => setFormAmount(e.target.value)} placeholder="499" /></div>
-            <div><Label>Next Charge Date</Label><DatePicker value={formNextDate} onChange={setFormNextDate} /></div>
-            <div><Label>Grace Days</Label><Input type="number" min="1" max="30" value={formGraceDays} onChange={e => setFormGraceDays(e.target.value)} /></div>
-            <div><Label>Status</Label>
-              <Select value={formStatus} onValueChange={setFormStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["pending_payment","active","trialing","unpaid","past_due","grace_period","paused","canceled"].map(s => (
-                    <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="hero" onClick={handleCreateOrUpdate} disabled={saving}>
-              {saving ? "Saving..." : subscription ? "Update Subscription" : "Create Subscription"}
-            </Button>
-            {subscription && subscription.status === "active" && (
-              <Button variant="outline" onClick={() => handleAction("pause")} disabled={!!actionLoading}>
-                <Pause className="mr-2 h-4 w-4" /> Pause
-              </Button>
-            )}
-            {subscription && ["paused","past_due","grace_period"].includes(subscription.status) && (
-              <Button variant="outline" onClick={() => handleAction("resume")} disabled={!!actionLoading}>
-                <Play className="mr-2 h-4 w-4" /> Resume
-              </Button>
-            )}
-            {subscription && subscription.status !== "canceled" && (
-              <Button variant="destructive" onClick={() => handleAction("cancel")} disabled={!!actionLoading}>
-                <Ban className="mr-2 h-4 w-4" /> Cancel
-              </Button>
-            )}
-          </div>
         </CardContent>
       </Card>
 
-      {/* Record Invoice Payment */}
-      {subscription && pendingInvoices.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Invoice Payment</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label>Invoice *</Label>
-                <Select value={payInvoiceId} onValueChange={setPayInvoiceId}>
-                  <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
-                  <SelectContent>
-                    {pendingInvoices.map((inv: any) => (
-                      <SelectItem key={inv.id} value={inv.id}>
-                        {/* Use template literal for $ to avoid confusion with variable interpolation in some contexts (though not here, but consistent) */}
-                        ${Number(inv.amount).toLocaleString()} — {formatDate(inv.period_start)} to {formatDate(inv.period_end)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label>Payment Reference</Label><Input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="e.g. TXN-12345" /></div>
+      {/* Manual Payment Section */}
+      <Card className="border-none shadow-sm ring-1 ring-border/40 overflow-hidden">
+        <CardHeader className="bg-emerald-500/5 pb-4">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <ArrowUpRight className="h-4 w-4 text-emerald-600" /> Manual Payment Intake
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1.5"><Label className="text-xs font-bold">Amount ($)</Label><Input type="number" step="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0.00" className="h-10 rounded-xl" /></div>
+            <div className="space-y-1.5"><Label className="text-xs font-bold">Category</Label>
+              <Select value={payType} onValueChange={setPayType}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly_service">Monthly Service</SelectItem>
+                  <SelectItem value="mock_practice">Mock Practice</SelectItem>
+                  <SelectItem value="interview_support">Interview Support</SelectItem>
+                  <SelectItem value="operations_support">Operations Support</SelectItem>
+                  <SelectItem value="manual">Other / Manual</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Button variant="hero" onClick={handleRecordPayment} disabled={recordingPay || !payInvoiceId}>
-              {recordingPay ? "Recording..." : "Record Payment"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Mark Invoice Failed */}
-      {subscription && pendingInvoices.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><XCircle className="h-5 w-5" /> Mark Invoice Failed</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label>Invoice *</Label>
-                <Select value={failInvoiceId} onValueChange={setFailInvoiceId}>
-                  <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
-                  <SelectContent>
-                    {pendingInvoices.map((inv: any) => (
-                      <SelectItem key={inv.id} value={inv.id}>
-                        ${Number(inv.amount).toLocaleString()} — {formatDate(inv.period_start)} to {formatDate(inv.period_end)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label>Failure Reason</Label><Input value={failReason} onChange={e => setFailReason(e.target.value)} placeholder="e.g. Card declined" /></div>
+            <div className="space-y-1.5"><Label className="text-xs font-bold">Status</Label>
+              <Select value={payStatus} onValueChange={setPayStatus}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Button variant="destructive" onClick={handleMarkFailed} disabled={markingFailed || !failInvoiceId}>
-              {markingFailed ? "Marking..." : "Mark Failed"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+            <div className="space-y-1.5"><Label className="text-xs font-bold">Internal Notes</Label><Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Ref code, Bank wire info..." className="h-10 rounded-xl" /></div>
+          </div>
+          <Button variant="hero" onClick={handleRecordManualPayment} disabled={recordingManual || !payAmount} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black tracking-tight shadow-lg shadow-emerald-500/20">
+            {recordingManual ? "Processing..." : "Record Manual Transaction"}
+          </Button>
+        </CardContent>
+      </Card>
 
-      {/* Invoice History */}
-      <Card>
-        <CardHeader><CardTitle>Invoice History</CardTitle></CardHeader>
+      {/* Unified Financial Ledger */}
+      <Card className="border-none shadow-sm ring-1 ring-border/40 overflow-hidden">
+        <CardHeader className="bg-muted/30 pb-4">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <History className="h-4 w-4 text-primary" /> Unified Financial Ledger
+          </CardTitle>
+          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest mt-1">Combined history of system invoices and manual payments</p>
+        </CardHeader>
         <CardContent className="p-0">
           <DataTable
-            data={invoices}
+            data={ledger}
             isLoading={loading}
-            searchPlaceholder="Search invoices..."
-            searchKey="status"
-            emptyMessage="No invoices yet."
+            searchKey="display_type"
+            searchPlaceholder="Filter by transaction type..."
+            emptyMessage="No financial history found."
             columns={[
-              { 
-                header: "Period", 
-                sortable: true,
-                accessorKey: "period_start",
-                render: (inv: any) => <span className="text-sm pl-6">{formatDate(inv.period_start)} – {formatDate(inv.period_end)}</span>
+              {
+                header: "Reference",
+                className: "pl-6 py-4",
+                render: (item: any) => (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap w-fit tracking-wider">
+                      {item.display_id || (item.type === 'invoice' ? `HYRINV-${item.id.slice(0,8)}` : `HYRPAY-${item.id.slice(0,8)}`)}
+                    </span>
+                    <Badge variant="outline" className={`text-[9px] font-bold h-4 px-1.5 rounded-sm ${item.badge_color} border-none`}>
+                      {item.type.toUpperCase()}
+                    </Badge>
+                  </div>
+                )
               },
-              { 
-                header: "Amount", 
-                sortable: true,
-                accessorKey: "amount",
-                render: (inv: any) => (
-                  <span className="font-medium flex items-center gap-0.5 text-sm">
-                    <DollarSign className="h-3.5 w-3.5" />{Number(inv.amount).toLocaleString()}
+              {
+                header: "Description / Period",
+                render: (item: any) => (
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-foreground capitalize">{item.display_type}</span>
+                    {item.type === 'invoice' && (
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {formatDate(item.period_start)} – {formatDate(item.period_end)}
+                      </span>
+                    )}
+                  </div>
+                )
+              },
+              {
+                header: "Amount",
+                render: (item: any) => (
+                  <span className="font-black text-sm flex items-center gap-0.5">
+                    <DollarSign className="h-3 w-3 opacity-40" />{Number(item.amount).toLocaleString()}
                   </span>
                 )
               },
-              { 
-                header: "Status", 
-                sortable: true,
-                accessorKey: "status",
-                render: (inv: any) => <Badge className={invoiceStatusBadge[inv.status] || ""}>{inv.status.toUpperCase()}</Badge>
+              {
+                header: "Date",
+                render: (item: any) => (
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold">{formatDate(item.date)}</span>
+                    <span className="text-[9px] text-muted-foreground opacity-60">Recorded</span>
+                  </div>
+                )
               },
-              { 
-                header: "Paid At", 
-                sortable: true,
-                accessorKey: "paid_at",
-                render: (inv: any) => <span className="text-sm">{formatDate(inv.paid_at)}</span>
+              {
+                header: "Status",
+                render: (item: any) => (
+                  <Badge className={`text-[10px] font-bold ${item.status === 'paid' || item.status === 'completed' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                    {item.status.toUpperCase()}
+                  </Badge>
+                )
               },
-              { 
-                header: "Reference", 
-                render: (inv: any) => <span className="text-sm text-muted-foreground pr-6">{inv.payment_reference || "—"}</span>
+              {
+                header: "Actions",
+                className: "pr-6 text-right",
+                render: (item: any) => (
+                  <div className="flex justify-end gap-1">
+                    {item.type === 'payment' && (
+                      <>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleUpdatePayment(item.id, item.amount, item.notes)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/5" onClick={() => handleDeletePayment(item.id)}>
+                          <Trash className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                    {item.type === 'invoice' && (
+                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.alert("Download placeholder")}>
+                        <FileText className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                )
               }
             ]}
           />
         </CardContent>
       </Card>
-
-      {/* Payment History (legacy) */}
-      {payments.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle>Payment Records</CardTitle></CardHeader>
-          <CardContent className="p-0">
-            <DataTable
-              data={payments}
-              isLoading={loading}
-              searchPlaceholder="Search payments..."
-              searchKey="payment_status"
-              emptyMessage="No records yet."
-              columns={[
-                { 
-                  header: "Date", 
-                  sortable: true,
-                  accessorKey: "created_at",
-                  render: (p: any) => <span className="text-sm pl-6">{formatDate(p.created_at)}</span>
-                },
-                { 
-                  header: "Amount", 
-                  sortable: true,
-                  accessorKey: "amount",
-                  render: (p: any) => (
-                    <span className="font-medium flex items-center gap-0.5 text-sm">
-                      <DollarSign className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()}
-                    </span>
-                  )
-                },
-                { 
-                  header: "Status", 
-                  sortable: true,
-                  accessorKey: "payment_status",
-                  render: (p: any) => (
-                    <div className="flex items-center gap-1.5">
-                      {p.payment_status === "success" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> :
-                       p.payment_status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> :
-                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
-                      <span className="capitalize text-sm">{p.payment_status}</span>
+      {/* Assign Plan Dialog */}
+      <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Assign Subscription Plan</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Base Plan</Label>
+              <Select value={assignForm.plan_id} onValueChange={v => setAssignForm(p => ({ ...p, plan_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select plan..." /></SelectTrigger>
+                <SelectContent>
+                  {plans.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} — ${Number(p.amount).toLocaleString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {addons.length > 0 && (
+              <div>
+                <Label className="mb-2 block">Optional Addons</Label>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                  {addons.map(a => (
+                    <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/5">
+                      <input 
+                        type="checkbox" 
+                        id={`tab-addon-${a.id}`}
+                        checked={assignForm.addon_ids.includes(a.id)}
+                        onChange={e => {
+                          if (e.target.checked) setAssignForm(p => ({ ...p, addon_ids: [...p.addon_ids, a.id] }));
+                          else setAssignForm(p => ({ ...p, addon_ids: p.addon_ids.filter(id => id !== a.id) }));
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <Label htmlFor={`tab-addon-${a.id}`} className="flex-1 cursor-pointer font-bold text-sm">
+                        {a.name} <span className="text-muted-foreground font-normal ml-1">(+${Number(a.amount).toLocaleString()})</span>
+                      </Label>
                     </div>
-                  )
-                },
-                { 
-                  header: "Method", 
-                  sortable: true,
-                  accessorKey: "payment_method",
-                  render: (p: any) => <span className="capitalize text-sm text-muted-foreground pr-6">{p.payment_method}</span>
-                }
-              ]}
-            />
-          </CardContent>
-        </Card>
-      )}
+                  ))}
+                </div>
+              </div>
+            )}
 
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowAssignModal(false)}>Cancel</Button>
+              <Button variant="hero" onClick={handleAssignPlan} disabled={saving || !assignForm.plan_id}>
+                {saving ? "Processing..." : "Confirm & Assign"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

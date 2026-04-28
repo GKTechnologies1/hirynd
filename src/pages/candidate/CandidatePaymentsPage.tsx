@@ -387,47 +387,6 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: Props) => {
           </div>
         )}
 
-        {/* ── Transaction History (completed / failed) ─────────────────── */}
-        {completedPayments.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold flex items-center gap-2 px-1">
-              <FileText className="h-5 w-5 text-primary/60" /> Transaction History
-            </h3>
-            <div className="grid gap-3">
-              {completedPayments.map((p: any) => (
-                <div
-                  key={p.id}
-                  className="group flex items-center gap-4 rounded-2xl bg-card border border-border p-5 transition-all hover:border-primary/30 hover:bg-muted/10"
-                >
-                  <div className={`p-3 rounded-xl ${p.status === "completed" ? "bg-emerald-500/5" : "bg-red-500/5"}`}>
-                    {statusIcon(p.status)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold tracking-tight">
-                        ${Number(p.amount).toLocaleString()}
-                      </span>
-                      <Badge variant="outline" className="capitalize text-[10px] font-bold tracking-widest border-border/60">
-                        {p.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">
-                        {paymentTypeLabel(p.payment_type)}
-                      </p>
-                      <span className="text-muted-foreground/30">•</span>
-                      <p className="text-xs text-muted-foreground">
-                        {p.payment_date
-                          ? formatDate(p.payment_date)
-                          : formatDate(p.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* ── Empty state ────────────────────────────────────────────────── */}
         {!loading && payments.length === 0 && !subscription && (

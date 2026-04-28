@@ -87,8 +87,8 @@ def admin_training_clicks(request):
         data.append({
             'id': str(c.id),
             'candidate_name': name,
-            'training_type': c.training_type,
-            'created_at': c.created_at.isoformat(),
+            'training_type': c.schedule_type,
+            'created_at': c.clicked_at.isoformat(),
         })
     return Response(data)
 
@@ -163,11 +163,12 @@ def report_candidate_activity(request):
     candidates = Candidate.objects.select_related('user__profile').all()
     data = []
     for c in candidates:
+        if not hasattr(c, 'user'): continue
         name = ''
         try:
             name = c.user.profile.full_name
         except Exception:
-            pass
+            name = c.user.email
         total_submissions = sum(
             DailySubmissionLog.objects.filter(candidate=c).values_list('applications_count', flat=True)
         )
@@ -192,11 +193,12 @@ def report_subscription_ledger(request):
     subs = Subscription.objects.select_related('candidate__user__profile').all()
     data = []
     for s in subs:
+        if not hasattr(s, 'candidate') or not hasattr(s.candidate, 'user'): continue
         name = ''
         try:
             name = s.candidate.user.profile.full_name
         except Exception:
-            pass
+            name = s.candidate.user.email
         assigns = RecruiterAssignment.objects.filter(candidate=s.candidate, is_active=True).select_related('recruiter__profile')
         recruiters = ', '.join([
             a.recruiter.profile.full_name if hasattr(a.recruiter, 'profile') else 'Unknown'

@@ -66,10 +66,14 @@ const AdminReferralsPage = () => {
             emptyMessage="No referrals yet."
             columns={[
               { 
+                header: "ID", 
+                render: (r: any) => <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase pl-6">{r.display_id}</span>
+              },
+              { 
                 header: "Referred By", 
                 accessorKey: "referrer_name",
                 sortable: true,
-                className: "font-medium text-sm pl-6"
+                className: "font-medium text-sm"
               },
               { 
                 header: "Friend Name", 

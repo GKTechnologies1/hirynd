@@ -106,7 +106,12 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
           <Button variant="ghost" size="sm" className="mb-3 inline-flex items-center gap-2" onClick={() => navigate('/admin-dashboard/interested-candidates')}>
             <ArrowLeft className="h-4 w-4" /> Back to Leads
           </Button>
-          <h1 className="text-2xl font-bold text-foreground">Interested Candidate Lead</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">Interested Candidate Lead</h1>
+            <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
+              {lead.display_id}
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">Edit submitted interest form details or review the lead before conversion.</p>
         </div>
         <div className="space-y-1 text-right">

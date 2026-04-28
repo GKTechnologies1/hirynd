@@ -27,7 +27,7 @@ from notifications.utils import send_email, create_notification, get_styled_emai
 from users.permissions import IsAdmin, IsApproved
 
 from .models import (
-    Invoice, Payment, RazorpayOrder,
+    Invoice, Payment, RazorpayOrder, InvoiceItem,
     Subscription, SubscriptionAddon, SubscriptionAddonAssignment, SubscriptionPlan,
 )
 from .serializers import (
@@ -575,7 +575,7 @@ def verify_individual_payment(request, candidate_id, payment_id):
         period_end   = period_start + relativedelta(months=1)
 
         invoice = Invoice.objects.create(
-            subscription=pay.subscription,   # may be None for add-on payments
+            subscription=pay.subscription,
             candidate=candidate,
             amount=pay.amount,
             currency=pay.currency,
@@ -585,6 +585,25 @@ def verify_individual_payment(request, candidate_id, payment_id):
             paid_at=timezone.now(),
             payment_reference=rz_payment_id,
         )
+
+        # Create Line Items for the Invoice
+        if pay.subscription:
+            sub = pay.subscription
+            InvoiceItem.objects.create(
+                invoice=invoice, name=f"Plan: {sub.plan_name}", 
+                amount=sub.amount, item_type='plan'
+            )
+            for assignment in sub.addon_assignments.all():
+                InvoiceItem.objects.create(
+                    invoice=invoice, name=f"Addon: {assignment.addon.name}", 
+                    amount=assignment.amount, item_type='addon'
+                )
+        else:
+            # Standalone payment
+            InvoiceItem.objects.create(
+                invoice=invoice, name=pay.payment_type.replace('_', ' ').title(),
+                amount=pay.amount, item_type='plan'
+            )
 
         pdf_bytes = generate_invoice_pdf(invoice)
         description = pay.payment_type.replace('_', ' ').title()
@@ -696,6 +715,26 @@ def record_payment(request, candidate_id):
                 payment_reference=f"ADMIN-{pay.id}",
             )
 
+            # Create granular line items for manual records
+            description = pay.payment_type.replace('_', ' ').title()
+            from .models import InvoiceItem
+            if pay.subscription:
+                sub = pay.subscription
+                InvoiceItem.objects.create(
+                    invoice=invoice, name=f"Plan: {sub.plan_name}", 
+                    amount=sub.amount, item_type='plan'
+                )
+                for assignment in sub.addon_assignments.all():
+                    InvoiceItem.objects.create(
+                        invoice=invoice, name=f"Addon: {assignment.addon.name}", 
+                        amount=assignment.amount, item_type='addon'
+                    )
+            else:
+                InvoiceItem.objects.create(
+                    invoice=invoice, name=description, 
+                    amount=pay.amount, item_type='manual'
+                )
+
             pdf_bytes = generate_invoice_pdf(invoice)
             description = pay.payment_type.replace('_', ' ').title()
             attachments = [{
@@ -764,7 +803,7 @@ def billing_alerts(request):
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def all_subscriptions(request):
-    subs = Subscription.objects.select_related('plan', 'candidate__user').prefetch_related(
+    subs = Subscription.objects.select_related('plan', 'candidate__user__profile').prefetch_related(
         'addon_assignments__addon'
     ).all()
     s = request.query_params.get('status')
@@ -775,11 +814,21 @@ def all_subscriptions(request):
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def all_payments(request):
-    pays = Payment.objects.select_related('candidate__user', 'subscription').all()
+    pays = Payment.objects.select_related('candidate__user__profile', 'subscription').all()
     s = request.query_params.get('status')
-    if s:
+    if s and s != 'all':
         pays = pays.filter(status=s)
     return Response(PaymentSerializer(pays, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def all_invoices(request):
+    invs = Invoice.objects.select_related('candidate__user__profile', 'subscription').prefetch_related('items').all()
+    s = request.query_params.get('status')
+    if s and s != 'all':
+        invs = invs.filter(status=s)
+    return Response(InvoiceSerializer(invs, many=True).data)
 
 
 # ─── Manual subscription create (legacy admin billing tab) ────────
@@ -810,7 +859,8 @@ def billing_analytics(request):
     from django.utils import timezone
     from datetime import timedelta
 
-    six_months_ago = timezone.now() - timedelta(days=180)
+    now = timezone.now()
+    six_months_ago = now - timedelta(days=180)
 
     # Revenue per month
     rev_qs = (
@@ -820,21 +870,45 @@ def billing_analytics(request):
         .annotate(total=Sum('amount'), count=Count('id'))
         .order_by('month')
     )
-    revenue_by_month = [
-        {'month': r['month'].strftime('%b %Y'), 'revenue': float(r['total'] or 0), 'count': r['count']}
-        for r in rev_qs
-    ]
-
-    # Subscription status breakdown
-    sub_status = list(Subscription.objects.values('status').annotate(count=Count('id')))
+    revenue_by_month = []
+    for r in rev_qs:
+        if r['month']:
+            revenue_by_month.append({
+                'month': r['month'].strftime('%b %Y'),
+                'revenue': float(r['total'] or 0),
+                'count': r['count']
+            })
 
     # Total collected
     total_revenue = Payment.objects.filter(status='completed').aggregate(t=Sum('amount'))['t'] or 0
 
+    # Monthly revenue (this month so far)
+    this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_revenue = Payment.objects.filter(
+        status='completed', 
+        created_at__gte=this_month_start
+    ).aggregate(t=Sum('amount'))['t'] or 0
+
+    # Subscription status breakdown
+    sub_status_list = list(Subscription.objects.values('status').annotate(count=Count('id')))
+    active_subs = Subscription.objects.filter(status='active').count()
+    past_due_subs = Subscription.objects.filter(status='past_due').count()
+
+    # Outstanding (past due) revenue
+    past_due_revenue = Subscription.objects.filter(status='past_due').aggregate(t=Sum('amount'))['t'] or 0
+    # Add addon amounts for past due subs
+    from .models import SubscriptionAddonAssignment
+    past_due_addon_rev = SubscriptionAddonAssignment.objects.filter(subscription__status='past_due').aggregate(t=Sum('amount'))['t'] or 0
+    total_past_due = float(past_due_revenue) + float(past_due_addon_rev)
+
     return Response({
         'revenue_by_month': revenue_by_month,
-        'subscription_status': sub_status,
+        'subscription_status': sub_status_list,
         'total_revenue': float(total_revenue),
+        'monthly_revenue': float(monthly_revenue),
+        'past_due_revenue': total_past_due,
+        'active_subscriptions': active_subs,
+        'past_due_subscriptions': past_due_subs,
         'total_payments': Payment.objects.filter(status='completed').count(),
     })
 

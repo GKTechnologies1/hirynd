@@ -193,7 +193,7 @@ const RecruiterHome = () => {
                 className: "px-6",
                 render: (c: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
-                    {`HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
+                    {c.display_id || `HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
                   </span>
                 )
               },

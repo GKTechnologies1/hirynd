@@ -133,11 +133,11 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
                 header: "ID", 
                 render: (c: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
-                    {`HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
+                    {c.display_id || `HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
                   </span>
                 ),
                 sortable: true,
-                accessorKey: "id",
+                accessorKey: "display_id",
                 className: "text-xs pl-4"
               },
               { header: "Name", accessorKey: "full_name", className: "text-xs font-bold", sortable: true },

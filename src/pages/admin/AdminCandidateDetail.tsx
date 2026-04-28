@@ -67,11 +67,6 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [removeRoleModal, setRemoveRoleModal] = useState<any>(null);
   const [removingProposedRole, setRemovingProposedRole] = useState(false);
 
-  const [payAmount, setPayAmount] = useState("");
-  const [payType, setPayType] = useState("subscription");
-  const [payStatus, setPayStatus] = useState("pending");
-  const [payNotes, setPayNotes] = useState("");
-  const [addingPayment, setAddingPayment] = useState(false);
 
   const [isEditingCreds, setIsEditingCreds] = useState(false);
   const [credForm, setCredForm] = useState<Record<string, any>>({});
@@ -172,44 +167,6 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
     }
   };
 
-  const handleRecordPayment = async () => {
-    if (!payAmount || Number(payAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
-    setAddingPayment(true);
-    try {
-      await billingApi.recordPayment(candidateId, { amount: Number(payAmount), payment_type: payType, status: payStatus, notes: payNotes });
-      setPayAmount(""); setPayNotes("");
-      toast({ title: "Payment recorded" }); fetchAll();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
-    }
-    setAddingPayment(false);
-  };
-
-  const handleDeletePayment = async (paymentId: string) => {
-    if (!confirm("Are you sure you want to delete this payment record?")) return;
-    try {
-      await billingApi.deletePayment(paymentId);
-      toast({ title: "Payment deleted" });
-      fetchAll();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-  };
-
-  const handleUpdatePayment = async (paymentId: string, currentAmount: string, currentNotes: string) => {
-    const amount = prompt("Update Amount ($):", currentAmount);
-    if (amount === null) return;
-    const notes = prompt("Update Notes:", currentNotes);
-    if (notes === null) return;
-
-    try {
-      await billingApi.updatePayment(paymentId, { amount: parseFloat(amount), notes });
-      toast({ title: "Payment updated" });
-      fetchAll();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-  };
 
   const handleReopenIntake = async () => {
     try {
@@ -289,8 +246,32 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <StatusBadge status={status} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary text-2xl font-black shadow-sm ring-1 ring-secondary/20">
+            {(candidate?.profile?.full_name || candidate?.full_name || "?")[0]}
+          </div>
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-3xl font-black tracking-tighter text-foreground">
+                {candidate?.profile?.full_name || candidate?.full_name || "Unknown Candidate"}
+              </h2>
+              <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase tracking-widest mt-1">
+                {candidate?.display_id}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <StatusBadge status={status} />
+              <span className="text-xs text-muted-foreground font-medium opacity-60">• {candidate?.email}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-10 rounded-xl px-4 font-bold border-border/50" onClick={() => window.history.back()}>← Back</Button>
+        </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-3 border-t border-border/40 pt-4">
         {!isPlaced && (
           <div className="flex items-center gap-2">
             <Select value={status} onValueChange={handleStatusChange}>
@@ -360,8 +341,7 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
               <TabsTrigger value="intake">Intake</TabsTrigger>
               <TabsTrigger value="roles">Roles</TabsTrigger>
               <TabsTrigger value="credentials">Credentials</TabsTrigger>
-              <TabsTrigger value="payments">Payments</TabsTrigger>
-              <TabsTrigger value="billing">Billing</TabsTrigger>
+              <TabsTrigger value="billing">Billing & Payments</TabsTrigger>
             </>
           )}
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
@@ -382,9 +362,14 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
-                <div>
-                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Full Name</Label>
-                  <p className="font-semibold text-foreground text-base tracking-tight">{candidate?.profile?.full_name || candidate?.full_name || "—"}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Full Name</Label>
+                    <p className="font-semibold text-foreground text-base tracking-tight">{candidate?.profile?.full_name || candidate?.full_name || "—"}</p>
+                  </div>
+                  <Badge variant="outline" className="bg-muted/50 text-[10px] font-bold uppercase tracking-widest px-2 py-1 h-fit">
+                    {candidate?.display_id || "No ID"}
+                  </Badge>
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Contact Details</Label>
@@ -1095,154 +1080,6 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           </Card>
         </TabsContent>
 
-        {/* Payments Tab */}
-        <TabsContent value="payments" className="space-y-4">
-          {subscription && (
-            <Card className="border-secondary/20 bg-secondary/5">
-              <CardHeader className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-secondary" />
-                      Plan: {subscription.plan_name || "Unknown"}
-                    </CardTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Status: <span className="capitalize font-semibold">{subscription.status?.replace(/_/g, " ")}</span> | Amount: ${Number(subscription.amount).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {subscription.status === 'active' && payments.filter(p => p.status === 'completed').length === 0 && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="h-8 text-[10px] uppercase font-bold"
-                        onClick={async () => {
-                          if (confirm("No completed payments found. Revert status to Pending Payment?")) {
-                            try {
-                              await billingApi.updateSubscription(candidateId, { status: 'pending_payment' });
-                              toast({ title: "Status reverted to Pending Payment" });
-                              fetchAll();
-                            } catch (err: any) { toast({ title: "Sync failed", variant: "destructive" }); }
-                          }
-                        }}
-                      >
-                        Revert to Pending
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={fetchAll} disabled={loading}>
-                      <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-          )}
-
-          {!isPlaced && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Manual Payment</CardTitle>
-                <CardDescription>Manually record a payment received outside the gateway (e.g. bank transfer). To request a subscription payment from the candidate, use the Billing tab.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div><Label>Amount ($) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
-                  <div><Label>Type</Label>
-                    <Select value={payType} onValueChange={setPayType}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly_service">Monthly Service Fee</SelectItem>
-                        <SelectItem value="mock_practice">Mock Practice Fee</SelectItem>
-                        <SelectItem value="interview_support">Interview Support Fee</SelectItem>
-                        <SelectItem value="operations_support">Operations Support Fee</SelectItem>
-                        <SelectItem value="manual">Manual / Other</SelectItem>
-                        <SelectItem value="refund">Refund</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div><Label>Status</Label><Select value={payStatus} onValueChange={setPayStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completed">Completed</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="refunded">Refunded</SelectItem></SelectContent></Select></div>
-                </div>
-                <div><Label>Notes</Label><Textarea value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Manual check, wire transfer, etc." /></div>
-                <Button
-                  variant="hero"
-                  className={`w-full h-11 font-bold transition-all ${payAmount && Number(payAmount) > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
-                  onClick={handleRecordPayment}
-                  disabled={addingPayment || !payAmount}
-                >
-                  {addingPayment ? "Recording..." : "Record Payment"}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" /> Payment History</CardTitle></CardHeader>
-            <CardContent className="p-0">
-              <DataTable
-                data={payments}
-                isLoading={loading}
-                searchPlaceholder="Search payments..."
-                searchKey="payment_type"
-                emptyMessage="No payments recorded."
-                columns={[
-                  {
-                    header: "Date",
-                    render: (p: any) => <span className="text-sm pl-6">{new Date(p.payment_date || p.created_at).toLocaleDateString()}</span>
-                  },
-                  {
-                    header: "Amount",
-                    render: (p: any) => (
-                      <span className="font-bold text-foreground flex items-center gap-0.5 text-sm">
-                        <DollarSign className="h-3 w-3" />{Number(p.amount).toLocaleString()}
-                      </span>
-                    )
-                  },
-                  {
-                    header: "Type",
-                    render: (p: any) => <span className="text-sm capitalize text-muted-foreground">{p.payment_type?.replace(/_/g, " ")}</span>
-                  },
-                  {
-                    header: "Status",
-                    render: (p: any) => (
-                      <div className="flex items-center gap-1.5">
-                        {p.status === "completed" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> : p.status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> : <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <span className="text-xs uppercase font-bold opacity-60 tracking-tighter">{p.status}</span>
-                      </div>
-                    )
-                  },
-                  {
-                    header: "Actions",
-                    className: "pr-6 text-right",
-                    render: (p: any) => (
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => handleUpdatePayment(p.id, p.amount, p.notes)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeletePayment(p.id)}
-                        >
-                          <Trash className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )
-                  }
-                ]}
-              />
-              {payments.length > 5 && (
-                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
-                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
 
         {/* Assignments Tab */}
