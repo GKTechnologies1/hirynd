@@ -16,6 +16,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 import { useToast } from "@/hooks/use-toast";
 import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown } from "lucide-react";
@@ -59,6 +60,12 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
   const [newRoleTitle, setNewRoleTitle] = useState("");
   const [newRoleDescription, setNewRoleDescription] = useState("");
   const [addingRole, setAddingRole] = useState(false);
+  
+  const [confirmRoleModal, setConfirmRoleModal] = useState<any>(null);
+  const [addingProposedRole, setAddingProposedRole] = useState(false);
+  
+  const [removeRoleModal, setRemoveRoleModal] = useState<any>(null);
+  const [removingProposedRole, setRemovingProposedRole] = useState(false);
 
   const [payAmount, setPayAmount] = useState("");
   const [payType, setPayType] = useState("subscription");
@@ -105,6 +112,13 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
 
   const handleAddRole = async () => {
     if (!newRoleTitle.trim()) return;
+    
+    const isDuplicate = roles.some(r => r.role_title.toLowerCase().trim() === newRoleTitle.toLowerCase().trim());
+    if (isDuplicate) {
+       toast({ title: "Duplicate Role", description: "This role has already been suggested.", variant: "destructive" });
+       return;
+    }
+
     setAddingRole(true);
     try {
       await candidatesApi.addRole(candidateId, { role_title: newRoleTitle.trim(), description: newRoleDescription.trim() });
@@ -114,6 +128,38 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setAddingRole(false);
+  };
+
+  const handleConfirmProposedRole = async () => {
+    if (!confirmRoleModal) return;
+    setAddingProposedRole(true);
+    try {
+      await candidatesApi.addRole(candidateId, { 
+        role_title: confirmRoleModal.custom_role_title, 
+        description: confirmRoleModal.custom_reason || "",
+        delete_proposed_role_id: confirmRoleModal.id
+      });
+      toast({ title: "Role suggestion added" });
+      setConfirmRoleModal(null);
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+    setAddingProposedRole(false);
+  };
+
+  const handleRemoveProposedRole = async () => {
+    if (!removeRoleModal) return;
+    setRemovingProposedRole(true);
+    try {
+      await candidatesApi.deleteProposedRole(candidateId, removeRoleModal.id);
+      toast({ title: "Proposed role removed" });
+      setRemoveRoleModal(null);
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+    setRemovingProposedRole(false);
   };
 
   const handleSuggestRoles = async () => {
@@ -749,17 +795,31 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
                       header: "Action",
                       className: "pr-6 text-right",
                       render: (r: any) => (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs border-secondary/30 text-secondary hover:bg-secondary/5"
-                          onClick={() => {
-                            setNewRoleTitle(r.custom_role_title || "");
-                            setNewRoleDescription(r.custom_reason || "");
-                          }}
-                        >
-                          Add to Suggestions
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/5"
+                            onClick={() => setRemoveRoleModal(r)}
+                          >
+                            Remove
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs border-secondary/30 text-secondary hover:bg-secondary/5"
+                            onClick={() => {
+                              const isDuplicate = roles.some(role => role.role_title.toLowerCase().trim() === r.custom_role_title.toLowerCase().trim());
+                              if (isDuplicate) {
+                                 toast({ title: "Duplicate Role", description: "This role has already been suggested.", variant: "destructive" });
+                                 return;
+                              }
+                              setConfirmRoleModal(r);
+                            }}
+                          >
+                            Add to Suggestions
+                          </Button>
+                        </div>
                       )
                     }
                   ]}
@@ -1215,6 +1275,53 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
           <AdminAuditTab targetId={candidateId} />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!confirmRoleModal} onOpenChange={(open) => !open && setConfirmRoleModal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Proposed Role to Suggestions</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to add <strong>{confirmRoleModal?.custom_role_title}</strong> to the official suggested roles?
+              It will be removed from the candidate's proposed roles list.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 text-sm text-muted-foreground">
+            {confirmRoleModal?.custom_reason && (
+              <p><strong>Reason provided:</strong> {confirmRoleModal.custom_reason}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmRoleModal(null)}>Cancel</Button>
+            <Button 
+              onClick={handleConfirmProposedRole} 
+              disabled={addingProposedRole}
+            >
+              {addingProposedRole ? "Adding..." : "Add to Suggestions"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!removeRoleModal} onOpenChange={(open) => !open && setRemoveRoleModal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Proposed Role</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to completely remove <strong>{removeRoleModal?.custom_role_title}</strong> from the candidate's proposed roles? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveRoleModal(null)}>Cancel</Button>
+            <Button 
+              variant="destructive"
+              onClick={handleRemoveProposedRole} 
+              disabled={removingProposedRole}
+            >
+              {removingProposedRole ? "Removing..." : "Remove Role"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

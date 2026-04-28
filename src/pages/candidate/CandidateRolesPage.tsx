@@ -26,13 +26,24 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   const [submitting, setSubmitting] = useState(false);
   const [decisions, setDecisions] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [customRole, setCustomRole] = useState({ title: "", reason: "" });
+  const [customRoles, setCustomRoles] = useState<{title: string, reason: string}[]>([]);
 
-  const canConfirm = ["roles_suggested", "roles_published"].includes(candidate?.status);
-  const isConfirmed = [
+  const addCustomRole = () => setCustomRoles([...customRoles, { title: "", reason: "" }]);
+  const removeCustomRole = (index: number) => setCustomRoles(customRoles.filter((_, i) => i !== index));
+  const updateCustomRole = (index: number, field: 'title' | 'reason', value: string) => {
+    const updated = [...customRoles];
+    updated[index][field] = value;
+    setCustomRoles(updated);
+  };
+
+  const isConfirmedStatus = [
     "roles_candidate_responded", "roles_confirmed", "payment_pending", "payment_completed", "paid", "credentials_submitted",
     "credential_completed", "active_marketing", "placed_closed", "placed"
   ].includes(candidate?.status);
+
+  const canConfirm = ["roles_suggested", "roles_published"].includes(candidate?.status);
+  const hasUndecided = roles.length > 0 && roles.some(r => r.candidate_confirmed === null);
+  const isConfirmed = isConfirmedStatus && !hasUndecided;
 
   useEffect(() => {
     if (!candidate) return;
@@ -75,7 +86,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   }
 
   const handleDecision = (roleId: string, decision: string) => {
-    if (!canConfirm) return;
+    if (!canConfirm && !hasUndecided) return;
     setDecisions((prev) => ({ ...prev, [roleId]: decision }));
   };
 
@@ -86,14 +97,14 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
   const allDecided = roles.length > 0 && roles.every((r: any) => !!decisions[r.id]);
 
   const handleSubmit = async () => {
-    if (!allDecided || !canConfirm) return;
+    if (!allDecided || (!canConfirm && !hasUndecided)) return;
     setSubmitting(true);
 
     try {
       await candidatesApi.confirmRoles(candidate.id, {
         decisions,
         notes,
-        custom_role: customRole.title ? customRole : null
+        custom_roles: customRoles.filter(r => r.title.trim() !== "")
       });
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -150,7 +161,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                         )}
                       </div>
                       <div className="ml-4 flex items-center gap-2 shrink-0">
-                        {canConfirm ? (
+                        {canConfirm || role.candidate_confirmed === null ? (
                           <>
                             <Button
                               size="sm"
@@ -195,7 +206,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                       </div>
                     </div>
 
-                    {decision === "declined" && canConfirm && (
+                    {decision === "declined" && (canConfirm || role.candidate_confirmed === null) && (
                       <div className="mt-3 space-y-2 animate-in slide-in-from-top-1 duration-200 border-t border-destructive/20 pt-3">
                         <Label className="text-xs text-destructive font-semibold">Reason for rejection <span className="text-muted-foreground font-normal">(optional but helpful)</span></Label>
                         <Textarea 
@@ -211,35 +222,65 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
               })}
 
               {/* Propose Custom Role */}
-              {canConfirm && (
+              {(canConfirm || hasUndecided) && (
                 <div className="mt-6 space-y-4 rounded-xl border border-dashed border-secondary/30 p-5 bg-secondary/5">
-                  <div className="flex items-center gap-2 text-secondary">
-                    <Plus className="h-4 w-4" />
-                    <h4 className="font-semibold">Propose a Custom Role</h4>
+                  <div className="flex items-center justify-between text-secondary">
+                    <div className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      <h4 className="font-semibold">Propose Custom Roles</h4>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 text-xs bg-white/50"
+                      onClick={addCustomRole}
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Add Role
+                    </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">Is there another role you'd like us to consider for your marketing? Propose it here.</p>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label className="text-xs">Role Title</Label>
-                      <Input 
-                        placeholder="e.g. Senior Product Manager" 
-                        value={customRole.title}
-                        onChange={(e) => setCustomRole({...customRole, title: e.target.value})}
-                      />
+                  
+                  {customRoles.map((role, index) => (
+                    <div key={index} className="relative grid gap-4 sm:grid-cols-2 p-4 bg-white/50 rounded-lg border border-border/50">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute -top-3 -right-3 h-6 w-6 rounded-full bg-background border shadow-sm text-muted-foreground hover:text-destructive"
+                        onClick={() => removeCustomRole(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                      <div>
+                        <Label className="text-xs">Role Title</Label>
+                        <Input 
+                          placeholder="e.g. Senior Product Manager" 
+                          value={role.title}
+                          onChange={(e) => updateCustomRole(index, 'title', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Reason / Context</Label>
+                        <Input 
+                          placeholder="Why is this role a good fit?" 
+                          value={role.reason}
+                          onChange={(e) => updateCustomRole(index, 'reason', e.target.value)}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs">Reason / Context</Label>
-                      <Input 
-                        placeholder="Why is this role a good fit?" 
-                        value={customRole.reason}
-                        onChange={(e) => setCustomRole({...customRole, reason: e.target.value})}
-                      />
+                  ))}
+                  
+                  {customRoles.length === 0 && (
+                    <div className="text-center py-4 border-2 border-dashed border-border/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-2">No custom roles added.</p>
+                      <Button variant="outline" size="sm" onClick={addCustomRole}>
+                        <Plus className="h-3 w-3 mr-1" /> Propose a Role
+                      </Button>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {canConfirm && (
+              {(canConfirm || hasUndecided) && (
                 <Button
                   variant="hero"
                   className={`mt-4 w-full h-11 font-bold transition-all ${allDecided ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}

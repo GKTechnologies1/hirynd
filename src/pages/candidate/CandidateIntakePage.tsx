@@ -140,6 +140,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     experiences: [] as WorkExperience[],
     certifications: [] as Certification[],
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!candidate) return;
@@ -159,6 +160,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               mappedData.phone_number = parts.slice(1).join("");
             }
           }
+          
+          // Map backend education fields to frontend fields if they exist
+          if (saved.university_name) mappedData.highest_university = saved.university_name;
+          if (saved.major) mappedData.highest_field_of_study = saved.major;
+          if (saved.graduation_date) mappedData.highest_graduation_date = saved.graduation_date;
 
           setFormData(prev => ({
             ...prev,
@@ -189,6 +195,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: "" }));
   };
 
   const handleArrayAdd = (arrayName: 'experiences' | 'certifications') => {
@@ -245,39 +252,74 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     return new Intl.NumberFormat("en-US").format(parseInt(numeric));
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
+
+    if (!formData.first_name?.trim()) newErrors.first_name = "First name is required";
+    else if (/\d/.test(formData.first_name)) newErrors.first_name = "Numbers not allowed in first name";
+
+    if (!formData.last_name?.trim()) newErrors.last_name = "Last name is required";
+    else if (/\d/.test(formData.last_name)) newErrors.last_name = "Numbers not allowed in last name";
+
+    if (!formData.date_of_birth) newErrors.date_of_birth = "Date of birth is required";
+    else if (!dateRegex.test(formData.date_of_birth)) newErrors.date_of_birth = "Use MM-DD-YYYY format";
+
+    if (!formData.phone_number?.trim()) newErrors.phone_number = "Phone number is required";
+    else if (!/^\d{10}$/.test(formData.phone_number.replace(/\D/g, ''))) newErrors.phone_number = "Must be exactly 10 digits";
+
+    if (!formData.highest_degree) newErrors.highest_degree = "Highest degree is required";
+    if (!formData.highest_field_of_study) newErrors.highest_field_of_study = "Field of study is required";
+    if (!formData.highest_university) newErrors.highest_university = "University is required";
+    if (!formData.highest_graduation_date) newErrors.highest_graduation_date = "Graduation date is required";
+    else if (!dateRegex.test(formData.highest_graduation_date)) newErrors.highest_graduation_date = "Use MM-DD-YYYY format";
+
+    if (!formData.primary_skills?.trim()) newErrors.primary_skills = "Primary skills are required";
+    if (!formData.has_work_experience) newErrors.has_work_experience = "Please specify if you have work experience";
+    if (!formData.has_certifications) newErrors.has_certifications = "Please specify if you have certifications";
+    if (!formData.visa_type) newErrors.visa_type = "Visa type is required";
+    if (formData.visa_type === "Other" && !formData.visa_type_other?.trim()) newErrors.visa_type_other = "Please specify your visa type";
+    if (!formData.work_authorization_status) newErrors.work_authorization_status = "Work authorization status is required";
+    if (!formData.years_of_experience) newErrors.years_of_experience = "Total years of experience is required";
+    if (!formData.linkedin_url?.trim()) newErrors.linkedin_url = "LinkedIn URL is required";
+    if (!formData.desired_experience?.trim()) newErrors.desired_experience = "Desired experience summary is required";
+    if (!formData.desired_years_of_experience) newErrors.desired_years_of_experience = "Desired years of experience is required";
+    if (!formData.industry_preference?.trim()) newErrors.industry_preference = "Industry preference is required";
+    if (!formData.shift_preference) newErrors.shift_preference = "Shift preference is required";
+    if (!formData.current_address?.trim()) newErrors.current_address = "Current address is required";
+    if (!formData.resume_url) newErrors.resume_url = "Resume is required";
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.keys(newErrors)[0];
+      const element = document.getElementById(`intake-${firstError}`) || document.getElementsByName(firstError)[0];
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (element as HTMLElement).focus();
+      }
+      toast({
+        title: "Validation Error",
+        description: "Please correct the highlighted fields.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-
-    // Validation
-    const validationErrors: string[] = [];
-
-    if (!formData.first_name?.trim()) validationErrors.push("First Name");
-    if (!formData.last_name?.trim()) validationErrors.push("Last Name");
-    if (!formData.date_of_birth) validationErrors.push("Date of Birth");
-    if (!formData.phone_number?.trim()) validationErrors.push("Phone Number");
-    if (!formData.highest_degree) validationErrors.push("Highest Degree");
-    if (!formData.visa_type) validationErrors.push("Visa Type");
-    if (!formData.work_authorization_status) validationErrors.push("Work Authorization Status");
-    if (!formData.years_of_experience) validationErrors.push("Years of Experience");
-    if (!formData.primary_skills?.trim()) validationErrors.push("Primary Skills");
-    if (!formData.desired_experience?.trim()) validationErrors.push("Desired Experience");
-    if (!formData.resume_url) validationErrors.push("Resume");
-
-    if (validationErrors.length > 0) {
-      toast({
-        title: "Missing Required Fields",
-        description: `Please fill in: ${validationErrors.join(', ')}`,
-        variant: "destructive"
-      });
-      console.log("formData", formData)
-      return;
-    }
+    if (!validateForm()) return;
 
     setSubmitting(true);
 
     const submissionData = {
       ...formData,
+      university_name: formData.highest_university,
+      major: formData.highest_field_of_study,
+      graduation_date: formData.highest_graduation_date,
       phone_number: formData.phone_number,
       marketing_phone: formData.marketing_phone,
       alternate_phone: formData.alternate_phone,
@@ -340,7 +382,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
           </div>
         </CardHeader>
         <CardContent className="pt-8">
-          <form onSubmit={handleSubmit} className="space-y-12">
+          <form className="space-y-12">
 
             {/* ═══ SECTION A: PERSONAL DETAILS ═══ */}
             <div className="space-y-6">
@@ -354,15 +396,18 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">First Name *</Label>
-                  <Input value={formData.first_name} onChange={e => handleChange("first_name", e.target.value)} disabled={isLocked} required className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-first_name" value={formData.first_name} onChange={e => handleChange("first_name", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.first_name && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.first_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.first_name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Last Name *</Label>
-                  <Input value={formData.last_name} onChange={e => handleChange("last_name", e.target.value)} disabled={isLocked} required className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-last_name" value={formData.last_name} onChange={e => handleChange("last_name", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.last_name && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.last_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.last_name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Date of Birth *</Label>
-                  <DatePicker id="intake-dob" value={formData.date_of_birth} onChange={val => handleChange("date_of_birth", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none")} />
+                  <DatePicker id="intake-date_of_birth" value={formData.date_of_birth} onChange={val => handleChange("date_of_birth", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.date_of_birth && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.date_of_birth && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.date_of_birth}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Email *</Label>
@@ -382,8 +427,9 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                         <SelectItem value="+61">🇦🇺 +61</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input type="tel" value={formData.phone_number} onChange={e => handleChange("phone_number", e.target.value.replace(/\D/g, '').slice(0, 10))} disabled={isLocked} required placeholder="1234567890" className="h-10 flex-1 rounded-lg bg-neutral-50" />
+                    <Input id="intake-phone_number" type="tel" value={formData.phone_number} onChange={e => handleChange("phone_number", e.target.value.replace(/\D/g, '').slice(0, 10))} disabled={isLocked} required placeholder="1234567890" className={cn("h-10 flex-1 rounded-lg bg-neutral-50", errors.phone_number && "border-destructive ring-1 ring-destructive/20")} />
                   </div>
+                  {errors.phone_number && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.phone_number}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">New Email for Marketing</Label>
@@ -399,7 +445,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Current Address *</Label>
-                  <Input value={formData.current_address} onChange={e => handleChange("current_address", e.target.value)} disabled={isLocked} required className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-current_address" value={formData.current_address} onChange={e => handleChange("current_address", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.current_address && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.current_address && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.current_address}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Mailing Address</Label>
@@ -435,7 +482,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Highest Degree *</Label>
                   <Select value={formData.highest_degree} onValueChange={v => handleChange("highest_degree", v)} disabled={isLocked}>
-                    <SelectTrigger className="h-10 rounded-lg bg-neutral-50">
+                    <SelectTrigger id="intake-highest_degree" className={cn("h-10 rounded-lg bg-neutral-50", errors.highest_degree && "border-destructive ring-1 ring-destructive/20")}>
                       <SelectValue placeholder="Select degree" />
                     </SelectTrigger>
                     <SelectContent>
@@ -446,14 +493,17 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       <SelectItem value="Certificate">Certificate</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.highest_degree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.highest_degree}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Field of Study *</Label>
-                  <Input value={formData.highest_field_of_study} onChange={e => handleChange("highest_field_of_study", e.target.value)} disabled={isLocked} placeholder="e.g. Computer Science" className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-highest_field_of_study" value={formData.highest_field_of_study} onChange={e => handleChange("highest_field_of_study", e.target.value)} disabled={isLocked} required placeholder="e.g. Computer Science" className={cn("h-10 rounded-lg bg-neutral-50", errors.highest_field_of_study && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.highest_field_of_study && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.highest_field_of_study}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">University *</Label>
-                  <Input value={formData.highest_university} onChange={e => handleChange("highest_university", e.target.value)} disabled={isLocked} className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-highest_university" value={formData.highest_university} onChange={e => handleChange("highest_university", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.highest_university && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.highest_university && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.highest_university}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Country</Label>
@@ -461,7 +511,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Graduation Date *</Label>
-                  <DatePicker id="intake-grad-date" value={formData.highest_graduation_date} onChange={val => handleChange("highest_graduation_date", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none")} />
+                  <DatePicker id="intake-highest_graduation_date" value={formData.highest_graduation_date} onChange={val => handleChange("highest_graduation_date", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.highest_graduation_date && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.highest_graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.highest_graduation_date}</p>}
                 </div>
 
                 {/* Bachelors */}
@@ -503,7 +554,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
                   <Label className="text-sm font-medium">Primary Skills *</Label>
-                  <Textarea value={formData.primary_skills} onChange={e => handleChange("primary_skills", e.target.value)} disabled={isLocked} required placeholder="e.g. Python, React, AWS, etc." className="rounded-lg bg-neutral-50 min-h-[80px]" />
+                  <Textarea id="intake-primary_skills" value={formData.primary_skills} onChange={e => handleChange("primary_skills", e.target.value)} disabled={isLocked} required placeholder="e.g. Python, React, AWS, etc." className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.primary_skills && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.primary_skills && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.primary_skills}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Currently Learning</Label>
@@ -536,10 +588,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               {/* Yes/No gate */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Do you have any work experience (U.S. and/or International)? *</Label>
-                <div className="flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border border-neutral-200">
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_work_experience === "yes"} onChange={() => { handleChange("has_work_experience", "yes"); if (formData.experiences.length === 0) handleArrayAdd('experiences'); }} disabled={isLocked} className="accent-primary h-4 w-4" /> Yes</label>
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_work_experience === "no"} onChange={() => handleChange("has_work_experience", "no")} disabled={isLocked} className="accent-primary h-4 w-4" /> No</label>
+                <div id="intake-has_work_experience" className={cn("flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border", errors.has_work_experience ? "border-destructive ring-1 ring-destructive/20" : "border-neutral-200")}>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_work_experience === "yes"} onChange={() => { handleChange("has_work_experience", "yes"); if (formData.experiences.length === 0) handleArrayAdd('experiences'); }} disabled={isLocked} required className="accent-primary h-4 w-4" /> Yes</label>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_work_experience === "no"} onChange={() => handleChange("has_work_experience", "no")} disabled={isLocked} required className="accent-primary h-4 w-4" /> No</label>
                 </div>
+                {errors.has_work_experience && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.has_work_experience}</p>}
               </div>
 
               {formData.has_work_experience === "yes" && (
@@ -618,10 +671,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               {/* Yes/No gate */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Have you completed any professional certifications relevant to your career or skillset? *</Label>
-                <div className="flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border border-neutral-200">
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_certifications === "yes"} onChange={() => { handleChange("has_certifications", "yes"); if (formData.certifications.length === 0) handleArrayAdd('certifications'); }} disabled={isLocked} className="accent-primary h-4 w-4" /> Yes</label>
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_certifications === "no"} onChange={() => handleChange("has_certifications", "no")} disabled={isLocked} className="accent-primary h-4 w-4" /> No</label>
+                <div id="intake-has_certifications" className={cn("flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border", errors.has_certifications ? "border-destructive ring-1 ring-destructive/20" : "border-neutral-200")}>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_certifications === "yes"} onChange={() => { handleChange("has_certifications", "yes"); if (formData.certifications.length === 0) handleArrayAdd('certifications'); }} disabled={isLocked} required className="accent-primary h-4 w-4" /> Yes</label>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" checked={formData.has_certifications === "no"} onChange={() => handleChange("has_certifications", "no")} disabled={isLocked} required className="accent-primary h-4 w-4" /> No</label>
                 </div>
+                {errors.has_certifications && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.has_certifications}</p>}
               </div>
 
               {formData.has_certifications === "yes" && (
@@ -688,7 +742,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Visa Type *</Label>
                   <Select value={formData.visa_type} onValueChange={v => handleChange("visa_type", v)} disabled={isLocked} required>
-                    <SelectTrigger className="h-10 rounded-lg bg-neutral-50"><SelectValue placeholder="Select visa type" /></SelectTrigger>
+                    <SelectTrigger id="intake-visa_type" className={cn("h-10 rounded-lg bg-neutral-50", errors.visa_type && "border-destructive ring-1 ring-destructive/20")}><SelectValue placeholder="Select visa type" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="F1-OPT">F1-OPT</SelectItem>
                       <SelectItem value="H1B">H1B</SelectItem>
@@ -700,11 +754,13 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.visa_type && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.visa_type}</p>}
                 </div>
                 {formData.visa_type === "Other" && (
                   <div className="space-y-2 animate-in slide-in-from-top-2">
                     <Label className="text-sm font-medium">Please specify *</Label>
-                    <Input value={formData.visa_type_other} onChange={e => handleChange("visa_type_other", e.target.value)} disabled={isLocked} required className="h-10 rounded-lg bg-neutral-50" />
+                    <Input id="intake-visa_type_other" value={formData.visa_type_other} onChange={e => handleChange("visa_type_other", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.visa_type_other && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.visa_type_other && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.visa_type_other}</p>}
                   </div>
                 )}
                 <div className="space-y-2">
@@ -714,13 +770,14 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Work Authorization Status *</Label>
                   <Select value={formData.work_authorization_status} onValueChange={v => handleChange("work_authorization_status", v)} disabled={isLocked}>
-                    <SelectTrigger className="h-10 rounded-lg bg-neutral-50"><SelectValue placeholder="Select status" /></SelectTrigger>
+                    <SelectTrigger id="intake-work_authorization_status" className={cn("h-10 rounded-lg bg-neutral-50", errors.work_authorization_status && "border-destructive ring-1 ring-destructive/20")}><SelectValue placeholder="Select status" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Authorized">Authorized</SelectItem>
                       <SelectItem value="Requires Sponsorship">Requires Sponsorship</SelectItem>
                       <SelectItem value="Pending">Pending</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.work_authorization_status && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.work_authorization_status}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Sponsorship Required?</Label>
@@ -744,7 +801,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Years of Experience *</Label>
-                  <Input type="number" value={formData.years_of_experience} onChange={e => handleChange("years_of_experience", e.target.value)} disabled={isLocked} required className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-years_of_experience" type="number" value={formData.years_of_experience} onChange={e => handleChange("years_of_experience", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.years_of_experience && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.years_of_experience && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.years_of_experience}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Current Job Title</Label>
@@ -756,7 +814,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">LinkedIn URL *</Label>
-                  <Input type="url" value={formData.linkedin_url} onChange={e => handleChange("linkedin_url", e.target.value)} disabled={isLocked} required className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-linkedin_url" type="url" value={formData.linkedin_url} onChange={e => handleChange("linkedin_url", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.linkedin_url && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.linkedin_url && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.linkedin_url}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">GitHub URL</Label>
@@ -768,20 +827,21 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
                 <div className="sm:col-span-2 space-y-2">
                   <Label className="text-sm font-medium">Resume Upload (PDF/DOCX) *</Label>
-                  <div className={cn("p-6 border-2 border-dashed rounded-xl transition-all", formData.resume_url ? "bg-green-50 border-green-300" : "bg-neutral-50 border-neutral-300 hover:border-primary/40")}>
+                  <div className={cn("p-6 border-2 border-dashed rounded-xl transition-all", formData.resume_url ? "bg-green-50 border-green-300" : "bg-neutral-50 border-neutral-300 hover:border-primary/40", errors.resume_url && "border-destructive bg-destructive/5")}>
                     {!isLocked && (
-                      <Input type="file" onChange={(e) => handleFileUpload(e, 'resume_url')} disabled={isLocked} accept=".pdf,.doc,.docx" className="mb-3 h-10 py-2 cursor-pointer" />
+                      <Input id="intake-resume_url" type="file" onChange={(e) => handleFileUpload(e, 'resume_url')} disabled={isLocked} accept=".pdf,.doc,.docx" className={cn("mb-3 h-10 py-2 cursor-pointer", errors.resume_url && "border-destructive")} />
                     )}
+                    {errors.resume_url && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.resume_url}</p>}
                     {formData.resume_url ? (
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-xs text-green-700 font-bold flex items-center gap-2">
                           <CheckCircle className="h-4 w-4" /> Resume successfully attached.
                         </p>
-                        <DocumentPreview 
-                          url={formData.resume_url} 
-                          label="Download" 
-                          variant="button" 
-                          className="h-9 px-3 text-xs bg-white border-green-300 text-green-700 hover:bg-green-600 hover:text-white" 
+                        <DocumentPreview
+                          url={formData.resume_url}
+                          label="Download"
+                          variant="button"
+                          className="h-9 px-3 text-xs bg-white border-green-300 text-green-700 hover:bg-green-600 hover:text-white"
                         />
                       </div>
                     ) : (
@@ -804,20 +864,23 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
                   <Label className="text-sm font-medium">Desired Experience Level / Description *</Label>
-                  <Textarea value={formData.desired_experience} onChange={e => handleChange("desired_experience", e.target.value)} disabled={isLocked} required placeholder="e.g. Looking for a role focused on backend development with team leadership" className="rounded-lg bg-neutral-50 min-h-[80px]" />
+                  <Textarea id="intake-desired_experience" value={formData.desired_experience} onChange={e => handleChange("desired_experience", e.target.value)} disabled={isLocked} required placeholder="e.g. Looking for a role focused on backend development with team leadership" className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.desired_experience && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.desired_experience && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.desired_experience}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Desired Years of Experience *</Label>
-                  <Input type="number" min="0" max="50" value={formData.desired_years_of_experience} onChange={e => handleChange("desired_years_of_experience", e.target.value)} disabled={isLocked} required placeholder="e.g. 3" className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-desired_years_of_experience" type="number" min="0" max="50" value={formData.desired_years_of_experience} onChange={e => handleChange("desired_years_of_experience", e.target.value)} disabled={isLocked} required placeholder="e.g. 3" className={cn("h-10 rounded-lg bg-neutral-50", errors.desired_years_of_experience && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.desired_years_of_experience && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.desired_years_of_experience}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Industry Preference *</Label>
-                  <Input value={formData.industry_preference} onChange={e => handleChange("industry_preference", e.target.value)} disabled={isLocked} required placeholder="e.g. FinTech, Healthcare, etc." className="h-10 rounded-lg bg-neutral-50" />
+                  <Input id="intake-industry_preference" value={formData.industry_preference} onChange={e => handleChange("industry_preference", e.target.value)} disabled={isLocked} required placeholder="e.g. FinTech, Healthcare, etc." className={cn("h-10 rounded-lg bg-neutral-50", errors.industry_preference && "border-destructive ring-1 ring-destructive/20")} />
+                  {errors.industry_preference && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.industry_preference}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Shift Preference *</Label>
                   <Select value={formData.shift_preference} onValueChange={v => handleChange("shift_preference", v)} disabled={isLocked} required>
-                    <SelectTrigger className="h-10 rounded-lg bg-neutral-50"><SelectValue placeholder="Select shift" /></SelectTrigger>
+                    <SelectTrigger id="intake-shift_preference" className={cn("h-10 rounded-lg bg-neutral-50", errors.shift_preference && "border-destructive ring-1 ring-destructive/20")}><SelectValue placeholder="Select shift" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Morning">Morning (9 AM - 5 PM)</SelectItem>
                       <SelectItem value="Evening">Evening (5 PM - 1 AM)</SelectItem>
@@ -825,6 +888,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       <SelectItem value="Flexible">Flexible</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.shift_preference && <p className="text-[10px] text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{errors.shift_preference}</p>}
                 </div>
                 <div className="sm:col-span-2 space-y-2">
                   <Label className="text-sm font-medium">Target Roles</Label>
@@ -999,6 +1063,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
             {canSubmit && (
               <div className="pt-8 border-t border-neutral-200">
                 <Button
+                  onClick={handleSubmit}
                   type="submit"
                   className="w-full h-12 text-base font-bold transition-all duration-300 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
                   disabled={submitting}

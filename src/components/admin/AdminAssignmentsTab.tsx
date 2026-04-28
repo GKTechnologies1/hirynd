@@ -54,6 +54,19 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
   const handleAssign = async () => {
     if (!selectedRecruiter || !selectedRole) return;
+
+    const recruiterObj = recruiters.find(r => r.id === selectedRecruiter);
+    const isAlreadyAssigned = assignments.some(a => a.recruiter_email === recruiterObj?.email);
+
+    if (isAlreadyAssigned) {
+      toast({ 
+        title: "Assignment Failed", 
+        description: "This recruiter is already assigned to this candidate.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setAssigning(true);
     try {
       await recruitersApi.assign({ candidate: candidateId, recruiter: selectedRecruiter, role_type: selectedRole });

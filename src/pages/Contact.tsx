@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
+import { CalendarIcon, User, Mail, School, Award, MapPin } from "lucide-react";
 
 const SERVICES = [
   "End-to-End Marketing Strategy",
@@ -69,7 +70,7 @@ const Contact = () => {
 
   const validateForm = (formData: FormData) => {
     const newErrors: Record<string, string> = {};
-    
+
     const firstName = (formData.get("first_name") as string || "").trim();
     const lastName = (formData.get("last_name") as string || "").trim();
     const email = (formData.get("email") as string || "").trim();
@@ -80,19 +81,19 @@ const Contact = () => {
 
     if (!lastName) newErrors.last_name = "Last name is required";
     else if (/\d/.test(lastName)) newErrors.last_name = "Numbers not allowed in last name";
-    
+
     if (!email) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = "Enter a valid email address";
     }
-    
+
     if (!phone) {
       newErrors.phone = "Phone number is required";
     } else if (!/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
       newErrors.phone = "Phone number must be exactly 10 digits";
     }
-    
+
     if (wantsMarketing === "yes") {
       if (!formData.get("degree_major")) newErrors.degree_major = "Degree & Major is required";
       if (!formData.get("university")) newErrors.university = "University / College is required";
@@ -109,7 +110,7 @@ const Contact = () => {
       if (selectedServices.length === 0) {
         newErrors.services = "Please select at least one service";
       }
-      
+
       const resume = formData.get("resume") as File;
       if (!resume || !resume.name) {
         newErrors.resume = "Resume file is required";
@@ -121,7 +122,7 @@ const Contact = () => {
     } else {
       if (!(formData.get("message") as string || "").trim()) newErrors.message = "Message is required";
     }
-    
+
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
@@ -137,14 +138,14 @@ const Contact = () => {
     return true;
   };
 
-  const isGeneralFilled = 
+  const isGeneralFilled =
     formValues.first_name.trim() !== "" &&
     formValues.last_name.trim() !== "" &&
     formValues.email.trim() !== "" &&
     formValues.phone.trim() !== "" &&
     formValues.message.trim() !== "";
 
-  const isInterestFilled = 
+  const isInterestFilled =
     formValues.first_name.trim() !== "" &&
     formValues.last_name.trim() !== "" &&
     formValues.email.trim() !== "" &&
@@ -164,23 +165,23 @@ const Contact = () => {
     e.preventDefault();
     const formElement = e.target as HTMLFormElement;
     const formData = new FormData(formElement);
-    
+
     if (!validateForm(formData)) {
       toast({ title: "Please fix the errors in the form.", variant: "destructive" });
       return;
     }
-    
+
     const firstName = formValues.first_name;
     const lastName = formValues.last_name;
     const phoneNum = formValues.phone;
-    
+
     // Construct final payload as FormData to support file upload
     const finalData = new FormData();
     finalData.append("name", `${firstName || ""} ${lastName || ""}`.trim());
     finalData.append("email", formValues.email);
     finalData.append("phone", `${countryCode} ${phoneNum}`.trim());
     finalData.append("mode", wantsMarketing === "yes" ? "interest" : "general");
-    
+
     if (wantsMarketing === "yes") {
       finalData.append("university", formValues.university);
       const [degree, ...majorParts] = formValues.degree_major.split("&");
@@ -192,7 +193,7 @@ const Contact = () => {
       finalData.append("referral_source", referralSource);
       finalData.append("referral_friend", formValues.referral_friend);
       finalData.append("services", JSON.stringify(selectedServices));
-      
+
       const resumeFile = formData.get("resume") as File;
       if (resumeFile && resumeFile.name) {
         if (resumeFile.size > 5 * 1024 * 1024) {
@@ -207,7 +208,7 @@ const Contact = () => {
 
     try {
       await authApi.submitContact(finalData);
-      
+
       // Reset form
       setFormValues({
         first_name: "", last_name: "", email: "", phone: "",
@@ -276,21 +277,49 @@ const Contact = () => {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
-                      <Input name="first_name" value={formValues.first_name} onChange={handleInputChange} placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
+                      <div className="relative group">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                        <Input 
+                          name="first_name" 
+                          value={formValues.first_name} 
+                          onChange={handleInputChange} 
+                          placeholder="Your first name" 
+                          className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 pl-12 ${errors.first_name ? 'border-destructive' : ''}`} 
+                        />
+                      </div>
                       {errors.first_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.first_name}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
-                      <Input name="last_name" value={formValues.last_name} onChange={handleInputChange} placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
+                      <div className="relative group">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                        <Input 
+                          name="last_name" 
+                          value={formValues.last_name} 
+                          onChange={handleInputChange} 
+                          placeholder="Your last name" 
+                          className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 pl-12 ${errors.last_name ? 'border-destructive' : ''}`} 
+                        />
+                      </div>
                       {errors.last_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.last_name}</p>}
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
-                    <Input name="email" type="email" value={formValues.email} onChange={handleInputChange} placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
+                    <div className="relative group">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                      <Input 
+                        name="email" 
+                        type="email" 
+                        value={formValues.email} 
+                        onChange={handleInputChange} 
+                        placeholder="you@example.com" 
+                        className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 pl-12 ${errors.email ? 'border-destructive' : ''}`} 
+                      />
+                    </div>
                     {errors.email && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.email}</p>}
                   </div>
-                  
+
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
                     <div className="flex gap-2">
@@ -309,15 +338,15 @@ const Contact = () => {
                     </div>
                     {errors.phone && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.phone}</p>}
                   </div>
-                  
+
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Message *</Label>
                     <Textarea name="message" value={formValues.message} onChange={handleInputChange} placeholder="How can we help you?" rows={5} className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none ${errors.message ? 'border-destructive' : ''}`} />
                     {errors.message && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.message}</p>}
                   </div>
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isGeneralFilled ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 cursor-pointer'}`}
                     >
                       Send Message
@@ -338,22 +367,50 @@ const Contact = () => {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
-                      <Input name="first_name" value={formValues.first_name} onChange={handleInputChange} placeholder="First name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.first_name ? 'border-destructive' : ''}`} />
+                      <div className="relative group">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                        <Input 
+                          name="first_name" 
+                          value={formValues.first_name} 
+                          onChange={handleInputChange} 
+                          placeholder="Your first name" 
+                          className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.first_name ? 'border-destructive' : ''}`} 
+                        />
+                      </div>
                       {errors.first_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.first_name}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
-                      <Input name="last_name" value={formValues.last_name} onChange={handleInputChange} placeholder="Last name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.last_name ? 'border-destructive' : ''}`} />
+                      <div className="relative group">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                        <Input 
+                          name="last_name" 
+                          value={formValues.last_name} 
+                          onChange={handleInputChange} 
+                          placeholder="Your last name" 
+                          className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.last_name ? 'border-destructive' : ''}`} 
+                        />
+                      </div>
                       {errors.last_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.last_name}</p>}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
-                    <Input name="email" type="email" value={formValues.email} onChange={handleInputChange} placeholder="you@email.com" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.email ? 'border-destructive' : ''}`} />
+                    <div className="relative group">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                      <Input 
+                        name="email" 
+                        type="email" 
+                        value={formValues.email} 
+                        onChange={handleInputChange} 
+                        placeholder="you@example.com" 
+                        className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.email ? 'border-destructive' : ''}`} 
+                      />
+                    </div>
                     {errors.email && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
                   </div>
-                  
+
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
                     <div className="flex gap-2">
@@ -378,8 +435,8 @@ const Contact = () => {
                       {SERVICES.map((s) => {
                         const isSelected = selectedServices.includes(s);
                         return (
-                          <div 
-                            key={s} 
+                          <div
+                            key={s}
                             onClick={() => toggleService(s)}
                             className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-[#0d47a1] bg-blue-50/50 shadow-sm' : 'border-neutral-200 hover:border-neutral-300 bg-neutral-50/10'}`}
                           >
@@ -403,19 +460,46 @@ const Contact = () => {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University / College *</Label>
-                      <Input name="university" value={formValues.university} onChange={handleInputChange} placeholder="University name" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.university ? 'border-destructive' : ''}`} />
+                      <div className="relative group">
+                        <School className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                        <Input 
+                          name="university" 
+                          value={formValues.university} 
+                          onChange={handleInputChange} 
+                          placeholder="e.g., Stanford University" 
+                          className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.university ? 'border-destructive' : ''}`} 
+                        />
+                      </div>
                       {errors.university && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.university}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year *</Label>
-                      <Input name="graduation_year" value={formValues.graduation_year} onChange={handleInputChange} placeholder="e.g., 2025" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.graduation_year ? 'border-destructive' : ''}`} />
+                      <div className="relative group">
+                        <CalendarIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                        <Input
+                          name="graduation_year"
+                          value={formValues.graduation_year}
+                          onChange={handleInputChange}
+                          placeholder="e.g., 2025"
+                          className={`pl-12 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 focus-visible:ring-[#0d47a1] ${errors.graduation_year ? 'border-destructive' : ''}`}
+                        />
+                      </div>
                       {errors.graduation_year && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.graduation_year}</p>}
                     </div>
                   </div>
 
                   <div className="sm:col-span-2 space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree & Major *</Label>
-                    <Input name="degree_major" value={formValues.degree_major} onChange={handleInputChange} placeholder="e.g., Master's in Computer Science" className={`h-11 rounded-xl bg-neutral-50/50 border-neutral-200 ${errors.degree_major ? 'border-destructive' : ''}`} />
+                    <div className="relative group">
+                      <Award className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                      <Input 
+                        name="degree_major" 
+                        value={formValues.degree_major} 
+                        onChange={handleInputChange} 
+                        placeholder="e.g., Master's in Computer Science" 
+                        className={`h-11 rounded-xl bg-neutral-50/50 border-neutral-200 pl-12 focus-visible:ring-[#0d47a1] ${errors.degree_major ? 'border-destructive' : ''}`} 
+                      />
+                    </div>
                     {errors.degree_major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.degree_major}</p>}
                   </div>
 
@@ -448,7 +532,16 @@ const Contact = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Current Location *</Label>
-                    <Input name="current_location" value={formValues.current_location} onChange={handleInputChange} placeholder="City, State, Country" className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.current_location ? 'border-destructive' : ''}`} />
+                    <div className="relative group">
+                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                      <Input 
+                        name="current_location" 
+                        value={formValues.current_location} 
+                        onChange={handleInputChange} 
+                        placeholder="e.g., San Francisco, CA" 
+                        className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.current_location ? 'border-destructive' : ''}`} 
+                      />
+                    </div>
                     {errors.current_location && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.current_location}</p>}
                   </div>
                   <div className="space-y-1.5">
@@ -500,8 +593,8 @@ const Contact = () => {
                   {errors.terms && <p className="text-[10px] text-destructive mt-1 font-medium ml-2">{errors.terms}</p>}
 
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isInterestFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 cursor-pointer'}`}
                     >
                       Submit Interest

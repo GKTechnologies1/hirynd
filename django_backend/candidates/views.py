@@ -445,6 +445,11 @@ def add_role(request, candidate_id):
     serializer = RoleSuggestionSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     serializer.save()
+    
+    proposed_role_id = data.get('delete_proposed_role_id')
+    if proposed_role_id:
+        RoleConfirmation.objects.filter(id=proposed_role_id, candidate_id=candidate_id).delete()
+        
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -460,6 +465,7 @@ def confirm_roles(request, candidate_id):
     decisions = payload.get('decisions', {})
     notes = payload.get('notes', {})
     custom_role = payload.get('custom_role')
+    custom_roles = payload.get('custom_roles', [])
     
     for role_id, decision in decisions.items():
         status_val = True if decision == 'accepted' else False if decision == 'declined' else None
@@ -478,6 +484,16 @@ def confirm_roles(request, candidate_id):
             custom_role_title=custom_role['title'],
             custom_reason=custom_role.get('reason')
         )
+        
+    if isinstance(custom_roles, list):
+        for role in custom_roles:
+            if role.get('title'):
+                RoleConfirmation.objects.create(
+                    candidate_id=candidate_id,
+                    response='change_requested',
+                    custom_role_title=role['title'],
+                    custom_reason=role.get('reason')
+                )
 
     if candidate.status in ('roles_suggested', 'roles_published', 'intake_submitted'):
         candidate.status = 'payment_pending'
@@ -524,6 +540,15 @@ def proposed_roles(request, candidate_id):
     ).exclude(custom_role_title='').order_by('-responded_at')
     from .serializers import RoleConfirmationSerializer
     return Response(RoleConfirmationSerializer(confirmations, many=True).data)
+
+@api_view(['DELETE'])
+@permission_classes([IsRecruiter])
+def delete_proposed_role(request, candidate_id, role_id):
+    try:
+        RoleConfirmation.objects.get(id=role_id, candidate_id=candidate_id).delete()
+        return Response({'message': 'Proposed role deleted'})
+    except RoleConfirmation.DoesNotExist:
+        return Response({'error': 'Proposed role not found'}, status=404)
 
 
 

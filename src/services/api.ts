@@ -131,11 +131,12 @@ export const candidatesApi = {
   reopenIntake: (id: string) => api.post(`/candidates/${id}/intake/reopen/`),
   getRoles: (id: string) => api.get(`/candidates/${id}/roles/`),
   reopenRoles: (id: string) => api.post(`/candidates/${id}/roles/reopen/`),
-  addRole: (id: string, data: { role_title: string; description?: string; admin_note?: string }) =>
+  addRole: (id: string, data: { role_title: string; description?: string; admin_note?: string; delete_proposed_role_id?: string }) =>
     api.post(`/candidates/${id}/roles/add/`, data),
   confirmRoles: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/roles/confirm/`, data),
   getProposedRoles: (id: string) => api.get(`/candidates/${id}/roles/proposed/`),
+  deleteProposedRole: (id: string, roleId: string) => api.delete(`/candidates/${id}/roles/proposed/${roleId}/`),
   getCredentials: (id: string) => api.get(`/candidates/${id}/credentials/`),
   upsertCredential: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/credentials/upsert/`, { data }),
