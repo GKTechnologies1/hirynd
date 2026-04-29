@@ -76,6 +76,11 @@ class Candidate(models.Model):
     def __str__(self):
         return f"{self.user.profile.full_name or self.user.email} ({self.status})"
 
+    @property
+    def display_id(self):
+        """Delegates to the user's branded display ID (e.g. HYRCDT000001)"""
+        return self.user.display_id
+
 
 class WorkExperience(models.Model):
     """Work experience for candidates - stored as array in ClientIntake JSON but can be normalized separately"""
@@ -159,14 +164,32 @@ class InterestedCandidate(models.Model):
     desired_years_of_experience = models.CharField(max_length=50, blank=True, null=True)
     
     selected_services = models.JSONField(default=list, blank=True)
+    seq_number = models.PositiveIntegerField(
+        unique=True, null=True, blank=True, editable=False,
+        help_text="Auto-assigned sequential number for HYRLD display ID"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'interested_candidates'
 
+    @property
+    def display_id(self):
+        """Branded display ID: HYRLD0001"""
+        if self.seq_number is None:
+            return str(self.id)[:8].upper()
+        return f"HYRLD{self.seq_number:04d}"
+
+    def save(self, *args, **kwargs):
+        if self.seq_number is None:
+            from django.db.models import Max
+            max_seq = InterestedCandidate.objects.aggregate(Max('seq_number'))['seq_number__max']
+            self.seq_number = (max_seq or 0) + 1
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.name} ({self.email})"
+        return f"{self.display_id} - {self.name} ({self.email})"
 
 
 class ClientIntake(models.Model):

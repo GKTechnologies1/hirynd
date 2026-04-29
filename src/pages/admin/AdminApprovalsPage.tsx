@@ -134,8 +134,8 @@ const AdminApprovalsPage = () => {
               { 
                 header: "ID", 
                 render: (u: any) => (
-                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
-                    {u.role === 'candidate' ? `HYRCDT${u.id.toString().slice(-6).toUpperCase()}` : `HYRRCR${u.id.toString().slice(-6).toUpperCase()}`}
+                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
+                    {u.display_id || (u.role === 'candidate' ? `HYRCDT${u.id.toString().slice(-6).toUpperCase()}` : `HYRREC${u.id.toString().slice(-6).toUpperCase()}`)}
                   </span>
                 ),
                 className: "pl-6"

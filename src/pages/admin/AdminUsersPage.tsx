@@ -224,11 +224,19 @@ const AdminUsersPage = () => {
             columns={[
               {
                 header: "ID",
-                render: (u: any) => (
-                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase">
-                    {`${u.role === 'recruiter' ? 'HYRREC' : 'HYRCDT'}${u.id.toString().slice(-6).toUpperCase()}`}
-                  </span>
-                ),
+                render: (u: any) => {
+                  const ROLE_PREFIX: Record<string, string> = {
+                    candidate: 'HYRCDT', recruiter: 'HYRREC',
+                    team_lead: 'HYRTLD', team_manager: 'HYRTMG',
+                    admin: 'HYRADM', finance_admin: 'HYRFIN',
+                  };
+                  const fallback = `${ROLE_PREFIX[u.role] || 'HYRUSR'}${u.id.toString().slice(-6).toUpperCase()}`;
+                  return (
+                    <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono">
+                      {u.display_id || fallback}
+                    </span>
+                  );
+                },
                 sortable: true,
                 accessorKey: "id",
                 className: "text-xs pl-4"

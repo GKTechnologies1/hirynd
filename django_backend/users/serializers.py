@@ -11,11 +11,12 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
+    display_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'role', 'approval_status', 'created_at', 'profile']
-        read_only_fields = ['id', 'role', 'approval_status', 'created_at']
+        fields = ['id', 'display_id', 'email', 'role', 'approval_status', 'created_at', 'profile']
+        read_only_fields = ['id', 'display_id', 'role', 'approval_status', 'created_at']
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -216,10 +217,10 @@ class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'role', 'approval_status', 'is_active', 'created_at', 
-            'full_name', 'phone', 'profile', 
-            'university', 'degree', 'major', 'graduation_date', 
-            'linkedin_url', 'social_profile_url', 
+            'id', 'display_id', 'email', 'role', 'approval_status', 'is_active', 'created_at',
+            'full_name', 'phone', 'profile',
+            'university', 'degree', 'major', 'graduation_date',
+            'linkedin_url', 'social_profile_url',
             'city', 'state', 'country',
             'candidate_id', 'opt_end_date', 'github_url', 'visa_status', 'referral_source', 'referral_friend_name', 'notes',
             'recruiter_id', 'company_name', 'employee_id', 'date_of_joining', 'department', 'specialization', 'max_clients',

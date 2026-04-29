@@ -22,10 +22,12 @@ class CertificationSerializer(serializers.ModelSerializer):
 
 
 class InterestedCandidateSerializer(serializers.ModelSerializer):
+    display_id = serializers.CharField(read_only=True)
+
     class Meta:
         model = InterestedCandidate
         fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'display_id', 'seq_number', 'user', 'created_at', 'updated_at']
 
 
 class CandidateSerializer(serializers.ModelSerializer):
@@ -35,11 +37,12 @@ class CandidateSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
     total_applications = serializers.SerializerMethodField()
     total_interviews = serializers.SerializerMethodField()
+    display_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = Candidate
         fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'subscription_status', 'total_applications', 'total_interviews']
+        read_only_fields = ['id', 'display_id', 'user', 'created_at', 'updated_at', 'subscription_status', 'total_applications', 'total_interviews']
 
     def get_subscription_status(self, obj):
         if hasattr(obj, 'subscription'):
@@ -76,7 +79,7 @@ class CandidateListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Candidate
         fields = [
-            'id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
+            'id', 'display_id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
             'university', 'degree', 'major', 'graduation_year', 'graduation_date', 'referral_source',
             'referral_friend_name', 'current_location', 'notes',
             'total_applications', 'total_interviews'

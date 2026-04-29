@@ -97,9 +97,9 @@ const AdminRecruitersPage = () => {
               { 
                 header: "ID", 
                 className: "pl-6 py-4",
-                render: (r: any, _?: any, idx?: number) => (
-                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
-                    {`HYRREC${String((idx ?? 0) + 1).padStart(6, '0')}`}
+                render: (r: any) => (
+                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
+                    {r.display_id || `HYRREC${String(r.seq_number || 0).padStart(6, '0')}`}
                   </span>
                 )
               },

@@ -479,8 +479,8 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
                     header: "Candidate ID",
                     className: "pl-6",
                     render: (a: any) => (
-                      <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
-                        {`HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`}
+                      <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
+                        {a.candidate_display_id || `HYRCDT${(a.candidate_id || a.id)?.toString().slice(-6).toUpperCase()}`}
                       </span>
                     )
                   },

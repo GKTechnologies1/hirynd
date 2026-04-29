@@ -178,6 +178,7 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
     recruiter_email = serializers.SerializerMethodField()
     recruiter_phone = serializers.SerializerMethodField()
     candidate_name = serializers.SerializerMethodField()
+    candidate_display_id = serializers.SerializerMethodField()
     assigned_candidate_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -197,6 +198,12 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
     def get_candidate_name(self, obj):
         return obj.candidate.user.profile.full_name if hasattr(obj.candidate.user, 'profile') else ''
 
+    def get_candidate_display_id(self, obj):
+        try:
+            return obj.candidate.user.display_id
+        except Exception:
+            return None
+
     def get_assigned_candidate_count(self, obj):
         if hasattr(obj, 'recruiter_active_count'):
             return obj.recruiter_active_count
@@ -208,6 +215,7 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
 class MyAssignmentSerializer(serializers.ModelSerializer):
     """Serializer for a recruiter viewing their own assignments – rich candidate data."""
     candidate_id = serializers.UUIDField(source='candidate.id', read_only=True)
+    candidate_display_id = serializers.SerializerMethodField()
     candidate_name = serializers.SerializerMethodField()
     candidate_email = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
@@ -215,10 +223,16 @@ class MyAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecruiterAssignment
         fields = [
-            'id', 'candidate_id', 'candidate_name', 'candidate_email',
+            'id', 'candidate_id', 'candidate_display_id', 'candidate_name', 'candidate_email',
             'role_type', 'is_active', 'assigned_at', 'unassigned_at', 'status',
         ]
         read_only_fields = fields
+
+    def get_candidate_display_id(self, obj):
+        try:
+            return obj.candidate.user.display_id
+        except Exception:
+            return None
 
     def get_candidate_name(self, obj):
         try:
