@@ -150,6 +150,7 @@ def job_applications(request, candidate_id):
             company_name=jl.get('company_name', ''),
             role_title=jl.get('role_title', ''),
             job_url=jl.get('job_url', ''),
+            job_description=jl.get('job_description', ''),
             resume_used=jl.get('resume_used', ''),
             application_status=jl.get('status', 'applied').lower().replace(' ', '_'),
             submitted_by=request.user

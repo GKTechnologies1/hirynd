@@ -58,7 +58,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   // Daily log form
   const [logCount, setLogCount] = useState("");
   const [logNotes, setLogNotes] = useState("");
-  const [jobLinks, setJobLinks] = useState<Array<{ company_name: string; role_title: string; job_url: string; resume_used: string; status: string; }>>([]);
+  const [jobLinks, setJobLinks] = useState<Array<{ company_name: string; role_title: string; job_url: string; job_description: string; resume_used: string; status: string; }>>([]);
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
 
@@ -160,7 +160,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   };
 
   const addJobLink = () => {
-    setJobLinks([...jobLinks, { company_name: "", role_title: "", job_url: "", resume_used: "", status: "Applied" }]);
+    setJobLinks([...jobLinks, { company_name: "", role_title: "", job_url: "", job_description: "", resume_used: "", status: "Applied" }]);
   };
 
   const updateJobLink = (idx: number, field: string, value: string) => {
@@ -181,10 +181,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     setFetchingJob(prev => ({ ...prev, [idx]: true }));
     try {
       const { data } = await recruitersApi.fetchJobDetails(url);
-      if (data.role_title || data.company_name) {
+      if (data.role_title || data.company_name || data.job_description) {
         const updated = [...jobLinks];
         if (data.role_title) updated[idx].role_title = data.role_title;
         if (data.company_name) updated[idx].company_name = data.company_name;
+        if (data.job_description) updated[idx].job_description = data.job_description;
         setJobLinks(updated);
         toast({ title: "Job details fetched!" });
       } else {
@@ -227,6 +228,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           company_name: j.company_name,
           role_title: j.role_title,
           job_url: j.job_url,
+          job_description: j.job_description,
           resume_used: j.resume_used,
           status: j.status.toLowerCase().replace(/ /g, "_"),
         })),
@@ -878,7 +880,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 <div className="flex items-center justify-between border-b pb-2 mb-2">
                   <h4 className="text-sm font-bold flex items-center gap-2">Jobs & URLs <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">{jobLinks.length}</span></h4>
                   <Button variant="ghost" size="sm" onClick={addJobLink} className="h-8 text-[11px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 rounded-lg border border-secondary/20">
-                    <Plus className="mr-1 h-3 w-3" /> Add Job Link
+                    <Plus className="mr-1 h-3 w-3" /> Add Job Application Link
                   </Button>
                 </div>
 
@@ -898,22 +900,20 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
                         <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
                       </div>
+                      <Textarea placeholder="Job Description (Optional)" className="text-xs bg-background/50 min-h-[80px]" value={job.job_description} onChange={e => updateJobLink(idx, "job_description", e.target.value)} />
                       <div className="relative">
-                        <Input placeholder="Paste Job URL here..." className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
+                        <Input placeholder="Job Application Link" className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
                         <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
                           {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                         </Button>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Select value={job.resume_used} onValueChange={v => updateJobLink(idx, "resume_used", v)}>
-                          <SelectTrigger className="flex-1 h-9 text-[10px] font-bold bg-background/50">
-                            <SelectValue placeholder="Select Resume" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {resumes.map(r => <SelectItem key={r.url} value={r.url} className="text-xs">{r.label}</SelectItem>)}
-                            {resumes.length === 0 && <SelectItem value="Standard" className="text-xs">Standard Resume</SelectItem>}
-                          </SelectContent>
-                        </Select>
+                        <Input
+                          placeholder="Add google drive link of resume"
+                          className="flex-1 h-9 text-[10px] font-bold bg-background/50"
+                          value={job.resume_used}
+                          onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
+                        />
                         <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
                           <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -970,9 +970,12 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <div>
                           <p className="font-bold text-sm tracking-tight">{j.company_name || "—"}</p>
                           <p className="text-[11px] text-muted-foreground">{j.role_title || "—"}</p>
+                          {j.job_description && (
+                            <p className="text-[10px] text-muted-foreground/60 line-clamp-1 italic mt-0.5 max-w-[200px]">{j.job_description}</p>
+                          )}
                         </div>
                         {j.job_url && (
-                          <DocumentPreview url={j.job_url} label={<span className="flex items-center gap-1">Job Link <ExternalLink className="h-4 w-4" /></span>} className="text-secondary hover:underline cursor-pointer" />
+                          <DocumentPreview url={j.job_url} label={<span className="flex items-center gap-1">Job Application Link <ExternalLink className="h-4 w-4" /></span>} className="text-secondary hover:underline cursor-pointer" />
                         )}
                       </div>
                     )

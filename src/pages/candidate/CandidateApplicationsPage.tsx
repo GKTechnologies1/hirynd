@@ -49,16 +49,35 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     const fetchData = async () => {
       setLoading(true);
       try {
-        const { data: logs } = await recruitersApi.getDailyLogs(candidate.id);
-        setDailyLogs(logs || []);
-        // Map log_date to each job entry like in the recruiter view
-        const allJobs = (logs || []).flatMap((l: any) => 
+        const [logsRes, jobsRes] = await Promise.all([
+          recruitersApi.getDailyLogs(candidate.id).catch(() => ({ data: [] })),
+          recruitersApi.getJobApplications(candidate.id).catch(() => ({ data: [] })),
+        ]);
+        const logs = logsRes.data || [];
+        setDailyLogs(logs);
+
+        // Merge daily-log job entries + recruiter-submitted job applications
+        const logJobs = logs.flatMap((l: any) => 
           (l.job_entries || []).map((j: any) => ({ 
             ...j, 
             log_date: l.log_date || l.created_at 
           }))
         );
-        setJobPostings(allJobs);
+        const recruiterJobs = (jobsRes.data || []).map((j: any) => ({
+          ...j,
+          log_date: j.log_date || j.created_at,
+        }));
+
+        // De-duplicate by id (in case any overlap)
+        const seen = new Set<string>();
+        const merged: any[] = [];
+        for (const j of [...recruiterJobs, ...logJobs]) {
+          if (!seen.has(j.id)) {
+            seen.add(j.id);
+            merged.push(j);
+          }
+        }
+        setJobPostings(merged);
       } catch (err: any) {
         console.error("Error fetching applications:", err);
         toast({ 
@@ -164,17 +183,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   },
                   { 
                     header: "Recruiter Status", 
-                    render: (j: any) => <StatusBadge status={j.status || j.application_status} />
-                  },
-                  { 
-                    header: "Your Update", 
-                    render: (j: any) => (
-                      j.candidate_response_status ? (
-                        <StatusBadge status={j.candidate_response_status} />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Not set</span>
-                      )
-                    )
+                    render: (j: any) => <StatusBadge status={j.candidate_response_status || j.status || j.application_status} />
                   },
                   { 
                     header: "Link", 
