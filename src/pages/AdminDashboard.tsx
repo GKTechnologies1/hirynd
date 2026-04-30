@@ -94,11 +94,6 @@ const AdminDashboard = () => {
         STATUSES.forEach((s) => { counts[s] = 0; });
         cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
         
-        // ADD: Merge InterestedCandidate count into "lead" pipeline count
-        if (leads && Array.isArray(leads)) {
-          counts["lead"] = (counts["lead"] || 0) + leads.length;
-        }
-        
         setPipelineCounts(counts);
       }
     } catch {}
@@ -194,7 +189,7 @@ const AdminDashboard = () => {
 
     const pipelineWidgets = [
       { key: "pending_approvals", label: "Pending Approvals", count: pendingApprovals, icon: <Shield className="h-4 w-4" />, link: "/admin-dashboard/approvals", color: "bg-destructive/10 text-destructive" },
-      { key: "lead", label: "New Leads", count: pipelineCounts["lead"] || 0, icon: <Activity className="h-4 w-4" />, link: "/admin-dashboard/interested-candidates", color: "bg-muted" },
+      { key: "lead", label: "New Leads", count: pipelineCounts["lead"] || 0, icon: <Activity className="h-4 w-4" />, filter: "lead", color: "bg-muted" },
       { key: "approved", label: "Approved", count: pipelineCounts["approved"] || 0, icon: <CheckCircle className="h-4 w-4" />, filter: "approved", color: "bg-secondary/10" },
       { key: "intake_submitted", label: "Intake → Awaiting Roles", count: pipelineCounts["intake_submitted"] || 0, icon: <FileText className="h-4 w-4" />, filter: "intake_submitted", color: "bg-accent/10" },
       { key: "roles_published", label: "Roles → Awaiting Confirmation", count: pipelineCounts["roles_published"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "roles_published", color: "bg-accent/15" },
