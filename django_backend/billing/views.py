@@ -402,7 +402,7 @@ def verify_razorpay_payment(request, candidate_id):
     )
 
     candidate = rp_order.candidate
-    if candidate.status in ('roles_confirmed', 'pending_payment', 'intake_submitted'):
+    if candidate.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'intake_submitted'):
         if candidate.credentials.exists():
             candidate.status = 'credentials_submitted'
         else:
@@ -638,7 +638,7 @@ def record_payment(request, candidate_id):
             
             # Simple fulfillment logic: move to payment_completed or credentials_submitted
             candidate = sub.candidate
-            if candidate.status in ('roles_confirmed', 'pending_payment', 'intake_submitted'):
+            if candidate.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'intake_submitted'):
                 if candidate.credentials.exists():
                     candidate.status = 'credentials_submitted'
                 else:
@@ -667,7 +667,7 @@ def record_payment(request, candidate_id):
         if pay.status == 'completed':
             try:
                 cand = Candidate.objects.get(id=candidate_id)
-                if cand.status in ('roles_confirmed', 'pending_payment', 'past_due', 'intake_submitted'):
+                if cand.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'past_due', 'intake_submitted'):
                     if cand.credentials.exists():
                         cand.status = 'credentials_submitted'
                     else:

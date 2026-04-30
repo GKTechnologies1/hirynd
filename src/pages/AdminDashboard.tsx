@@ -57,8 +57,9 @@ const navItems = [
 ];
 
 const STATUSES = [
-  "pending_approval", "lead", "approved", "intake_submitted", "roles_published", "roles_confirmed",
-  "payment_completed", "credentials_submitted", "active_marketing", "paused", "cancelled", "placed_closed"
+  "pending_approval", "lead", "approved", "intake_submitted", "roles_published",
+  "roles_candidate_responded", "roles_confirmed", "payment_pending", "payment_completed",
+  "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due", "cancelled", "placed_closed"
 ];
 
 const AdminDashboard = () => {
