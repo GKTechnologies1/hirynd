@@ -16,8 +16,15 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface DataTableProps<T> {
   data: T[];
@@ -41,13 +48,14 @@ export function DataTable<T>({
   columns,
   searchPlaceholder = "Search...",
   searchKey,
-  pageSize = 10,
+  pageSize = 5,
   onRowClick,
   isLoading = false,
   emptyMessage = "No results found.",
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [currentPageSize, setCurrentPageSize] = React.useState(pageSize);
   const [sortConfig, setSortConfig] = React.useState<{ key: keyof T | null; direction: 'asc' | 'desc' | null }>({ key: null, direction: null });
 
   const handleSort = (key: keyof T) => {
@@ -92,29 +100,80 @@ export function DataTable<T>({
     return result;
   }, [data, searchTerm, searchKey, sortConfig]);
 
-  const totalPages = Math.ceil(filteredAndSortedData.length / pageSize);
+  const totalPages = Math.ceil(filteredAndSortedData.length / currentPageSize);
   const paginatedData = filteredAndSortedData.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
+    (currentPage - 1) * currentPageSize,
+    currentPage * currentPageSize
   );
 
   React.useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
+  // Generate visible page numbers with ellipsis logic
+  const getVisiblePages = () => {
+    const pages: (number | 'ellipsis-start' | 'ellipsis-end')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis-start');
+      
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      
+      if (currentPage < totalPages - 2) pages.push('ellipsis-end');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   return (
-    <div className="space-y-4">
-      {searchKey && (
-        <div className="relative max-w-sm">
-          {!searchTerm && <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />}
-          <Input
-            placeholder={searchPlaceholder}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-9"
-          />
+    <div className="space-y-0">
+      <div className="flex items-center justify-between mb-4">
+        {searchKey ? (
+          <div className="relative max-w-sm w-full">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+            <Input
+              placeholder={searchPlaceholder}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        ) : <div />}
+
+        <div className="flex items-center gap-2">
+          <p className="text-[11px] font-medium text-muted-foreground">Rows per page:</p>
+          <Select
+            value={currentPageSize.toString()}
+            onValueChange={(value) => {
+              setCurrentPageSize(Number(value));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="h-8 w-[70px] text-xs">
+              <SelectValue placeholder={currentPageSize.toString()} />
+            </SelectTrigger>
+            <SelectContent side="bottom">
+              {[5, 10, 15, 20, 25].map((size) => (
+                <SelectItem key={size} value={size.toString()} className="text-xs">
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
+      </div>
 
       <div className="rounded-xl border border-border overflow-hidden">
         <Table>
@@ -197,52 +256,67 @@ export function DataTable<T>({
         </Table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
-                Showing {Math.min((currentPage - 1) * pageSize + 1, filteredAndSortedData.length)}–{Math.min(currentPage * pageSize, filteredAndSortedData.length)} of {filteredAndSortedData.length}
-            </p>
+      {/* Pagination Tray */}
+      {(totalPages > 1 || filteredAndSortedData.length > 5) && (
+        <div className="flex items-center justify-between px-1 pt-4">
+          <p className="text-[11px] font-medium text-muted-foreground tracking-wide">
+            Showing{" "}
+            <span className="font-bold text-foreground">
+              {Math.min((currentPage - 1) * currentPageSize + 1, filteredAndSortedData.length)}
+            </span>
+            –
+            <span className="font-bold text-foreground">
+              {Math.min(currentPage * currentPageSize, filteredAndSortedData.length)}
+            </span>
+            {" "}of{" "}
+            <span className="font-bold text-foreground">{filteredAndSortedData.length}</span>
+          </p>
           <Pagination className="justify-end w-auto mx-0">
-            <PaginationContent>
+            <PaginationContent className="gap-1">
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   className={cn(
-                    "cursor-pointer h-8 w-8 p-0 rounded-lg",
-                    currentPage === 1 && "pointer-events-none opacity-50 cursor-not-allowed"
+                    "cursor-pointer h-8 px-2.5 rounded-lg text-xs font-semibold gap-1 select-none",
+                    currentPage === 1 && "pointer-events-none opacity-40 cursor-not-allowed"
                   )}
                 />
               </PaginationItem>
-              
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                .map((p, i, arr) => (
-                    <React.Fragment key={p}>
-                        {i > 0 && arr[i-1] !== p - 1 && (
-                            <PaginationItem><span className="px-2 text-muted-foreground">...</span></PaginationItem>
-                        )}
-                        <PaginationItem>
-                            <PaginationLink
-                                isActive={currentPage === p}
-                                onClick={() => setCurrentPage(p)}
-                                className={cn(
-                                    "cursor-pointer h-8 w-8 p-0 rounded-lg text-xs font-bold transition-all",
-                                    currentPage === p ? "bg-secondary text-secondary-foreground shadow-sm" : "hover:bg-muted"
-                                )}
-                            >
-                                {p}
-                            </PaginationLink>
-                        </PaginationItem>
-                    </React.Fragment>
-                ))
-              }
+
+              {getVisiblePages().map((page, idx) => {
+                if (page === 'ellipsis-start' || page === 'ellipsis-end') {
+                  return (
+                    <PaginationItem key={page}>
+                      <span className="flex h-8 w-8 items-center justify-center text-xs text-muted-foreground select-none">
+                        ···
+                      </span>
+                    </PaginationItem>
+                  );
+                }
+                return (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      isActive={currentPage === page}
+                      onClick={() => setCurrentPage(page)}
+                      className={cn(
+                        "cursor-pointer h-8 w-8 p-0 rounded-lg text-xs font-bold transition-all select-none flex items-center justify-center",
+                        currentPage === page
+                          ? "bg-secondary text-secondary-foreground shadow-sm"
+                          : "hover:bg-muted"
+                      )}
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
 
               <PaginationItem>
                 <PaginationNext
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   className={cn(
-                     "cursor-pointer h-8 w-8 p-0 rounded-lg",
-                     currentPage === totalPages && "pointer-events-none opacity-50 cursor-not-allowed"
+                    "cursor-pointer h-8 px-2.5 rounded-lg text-xs font-semibold gap-1 select-none",
+                    currentPage === totalPages && "pointer-events-none opacity-40 cursor-not-allowed"
                   )}
                 />
               </PaginationItem>

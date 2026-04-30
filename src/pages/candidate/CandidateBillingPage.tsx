@@ -222,6 +222,8 @@ const CandidateBillingPage = ({ candidate }: Props) => {
             <DataTable
               data={invoices}
               isLoading={loading}
+              searchKey={"status" as any}
+              searchPlaceholder="Search invoices by status..."
               emptyMessage="No invoices generated yet. Invoices are created automatically after each payment."
               columns={[
                 {
@@ -297,6 +299,8 @@ const CandidateBillingPage = ({ candidate }: Props) => {
             <DataTable
               data={standalonePayments}
               isLoading={loading}
+              searchKey={"payment_type" as any}
+              searchPlaceholder="Search payments by type..."
               emptyMessage="No payments found."
               columns={[
                 {

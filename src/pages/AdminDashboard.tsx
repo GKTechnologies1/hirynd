@@ -24,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
@@ -347,11 +347,6 @@ const AdminDashboard = () => {
                 }
               ]}
             />
-            {filteredCandidates.length > 5 && (
-              <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
-                <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -445,11 +440,6 @@ const AdminDashboard = () => {
                   }
                 ]}
               />
-              {recruiters.length > 5 && (
-                <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
-                  <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
-                </div>
-              )}
             </CardContent>
           </Card>
         )}

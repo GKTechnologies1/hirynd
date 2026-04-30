@@ -220,6 +220,8 @@ const AdminUsersPage = () => {
           <DataTable
             data={filteredUsers}
             isLoading={loading}
+            searchKey="full_name"
+            searchPlaceholder="Search users by name..."
             emptyMessage="No users found matching your criteria."
             columns={[
               {

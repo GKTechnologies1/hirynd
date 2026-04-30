@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { auditApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -69,40 +68,60 @@ const AdminActivityPage = () => {
           <CardTitle className="text-sm font-semibold">Activity Logs ({logs.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? <p className="text-muted-foreground text-sm">Loading...</p> : (
-            <div className="rounded-xl border border-border overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="text-xs font-semibold">Time</TableHead>
-                    <TableHead className="text-xs font-semibold">Actor</TableHead>
-                    <TableHead className="text-xs font-semibold">Action</TableHead>
-                    <TableHead className="text-xs font-semibold">Target</TableHead>
-                    <TableHead className="text-xs font-semibold">Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {logs.map((l: any) => (
-                    <TableRow key={l.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {l.created_at ? format(new Date(l.created_at), "MMM d, HH:mm") : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">{l.actor_name || l.actor?.profile?.full_name || "System"}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={`text-xs ${actionColor(l.action)}`}>
-                          {l.action.replace(/_/g, " ")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{l.target_type}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                        {l.details ? JSON.stringify(l.details).slice(0, 80) : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <DataTable
+            data={logs}
+            isLoading={loading}
+            searchKey={"actor_name" as any}
+            searchPlaceholder="Search by actor name..."
+            emptyMessage="No activity logs found."
+            pageSize={15}
+            columns={[
+              {
+                header: "Time",
+                sortable: true,
+                accessorKey: "created_at" as any,
+                className: "text-xs",
+                render: (l: any) => (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {l.created_at ? format(new Date(l.created_at), "MMM d, HH:mm") : "—"}
+                  </span>
+                )
+              },
+              {
+                header: "Actor",
+                sortable: true,
+                accessorKey: "actor_name" as any,
+                className: "text-sm",
+                render: (l: any) => (
+                  <span>{l.actor_name || l.actor?.profile?.full_name || "System"}</span>
+                )
+              },
+              {
+                header: "Action",
+                sortable: true,
+                accessorKey: "action" as any,
+                render: (l: any) => (
+                  <Badge variant="secondary" className={`text-xs ${actionColor(l.action)}`}>
+                    {l.action.replace(/_/g, " ")}
+                  </Badge>
+                )
+              },
+              {
+                header: "Target",
+                className: "text-xs text-muted-foreground",
+                render: (l: any) => <span>{l.target_type}</span>
+              },
+              {
+                header: "Details",
+                className: "text-xs text-muted-foreground max-w-[200px]",
+                render: (l: any) => (
+                  <span className="truncate block max-w-[200px]">
+                    {l.details ? JSON.stringify(l.details).slice(0, 80) : "—"}
+                  </span>
+                )
+              }
+            ]}
+          />
         </CardContent>
       </Card>
     </div>
