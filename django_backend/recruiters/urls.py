@@ -11,6 +11,7 @@ urlpatterns = [
     path('unassign/<uuid:assignment_id>/', views.unassign_recruiter, name='unassign_recruiter'),
     path('<uuid:candidate_id>/assignments/', views.assignments, name='assignments'),
     path('<uuid:candidate_id>/daily-logs/', views.daily_logs, name='daily_logs'),
+    path('<uuid:candidate_id>/job-applications/', views.job_applications, name='job_applications'),
     path('jobs/<uuid:job_id>/status/', views.update_job_status, name='update_job_status'),
     path('fetch-job-details/', views.fetch_job_details, name='fetch_job_details'),
     path('stats/', views.recruiter_stats, name='recruiter_stats'),

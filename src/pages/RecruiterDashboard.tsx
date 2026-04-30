@@ -32,6 +32,7 @@ const navItems = [
 const RecruiterHome = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);

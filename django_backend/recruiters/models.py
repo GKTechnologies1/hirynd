@@ -106,6 +106,7 @@ class DailySubmissionLog(models.Model):
     interview_count = models.IntegerField(default=0)
     offer_count = models.IntegerField(default=0)
     notes = models.TextField(blank=True, null=True)
+    is_manual = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -69,11 +69,12 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       setCandidate(cand);
 
       if (cand) {
-        const [intakeRes, roleRes, credRes, logsRes, subRes] = await Promise.all([
+        const [intakeRes, roleRes, credRes, logsRes, jobsRes, subRes] = await Promise.all([
           candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
           candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
           candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
           recruitersApi.getDailyLogs(candidateId).catch(() => ({ data: [] })),
+          recruitersApi.getJobApplications(candidateId).catch(() => ({ data: [] })),
           billingApi.subscription(candidateId).catch(() => ({ data: null })),
         ]);
         setIntake(intakeRes.data || null);
@@ -110,8 +111,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
         const logs = logsRes.data || [];
         setDailyLogs(logs);
-        const allJobs = logs.flatMap((l: any) => (l.job_entries || []).map((j: any) => ({ ...j, log_date: l.log_date })));
-        setJobPostings(allJobs);
+        setJobPostings(jobsRes.data || []);
         setSubscription(subRes?.data?.id ? subRes.data : null);
       }
     } catch { }
@@ -203,9 +203,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     setSavingLog(true);
     try {
       await recruitersApi.submitDailyLog(candidateId, {
-        applications_count: Number(logCount),
+        applications_count: Number(logCount) || 0,
         notes: logNotes,
-        job_links: [],
       });
       toast({ title: "Daily log submitted" });
       setLogCount(""); setLogNotes("");
@@ -223,9 +222,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     }
     setSavingLog(true);
     try {
-      await recruitersApi.submitDailyLog(candidateId, {
-        applications_count: validLinks.length,
-        notes: "Job application submitted",
+      await recruitersApi.submitJobApplications(candidateId, {
         job_links: validLinks.map(j => ({
           company_name: j.company_name,
           role_title: j.role_title,
@@ -851,11 +848,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   <div className="space-y-3">
                     {dailyLogs.map((log: any, idx: number) => (
                       <div key={idx} className="bg-muted/10 p-4 rounded-xl border border-border/40">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-3">
                           <span className="text-[10px] uppercase font-bold text-muted-foreground">{formatDate(log.log_date || log.created_at)}</span>
-                          <Badge variant="secondary" className="text-[9px] font-bold py-0">{log.applications_count} Apps</Badge>
+                          <Badge variant="secondary" className="text-[9px] font-bold py-0.5 px-2">Total Applications Submitted Today: {log.total_applications_submitted_today}</Badge>
                         </div>
-                        <p className="text-xs text-foreground font-medium mb-3">{log.notes || <span className="italic text-muted-foreground opacity-60">No notes provided.</span>}</p>
+                        <div className="space-y-1">
+                          <p className="text-[9px] font-bold uppercase tracking-widest opacity-40">Notes</p>
+                          <p className="text-xs text-foreground font-medium">{log.notes || <span className="italic text-muted-foreground opacity-60">No notes provided.</span>}</p>
+                        </div>
                       </div>
                     ))}
                     {dailyLogs.length > 5 && (

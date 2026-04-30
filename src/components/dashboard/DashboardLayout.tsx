@@ -54,20 +54,43 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
           </div>
           <nav className="flex-1 space-y-1 p-3 mt-4">
             {navItems.map((item) => {
-              const isDashboardHome = ["/candidate-dashboard", "/recruiter-dashboard", "/admin-dashboard"].includes(item.path);
-              const isActive = isDashboardHome ? location.pathname === item.path : location.pathname.startsWith(item.path);
+              // Find the best matching nav item based on longest prefix match
+              // This ensures sub-pages highlight their parent nav item
+              const bestMatch = [...navItems]
+                .filter(i => location.pathname.startsWith(i.path))
+                .sort((a, b) => b.path.length - a.path.length)[0];
+              
+              const isActive = bestMatch?.path === item.path;
+
               return (
                 <Link
                   key={item.path}
                   to={item.path}
                   title={sidebarCollapsed ? item.label : undefined}
-                  className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition-all duration-200 ${isActive
-                      ? "bg-white/20 text-white shadow-sm"
-                      : "text-white/70 hover:bg-white/10 hover:text-white"
+                  className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition-all duration-300 ${isActive
+                      ? "bg-white/15 text-white shadow-lg shadow-black/5"
+                      : "text-white/60 hover:bg-white/5 hover:text-white"
                     } ${sidebarCollapsed ? "justify-center px-2" : ""}`}
                 >
-                  <span className={`flex-shrink-0 ${isActive ? "text-white" : ""}`}>{item.icon}</span>
-                  {!sidebarCollapsed && <span>{item.label}</span>}
+                  {/* Active Indicator Bar */}
+                  {isActive && (
+                    <motion.div 
+                      layoutId="sidebar-active-indicator"
+                      className="absolute left-0 w-1 h-6 bg-secondary rounded-r-full"
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  
+                  <span className={`flex-shrink-0 transition-colors duration-300 ${isActive ? "text-secondary" : "group-hover:text-white"}`}>
+                    {item.icon}
+                  </span>
+                  
+                  {!sidebarCollapsed && <span className="relative z-10">{item.label}</span>}
+                  
+                  {/* Subtle Background Glow for Active Item */}
+                  {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl pointer-events-none" />
+                  )}
                 </Link>
               );
             })}
@@ -115,20 +138,25 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
                 </div>
                 <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
                   {navItems.map((item) => {
-                      const isDashboardHome = ["/candidate-dashboard", "/recruiter-dashboard", "/admin-dashboard"].includes(item.path);
-                      const isActive = isDashboardHome ? location.pathname === item.path : location.pathname.startsWith(item.path);
+                    const bestMatch = [...navItems]
+                      .filter(i => location.pathname.startsWith(i.path))
+                      .sort((a, b) => b.path.length - a.path.length)[0];
+                    
+                    const isActive = bestMatch?.path === item.path;
+                    
                     return (
                       <Link
                         key={item.path}
                         to={item.path}
                         onClick={() => setMobileOpen(false)}
-                        className={`flex items-center gap-4 rounded-xl px-4 py-3 text-[14px] font-bold transition-all ${isActive
+                        className={`group relative flex items-center gap-4 rounded-xl px-4 py-3 text-[14px] font-bold transition-all ${isActive
                             ? "bg-white/20 text-white shadow-lg"
                             : "text-white/70 hover:bg-white/10 hover:text-white"
                           }`}
                       >
-                        <span className="shrink-0">{item.icon}</span>
+                        <span className={`shrink-0 ${isActive ? "text-secondary" : ""}`}>{item.icon}</span>
                         {item.label}
+                        {isActive && <div className="absolute left-0 w-1 h-6 bg-secondary rounded-r-full" />}
                       </Link>
                     );
                   })}

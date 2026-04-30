@@ -257,6 +257,15 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
+class DailyJournalSerializer(serializers.ModelSerializer):
+    total_applications_submitted_today = serializers.IntegerField(source='applications_count')
+    
+    class Meta:
+        model = DailySubmissionLog
+        fields = ['id', 'log_date', 'total_applications_submitted_today', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
 class DailySubmissionLogSerializer(serializers.ModelSerializer):
     job_entries = JobLinkEntrySerializer(many=True, read_only=True)
 

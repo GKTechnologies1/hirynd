@@ -13,7 +13,7 @@ from .models import RecruiterAssignment, DailySubmissionLog, JobLinkEntry
 from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
     RecruiterProfileSerializer, RecruiterBankDetailsSerializer,
-    AdminRecruiterFullSerializer, MyAssignmentSerializer,
+    AdminRecruiterFullSerializer, MyAssignmentSerializer, DailyJournalSerializer,
 )
 
 
@@ -97,23 +97,54 @@ def daily_logs(request, candidate_id):
 
     if request.method == 'GET':
         logs = DailySubmissionLog.objects.filter(
-            candidate_id=candidate_id
-        ).prefetch_related('job_entries').order_by('-log_date')
-        return Response(DailySubmissionLogSerializer(logs, many=True).data)
+            candidate_id=candidate_id,
+            is_manual=True
+        ).order_by('-log_date', '-created_at')
+        return Response(DailyJournalSerializer(logs, many=True).data)
 
-    log, created = DailySubmissionLog.objects.get_or_create(
+    log = DailySubmissionLog.objects.create(
         candidate_id=candidate_id,
         recruiter=request.user,
         log_date=timezone.now().date(),
+        applications_count=int(request.data.get('applications_count', 0)),
+        notes=request.data.get('notes', ''),
+        is_manual=True
+    )
+    return Response(DailyJournalSerializer(log).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsApproved])
+def job_applications(request, candidate_id):
+    try:
+        candidate_obj = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
+
+    is_allowed = request.user.role in ('admin', 'recruiter', 'team_lead', 'team_manager')
+    if request.user.role == 'candidate' and str(request.user.id) == str(candidate_obj.user_id):
+        is_allowed = True
+    
+    if not is_allowed:
+        return Response({'error': 'Forbidden'}, status=403)
+
+    if request.method == 'GET':
+        jobs = JobLinkEntry.objects.filter(candidate_id=candidate_id).order_by('-created_at')
+        return Response(JobLinkEntrySerializer(jobs, many=True).data)
+
+    # POST: Create new job entries
+    log = DailySubmissionLog.objects.create(
+        candidate_id=candidate_id,
+        recruiter=request.user,
+        log_date=timezone.now().date(),
+        notes="Job application submitted",
+        is_manual=False
     )
     
-    log.applications_count += int(request.data.get('applications_count', 0))
-    log.notes = (log.notes or "") + "\n" + request.data.get('notes', '')
-    log.save()
-
     job_links = request.data.get('job_links', [])
+    created_entries = []
     for jl in job_links:
-        JobLinkEntry.objects.create(
+        entry = JobLinkEntry.objects.create(
             submission_log=log,
             candidate_id=candidate_id,
             company_name=jl.get('company_name', ''),
@@ -123,8 +154,13 @@ def daily_logs(request, candidate_id):
             application_status=jl.get('status', 'applied').lower().replace(' ', '_'),
             submitted_by=request.user
         )
+        created_entries.append(entry)
+    
+    # We no longer increment applications_count here to keep it strictly for manual journal entries
+    # as requested by the user.
+    log.save()
 
-    return Response(DailySubmissionLogSerializer(log).data, status=status.HTTP_201_CREATED)
+    return Response(JobLinkEntrySerializer(created_entries, many=True).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
