@@ -194,11 +194,12 @@ const AdminDashboard = () => {
 
     const pipelineWidgets = [
       { key: "pending_approvals", label: "Pending Approvals", count: pendingApprovals, icon: <Shield className="h-4 w-4" />, link: "/admin-dashboard/approvals", color: "bg-destructive/10 text-destructive" },
-      { key: "lead", label: "New Leads", count: pipelineCounts["lead"] || 0, icon: <Activity className="h-4 w-4" />, filter: "lead", color: "bg-muted" },
+      { key: "lead", label: "New Leads", count: pipelineCounts["lead"] || 0, icon: <Activity className="h-4 w-4" />, link: "/admin-dashboard/interested-candidates", color: "bg-muted" },
       { key: "approved", label: "Approved", count: pipelineCounts["approved"] || 0, icon: <CheckCircle className="h-4 w-4" />, filter: "approved", color: "bg-secondary/10" },
       { key: "intake_submitted", label: "Intake → Awaiting Roles", count: pipelineCounts["intake_submitted"] || 0, icon: <FileText className="h-4 w-4" />, filter: "intake_submitted", color: "bg-accent/10" },
       { key: "roles_published", label: "Roles → Awaiting Confirmation", count: pipelineCounts["roles_published"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "roles_published", color: "bg-accent/15" },
-      { key: "roles_confirmed", label: "Roles → Awaiting Payment", count: pipelineCounts["roles_confirmed"] || 0, icon: <ClipboardList className="h-4 w-4" />, filter: "roles_confirmed", color: "bg-accent/20" },
+      { key: "awaiting_payment", label: "Roles → Awaiting Payment", count: (pipelineCounts["roles_confirmed"] || 0) + (pipelineCounts["roles_candidate_responded"] || 0), icon: <ClipboardList className="h-4 w-4" />, filter: "roles_confirmed,roles_candidate_responded", color: "bg-accent/20" },
+      { key: "payment_pending", label: "Payment Pending", count: pipelineCounts["payment_pending"] || 0, icon: <DollarSign className="h-4 w-4" />, filter: "payment_pending", color: (pipelineCounts["payment_pending"] || 0) > 0 ? "bg-orange-100 text-orange-700" : "bg-muted" },
       { key: "payment_completed", label: "Payment Completed", count: pipelineCounts["payment_completed"] || 0, icon: <DollarSign className="h-4 w-4" />, filter: "payment_completed", color: "bg-secondary/20" },
       { key: "credentials_submitted", label: "Credentials Ready", count: pipelineCounts["credentials_submitted"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "credentials_submitted", color: "bg-secondary/30" },
       { key: "active_marketing", label: "Active Marketing", count: pipelineCounts["active_marketing"] || 0, icon: <Activity className="h-4 w-4" />, filter: "active_marketing", color: "bg-secondary/40" },
@@ -208,8 +209,10 @@ const AdminDashboard = () => {
       { key: "training_clicks", label: "Training Clicks (7d / 30d)", count: trainingClicks7d, icon: <MousePointer className="h-4 w-4" />, link: "/admin-dashboard/config", color: "bg-muted", subtitle: `${trainingClicks7d} / ${trainingClicks30d}` },
     ];
 
+    // Support multi-status filters (e.g. "roles_confirmed,roles_candidate_responded")
+    const activeStatuses = activeFilter ? activeFilter.split(",") : [];
     const filteredCandidates = activeFilter
-      ? candidates.filter(c => c.status === activeFilter)
+      ? candidates.filter(c => activeStatuses.includes(c.status))
       : candidates;
 
     return (
@@ -279,14 +282,14 @@ const AdminDashboard = () => {
         {activeFilter && (
           <div className="mb-4 flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Filtered by:</span>
-            <StatusBadge status={activeFilter} />
+            {activeStatuses.map((s) => <StatusBadge key={s} status={s} />)}
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setActiveFilter(null)}>Clear</Button>
           </div>
         )}
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">{activeFilter ? `Candidates — ${activeFilter.replace(/_/g, " ")}` : "All Candidates"}</CardTitle>
+            <CardTitle className="text-sm font-semibold">{activeFilter ? `Candidates — ${activeStatuses.map(s => s.replace(/_/g, " ")).join(", ")}` : "All Candidates"}</CardTitle>
           </CardHeader>
           <CardContent>
             <DataTable
