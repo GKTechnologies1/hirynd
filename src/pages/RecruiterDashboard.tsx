@@ -44,21 +44,25 @@ const RecruiterHome = () => {
   useEffect(() => {
     if (!user) return;
     const fetchData = async () => {
+      setLoading(true);
       try {
-        const [{ data: candData }, { data: statsData }] = await Promise.all([
+        const [{ data: candData }, statsRes] = await Promise.all([
           recruitersApi.myCandidates(),
-          recruitersApi.stats().catch(() => ({ data: null }))
+          recruitersApi.stats().catch(err => {
+            console.warn("RecruiterDashboard: Stats fetch failed", err);
+            return { data: null };
+          })
         ]);
-        
+
         setCandidates(candData || []);
-        setStats(statsData);
+        setStats(statsRes?.data);
 
         // Auto-open if only one candidate is assigned
         if (candData?.length === 1) {
           navigate(`/recruiter-dashboard/candidates/${candData[0].id}`, { replace: true });
         }
       } catch (err) {
-        console.error("Failed to fetch recruiter data:", err);
+        console.error("RecruiterDashboard: Core data fetch failed", err);
       }
       setLoading(false);
     };
@@ -66,34 +70,34 @@ const RecruiterHome = () => {
   }, [user, navigate, location.pathname]);
 
   const filteredCandidates = candidates.filter(c => {
-    const matchesSearch = !search || 
-      c.full_name?.toLowerCase().includes(search.toLowerCase()) || 
+    const matchesSearch = !search ||
+      c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       c.email?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
     const matchesVisa = visaFilter === "all" || c.profile?.visa_status === visaFilter;
-    
+
     let matchesDate = true;
     if (dateRange.start || dateRange.end) {
       const updatedAt = new Date(c.updated_at || c.created_at);
-      
+
       if (dateRange.start) {
         let dStart = dateRange.start;
         if (dStart.includes("-") && dStart.split("-")[0].length === 2) {
           try {
             const parsed = parse(dStart, "MM-dd-yyyy", new Date());
             if (!isNaN(parsed.getTime())) dStart = format(parsed, "yyyy-MM-dd");
-          } catch(e) {}
+          } catch (e) { }
         }
         if (updatedAt < new Date(dStart)) matchesDate = false;
       }
-      
+
       if (dateRange.end) {
         let dEnd = dateRange.end;
         if (dEnd.includes("-") && dEnd.split("-")[0].length === 2) {
           try {
             const parsed = parse(dEnd, "MM-dd-yyyy", new Date());
             if (!isNaN(parsed.getTime())) dEnd = format(parsed, "yyyy-MM-dd");
-          } catch(e) {}
+          } catch (e) { }
         }
         if (updatedAt > new Date(dEnd + "T23:59:59")) matchesDate = false;
       }
@@ -142,9 +146,9 @@ const RecruiterHome = () => {
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full md:w-64">
                 {!search && <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />}
-                <Input 
-                  placeholder="Search name or email..." 
-                  className="pl-9 text-sm h-9 bg-background/50" 
+                <Input
+                  placeholder="Search name or email..."
+                  className="pl-9 text-sm h-9 bg-background/50"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
@@ -163,16 +167,16 @@ const RecruiterHome = () => {
                 </SelectContent>
               </Select>
               <div className="flex items-center gap-1 bg-background/50 border rounded-md px-1.5 h-9 min-w-[300px]">
-                <DatePicker 
-                  value={dateRange.start} 
-                  onChange={val => setDateRange(prev => ({ ...prev, start: val }))} 
+                <DatePicker
+                  value={dateRange.start}
+                  onChange={val => setDateRange(prev => ({ ...prev, start: val }))}
                   className="h-7 border-none bg-transparent shadow-none text-[10px] w-32 px-1"
                   placeholder="Start Date"
                 />
                 <span className="text-muted-foreground">-</span>
-                <DatePicker 
-                  value={dateRange.end} 
-                  onChange={val => setDateRange(prev => ({ ...prev, end: val }))} 
+                <DatePicker
+                  value={dateRange.end}
+                  onChange={val => setDateRange(prev => ({ ...prev, end: val }))}
                   className="h-7 border-none bg-transparent shadow-none text-[10px] w-32 px-1"
                   placeholder="End Date"
                 />
@@ -186,11 +190,11 @@ const RecruiterHome = () => {
             isLoading={loading}
             searchPlaceholder="Filter results..."
             // We use existing filters, but DataTable's internal search can be an extra layer
-            searchKey="full_name" 
+            searchKey="full_name"
             emptyMessage="No candidates found matching your criteria."
             columns={[
-              { 
-                header: "ID", 
+              {
+                header: "ID",
                 className: "px-6",
                 render: (c: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
@@ -198,8 +202,8 @@ const RecruiterHome = () => {
                   </span>
                 )
               },
-              { 
-                header: "Candidate", 
+              {
+                header: "Candidate",
                 className: "px-6",
                 render: (c: any) => (
                   <div className="flex flex-col">
@@ -208,8 +212,8 @@ const RecruiterHome = () => {
                   </div>
                 )
               },
-              { 
-                header: "Visa Status", 
+              {
+                header: "Visa Status",
                 className: "px-6",
                 render: (c: any) => (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/10 text-secondary border border-secondary/20 uppercase tracking-tighter">
@@ -217,13 +221,13 @@ const RecruiterHome = () => {
                   </span>
                 )
               },
-              { 
-                header: "Pipeline Status", 
+              {
+                header: "Pipeline Status",
                 className: "px-6",
                 render: (c: any) => <StatusBadge status={c.status} />
               },
-              { 
-                header: "Total Apps", 
+              {
+                header: "Total Apps",
                 className: "px-6 text-center",
                 render: (c: any) => (
                   <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
@@ -231,8 +235,8 @@ const RecruiterHome = () => {
                   </span>
                 )
               },
-              { 
-                header: "Total Interviews", 
+              {
+                header: "Total Interviews",
                 className: "px-6 text-center",
                 render: (c: any) => (
                   <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-secondary/10 text-secondary">
@@ -240,8 +244,8 @@ const RecruiterHome = () => {
                   </span>
                 )
               },
-              { 
-                header: "Last Updated", 
+              {
+                header: "Last Updated",
                 className: "px-6",
                 render: (c: any) => (
                   <span className="text-xs text-muted-foreground">
@@ -249,14 +253,14 @@ const RecruiterHome = () => {
                   </span>
                 )
               },
-              { 
-                header: "Action", 
+              {
+                header: "Action",
                 className: "px-6 text-right",
                 render: (c: any) => (
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    className="h-8 px-4 text-xs font-medium rounded-lg" 
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 px-4 text-xs font-medium rounded-lg"
                     onClick={() => navigate(`/recruiter-dashboard/candidates/${c.id}`)}
                   >
                     <Eye className="mr-1.5 h-3.5 w-3.5" /> Manage

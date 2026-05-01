@@ -242,43 +242,52 @@ class UserListSerializer(serializers.ModelSerializer):
 
     def get_university(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return ''
         return getattr(p, 'university', '') or ''
 
     def get_major(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return ''
         return getattr(p, 'major', '') or ''
 
     def get_degree(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return ''
         return getattr(p, 'degree', '') or ''
 
     def get_graduation_date(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return None
         date = getattr(p, 'graduation_date', None)
         return date.isoformat() if date else None
 
     def get_linkedin_url(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return ''
         return getattr(p, 'linkedin_url', '') or ''
 
     def get_social_profile_url(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return ''
         if obj.role == 'candidate':
             return getattr(p, 'portfolio_url', '') or ''
         return getattr(p, 'social_profile_url', '') or ''
 
     def get_city(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return ''
         if obj.role == 'candidate':
             return getattr(p, 'current_location', '') or ''
         return getattr(p, 'city', '') or ''
 
     def get_state(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return ''
         return getattr(p, 'state', '') or ''
 
     def get_country(self, obj):
         p = self._get_target_profile(obj)
+        if p is None: return ''
         return getattr(p, 'country', '') or ''
 
     # Candidate especific

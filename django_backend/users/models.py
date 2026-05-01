@@ -95,7 +95,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{prefix}{str(self.seq_number).zfill(padding)}"
 
     def save(self, *args, **kwargs):
-        if self._state.adding and not self.seq_number and self.role:
+        if not self.seq_number and self.role:
             # Per-role sequential: each role gets its own 1, 2, 3... counter
             from django.db.models import Max
             max_seq = User.objects.filter(role=self.role).aggregate(Max('seq_number'))['seq_number__max']

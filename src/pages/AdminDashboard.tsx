@@ -82,6 +82,8 @@ const AdminDashboard = () => {
 
   const fetchData = async () => {
     setLoading(true);
+
+    // Core data (Candidates and Leads)
     try {
       const [{ data: cands }, { data: leads }] = await Promise.all([
         candidatesApi.list(),
@@ -93,39 +95,53 @@ const AdminDashboard = () => {
         const counts: Record<string, number> = {};
         STATUSES.forEach((s) => { counts[s] = 0; });
         cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
-        
         setPipelineCounts(counts);
       }
-    } catch {}
+    } catch (err) {
+      console.error("Dashboard: Failed to fetch candidates", err);
+      toast({
+        title: "Partial Loading Error",
+        description: "Failed to load candidate list. Some dashboard features may be limited.",
+        variant: "destructive"
+      });
+    }
 
+    // Pending Approvals
     try {
       const { data: pending } = await authApi.pendingApprovals();
       setPendingApprovals(Array.isArray(pending) ? pending.length : 0);
-    } catch {}
+    } catch (err) {
+      console.warn("Dashboard: Failed to fetch pending approvals", err);
+    }
 
+    // All Users / Recruiters
     try {
       const { data: recData } = await authApi.allUsers();
       const allUsers = Array.isArray(recData) ? recData : (recData?.results || []);
       const recList = allUsers.filter((u: any) => ["recruiter", "team_lead", "team_manager"].includes(u.role));
       setRecruiters(recList);
-    } catch {}
+    } catch (err) {
+      console.warn("Dashboard: Failed to fetch recruiters", err);
+    }
 
+    // Billing Alerts
     try {
       const { data: alerts } = await billingApi.billingAlerts();
       setBillingAlerts(alerts?.count || 0);
-    } catch {}
+    } catch (err) {
+      console.warn("Dashboard: Failed to fetch billing alerts", err);
+    }
 
-    try {
-      const { data: pending } = await authApi.pendingApprovals();
-      setPendingApprovals(Array.isArray(pending) ? pending.length : 0);
-    } catch {}
-
+    // Notifications
     if (user) {
       try {
         const { data: notifs } = await notificationsApi.list(true);
         setNotifications(Array.isArray(notifs) ? notifs.slice(0, 10) : []);
-      } catch {}
+      } catch (err) {
+        console.warn("Dashboard: Failed to fetch notifications", err);
+      }
     }
+
     setLoading(false);
   };
 
@@ -148,7 +164,7 @@ const AdminDashboard = () => {
   };
 
   const markNotifRead = async (id: string) => {
-    await notificationsApi.markRead(id).catch(() => {});
+    await notificationsApi.markRead(id).catch(() => { });
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
@@ -167,7 +183,7 @@ const AdminDashboard = () => {
       const recruiterId = subPath.replace("recruiters/", "");
       return <AdminRecruiterDetail id={recruiterId} />;
     }
-    
+
     switch (subPath) {
       case "approvals": return <AdminApprovalsPage />;
       case "referrals": return <AdminReferralsPage />;
@@ -248,9 +264,8 @@ const AdminDashboard = () => {
                 transition={{ delay: i * 0.03, duration: 0.25 }}
               >
                 <Card
-                  className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
-                    activeFilter === (w as any).filter ? "ring-2 ring-secondary shadow-md" : ""
-                  }`}
+                  className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${activeFilter === (w as any).filter ? "ring-2 ring-secondary shadow-md" : ""
+                    }`}
                   onClick={() => {
                     if ((w as any).link) navigate((w as any).link);
                     else if ((w as any).filter) setActiveFilter(prev => prev === (w as any).filter ? null : (w as any).filter);
@@ -293,8 +308,8 @@ const AdminDashboard = () => {
               searchKey="full_name"
               searchPlaceholder="Search candidates by name..."
               columns={[
-                { 
-                  header: "ID", 
+                {
+                  header: "ID",
                   render: (c: any) => (
                     <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono">
                       {c.display_id || `HYRCDT${c.id.toString().slice(-6).toUpperCase()}`}
@@ -302,12 +317,12 @@ const AdminDashboard = () => {
                   ),
                   sortable: true,
                   accessorKey: "id",
-                  className: "text-xs pl-4" 
+                  className: "text-xs pl-4"
                 },
                 { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold", sortable: true },
                 { header: "Email", accessorKey: "email", className: "text-xs font-semibold", sortable: true },
-                { 
-                  header: "Status", 
+                {
+                  header: "Status",
                   render: (c: any) => <StatusBadge status={c.status} />,
                   className: "text-xs font-semibold",
                   sortable: true,
@@ -324,8 +339,8 @@ const AdminDashboard = () => {
                   sortable: true,
                   accessorKey: "created_at"
                 },
-                { 
-                  header: "Change Status", 
+                {
+                  header: "Change Status",
                   render: (c: any) => (
                     <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
                       <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -336,8 +351,8 @@ const AdminDashboard = () => {
                   ),
                   className: "text-xs font-semibold"
                 },
-                { 
-                  header: "Actions", 
+                {
+                  header: "Actions",
                   render: (c: any) => (
                     <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => navigate(`/admin-dashboard/candidates/${c.id}`)}>
                       <Eye className="mr-1.5 h-3.5 w-3.5" /> View Detail
@@ -363,10 +378,10 @@ const AdminDashboard = () => {
                 searchKey="full_name"
                 searchPlaceholder="Search recruiters by name..."
                 columns={[
-                  { 
-                    header: "Name", 
-                    accessorKey: "full_name", 
-                    className: "text-xs font-semibold", 
+                  {
+                    header: "Name",
+                    accessorKey: "full_name",
+                    className: "text-xs font-semibold",
                     sortable: true,
                     render: (r: any) => {
                       const name = r.full_name || r.profile?.full_name || "Unknown";
@@ -379,8 +394,8 @@ const AdminDashboard = () => {
                       );
                     }
                   },
-                  { 
-                    header: "Role", 
+                  {
+                    header: "Role",
                     sortable: true,
                     accessorKey: "role",
                     className: "font-bold text-xs uppercase text-center",
@@ -401,8 +416,8 @@ const AdminDashboard = () => {
                       </div>
                     )
                   },
-                  { 
-                    header: "Status", 
+                  {
+                    header: "Status",
                     sortable: true,
                     accessorKey: "approval_status",
                     className: "text-xs text-center",
@@ -422,14 +437,14 @@ const AdminDashboard = () => {
                     sortable: true,
                     accessorKey: "created_at"
                   },
-                  { 
-                    header: "Actions", 
+                  {
+                    header: "Actions",
                     className: "text-right font-bold text-xs pr-4",
                     render: (r: any) => (
                       <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="h-7 text-xs px-2"
                           onClick={() => navigate(`/admin-dashboard/recruiters/${r.id}`)}
                         >
@@ -448,8 +463,8 @@ const AdminDashboard = () => {
   };
 
   return (
-    <DashboardLayout 
-      title={subPath === "" ? "Admin Operations" : subPath.charAt(0).toUpperCase() + subPath.slice(1).replace(/-/g, " ")} 
+    <DashboardLayout
+      title={subPath === "" ? "Admin Operations" : subPath.charAt(0).toUpperCase() + subPath.slice(1).replace(/-/g, " ")}
       navItems={navItems}
     >
       <div key={location.pathname} className="animate-in fade-in duration-500">

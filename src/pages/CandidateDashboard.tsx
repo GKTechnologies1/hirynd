@@ -40,23 +40,23 @@ const navItems = [
 ];
 
 const STATUS_TAB_ACCESS: Record<string, string[]> = {
-  pending_approval:      ["overview"],
-  lead:                  ["overview"],
-  approved:              ["overview", "intake"],
-  intake_submitted:      ["overview", "intake"],
-  roles_published:       ["overview", "intake", "roles"],
+  pending_approval: ["overview"],
+  lead: ["overview"],
+  approved: ["overview", "intake"],
+  intake_submitted: ["overview", "intake"],
+  roles_published: ["overview", "intake", "roles"],
   roles_candidate_responded: ["overview", "intake", "roles", "payments"],
-  roles_confirmed:       ["overview", "intake", "roles", "payments"],
-  payment_pending:       ["overview", "intake", "roles", "payments"],
-  pending_payment:       ["overview", "intake", "roles", "payments"],
-  payment_completed:     ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  roles_confirmed: ["overview", "intake", "roles", "payments"],
+  payment_pending: ["overview", "intake", "roles", "payments"],
+  pending_payment: ["overview", "intake", "roles", "payments"],
+  payment_completed: ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
   credentials_submitted: ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  active_marketing:      ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  paused:                ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  on_hold:               ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  past_due:              ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
-  cancelled:             ["overview"],
-  placed_closed:         ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  active_marketing: ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  paused: ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  on_hold: ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  past_due: ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
+  cancelled: ["overview"],
+  placed_closed: ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"],
 };
 
 const LOCKED_MESSAGES: Record<string, { title: string; reason: string; action?: string; actionPath?: string }> = {
@@ -94,11 +94,11 @@ const LockedTab = ({ tab }: { tab: string }) => {
 
 const TrainingButton = ({ candidate, type, label }: { candidate: any; type: string; label: string }) => {
   const handleClick = () => {
-    const url = candidate?.[type === "training_practice" ? "cal_training_url" : 
-                type === "mock_practice" ? "cal_mock_practice_url" : 
-                type === "interview_training" ? "cal_interview_training_url" : 
-                type === "interview_support" ? "cal_interview_support_url" : 
-                "cal_operations_call_url"];
+    const url = candidate?.[type === "training_practice" ? "cal_training_url" :
+      type === "mock_practice" ? "cal_mock_practice_url" :
+        type === "interview_training" ? "cal_interview_training_url" :
+          type === "interview_support" ? "cal_interview_support_url" :
+            "cal_operations_call_url"];
     window.open(url || "https://cal.com/hyrind", "_blank");
   };
   return (
@@ -121,10 +121,11 @@ const CandidateDashboard = () => {
 
   const fetchData = async () => {
     if (!user) return;
+    setLoading(true);
     try {
       const { data: cand } = await candidatesApi.me();
       setCandidate(cand);
-      
+
       try {
         const { data: assignments } = await recruitersApi.assignments(cand.id);
         const teamData = assignments
@@ -135,21 +136,29 @@ const CandidateDashboard = () => {
             role: a.role_type || "Recruiter"
           }));
         setTeam(teamData);
-      } catch { /* ignore team error */ }
+      } catch (err) {
+        console.warn("CandidateDashboard: Failed to fetch team", err);
+      }
 
       try {
         const { data: notifs } = await notificationsApi.list(true);
         setNotifications(notifs?.slice(0, 10) || []);
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.warn("CandidateDashboard: Failed to fetch notifications", err);
+      }
 
       try {
         setFetchingInterviews(true);
         const { data: interviewData } = await candidatesApi.getInterviews(cand.id);
         setInterviews(interviewData || []);
-      } catch { /* ignore */ } finally {
+      } catch (err) {
+        console.warn("CandidateDashboard: Failed to fetch interviews", err);
+      } finally {
         setFetchingInterviews(false);
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("CandidateDashboard: Core data fetch failed", err);
+    }
     setLoading(false);
   };
 
@@ -175,31 +184,31 @@ const CandidateDashboard = () => {
 
   // Unlock interviews if any exist, even if status is not active_marketing yet
   const canSeeInterviews = allowedTabs.includes("interviews") || interviews.length > 0;
-  
-  const isLocked = tabKey !== "overview" && 
-    (tabKey === "interviews" ? !canSeeInterviews : !allowedTabs.includes(tabKey)) && 
+
+  const isLocked = tabKey !== "overview" &&
+    (tabKey === "interviews" ? !canSeeInterviews : !allowedTabs.includes(tabKey)) &&
     !(isBillingTab && hasPendingSub);
 
   const getNextAction = () => {
     switch (status) {
       case "pending_approval": return "Your registration is under review. We'll notify you within 24–48 hours.";
-      case "lead":              return "Your account has been noted. Awaiting full approval.";
-      case "approved":          return "Complete your Client Intake Sheet to proceed.";
-      case "intake_submitted":  return "Your intake is under review. Waiting for role suggestions from your team.";
-      case "roles_published":   return "Review and respond to your suggested roles.";
+      case "lead": return "Your account has been noted. Awaiting full approval.";
+      case "approved": return "Complete your Client Intake Sheet to proceed.";
+      case "intake_submitted": return "Your intake is under review. Waiting for role suggestions from your team.";
+      case "roles_published": return "Review and respond to your suggested roles.";
       case "roles_candidate_responded":
-      case "roles_confirmed":   
+      case "roles_confirmed":
       case "payment_pending":
-      case "pending_payment":   return "Your roles are confirmed. Please proceed to payment to unlock the next steps.";
+      case "pending_payment": return "Your roles are confirmed. Please proceed to payment to unlock the next steps.";
       case "payment_completed": return "Payment received. Submit your credential intake sheet.";
       case "credentials_submitted": return "Your credentials are submitted. Waiting for recruiter assignment.";
-      case "active_marketing":  return "Your profile is being actively marketed!";
-      case "placed_closed":     return "🎉 Congratulations! You've been placed.";
-      case "paused":            return "Your case is currently paused. Contact support for details.";
-      case "on_hold":           return "Your case is on hold pending review.";
-      case "past_due":          return "Payment past due. Please update your billing.";
-      case "cancelled":         return "Your case has been cancelled. Contact support for details.";
-      default:                  return "Contact support for assistance.";
+      case "active_marketing": return "Your profile is being actively marketed!";
+      case "placed_closed": return "🎉 Congratulations! You've been placed.";
+      case "paused": return "Your case is currently paused. Contact support for details.";
+      case "on_hold": return "Your case is on hold pending review.";
+      case "past_due": return "Payment past due. Please update your billing.";
+      case "cancelled": return "Your case has been cancelled. Contact support for details.";
+      default: return "Contact support for assistance.";
     }
   };
 
@@ -208,18 +217,18 @@ const CandidateDashboard = () => {
       return { label: "Pay Now →", path: "/candidate-dashboard/payments" };
     }
     switch (status) {
-      case "approved":          return { label: "Complete Intake Sheet →", path: "/candidate-dashboard/intake" };
-      case "roles_published":   return { label: "Review Suggested Roles →", path: "/candidate-dashboard/roles" };
+      case "approved": return { label: "Complete Intake Sheet →", path: "/candidate-dashboard/intake" };
+      case "roles_published": return { label: "Review Suggested Roles →", path: "/candidate-dashboard/roles" };
       case "roles_candidate_responded":
-      case "roles_confirmed":   
+      case "roles_confirmed":
       case "payment_pending":
-      case "pending_payment":   return { label: "View Payments →", path: "/candidate-dashboard/payments" };
+      case "pending_payment": return { label: "View Payments →", path: "/candidate-dashboard/payments" };
       case "payment_completed": return { label: "Complete Credential Intake →", path: "/candidate-dashboard/credentials" };
-      case "active_marketing":  return { label: "View Applications →", path: "/candidate-dashboard/applications" };
-      case "credentials_submitted": 
+      case "active_marketing": return { label: "View Applications →", path: "/candidate-dashboard/applications" };
+      case "credentials_submitted":
       case "credential_completed":
         return { label: "Review Credentials →", path: "/candidate-dashboard/credentials" };
-      case "past_due":          return { label: "Update Billing →", path: "/candidate-dashboard/billing" };
+      case "past_due": return { label: "Update Billing →", path: "/candidate-dashboard/billing" };
       default: return null;
     }
   };
@@ -256,7 +265,7 @@ const CandidateDashboard = () => {
               <p className="text-muted-foreground mt-2 text-lg">Here is the latest update on your marketing journey.</p>
             </div>
             <div className="flex items-center gap-3">
-               <StatusBadge status={status} />
+              <StatusBadge status={status} />
             </div>
           </header>
 
@@ -491,8 +500,8 @@ const CandidateDashboard = () => {
   };
 
   return (
-    <DashboardLayout 
-      title={subPath === "overview" ? "Dashboard" : subPath.charAt(0).toUpperCase() + subPath.slice(1)} 
+    <DashboardLayout
+      title={subPath === "overview" ? "Dashboard" : subPath.charAt(0).toUpperCase() + subPath.slice(1)}
       navItems={navItems}
     >
       {renderContent()}
