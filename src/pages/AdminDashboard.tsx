@@ -379,6 +379,17 @@ const AdminDashboard = () => {
                 searchPlaceholder="Search recruiters by name..."
                 columns={[
                   {
+                    header: "ID",
+                    render: (r: any) => (
+                      <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono">
+                        {r.display_id || `USR${r.id.toString().slice(-6).toUpperCase()}`}
+                      </span>
+                    ),
+                    sortable: true,
+                    accessorKey: "id",
+                    className: "text-xs pl-4"
+                  },
+                  {
                     header: "Name",
                     accessorKey: "full_name",
                     className: "text-xs font-semibold",

@@ -227,6 +227,24 @@ const CandidateBillingPage = ({ candidate }: Props) => {
               emptyMessage="No invoices generated yet. Invoices are created automatically after each payment."
               columns={[
                 {
+                  header: "Candidate ID",
+                  render: (inv: any) => (
+                    <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono whitespace-nowrap">
+                      {inv.candidate_display_id || "—"}
+                    </span>
+                  ),
+                  className: "pl-4 text-xs"
+                },
+                {
+                  header: "Invoice ID",
+                  render: (inv: any) => (
+                    <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded uppercase font-mono whitespace-nowrap">
+                      {inv.display_id || `INV-${inv.id.toString().slice(-6).toUpperCase()}`}
+                    </span>
+                  ),
+                  className: "text-xs"
+                },
+                {
                   header: "Description / Period",
                   sortable: true,
                   accessorKey: "period_start",
@@ -269,7 +287,7 @@ const CandidateBillingPage = ({ candidate }: Props) => {
                 },
                 {
                   header: "Receipt",
-                  className: "text-right",
+                  className: "text-right pr-4",
                   render: (inv: any) => inv.status === "paid" ? (
                     <Button variant="outline" size="sm" onClick={() => handleDownloadInvoice(inv.id)} disabled={downloading === inv.id}>
                       {downloading === inv.id ? (
@@ -303,6 +321,24 @@ const CandidateBillingPage = ({ candidate }: Props) => {
               searchPlaceholder="Search payments by type..."
               emptyMessage="No payments found."
               columns={[
+                {
+                  header: "Candidate ID",
+                  render: (p: any) => (
+                    <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono whitespace-nowrap">
+                      {p.candidate_display_id || "—"}
+                    </span>
+                  ),
+                  className: "pl-4 text-xs"
+                },
+                {
+                  header: "Payment ID",
+                  render: (p: any) => (
+                    <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded uppercase font-mono whitespace-nowrap">
+                      {p.display_id || `PAY-${p.id.toString().slice(-6).toUpperCase()}`}
+                    </span>
+                  ),
+                  className: "text-xs"
+                },
                 {
                   header: "Type",
                   sortable: true,

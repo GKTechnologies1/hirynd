@@ -60,9 +60,9 @@ const AdminPaymentsPage = () => {
   useEffect(() => { fetchAll(); }, [statusFilter]);
 
   const exportPaymentsCSV = () => {
-    const headers = ["Candidate", "Amount", "Currency", "Type", "Status", "Date"];
+    const headers = ["Candidate ID", "Payment ID", "Candidate Name", "Amount", "Currency", "Type", "Status", "Date"];
     const rows = payments.map((p: any) => [
-      p.candidate_name || "", p.amount, p.currency, p.payment_type, p.status,
+      p.candidate_display_id || "", p.display_id || "", p.candidate_name || "", p.amount, p.currency, p.payment_type, p.status,
       p.created_at ? format(new Date(p.created_at), "yyyy-MM-dd") : "",
     ]);
     const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
@@ -157,6 +157,24 @@ const AdminPaymentsPage = () => {
               searchPlaceholder="Search by candidate..."
               emptyMessage="No payments found."
               columns={[
+                {
+                  header: "Candidate ID",
+                  render: (p: any) => (
+                    <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
+                      {p.candidate_display_id || "—"}
+                    </span>
+                  ),
+                  className: "pl-4 text-xs"
+                },
+                {
+                  header: "Payment ID",
+                  render: (p: any) => (
+                    <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded uppercase whitespace-nowrap font-mono">
+                      {p.display_id || `PAY${p.id.toString().slice(-6).toUpperCase()}`}
+                    </span>
+                  ),
+                  className: "text-xs"
+                },
                 { 
                   header: "Candidate",
                   accessorKey: "candidate_name",

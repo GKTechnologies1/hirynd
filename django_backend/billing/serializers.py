@@ -60,6 +60,8 @@ class RazorpayOrderSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     candidate_name = serializers.SerializerMethodField()
+    candidate_display_id = serializers.SerializerMethodField()
+    display_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
@@ -72,9 +74,24 @@ class PaymentSerializer(serializers.ModelSerializer):
             return user.profile.full_name
         return user.email
 
+    def get_candidate_display_id(self, obj):
+        return obj.candidate.display_id
+
+    def get_display_id(self, obj):
+        return f"PAY{str(obj.id)[:8].upper()}"
+
 
 class InvoiceSerializer(serializers.ModelSerializer):
+    candidate_display_id = serializers.SerializerMethodField()
+    display_id = serializers.SerializerMethodField()
+
     class Meta:
         model = Invoice
         fields = '__all__'
         read_only_fields = ['id', 'created_at']
+
+    def get_candidate_display_id(self, obj):
+        return obj.candidate.display_id
+
+    def get_display_id(self, obj):
+        return f"INV{str(obj.id)[:8].upper()}"

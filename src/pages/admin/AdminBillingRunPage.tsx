@@ -94,7 +94,12 @@ const AdminBillingRunPage = () => {
                       columns={[
                         { 
                           header: "Candidate ID", 
-                          render: (a: any) => <span className="text-sm font-mono pl-6">{a.candidate_id?.slice(0, 8)}...</span>
+                          className: "pl-6",
+                          render: (a: any) => (
+                            <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
+                              {a.candidate_display_id || `HYRCDT${a.candidate_id?.toString().slice(-6).toUpperCase()}`}
+                            </span>
+                          )
                         },
                         { 
                           header: "Action", 
