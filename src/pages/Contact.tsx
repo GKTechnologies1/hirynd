@@ -277,28 +277,28 @@ const Contact = () => {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
-                      <div className="relative group">
-                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                      <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.first_name ? 'border-destructive' : 'border-neutral-200'}`}>
+                        <User className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                         <Input 
                           name="first_name" 
                           value={formValues.first_name} 
                           onChange={handleInputChange} 
                           placeholder="Your first name" 
-                          className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 pl-12 ${errors.first_name ? 'border-destructive' : ''}`} 
+                          className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                         />
                       </div>
                       {errors.first_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.first_name}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
-                      <div className="relative group">
-                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                      <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.last_name ? 'border-destructive' : 'border-neutral-200'}`}>
+                        <User className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                         <Input 
                           name="last_name" 
                           value={formValues.last_name} 
                           onChange={handleInputChange} 
                           placeholder="Your last name" 
-                          className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 pl-12 ${errors.last_name ? 'border-destructive' : ''}`} 
+                          className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                         />
                       </div>
                       {errors.last_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.last_name}</p>}
@@ -306,15 +306,15 @@ const Contact = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
-                    <div className="relative group">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
-                      <Input 
-                        name="email" 
-                        type="email" 
-                        value={formValues.email} 
-                        onChange={handleInputChange} 
-                        placeholder="you@example.com" 
-                        className={`bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 pl-12 ${errors.email ? 'border-destructive' : ''}`} 
+                      <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.email ? 'border-destructive' : 'border-neutral-200'}`}>
+                        <Mail className="h-4 w-4 text-neutral-400 flex-shrink-0" />
+                        <Input 
+                          name="email" 
+                          type="email" 
+                          value={formValues.email} 
+                          onChange={handleInputChange} 
+                          placeholder="you@example.com" 
+                          className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                       />
                     </div>
                     {errors.email && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.email}</p>}
@@ -334,7 +334,9 @@ const Contact = () => {
                           <SelectItem value="+61">🇦🇺 +61</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
+                      <div className={`flex-1 flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.phone ? 'border-destructive' : 'border-neutral-200'}`}>
+                        <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent" />
+                      </div>
                     </div>
                     {errors.phone && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.phone}</p>}
                   </div>
@@ -367,28 +369,28 @@ const Contact = () => {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">First Name *</Label>
-                      <div className="relative group">
-                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
-                        <Input 
-                          name="first_name" 
-                          value={formValues.first_name} 
-                          onChange={handleInputChange} 
-                          placeholder="Your first name" 
-                          className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.first_name ? 'border-destructive' : ''}`} 
+                        <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.first_name ? 'border-destructive' : 'border-neutral-200'}`}>
+                          <User className="h-4 w-4 text-neutral-400 flex-shrink-0" />
+                          <Input 
+                            name="first_name" 
+                            value={formValues.first_name} 
+                            onChange={handleInputChange} 
+                            placeholder="Your first name" 
+                            className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                         />
                       </div>
                       {errors.first_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.first_name}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Last Name *</Label>
-                      <div className="relative group">
-                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
-                        <Input 
-                          name="last_name" 
-                          value={formValues.last_name} 
-                          onChange={handleInputChange} 
-                          placeholder="Your last name" 
-                          className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.last_name ? 'border-destructive' : ''}`} 
+                        <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.last_name ? 'border-destructive' : 'border-neutral-200'}`}>
+                          <User className="h-4 w-4 text-neutral-400 flex-shrink-0" />
+                          <Input 
+                            name="last_name" 
+                            value={formValues.last_name} 
+                            onChange={handleInputChange} 
+                            placeholder="Your last name" 
+                            className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                         />
                       </div>
                       {errors.last_name && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.last_name}</p>}
@@ -397,15 +399,15 @@ const Contact = () => {
 
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Email *</Label>
-                    <div className="relative group">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                    <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.email ? 'border-destructive' : 'border-neutral-200'}`}>
+                      <Mail className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                       <Input 
                         name="email" 
                         type="email" 
                         value={formValues.email} 
                         onChange={handleInputChange} 
                         placeholder="you@example.com" 
-                        className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.email ? 'border-destructive' : ''}`} 
+                        className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                       />
                     </div>
                     {errors.email && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
@@ -424,7 +426,9 @@ const Contact = () => {
                         <option value="+44">🇬🇧 +44</option>
                         <option value="+61">🇦🇺 +61</option>
                       </select>
-                      <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className={`flex-1 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 ${errors.phone ? 'border-destructive' : ''}`} />
+                      <div className={`flex-1 flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.phone ? 'border-destructive' : 'border-neutral-200'}`}>
+                        <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent" />
+                      </div>
                     </div>
                     {errors.phone && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.phone}</p>}
                   </div>
@@ -460,28 +464,28 @@ const Contact = () => {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">University / College *</Label>
-                      <div className="relative group">
-                        <School className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                      <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.university ? 'border-destructive' : 'border-neutral-200'}`}>
+                        <School className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                         <Input 
                           name="university" 
                           value={formValues.university} 
                           onChange={handleInputChange} 
                           placeholder="e.g., Stanford University" 
-                          className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.university ? 'border-destructive' : ''}`} 
+                          className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                         />
                       </div>
                       {errors.university && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.university}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year *</Label>
-                      <div className="relative group">
-                        <CalendarIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                      <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.graduation_year ? 'border-destructive' : 'border-neutral-200'}`}>
+                        <CalendarIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                         <Input
                           name="graduation_year"
                           value={formValues.graduation_year}
                           onChange={handleInputChange}
                           placeholder="e.g., 2025"
-                          className={`pl-12 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 focus-visible:ring-[#0d47a1] ${errors.graduation_year ? 'border-destructive' : ''}`}
+                          className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                         />
                       </div>
                       {errors.graduation_year && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.graduation_year}</p>}
@@ -490,14 +494,14 @@ const Contact = () => {
 
                   <div className="sm:col-span-2 space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Degree & Major *</Label>
-                    <div className="relative group">
-                      <Award className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                    <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.degree_major ? 'border-destructive' : 'border-neutral-200'}`}>
+                      <Award className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                       <Input 
                         name="degree_major" 
                         value={formValues.degree_major} 
                         onChange={handleInputChange} 
                         placeholder="e.g., Master's in Computer Science" 
-                        className={`h-11 rounded-xl bg-neutral-50/50 border-neutral-200 pl-12 focus-visible:ring-[#0d47a1] ${errors.degree_major ? 'border-destructive' : ''}`} 
+                        className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                       />
                     </div>
                     {errors.degree_major && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.degree_major}</p>}
@@ -532,14 +536,14 @@ const Contact = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Current Location *</Label>
-                    <div className="relative group">
-                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-[#0d47a1] transition-colors" />
+                    <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.current_location ? 'border-destructive' : 'border-neutral-200'}`}>
+                      <MapPin className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                       <Input 
                         name="current_location" 
                         value={formValues.current_location} 
                         onChange={handleInputChange} 
                         placeholder="e.g., San Francisco, CA" 
-                        className={`bg-neutral-50/50 border-neutral-200 rounded-xl h-11 pl-12 focus-visible:ring-[#0d47a1] ${errors.current_location ? 'border-destructive' : ''}`} 
+                        className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                       />
                     </div>
                     {errors.current_location && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.current_location}</p>}
