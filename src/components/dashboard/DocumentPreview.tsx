@@ -24,9 +24,9 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   showLabel = true
 }) => {
   const { toast } = useToast();
-  const fileUrl = getFileUrl(url);
+  if (!url || typeof url !== 'string') return null;
 
-  if (!url) return null;
+  const fileUrl = getFileUrl(url);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();

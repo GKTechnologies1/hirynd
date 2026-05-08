@@ -274,7 +274,17 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading credentials...</p></div>;
   }
 
-  const SENSITIVE_FIELDS = ["visa_details", "references_if_needed", "gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"];
+  const SENSITIVE_FIELDS = [
+    "visa_details", 
+    "references_if_needed", 
+    "gmail_password", 
+    "linkedin_password", 
+    "indeed_password", 
+    "dice_password", 
+    "monster_password", 
+    "ziprecruiter_password", 
+    "foundit_password"
+  ];
   const maskSensitive = (key: string, value: string) => {
     if (key === "custom_platforms") return "******** (Sensitive Custom Platforms)";
     if (SENSITIVE_FIELDS.includes(key) && value) return "******** (Sensitive Data Masked)";
@@ -337,29 +347,104 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="pt-6 pb-8">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Object.entries(latestVersion.data as Record<string, any>).map(([key, value]) => {
-                  if (!value || key === 'custom_platforms') return null;
+            <CardContent className="pt-8 pb-10 px-8">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  { key: "full_name_as_resume", colSpan: 2 },
+                  { key: "personal_email", colSpan: 1 },
+                  { key: "phone_number", colSpan: 1 },
+                  { key: "location_city_state", colSpan: 2 },
+                  { key: "bachelors_graduation_date", colSpan: 1 },
+                  { key: "masters_graduation_date", colSpan: 1 },
+                  { key: "first_entry_us", colSpan: 1 },
+                  { key: "opt_start_date", colSpan: 1 },
+                  { key: "opt_offer_letter_submitted", colSpan: 1 },
+                  { key: "opt_offer_letter_url", colSpan: 1 },
+                  { key: "preferred_job_roles", colSpan: 2 },
+                  { key: "preferred_locations", colSpan: 2 },
+                  { key: "linkedin_url", colSpan: 1 },
+                  { key: "github_url", colSpan: 1 },
+                  { key: "portfolio_url", colSpan: 1 },
+                  { key: "relocation_preference", colSpan: 1 },
+                  { key: "primary_resume", colSpan: 1 },
+                  { key: "alternate_resume_versions", colSpan: 1 },
+                  { key: "work_history_summary", colSpan: 2 },
+                  { key: "skills_summary", colSpan: 2 },
+                  { key: "tools_and_technologies", colSpan: 2 },
+                  { key: "certifications", colSpan: 2 },
+                  // Account Credentials - ensured to be in pairs
+                  { key: "shared_email", colSpan: 1 },
+                  { key: "gmail_password", colSpan: 1 },
+                  { key: "linkedin_login_id", colSpan: 1 },
+                  { key: "linkedin_password", colSpan: 1 },
+                  { key: "indeed_login_id", colSpan: 1 },
+                  { key: "indeed_password", colSpan: 1 },
+                  { key: "dice_login_id", colSpan: 1 },
+                  { key: "dice_password", colSpan: 1 },
+                  { key: "monster_login_id", colSpan: 1 },
+                  { key: "monster_password", colSpan: 1 },
+                  { key: "ziprecruiter_login_id", colSpan: 1 },
+                  { key: "ziprecruiter_password", colSpan: 1 },
+                  { key: "foundit_password", colSpan: 2 },
+                  { key: "visa_details", colSpan: 2 },
+                  { key: "references_if_needed", colSpan: 2 }
+                ].map((item) => {
+                  const key = item.key;
+                  const value = latestVersion.data[key];
+                  if (!value) return null;
+
+                  const isSensitive = SENSITIVE_FIELDS.includes(key);
+                  const isUrl = (key.includes('url') || key.includes('resume')) && typeof value === 'string';
+                  
                   return (
-                    <div key={key} className="p-3 rounded-xl bg-neutral-50 border border-neutral-100">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">{key.replace(/_/g, " ")}</span>
-                      <span className="text-sm font-medium text-foreground break-words">
-                        {SENSITIVE_FIELDS.includes(key) && value ? "••••••••" :
-                          (key.includes('url') || key.includes('resume')) && typeof value === 'string' ? (
-                            <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 underline text-xs">View File</a>
-                          ) : typeof value === 'string' ? value : JSON.stringify(value)}
+                    <div key={key} className={cn(
+                      "p-3 rounded-xl bg-neutral-50/50 border border-neutral-100 shadow-sm transition-all hover:bg-neutral-50",
+                      item.colSpan === 2 ? "sm:col-span-2" : ""
+                    )}>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1 opacity-70">
+                        {key.replace(/_/g, " ")}
                       </span>
+                      <div className="text-sm font-semibold text-foreground break-words flex items-center gap-2">
+                        {isSensitive ? (
+                          <span className="text-muted-foreground/60 font-mono tracking-tighter flex items-center gap-1.5">
+                            <Lock className="h-3 w-3" /> ••••••••••
+                          </span>
+                        ) : isUrl ? (
+                          <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1.5 transition-colors font-bold text-xs">
+                            <Download className="h-3.5 w-3.5" /> View Document
+                          </a>
+                        ) : Array.isArray(value) ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {value.map((v, i) => (
+                              <Badge key={i} variant="secondary" className="text-[10px] bg-neutral-200/50 text-neutral-700 hover:bg-neutral-200 border-none">
+                                {String(v)}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="leading-relaxed">{String(value)}</span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
+
               {latestVersion.data.custom_platforms && (latestVersion.data.custom_platforms as any[]).length > 0 && (
-                <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-100">
-                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest block mb-2">Custom Platforms</span>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                <div className="mt-8 pt-6 border-t border-neutral-100">
+                  <h3 className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <KeyRound className="h-3.5 w-3.5" /> Custom Job Platforms
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {(latestVersion.data.custom_platforms as any[]).map((cp: any, i: number) => (
-                      <div key={i} className="text-sm font-medium">{cp.platform_name}: ••••••••</div>
+                      <div key={i} className="p-3 rounded-xl bg-amber-50/30 border border-amber-100 shadow-sm">
+                        <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest block mb-1 opacity-70">{cp.platform_name || "Platform"}</span>
+                        <div className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                          <span className="text-amber-700/60 font-mono tracking-tighter flex items-center gap-1.5">
+                            <Lock className="h-3 w-3" /> ••••••••••
+                          </span>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>

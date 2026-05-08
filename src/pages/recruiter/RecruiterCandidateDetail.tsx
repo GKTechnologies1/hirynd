@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DataTable } from "@/components/ui/DataTable";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -50,6 +50,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
   // Credential form
   const [credForm, setCredForm] = useState<Record<string, any>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [savingCred, setSavingCred] = useState(false);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
@@ -61,6 +62,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [jobLinks, setJobLinks] = useState<Array<{ company_name: string; role_title: string; job_url: string; job_description: string; resume_used: string; status: string; }>>([]);
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
+  const [jobLinkErrors, setJobLinkErrors] = useState<Record<number, Record<string, boolean>>>({});
 
   const fetchAll = async () => {
     if (!user) return;
@@ -133,17 +135,59 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
   useEffect(() => { fetchAll(); }, [candidateId, user]);
 
-  const handleSaveCredential = async () => {
-    if (!credForm.full_legal_name?.trim()) {
-      toast({ title: "Full legal name is required", variant: "destructive" }); return;
+  const handleCredChange = (field: string, value: any) => {
+    setCredForm(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: "" }));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!credForm.full_legal_name?.trim()) newErrors.full_legal_name = "Full legal name is required";
+    if (!credForm.personal_email?.trim()) newErrors.personal_email = "Personal email address is required";
+    if (!credForm.location_city_state?.trim()) newErrors.location_city_state = "Location (City, State) is required";
+    const cleanPhone = credForm.phone?.replace(/\D/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) newErrors.phone = "A valid 10-digit phone number is required";
+    if (!credForm.bachelors_graduation_date) newErrors.bachelors_graduation_date = "Bachelor's graduation date is required";
+    if (!credForm.first_entry_us) newErrors.first_entry_us = "First entry into the U.S. is required";
+    if (!credForm.opt_start_date) newErrors.opt_start_date = "OPT start date is required";
+    if (!credForm.preferred_job_roles?.trim()) newErrors.preferred_job_roles = "Preferred job roles are required";
+    if (!credForm.preferred_locations?.trim()) newErrors.preferred_locations = "Preferred locations are required";
+    if (!credForm.linkedin_url?.trim()) newErrors.linkedin_url = "LinkedIn URL is required";
+    if (!credForm.work_history_summary?.trim()) newErrors.work_history_summary = "Professional history summary is required";
+    if (!credForm.skills_summary?.trim()) newErrors.skills_summary = "Skills summary is required";
+    if (!credForm.tools_and_technologies?.trim()) newErrors.tools_and_technologies = "Tools & technologies summary is required";
+    if (!credForm.shared_email?.trim()) newErrors.shared_email = "Shared platform email is required";
+    if (!credForm.gmail_password?.trim()) newErrors.gmail_password = "Gmail password is required";
+    if (!credForm.linkedin_login_id?.trim()) newErrors.linkedin_login_id = "LinkedIn login ID is required";
+    if (!credForm.linkedin_password?.trim()) newErrors.linkedin_password = "LinkedIn password is required";
+    if (!credForm.visa_details?.trim()) newErrors.visa_details = "Visa details are required";
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.keys(newErrors)[0];
+      const el = document.getElementById(`rc-${firstError}`) || document.getElementsByName(firstError)[0];
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.focus(); }
+      toast({ title: "Missing Information", description: "Please fill in all required fields marked with *", variant: "destructive" });
+      return false;
     }
+    return true;
+  };
+
+  const handleSaveCredential = async () => {
+    if (!validateForm()) return;
     setSavingCred(true);
     try {
       await candidatesApi.upsertCredential(candidateId, credForm);
       toast({ title: "Credentials saved" });
+      setErrors({});
       fetchAll();
     } catch (err: any) {
-      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+      const validationErrors = err.response?.data?.validation_errors;
+      if (validationErrors) {
+        setErrors(validationErrors);
+        toast({ title: "Validation Error", description: "Please fix the highlighted fields.", variant: "destructive" });
+      } else {
+        toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+      }
     }
     setSavingCred(false);
   };
@@ -167,6 +211,16 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     const updated = [...jobLinks];
     (updated[idx] as any)[field] = value;
     setJobLinks(updated);
+    // Clear error for this field when user types
+    if (jobLinkErrors[idx]?.[field]) {
+      setJobLinkErrors(prev => {
+        const updated = { ...prev };
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], [field]: false };
+        }
+        return updated;
+      });
+    }
   };
 
   const removeJobLink = (idx: number) => {
@@ -217,10 +271,52 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   };
 
   const handleSubmitJobApplication = async () => {
-    const validLinks = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
-    if (validLinks.length === 0) {
+    if (jobLinks.length === 0) {
       toast({ title: "Add at least one job link", variant: "destructive" }); return;
     }
+
+    // Validate mandatory fields for each job link
+    const requiredFields = [
+      { key: "company_name", label: "Company Name" },
+      { key: "role_title", label: "Role Title" },
+      { key: "job_url", label: "Job Application Link" },
+      { key: "resume_used", label: "Resume Link" },
+    ];
+    const newErrors: Record<number, Record<string, boolean>> = {};
+    let hasErrors = false;
+
+    jobLinks.forEach((job, idx) => {
+      const fieldErrors: Record<string, boolean> = {};
+      requiredFields.forEach(({ key }) => {
+        if (!(job as any)[key]?.trim()) {
+          fieldErrors[key] = true;
+          hasErrors = true;
+        }
+      });
+      if (Object.keys(fieldErrors).length > 0) {
+        newErrors[idx] = fieldErrors;
+      }
+    });
+
+    setJobLinkErrors(newErrors);
+
+    if (hasErrors) {
+      const missingFields = new Set<string>();
+      Object.values(newErrors).forEach(errs => {
+        Object.keys(errs).forEach(key => {
+          const found = requiredFields.find(f => f.key === key);
+          if (found) missingFields.add(found.label);
+        });
+      });
+      toast({
+        title: "Missing Required Fields",
+        description: `Please fill in: ${Array.from(missingFields).join(", ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const validLinks = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
     setSavingLog(true);
     try {
       await recruitersApi.submitJobApplications(candidateId, {
@@ -601,24 +697,25 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {["full_legal_name", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
-                    <div key={field} className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
+                  {[
+                    { key: "full_legal_name", colSpan: 2, required: true },
+                    { key: "phone", required: true }, { key: "personal_email", required: true },
+                    { key: "linkedin_url", required: true }, { key: "location_city_state", required: true },
+                    { key: "current_title" }, { key: "years_experience" },
+                    { key: "preferred_job_roles", colSpan: 2, required: true },
+                    { key: "preferred_locations", colSpan: 2, required: true },
+                    { key: "visa_details", colSpan: 2, required: true },
+                    { key: "certifications" }, { key: "references_if_needed" }
+                  ].map((item) => (
+                    <div key={item.key} className={cn("space-y-1.5", item.colSpan === 2 && "sm:col-span-2")}>
+                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors[item.key] && "text-destructive")}>{item.key.replace(/_/g, " ")} {item.required && "*"}</Label>
                       <Input
-                        className="bg-background/50 text-sm h-10 border-border/50"
-                        value={credForm[field] || ""}
-                        onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))}
+                        id={`rc-${item.key}`}
+                        className={cn("bg-background/50 text-sm h-10 border-border/50", errors[item.key] && "border-destructive ring-1 ring-destructive/20")}
+                        value={credForm[item.key] || ""}
+                        onChange={e => handleCredChange(item.key, e.target.value)}
                       />
-                    </div>
-                  ))}
-                  {["personal_email", "location_city_state", "preferred_job_roles", "preferred_locations"].map((field) => (
-                    <div key={field} className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
-                      <Input
-                        className="bg-background/50 text-sm h-10 border-border/50"
-                        value={credForm[field] || ""}
-                        onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))}
-                      />
+                      {errors[item.key] && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors[item.key]}</p>}
                     </div>
                   ))}
                 </div>
@@ -629,20 +726,23 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   </h4>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Grad Date</Label>
-                      <DatePicker id="rec-cred-bach" value={credForm.bachelors_graduation_date} onChange={val => setCredForm(p => ({ ...p, bachelors_graduation_date: val }))} />
+                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.bachelors_graduation_date && "text-destructive")}>Bachelor's Grad Date *</Label>
+                      <DatePicker id="rc-bachelors_graduation_date" value={credForm.bachelors_graduation_date} onChange={val => handleCredChange("bachelors_graduation_date", val)} className={cn(errors.bachelors_graduation_date && "border-destructive ring-1 ring-destructive/20")} />
+                      {errors.bachelors_graduation_date && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.bachelors_graduation_date}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Grad Date</Label>
-                      <DatePicker id="rec-cred-mast" value={credForm.masters_graduation_date} onChange={val => setCredForm(p => ({ ...p, masters_graduation_date: val }))} />
+                      <DatePicker id="rc-masters_graduation_date" value={credForm.masters_graduation_date} onChange={val => handleCredChange("masters_graduation_date", val)} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US</Label>
-                      <DatePicker id="rec-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({ ...p, first_entry_us: val }))} />
+                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.first_entry_us && "text-destructive")}>First Entry US *</Label>
+                      <DatePicker id="rc-first_entry_us" value={credForm.first_entry_us} onChange={val => handleCredChange("first_entry_us", val)} className={cn(errors.first_entry_us && "border-destructive ring-1 ring-destructive/20")} />
+                      {errors.first_entry_us && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.first_entry_us}</p>}
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date</Label>
-                      <DatePicker id="rec-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({ ...p, opt_start_date: val }))} />
+                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.opt_start_date && "text-destructive")}>OPT Start Date *</Label>
+                      <DatePicker id="rc-opt_start_date" value={credForm.opt_start_date} onChange={val => handleCredChange("opt_start_date", val)} className={cn(errors.opt_start_date && "border-destructive ring-1 ring-destructive/20")} />
+                      {errors.opt_start_date && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.opt_start_date}</p>}
                     </div>
                   </div>
                 </div>
@@ -653,27 +753,90 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   </h4>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2 space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Shared Email (All Platforms) *</Label>
-                      <Input
-                        disabled
-                        type="email"
-                        className="bg-muted/30 text-sm h-10 border-border/50 opacity-70 cursor-not-allowed"
-                        value={credForm["shared_email"] || ""}
-                        onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))}
-                      />
-                      <p className="text-[9px] text-muted-foreground italic">Email is read-only and automatically set from candidate profile</p>
+                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.shared_email && "text-destructive")}>Shared Email (All Platforms) *</Label>
+                      <Input id="rc-shared_email" type="email" className={cn("bg-white text-sm h-10 border-amber-200", errors.shared_email && "border-destructive ring-1 ring-destructive/20")} value={credForm["shared_email"] || ""} onChange={e => handleCredChange("shared_email", e.target.value)} placeholder="yourname@gmail.com" />
+                      {errors.shared_email && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.shared_email}</p>}
                     </div>
-                    {["gmail_password", "linkedin_login_id", "linkedin_password", "indeed_login_id", "indeed_password", "dice_login_id", "dice_password", "monster_login_id", "monster_password", "ziprecruiter_login_id", "ziprecruiter_password", "foundit_password"].map((field) => (
-                      <div key={field} className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
-                        <div className="relative">
-                          <Input type={showPasswords[field] ? "text" : "password"} className="bg-white text-sm h-10 border-border/50 pr-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
-                          <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword(field)}>
-                            {showPasswords[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </Button>
-                        </div>
+                    {/* Gmail */}
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest text-amber-900", errors.gmail_password && "text-destructive")}>Gmail Password *</Label>
+                      <div className="relative">
+                        <Input id="rc-gmail_password" type={showPasswords["gmail_password"] ? "text" : "password"} className={cn("bg-white text-sm h-10 border-amber-200 pr-10", errors.gmail_password && "border-destructive ring-1 ring-destructive/20")} value={credForm["gmail_password"] || ""} onChange={e => handleCredChange("gmail_password", e.target.value)} placeholder="••••••••" />
+                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("gmail_password")}>{showPasswords["gmail_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
                       </div>
-                    ))}
+                      {errors.gmail_password && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.gmail_password}</p>}
+                    </div>
+                    {/* LinkedIn */}
+                    <div className="space-y-1.5">
+                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest text-amber-900", errors.linkedin_login_id && "text-destructive")}>LinkedIn Login ID *</Label>
+                      <Input id="rc-linkedin_login_id" className={cn("bg-white text-sm h-10 border-amber-200", errors.linkedin_login_id && "border-destructive ring-1 ring-destructive/20")} value={credForm["linkedin_login_id"] || ""} onChange={e => handleCredChange("linkedin_login_id", e.target.value)} placeholder="LinkedIn email/username" />
+                      {errors.linkedin_login_id && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.linkedin_login_id}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest text-amber-900", errors.linkedin_password && "text-destructive")}>LinkedIn Password *</Label>
+                      <div className="relative">
+                        <Input id="rc-linkedin_password" type={showPasswords["linkedin_password"] ? "text" : "password"} className={cn("bg-white text-sm h-10 border-amber-200 pr-10", errors.linkedin_password && "border-destructive ring-1 ring-destructive/20")} value={credForm["linkedin_password"] || ""} onChange={e => handleCredChange("linkedin_password", e.target.value)} placeholder="••••••••" />
+                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("linkedin_password")}>{showPasswords["linkedin_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                      </div>
+                      {errors.linkedin_password && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.linkedin_password}</p>}
+                    </div>
+                    {/* Indeed */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Login ID (Optional)</Label>
+                      <Input className="bg-white/50 text-sm h-10 border-amber-100" value={credForm["indeed_login_id"] || ""} onChange={e => handleCredChange("indeed_login_id", e.target.value)} placeholder="Indeed email/username" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Password (Optional)</Label>
+                      <div className="relative">
+                        <Input type={showPasswords["indeed_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["indeed_password"] || ""} onChange={e => handleCredChange("indeed_password", e.target.value)} placeholder="••••••••" />
+                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("indeed_password")}>{showPasswords["indeed_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                      </div>
+                    </div>
+                    {/* Dice */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Login ID (Optional)</Label>
+                      <Input className="bg-white/50 text-sm h-10 border-amber-100" value={credForm["dice_login_id"] || ""} onChange={e => handleCredChange("dice_login_id", e.target.value)} placeholder="Dice email/username" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Password (Optional)</Label>
+                      <div className="relative">
+                        <Input type={showPasswords["dice_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["dice_password"] || ""} onChange={e => handleCredChange("dice_password", e.target.value)} placeholder="••••••••" />
+                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("dice_password")}>{showPasswords["dice_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                      </div>
+                    </div>
+                    {/* Monster */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Login ID (Optional)</Label>
+                      <Input className="bg-white/50 text-sm h-10 border-amber-100" value={credForm["monster_login_id"] || ""} onChange={e => handleCredChange("monster_login_id", e.target.value)} placeholder="Monster email/username" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Password (Optional)</Label>
+                      <div className="relative">
+                        <Input type={showPasswords["monster_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["monster_password"] || ""} onChange={e => handleCredChange("monster_password", e.target.value)} placeholder="••••••••" />
+                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("monster_password")}>{showPasswords["monster_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                      </div>
+                    </div>
+                    {/* ZipRecruiter */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Login ID (Optional)</Label>
+                      <Input className="bg-white/50 text-sm h-10 border-amber-100" value={credForm["ziprecruiter_login_id"] || ""} onChange={e => handleCredChange("ziprecruiter_login_id", e.target.value)} placeholder="ZipRecruiter email/username" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Password (Optional)</Label>
+                      <div className="relative">
+                        <Input type={showPasswords["ziprecruiter_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["ziprecruiter_password"] || ""} onChange={e => handleCredChange("ziprecruiter_password", e.target.value)} placeholder="••••••••" />
+                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("ziprecruiter_password")}>{showPasswords["ziprecruiter_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                      </div>
+                    </div>
+                    {/* Foundit */}
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Foundit Password (Optional)</Label>
+                      <div className="relative">
+                        <Input type={showPasswords["foundit_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["foundit_password"] || ""} onChange={e => handleCredChange("foundit_password", e.target.value)} placeholder="••••••••" />
+                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("foundit_password")}>{showPasswords["foundit_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                      </div>
+                    </div>
+
                   </div>
 
                   <div className="border-t border-amber-200/50 pt-4 mt-4 space-y-4">
@@ -723,9 +886,22 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Skills Summary & Keywords</Label>
-                  <Textarea rows={5} className="bg-background/50 text-sm border-border/50 italic" value={credForm["skills_summary"] || ""} onChange={e => setCredForm(prev => ({ ...prev, ["skills_summary"]: e.target.value }))} />
+                <div className="grid gap-4">
+                  <div className="space-y-1.5">
+                    <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.work_history_summary && "text-destructive")}>Professional / Work History Summary *</Label>
+                    <Textarea id="rc-work_history_summary" rows={5} className={cn("bg-background/50 text-sm border-border/50", errors.work_history_summary && "border-destructive ring-1 ring-destructive/20")} value={credForm["work_history_summary"] || ""} onChange={e => handleCredChange("work_history_summary", e.target.value)} />
+                    {errors.work_history_summary && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.work_history_summary}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.skills_summary && "text-destructive")}>Skills Summary & Keywords *</Label>
+                    <Textarea id="rc-skills_summary" rows={3} className={cn("bg-background/50 text-sm border-border/50", errors.skills_summary && "border-destructive ring-1 ring-destructive/20")} value={credForm["skills_summary"] || ""} onChange={e => handleCredChange("skills_summary", e.target.value)} />
+                    {errors.skills_summary && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.skills_summary}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.tools_and_technologies && "text-destructive")}>Tools & Technologies *</Label>
+                    <Textarea id="rc-tools_and_technologies" rows={3} className={cn("bg-background/50 text-sm border-border/50", errors.tools_and_technologies && "border-destructive ring-1 ring-destructive/20")} value={credForm["tools_and_technologies"] || ""} onChange={e => handleCredChange("tools_and_technologies", e.target.value)} />
+                    {errors.tools_and_technologies && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.tools_and_technologies}</p>}
+                  </div>
                 </div>
                 <Button variant="secondary" className="w-full h-11 text-white font-bold rounded-xl gap-2 shadow-lg shadow-secondary/20" onClick={handleSaveCredential} disabled={savingCred}>
                   {savingCred ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -897,20 +1073,20 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                       <div className="grid gap-3 grid-cols-2">
-                        <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
-                        <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
+                        <Input placeholder="Company Name *" className={cn("h-9 text-xs bg-background/50", jobLinkErrors[idx]?.company_name && "border-destructive ring-1 ring-destructive/20 placeholder:text-destructive/60")} value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
+                        <Input placeholder="Role Title *" className={cn("h-9 text-xs bg-background/50", jobLinkErrors[idx]?.role_title && "border-destructive ring-1 ring-destructive/20 placeholder:text-destructive/60")} value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
                       </div>
                       <Textarea placeholder="Job Description (Optional)" className="text-xs bg-background/50 min-h-[80px]" value={job.job_description} onChange={e => updateJobLink(idx, "job_description", e.target.value)} />
                       <div className="relative">
-                        <Input placeholder="Job Application Link" className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
+                        <Input placeholder="Job Application Link *" className={cn("h-9 text-xs bg-background/50 pr-8", jobLinkErrors[idx]?.job_url && "border-destructive ring-1 ring-destructive/20 placeholder:text-destructive/60")} value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
                         <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
                           {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                         </Button>
                       </div>
                       <div className="flex items-center gap-3">
                         <Input
-                          placeholder="Add google drive link of resume"
-                          className="flex-1 h-9 text-[10px] font-bold bg-background/50"
+                          placeholder="Add google drive link of resume *"
+                          className={cn("flex-1 h-9 text-[10px] font-bold bg-background/50", jobLinkErrors[idx]?.resume_used && "border-destructive ring-1 ring-destructive/20 placeholder:text-destructive/60")}
                           value={job.resume_used}
                           onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
                         />
