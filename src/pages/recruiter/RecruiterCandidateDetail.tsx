@@ -62,7 +62,6 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [jobLinks, setJobLinks] = useState<Array<{ company_name: string; role_title: string; job_url: string; job_description: string; resume_used: string; status: string; }>>([]);
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
-  const [jobLinkErrors, setJobLinkErrors] = useState<Record<number, Record<string, boolean>>>({});
 
   const fetchAll = async () => {
     if (!user) return;
@@ -211,16 +210,6 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     const updated = [...jobLinks];
     (updated[idx] as any)[field] = value;
     setJobLinks(updated);
-    // Clear error for this field when user types
-    if (jobLinkErrors[idx]?.[field]) {
-      setJobLinkErrors(prev => {
-        const updated = { ...prev };
-        if (updated[idx]) {
-          updated[idx] = { ...updated[idx], [field]: false };
-        }
-        return updated;
-      });
-    }
   };
 
   const removeJobLink = (idx: number) => {
@@ -271,52 +260,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   };
 
   const handleSubmitJobApplication = async () => {
-    if (jobLinks.length === 0) {
+    const validLinks = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
+    if (validLinks.length === 0) {
       toast({ title: "Add at least one job link", variant: "destructive" }); return;
     }
-
-    // Validate mandatory fields for each job link
-    const requiredFields = [
-      { key: "company_name", label: "Company Name" },
-      { key: "role_title", label: "Role Title" },
-      { key: "job_url", label: "Job Application Link" },
-      { key: "resume_used", label: "Resume Link" },
-    ];
-    const newErrors: Record<number, Record<string, boolean>> = {};
-    let hasErrors = false;
-
-    jobLinks.forEach((job, idx) => {
-      const fieldErrors: Record<string, boolean> = {};
-      requiredFields.forEach(({ key }) => {
-        if (!(job as any)[key]?.trim()) {
-          fieldErrors[key] = true;
-          hasErrors = true;
-        }
-      });
-      if (Object.keys(fieldErrors).length > 0) {
-        newErrors[idx] = fieldErrors;
-      }
-    });
-
-    setJobLinkErrors(newErrors);
-
-    if (hasErrors) {
-      const missingFields = new Set<string>();
-      Object.values(newErrors).forEach(errs => {
-        Object.keys(errs).forEach(key => {
-          const found = requiredFields.find(f => f.key === key);
-          if (found) missingFields.add(found.label);
-        });
-      });
-      toast({
-        title: "Missing Required Fields",
-        description: `Please fill in: ${Array.from(missingFields).join(", ")}`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const validLinks = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
     setSavingLog(true);
     try {
       await recruitersApi.submitJobApplications(candidateId, {
@@ -1073,20 +1020,20 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                       <div className="grid gap-3 grid-cols-2">
-                        <Input placeholder="Company Name *" className={cn("h-9 text-xs bg-background/50", jobLinkErrors[idx]?.company_name && "border-destructive ring-1 ring-destructive/20 placeholder:text-destructive/60")} value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
-                        <Input placeholder="Role Title *" className={cn("h-9 text-xs bg-background/50", jobLinkErrors[idx]?.role_title && "border-destructive ring-1 ring-destructive/20 placeholder:text-destructive/60")} value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
+                        <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
+                        <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
                       </div>
                       <Textarea placeholder="Job Description (Optional)" className="text-xs bg-background/50 min-h-[80px]" value={job.job_description} onChange={e => updateJobLink(idx, "job_description", e.target.value)} />
                       <div className="relative">
-                        <Input placeholder="Job Application Link *" className={cn("h-9 text-xs bg-background/50 pr-8", jobLinkErrors[idx]?.job_url && "border-destructive ring-1 ring-destructive/20 placeholder:text-destructive/60")} value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
+                        <Input placeholder="Job Application Link" className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
                         <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
                           {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                         </Button>
                       </div>
                       <div className="flex items-center gap-3">
                         <Input
-                          placeholder="Add google drive link of resume *"
-                          className={cn("flex-1 h-9 text-[10px] font-bold bg-background/50", jobLinkErrors[idx]?.resume_used && "border-destructive ring-1 ring-destructive/20 placeholder:text-destructive/60")}
+                          placeholder="Add google drive link of resume"
+                          className="flex-1 h-9 text-[10px] font-bold bg-background/50"
                           value={job.resume_used}
                           onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
                         />
