@@ -3,7 +3,6 @@ import { FileText, Download, ExternalLink, Eye } from 'lucide-react';
 import { getFileUrl } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-
 import { useToast } from "@/hooks/use-toast";
 
 interface DocumentPreviewProps {
@@ -15,34 +14,35 @@ interface DocumentPreviewProps {
   showLabel?: boolean;
 }
 
-const DocumentPreview: React.FC<DocumentPreviewProps> = ({ 
-  url, 
-  label = "Preview Document", 
+const DocumentPreview: React.FC<DocumentPreviewProps> = ({
+  url,
+  label = "Preview Document",
   className,
   iconClassName,
   variant = 'link',
   showLabel = true
 }) => {
   const { toast } = useToast();
+
   if (!url || typeof url !== 'string') return null;
 
   const fileUrl = getFileUrl(url);
+  const previewUrl = `/preview?url=${encodeURIComponent(url)}`;
+  const isOfficeDoc = fileUrl.toLowerCase().match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i);
+  const targetUrl = isOfficeDoc ? previewUrl : fileUrl;
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+    e.preventDefault();
+
     try {
       // Check if file exists before opening
       const response = await fetch(fileUrl, { method: 'HEAD' });
       if (!response.ok) {
         throw new Error('File not found');
       }
-
-      const isDoc = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');
-      const finalUrl = isDoc 
-        ? `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`
-        : fileUrl;
-      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+      
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
     } catch (err) {
       toast({
         title: "Document unavailable",
@@ -54,9 +54,9 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 
   if (variant === 'button') {
     return (
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         className={cn("h-8 gap-2 text-xs font-semibold rounded-xl", className)}
         onClick={handleClick}
       >
@@ -68,9 +68,9 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 
   if (variant === 'icon') {
     return (
-      <Button 
-        variant="ghost" 
-        size="icon" 
+      <Button
+        variant="ghost"
+        size="icon"
         className={cn("h-8 w-8 rounded-full", className)}
         onClick={handleClick}
         title={typeof label === 'string' ? label : undefined}
@@ -80,26 +80,21 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
     );
   }
 
-    const isDoc = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');
-    const finalUrl = isDoc 
-      ? `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`
-      : fileUrl;
-
-    return (
-      <a 
-        href={finalUrl} 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className={cn(
-          "inline-flex items-center gap-1.5 text-secondary hover:text-secondary/80 underline underline-offset-4 decoration-secondary/30 transition-all font-medium",
-          className
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <FileText className={cn("h-3.5 w-3.5", iconClassName)} />
-        {showLabel && label}
-      </a>
-    );
+  return (
+    <a
+      href={targetUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "inline-flex items-center gap-1.5 text-secondary hover:text-secondary/80 underline underline-offset-4 decoration-secondary/30 transition-all font-medium",
+        className
+      )}
+      onClick={handleClick}
+    >
+      <FileText className={cn("h-3.5 w-3.5", iconClassName)} />
+      {showLabel && label}
+    </a>
+  );
 };
 
 export default DocumentPreview;
