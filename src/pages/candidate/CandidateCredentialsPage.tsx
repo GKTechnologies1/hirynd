@@ -402,7 +402,14 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                       item.colSpan === 2 ? "sm:col-span-2" : ""
                     )}>
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1 opacity-70">
-                        {key.replace(/_/g, " ")}
+                        {key === "full_name_as_resume" ? "First Name & Last Name (as on Resume)" : 
+                         key === "personal_email" ? "Email Address" :
+                         key === "bachelors_graduation_date" ? "Graduation Month & Year: (Bachelors)" :
+                         key === "masters_graduation_date" ? "Graduation Month & Year: (Masters)" :
+                         key === "first_entry_us" ? "First Entry into the U.S. (DD/MM/YYYY)" :
+                         key === "preferred_job_roles" ? "Desired Job Role / Roles" :
+                         key === "primary_resume" ? "Please upload original resume" :
+                         key.replace(/_/g, " ")}
                       </span>
                       <div className="text-sm font-semibold text-foreground break-words flex items-center gap-2">
                         {isSensitive ? (
@@ -482,7 +489,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     {errors.full_name_as_resume && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.full_name_as_resume}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Personal Email Address *</Label>
+                    <Label className="text-sm font-medium ml-1">Email Address *</Label>
                     <Input id="cred-personal_email" type="email" value={formData.personal_email} onChange={e => handleChange("personal_email", e.target.value)} required placeholder="personal@email.com" className={cn("h-11 rounded-xl bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm", errors.personal_email && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.personal_email && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.personal_email}</p>}
                   </div>
@@ -531,7 +538,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium ml-1 text-blue-900">Bachelor's Graduation Date *</Label>
+                      <Label className="text-sm font-medium ml-1 text-blue-900">Graduation Month & Year: *</Label>
                       <DatePicker id="cred-bachelors_graduation_date" value={formData.bachelors_graduation_date} onChange={val => handleChange("bachelors_graduation_date", val)} placeholder="MM-DD-YYYY" className={cn("h-11", errors.bachelors_graduation_date && "border-destructive ring-1 ring-destructive/20")} />
                       {errors.bachelors_graduation_date && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.bachelors_graduation_date}</p>}
                     </div>
@@ -540,7 +547,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                       <DatePicker id="cred-masters-grad" value={formData.masters_graduation_date} onChange={val => handleChange("masters_graduation_date", val)} placeholder="MM-DD-YYYY (if applicable)" className="h-11" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium ml-1 text-blue-900">First Entry into the U.S. *</Label>
+                      <Label className="text-sm font-medium ml-1 text-blue-900">First Entry into the U.S. (DD/MM/YYYY) *</Label>
                       <DatePicker id="cred-first_entry_us" value={formData.first_entry_us} onChange={val => handleChange("first_entry_us", val)} placeholder="MM-DD-YYYY" className={cn("h-11", errors.first_entry_us && "border-destructive ring-1 ring-destructive/20")} />
                       {errors.first_entry_us && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.first_entry_us}</p>}
                     </div>
@@ -574,7 +581,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                 {/* Marketing Preferences */}
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="sm:col-span-2 space-y-2">
-                    <Label className="text-sm font-medium ml-1">Preferred Job Roles for Marketing *</Label>
+                    <Label className="text-sm font-medium ml-1">Desired Job Role / Roles *</Label>
                     <Input id="cred-preferred_job_roles" value={formData.preferred_job_roles} onChange={e => handleChange("preferred_job_roles", e.target.value)} required placeholder="e.g. Java Developer, Data Engineer, Business Analyst" className={cn("h-11 rounded-xl bg-neutral-50", errors.preferred_job_roles && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.preferred_job_roles && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.preferred_job_roles}</p>}
                   </div>
@@ -595,7 +602,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
 
                 <div className="grid gap-6 sm:grid-cols-2 pt-2">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium ml-1">Primary Resume (PDF/DOCX) *</Label>
+                    <Label className="text-sm font-medium ml-1">Please upload original resume *</Label>
                     <div id="cred-primary_resume" className={cn("p-4 border-2 border-dashed rounded-xl transition-all", formData.primary_resume ? "bg-green-50 border-green-200" : (errors.primary_resume ? "bg-red-50 border-destructive" : "bg-neutral-50 border-neutral-200 hover:border-primary/40"))}>
                       <Input type="file" onChange={e => handleFileUpload(e, "primary_resume")} accept=".pdf,.doc,.docx" required={!formData.primary_resume} className="mb-2 h-10 py-1.5 cursor-pointer text-xs" />
                       {formData.primary_resume && <p className="text-[11px] text-green-700 font-bold flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> File attached (<DocumentPreview url={formData.primary_resume} label="Preview" className="text-green-700 hover:text-green-900 transition-colors" />)</p>}
