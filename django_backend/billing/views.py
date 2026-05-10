@@ -911,3 +911,34 @@ def download_invoice(request, invoice_id):
     response['Content-Disposition'] = f'attachment; filename="hyrind_invoice_{str(invoice.id).split("-")[0]}.pdf"'
     return response
 
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_ledger_report(request):
+    """Export summary of subscriptions and payments for admin dashboard."""
+    from django.db.models import Sum
+    
+    subs = Subscription.objects.select_related('candidate__user__profile').prefetch_related('addon_assignments__addon').all()
+    
+    report_data = []
+    for s in subs:
+        # Get total paid by this candidate
+        total_paid = Payment.objects.filter(candidate=s.candidate, status='completed').aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Get addons list
+        addons = ", ".join([a.addon.name for a in s.addon_assignments.all()])
+        
+        report_data.append({
+            'candidate_name': s.candidate.user.profile.full_name if hasattr(s.candidate.user, 'profile') and s.candidate.user.profile.full_name else s.candidate.user.email,
+            'email': s.candidate.user.email,
+            'plan_name': s.plan_name,
+            'addons': addons,
+            'status': s.status,
+            'billing_cycle': s.billing_cycle,
+            'total_amount_paid': float(total_paid),
+            'last_payment_at': s.last_payment_at.strftime('%Y-%m-%d %H:%M') if s.last_payment_at else "",
+            'next_billing_at': s.next_billing_at.strftime('%Y-%m-%d') if s.next_billing_at else "",
+        })
+        
+    return Response(report_data)
+

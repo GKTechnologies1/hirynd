@@ -23,5 +23,6 @@ urlpatterns = [
     path('<uuid:candidate_id>/payments/', views.candidate_payments, name='candidate_payments'),
     path('referrals/all/', views.admin_referrals, name='admin_referrals'),
     path('referrals/<uuid:referral_id>/update/', views.update_referral, name='update_referral'),
+    path('admin/activity-report/', views.admin_activity_report, name='admin_activity_report'),
     path('<uuid:candidate_id>/roles/proposed/<uuid:role_id>/', views.delete_proposed_role, name='delete_proposed_role'),
 ]

@@ -18,5 +18,6 @@ urlpatterns = [
     path('profile/', views.recruiter_profile, name='recruiter_profile'),
     path('admin/profile/<uuid:user_id>/', views.admin_update_profile, name='admin_update_profile'),
     path('admin/profile/<uuid:user_id>/assignments/', views.admin_get_assignments, name='admin_get_assignments'),
+    path('admin/productivity-report/', views.admin_productivity_report, name='admin_productivity_report'),
     path('bank-details/', views.bank_details, name='bank_details'),
 ]

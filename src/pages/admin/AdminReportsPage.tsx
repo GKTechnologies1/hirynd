@@ -67,15 +67,36 @@ const AdminReportsPage = () => {
   };
 
   const exportRecruiterProductivity = async () => {
-    toast({ title: "Export unavailable", description: "This report requires additional backend support.", variant: "destructive" });
+    setExporting("productivity");
+    try {
+      const { data } = await recruitersApi.productivityReport();
+      if (!data || data.length === 0) { toast({ title: "No data" }); setExporting(""); return; }
+      downloadCSV(data, "recruiter-productivity.csv");
+      toast({ title: "Productivity report exported" });
+    } catch { toast({ title: "Export failed", variant: "destructive" }); }
+    setExporting("");
   };
 
   const exportCandidateActivity = async () => {
-    toast({ title: "Export unavailable", description: "This report requires additional backend support.", variant: "destructive" });
+    setExporting("activity");
+    try {
+      const { data } = await candidatesApi.activityReport();
+      if (!data || data.length === 0) { toast({ title: "No data" }); setExporting(""); return; }
+      downloadCSV(data, "candidate-activity.csv");
+      toast({ title: "Activity report exported" });
+    } catch { toast({ title: "Export failed", variant: "destructive" }); }
+    setExporting("");
   };
 
   const exportSubscriptionLedger = async () => {
-    toast({ title: "Export unavailable", description: "This report requires additional backend support.", variant: "destructive" });
+    setExporting("subscriptions");
+    try {
+      const { data } = await billingApi.ledgerReport();
+      if (!data || data.length === 0) { toast({ title: "No data" }); setExporting(""); return; }
+      downloadCSV(data, "subscription-ledger.csv");
+      toast({ title: "Ledger report exported" });
+    } catch { toast({ title: "Export failed", variant: "destructive" }); }
+    setExporting("");
   };
 
   return (

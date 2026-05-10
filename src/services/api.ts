@@ -153,6 +153,7 @@ export const candidatesApi = {
   adminListReferrals: () => api.get('/candidates/referrals/all/'),
   updateReferral: (referralId: string, data: Record<string, any>) =>
     api.patch(`/candidates/referrals/${referralId}/update/`, data),
+  activityReport: () => api.get('/candidates/admin/activity-report/'),
 };
 
 // ─── Recruiters ───
@@ -185,6 +186,7 @@ export const recruitersApi = {
     api.patch('/recruiters/profile/', { pan_card_id: fileId }),
   uploadBankPassbook: (fileId: string) =>
     api.patch('/recruiters/profile/', { bank_passbook_id: fileId }),
+  productivityReport: () => api.get('/recruiters/admin/productivity-report/'),
 };
 
 // ─── Billing ───
@@ -208,6 +210,7 @@ export const billingApi = {
     api.get('/billing/payments/all/', { params }),
   billingAlerts: () => api.get('/billing/alerts/'),
   billingAnalytics: () => api.get('/billing/analytics/'),
+  ledgerReport: () => api.get('/billing/admin/ledger-report/'),
 
   // Per-candidate subscription
   subscription: (candidateId: string) => api.get(`/billing/${candidateId}/subscription/`),

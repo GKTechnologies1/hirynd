@@ -36,8 +36,7 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
 
   return (
     <>
-      <Header />
-      <div className="flex bg-neutral-50" style={{ minHeight: 'calc(100vh - 80px)', marginTop: '80px' }}>
+      <div className="flex bg-neutral-50" style={{ minHeight: '100vh' }}>
         {/* Desktop Sidebar */}
         <aside
           className={`hidden flex-col border-r border-neutral-200 bg-[#0d47a1] text-white transition-all duration-300 ease-in-out lg:flex ${sidebarCollapsed ? "w-[68px]" : "w-64"

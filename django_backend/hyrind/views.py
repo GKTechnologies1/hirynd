@@ -44,7 +44,7 @@ def serve_media(request, path):
         return JsonResponse({'error': 'Error serving file', 'detail': str(e)}, status=500)
 
 
-def custom_404(request, exception=None):
+def custom_404(request, exception=None, **kwargs):
     """
     Industry standard 404 handler.
     Returns JSON for all paths.

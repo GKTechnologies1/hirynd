@@ -350,3 +350,46 @@ def fetch_job_details(request):
     except:
         pass
     return Response({'role_title': '', 'company_name': ''})
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_productivity_report(request):
+    """Export summary of recruiter productivity for admin dashboard."""
+    from users.models import User
+    from django.db.models import Count, Q
+    
+    # Use User model instead of RecruiterProfile to ensure we capture all recruiters
+    # even if profile is missing (though it shouldn't be).
+    recruiters = User.objects.filter(role='recruiter').select_related('profile')
+    
+    report_data = []
+    for r in recruiters:
+        # Total assignments (all time)
+        total_assignments = r.recruiter_assignments.count()
+        # Active assignments
+        active_assignments = r.recruiter_assignments.filter(is_active=True).count()
+        # Total submissions (JobLinkEntry submitted by this user)
+        total_submissions = JobLinkEntry.objects.filter(submitted_by=r).count()
+        # Total interviews (status contains 'interview')
+        total_interviews = JobLinkEntry.objects.filter(
+            submitted_by=r, 
+            application_status__icontains='interview'
+        ).count()
+        # Total offers
+        total_offers = JobLinkEntry.objects.filter(
+            submitted_by=r, 
+            application_status='offer'
+        ).count()
+        
+        report_data.append({
+            'recruiter_name': r.profile.full_name if hasattr(r, 'profile') else r.email,
+            'email': r.email,
+            'total_assignments': total_assignments,
+            'active_assignments': active_assignments,
+            'total_submissions': total_submissions,
+            'total_interviews': total_interviews,
+            'total_offers': total_offers,
+        })
+        
+    return Response(report_data)

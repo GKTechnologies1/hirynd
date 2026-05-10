@@ -17,6 +17,7 @@ urlpatterns = [
     path('payments/all/', views.all_payments, name='all_payments'),
     path('alerts/', views.billing_alerts, name='billing_alerts'),
     path('analytics/', views.billing_analytics, name='billing_analytics'),
+    path('admin/ledger-report/', views.admin_ledger_report, name='admin_ledger_report'),
     path('invoices/<uuid:invoice_id>/update/', views.update_invoice, name='update_invoice'),
 
     # Per-candidate

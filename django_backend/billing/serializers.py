@@ -62,6 +62,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     candidate_name = serializers.SerializerMethodField()
     candidate_display_id = serializers.SerializerMethodField()
     display_id = serializers.SerializerMethodField()
+    razorpay_payment_id = serializers.CharField(source='razorpay_order.razorpay_payment_id', read_only=True)
 
     class Meta:
         model = Payment

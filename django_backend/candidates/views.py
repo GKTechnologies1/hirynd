@@ -809,3 +809,50 @@ def placement(request, candidate_id):
     Candidate.objects.filter(id=candidate_id).update(status='placed_closed')
     log_action(request.user, 'placement_closed', str(candidate_id), 'candidate', data)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_activity_report(request):
+    """Export summary of candidate activity for admin dashboard."""
+    from recruiters.models import RecruiterAssignment, JobLinkEntry
+    from .models import InterviewLog, TrainingScheduleClick
+    
+    candidates = Candidate.objects.select_related('user__profile').all()
+    
+    report_data = []
+    for c in candidates:
+        # Get active recruiters
+        recruiters = RecruiterAssignment.objects.filter(candidate=c, is_active=True).select_related('recruiter__profile')
+        recruiter_names = ", ".join([
+            r.recruiter.profile.full_name if hasattr(r.recruiter, 'profile') and r.recruiter.profile.full_name 
+            else r.recruiter.email 
+            for r in recruiters
+        ])
+        
+        # Total submissions (JobLinkEntry)
+        total_submissions = JobLinkEntry.objects.filter(candidate=c).count()
+        
+        # Total interviews (Manual logs + JobLinkEntry with interview status)
+        manual_interviews = InterviewLog.objects.filter(candidate=c).count()
+        link_interviews = JobLinkEntry.objects.filter(
+            candidate=c, 
+            application_status__icontains='interview'
+        ).count()
+        total_interviews = manual_interviews + link_interviews
+        
+        # Training clicks
+        training_clicks = TrainingScheduleClick.objects.filter(candidate=c).count()
+        
+        report_data.append({
+            'candidate_name': c.user.profile.full_name if hasattr(c.user, 'profile') and c.user.profile.full_name else c.user.email,
+            'email': c.user.email,
+            'assigned_recruiters': recruiter_names,
+            'status': c.status,
+            'total_submissions': total_submissions,
+            'total_interviews': total_interviews,
+            'training_clicks': training_clicks,
+            'created_at': c.created_at.strftime('%Y-%m-%d %H:%M') if c.created_at else "",
+        })
+        
+    return Response(report_data)
