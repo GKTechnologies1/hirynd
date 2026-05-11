@@ -36,7 +36,8 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
 
   return (
     <>
-      <div className="flex bg-neutral-50" style={{ minHeight: '100vh' }}>
+      <Header />
+      <div className="flex bg-neutral-50 pt-[80px]" style={{ minHeight: '100vh' }}>
         {/* Desktop Sidebar */}
         <aside
           className={`hidden flex-col border-r border-neutral-200 bg-[#0d47a1] text-white transition-all duration-300 ease-in-out lg:flex ${sidebarCollapsed ? "w-[68px]" : "w-64"
@@ -177,20 +178,22 @@ const DashboardLayout = ({ children, title, navItems }: DashboardLayoutProps) =>
 
         {/* Main Content */}
         <div className="flex flex-1 flex-col min-w-0">
-          {/* Mobile Header Toggle */}
-          <div className="lg:hidden flex h-14 items-center justify-between border-b border-neutral-200 bg-white px-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <button
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 transition-colors"
-                onClick={() => setMobileOpen(true)}
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-              <span className="font-bold text-neutral-900 truncate">{title}</span>
-            </div>
+          {/* Dashboard Header - Simplified for Sidebar Toggle */}
+          <div className="flex items-center gap-3 p-4 lg:hidden border-b border-neutral-200 bg-white">
+            <button
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-neutral-500 hover:bg-neutral-100 transition-colors"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <h1 className="text-lg font-extrabold text-neutral-900 truncate">{title}</h1>
           </div>
 
           <main className="flex-1 overflow-auto p-4 lg:p-8">
+            <div className="mb-6 hidden lg:block">
+               <h1 className="text-3xl font-extrabold text-neutral-900">{title}</h1>
+               <p className="text-sm font-medium text-neutral-500 mt-1">Dashboard / {title}</p>
+            </div>
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
