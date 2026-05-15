@@ -130,7 +130,7 @@ const Footer = () => {
             <div className="footer-link-custom"><Link to="/services">Services</Link></div>
             <div className="footer-link-custom"><Link to="/how-it-works">How it works</Link></div>
             <div className="footer-link-custom"><Link to="/reviews">Reviews</Link></div>
-            <div className="footer-link-custom"><Link to="/contact?type=general">Contact us</Link></div>
+            <div className="footer-link-custom"><Link to="/contact?type=general" target="_blank" rel="noopener noreferrer">Contact us</Link></div>
             {/* <div className="footer-link-custom font-bold" style={{ marginTop: '15px' }}><Link to="/privacy-policy">Privacy Policy</Link></div>
             <div className="footer-link-custom font-bold"><Link to="/terms">Terms & Conditions</Link></div> */}
           </div>

@@ -470,7 +470,7 @@ export default function Header() {
               <Link to="/reviews" className={`nav-link ${isActive("/reviews") ? "active" : ""}`}>
                 Reviews
               </Link>
-              <Link to="/contact?type=general" className={`nav-link ${isActive("/contact") ? "active" : ""}`}>
+              <Link to="/contact?type=general" target="_blank" rel="noopener noreferrer" className={`nav-link ${isActive("/contact") ? "active" : ""}`}>
                 Contact Us
               </Link>
 
@@ -578,7 +578,7 @@ export default function Header() {
              <Link to="/services" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Services</Link>
              <Link to="/how-it-works" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>How It Works</Link>
              <Link to="/reviews" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Reviews</Link>
-             <Link to="/contact?type=general" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Contact Us</Link>
+             <Link to="/contact?type=general" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Contact Us</Link>
              
               {!user ? (
                 <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>

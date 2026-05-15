@@ -42,7 +42,7 @@ const ServerError = () => {
         </div>
 
         <div className="pt-8 text-sm text-muted-foreground border-t border-border/50">
-          <p>If the problem persists, please <Link to="/contact" className="text-secondary hover:underline">contact support</Link>.</p>
+          <p>If the problem persists, please <Link to="/contact?type=general" target="_blank" rel="noopener noreferrer" className="text-secondary hover:underline">contact support</Link>.</p>
         </div>
       </div>
     </div>

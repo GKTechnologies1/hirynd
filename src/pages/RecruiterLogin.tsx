@@ -222,7 +222,7 @@ const RecruiterLogin = () => {
                 Back to Home
               </Button>
               <p className="text-xs text-muted-foreground mt-2">
-                Need help? <Link to="/contact" className="underline decoration-muted-foreground/30 hover:text-primary transition-colors">Contact Support</Link>
+                Need help? <Link to="/contact?type=general" target="_blank" rel="noopener noreferrer" className="underline decoration-muted-foreground/30 hover:text-primary transition-colors">Contact Support</Link>
               </p>
             </div>
           </div>
@@ -251,7 +251,7 @@ const RecruiterLogin = () => {
               If you require further details or wish to discuss this decision, please contact our administrative team.
             </div>
             <div className="flex flex-col gap-3">
-              <Link to="/contact" className="inline-flex items-center justify-center h-11 rounded-xl bg-destructive text-white font-semibold shadow-lg shadow-destructive/20 hover:shadow-destructive/30 transition-all active:scale-[0.98]">
+              <Link to="/contact?type=general" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-11 rounded-xl bg-destructive text-white font-semibold shadow-lg shadow-destructive/20 hover:shadow-destructive/30 transition-all active:scale-[0.98]">
                 Contact Administration
               </Link>
               <Button variant="ghost" className="h-11 rounded-xl text-muted-foreground hover:text-foreground" onClick={() => setApprovalStatus(null)}>

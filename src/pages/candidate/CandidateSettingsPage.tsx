@@ -18,7 +18,7 @@ const CandidateSettingsPage = () => {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-3">Need help? Contact our support team.</p>
-          <Button variant="outline" onClick={() => window.location.href = "/contact"}>
+          <Button variant="outline" onClick={() => window.open('/contact?type=general', '_blank')}>
             Contact Support
           </Button>
         </CardContent>
