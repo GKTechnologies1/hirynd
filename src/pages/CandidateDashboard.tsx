@@ -493,7 +493,7 @@ const CandidateDashboard = () => {
               <Card className="border-border/40 bg-gradient-to-br from-card to-muted/20 shadow-sm overflow-hidden border-none shadow-lg">
                 <CardContent className="p-8 text-center space-y-5">
                   <p className="text-sm font-bold text-muted-foreground leading-relaxed">Questions about your journey?</p>
-                  <Button variant="hero" className="w-full h-11 px-0 shadow-lg shadow-primary/20" onClick={() => navigate('/contact?type=general')}>
+                  <Button variant="hero" className="w-full h-11 px-0 shadow-lg shadow-primary/20" onClick={() => window.open('/contact?type=general', '_blank')}>
                     Message Support / Help Desk
                   </Button>
                 </CardContent>
