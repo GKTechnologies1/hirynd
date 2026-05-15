@@ -139,7 +139,6 @@ const CandidateIntakePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [sendCopy, setSendCopy] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     personal: true,
     skills: true,
@@ -154,16 +153,6 @@ const CandidateIntakePage = () => {
     if (user?.email) {
       setFormData(prev => ({ ...prev, email: user.email }));
     }
-    
-    const handleScroll = () => {
-      const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-      const scrolled = (winScroll / height) * 100;
-      setScrollProgress(scrolled);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
   }, [user]);
 
   const toggleSection = (section: string) => {
@@ -292,11 +281,6 @@ const CandidateIntakePage = () => {
 
   return (
     <div className="min-h-screen bg-[#f4faff] pb-40 font-sans selection:bg-sky-100 selection:text-sky-900">
-      {/* Scroll Progress */}
-      <div className="fixed top-0 left-0 w-full h-1.5 bg-slate-100 z-[100]">
-        <div className="h-full bg-sky-500 transition-all duration-300" style={{ width: `${scrollProgress}%` }} />
-      </div>
-
       {/* Header */}
       <header className="bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 h-[350px] w-full relative overflow-hidden flex items-center">
         <div className="absolute inset-0">

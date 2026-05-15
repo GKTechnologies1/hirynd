@@ -165,7 +165,13 @@ const CandidateDashboard = () => {
   useEffect(() => {
     fetchData();
     // Auto-refresh when returns to tab
-    const onFocus = () => fetchData();
+    const onFocus = () => {
+      // Don't auto-refresh when on form-heavy sheets to avoid clearing unsaved data
+      const isFormSheet = location.pathname.includes('/intake') || location.pathname.includes('/credentials');
+      if (!isFormSheet) {
+        fetchData();
+      }
+    };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [user, navigate, location.pathname]);
