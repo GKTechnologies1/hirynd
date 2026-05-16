@@ -187,13 +187,13 @@ export function DataTable<T>({
                   <TableHead 
                     key={i} 
                     className={cn(
-                      "h-10 px-4 text-left align-middle font-bold text-muted-foreground [&:has([role=checkbox])]:pr-0",
+                      "h-10 px-4 text-center align-middle font-bold text-muted-foreground [&:has([role=checkbox])]:pr-0",
                       col.className,
                       isSortable && "cursor-pointer select-none transition-colors hover:text-foreground"
                     )}
                     onClick={() => isSortable && handleSort(col.accessorKey!)}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-2">
                        {col.header}
                        {isSortable && (
                          <div className="flex flex-col opacity-40 group-hover:opacity-100">
@@ -241,12 +241,14 @@ export function DataTable<T>({
                   onClick={() => onRowClick && onRowClick(row)}
                 >
                   {columns.map((col, j) => (
-                    <TableCell key={j} className={cn("px-4 py-3 align-middle", col.className)}>
+                    <TableCell key={j} className={cn("px-4 py-3 text-center align-middle", col.className)}>
+                      <div className="flex items-center justify-center">
                       {col.render
                         ? col.render(row, col, (currentPage - 1) * pageSize + i)
                         : col.accessorKey
                         ? (row[col.accessorKey] as React.ReactNode)
                         : "—"}
+                      </div>
                     </TableCell>
                   ))}
                 </TableRow>

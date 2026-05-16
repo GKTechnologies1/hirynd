@@ -6,7 +6,7 @@ import { DataTable } from "@/components/ui/DataTable";
 
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, Mail, UserX, LayoutDashboard, Users, Award, CreditCard, Briefcase, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, Mail, UserX, LayoutDashboard, Users, Award, CreditCard, Briefcase, Loader2, FileText, MapPin, ExternalLink, Globe } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 import { 
@@ -43,6 +43,9 @@ interface PendingUser {
   referral_source: string;
   referral_friend_name: string;
   notes: string;
+  resume_file: string | null;
+  portfolio_url: string;
+  current_location: string;
   // Recruiter specifics
   company_name: string;
   employee_id: string;
@@ -306,33 +309,34 @@ const AdminApprovalsPage = () => {
                 </CardContent>
               </Card>
 
-              {/* Professional Links */}
+
+              {/* Location & Professional Links */}
               <Card className="border-none shadow-sm overflow-hidden">
                 <CardHeader className="bg-muted/50 pb-3 py-4">
                   <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" /> Location & Professional Links
+                    <MapPin className="h-4 w-4" /> Location & Professional Links
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-5 grid grid-cols-2 gap-y-4 text-sm">
                   <div className="col-span-2">
                     <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Current Location</p>
                     <p className="font-medium text-foreground">
-                      {[selectedUser?.city, selectedUser?.state, selectedUser?.country].filter(Boolean).join(", ") || "—"}
+                      {selectedUser?.current_location || [selectedUser?.city, selectedUser?.state, selectedUser?.country].filter(Boolean).join(", ") || "—"}
                     </p>
                   </div>
                   <div>
                     <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">LinkedIn URL</p>
                     {selectedUser?.linkedin_url ? (
                       <a href={selectedUser.linkedin_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1">
-                        View Profile <Mail className="h-3 w-3" />
+                        View Profile <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : <p className="text-muted-foreground italic text-xs">Not provided</p>}
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Other Profile</p>
-                    {selectedUser?.social_profile_url ? (
-                      <a href={selectedUser.social_profile_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline">
-                        Visit Site
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Portfolio / Website</p>
+                    {(selectedUser?.portfolio_url || selectedUser?.social_profile_url) ? (
+                      <a href={selectedUser?.portfolio_url || selectedUser?.social_profile_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1">
+                        Visit Site <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : <p className="text-muted-foreground italic text-xs">Not provided</p>}
                   </div>
@@ -360,19 +364,50 @@ const AdminApprovalsPage = () => {
                       <div>
                         <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">GitHub Profile</p>
                         {selectedUser?.github_url ? (
-                          <a href={selectedUser.github_url} target="_blank" rel="noreferrer" className="text-blue-700 font-medium hover:underline">
-                            View GitHub
+                          <a href={selectedUser.github_url} target="_blank" rel="noreferrer" className="text-blue-700 font-medium hover:underline flex items-center gap-1">
+                            View GitHub <ExternalLink className="h-3 w-3" />
                           </a>
                         ) : <p className="text-slate-400 italic text-xs">Not provided</p>}
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">Referral Source</p>
-                        <p className="font-medium text-blue-900">{selectedUser?.referral_source || "Organic"} {selectedUser?.referral_friend_name ? `(${selectedUser.referral_friend_name})` : ""}</p>
+                        <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">How Did You Hear About Us?</p>
+                        <p className="font-medium text-blue-900">{selectedUser?.referral_source || "—"}</p>
+                      </div>
+                      {selectedUser?.referral_friend_name && (
+                        <div>
+                          <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">Friend's Name (Referred By)</p>
+                          <p className="font-medium text-blue-900">{selectedUser.referral_friend_name}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">Terms & Conditions</p>
+                        <p className="font-medium text-green-700 flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Accepted
+                        </p>
                       </div>
                     </div>
                     <Separator className="bg-blue-100" />
+                    {/* Resume File */}
                     <div>
-                      <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight block mb-1">Additional Candidate Notes</p>
+                      <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight block mb-1.5">Uploaded Resume</p>
+                      {selectedUser?.resume_file ? (
+                        <a 
+                          href={selectedUser.resume_file} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 text-xs font-bold bg-white text-blue-700 px-4 py-2.5 rounded-lg border border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm"
+                        >
+                          <FileText className="h-4 w-4" />
+                          View / Download Resume
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      ) : (
+                        <p className="text-slate-400 italic text-xs">No resume uploaded</p>
+                      )}
+                    </div>
+                    <Separator className="bg-blue-100" />
+                    <div>
+                      <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight block mb-1">Additional Notes</p>
                       <div className="text-xs text-blue-800 leading-relaxed bg-white border border-blue-200 p-3 rounded-lg shadow-inner">
                         {selectedUser?.notes || "No additional comments from candidate."}
                       </div>

@@ -202,6 +202,9 @@ class UserListSerializer(serializers.ModelSerializer):
     referral_source = serializers.SerializerMethodField()
     referral_friend_name = serializers.SerializerMethodField()
     notes = serializers.SerializerMethodField()
+    resume_file = serializers.SerializerMethodField()
+    portfolio_url = serializers.SerializerMethodField()
+    current_location = serializers.SerializerMethodField()
     # Recruiter specific
     recruiter_id = serializers.SerializerMethodField()
     company_name = serializers.SerializerMethodField()
@@ -223,6 +226,7 @@ class UserListSerializer(serializers.ModelSerializer):
             'linkedin_url', 'social_profile_url',
             'city', 'state', 'country',
             'candidate_id', 'opt_end_date', 'github_url', 'visa_status', 'referral_source', 'referral_friend_name', 'notes',
+            'resume_file', 'portfolio_url', 'current_location',
             'recruiter_id', 'company_name', 'employee_id', 'date_of_joining', 'department', 'specialization', 'max_clients',
             'prior_recruitment_experience', 'work_type_preference', 'assigned_candidate_count'
         ]
@@ -321,6 +325,26 @@ class UserListSerializer(serializers.ModelSerializer):
         if obj.role != 'candidate': return ''
         p = getattr(obj, 'candidate', None)
         return getattr(p, 'notes', '') or ''
+
+    def get_resume_file(self, obj):
+        if obj.role != 'candidate': return None
+        p = getattr(obj, 'candidate', None)
+        if p and p.resume_file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(p.resume_file.url)
+            return p.resume_file.url
+        return None
+
+    def get_portfolio_url(self, obj):
+        if obj.role != 'candidate': return ''
+        p = getattr(obj, 'candidate', None)
+        return getattr(p, 'portfolio_url', '') or ''
+
+    def get_current_location(self, obj):
+        if obj.role != 'candidate': return ''
+        p = getattr(obj, 'candidate', None)
+        return getattr(p, 'current_location', '') or ''
 
     def get_candidate_id(self, obj):
         if obj.role != 'candidate': return None

@@ -159,8 +159,8 @@ def change_password(request):
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def pending_approvals(request):
-    users = User.objects.filter(approval_status='pending').select_related('profile').order_by('-created_at')
-    return Response(UserListSerializer(users, many=True).data)
+    users = User.objects.filter(approval_status='pending').select_related('profile', 'candidate').order_by('-created_at')
+    return Response(UserListSerializer(users, many=True, context={'request': request}).data)
 
 
 @api_view(['POST'])
