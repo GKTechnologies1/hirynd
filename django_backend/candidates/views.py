@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
+from django.db.models import Q
+from datetime import datetime
 
 from django.conf import settings
 from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
@@ -19,7 +21,7 @@ from .serializers import (
     CandidateSerializer, CandidateListSerializer, ClientIntakeSerializer,
     RoleSuggestionSerializer, CredentialVersionSerializer,
     ReferralSerializer, InterviewLogSerializer, PlacementClosureSerializer,
-    PaymentSerializer, InterestedCandidateSerializer,
+    PaymentSerializer, InterestedCandidateSerializer, RoleConfirmationSerializer,
 )
 from billing.utils import ensure_default_subscription
 
@@ -61,7 +63,6 @@ def candidate_list(request):
 
     search = request.query_params.get('search', '').strip()
     if search:
-        from django.db.models import Q
         qs = qs.filter(
             Q(user__email__icontains=search) |
             Q(user__profile__full_name__icontains=search)
@@ -99,7 +100,6 @@ def interested_candidate_list(request):
     qs = InterestedCandidate.objects.all().order_by('-created_at')
     search = request.query_params.get('search', '').strip()
     if search:
-        from django.db.models import Q
         qs = qs.filter(
             Q(name__icontains=search) |
             Q(email__icontains=search) |
@@ -172,72 +172,69 @@ def update_candidate_status(request, candidate_id):
 # ─── Intake ───
 
 def validate_intake_data(data):
-    """Comprehensive validation for intake form data"""
+    """Validate intake form data — aligned with CandidateIntakePage.tsx field names."""
     errors = {}
-    
-    # Required personal fields
-    required_personal = ['first_name', 'last_name', 'date_of_birth', 'phone_number', 'email', 'current_address', 'city', 'state', 'country', 'zip_code']
+
+    # Required personal fields (frontend sends camelCase-mapped to snake_case)
+    required_personal = [
+        'first_name', 'last_name', 'dob', 'phone_number', 'email',
+        'current_address', 'visa_status', 'first_entry_us', 'total_years_us',
+    ]
     for field in required_personal:
         if not data.get(field):
             errors[field] = f"{field.replace('_', ' ').title()} is required"
-    
+
+    # Required skills fields
+    required_skills = ['skilled_in', 'recently_learned', 'experienced_with', 'learning_now']
+    for field in required_skills:
+        if not data.get(field):
+            errors[field] = f"{field.replace('_', ' ').title()} is required"
+
     # Required education fields
-    required_education = ['university_name', 'major', 'graduation_date', 'highest_degree']
+    required_education = [
+        'highest_degree', 'masters_field', 'masters_uni', 'masters_grad_date',
+        'bachelors_degree', 'bachelors_field', 'bachelors_uni', 'bachelors_grad_date',
+    ]
     for field in required_education:
         if not data.get(field):
             errors[field] = f"{field.replace('_', ' ').title()} is required"
-    
-    # Required authorization fields
-    required_auth = ['visa_type', 'work_authorization_status']
-    for field in required_auth:
-        if not data.get(field):
-            errors[field] = f"{field.replace('_', ' ').title()} is required"
-    
-    # Required job preference fields
-    required_prefs = ['desired_experience', 'industry_preference', 'shift_preference']
+
+    # Required preferences
+    required_prefs = ['desired_role', 'desired_exp_years']
     for field in required_prefs:
         if not data.get(field):
             errors[field] = f"{field.replace('_', ' ').title()} is required"
-    
-    # Required experience fields
-    if not data.get('years_of_experience'):
-        errors['years_of_experience'] = "Years of Experience is required"
-    
-    # File URL validation
-    document_urls = ['resume_url', 'passport_url', 'government_id_url', 'work_authorization_url']
-    for url_field in document_urls:
+
+    # File URL validation (files must have been pre-uploaded)
+    document_url_fields = ['resume_url', 'passport_url', 'gov_id_url', 'visa_url', 'work_auth_url']
+    for url_field in document_url_fields:
         if data.get(url_field):
             try:
                 URLValidator()(data[url_field])
             except ValidationError:
                 errors[url_field] = f"Invalid URL format for {url_field}"
-    
-    # Date format validation
-    from datetime import datetime
-    new_date_fields = [
-        'date_of_birth', 'graduation_date', 'first_entry_us', 'visa_expiry_date', 
-        'ready_to_start_date', 'bachelors_graduation_date', 'masters_graduation_date', 
-        'opt_start_date'
-    ]
-    for date_field in new_date_fields:
+
+    # Date format validation (ISO 8601: YYYY-MM-DD is preferred)
+    date_fields = ['dob', 'first_entry_us', 'masters_grad_date', 'bachelors_grad_date']
+    for date_field in date_fields:
         if data.get(date_field):
             success = False
-            for fmt in ('%m-%d-%Y', '%Y-%m-%d'):
+            for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
                 try:
-                    datetime.strptime(data[date_field], fmt)
+                    datetime.strptime(str(data[date_field]), fmt)
                     success = True
                     break
                 except (ValueError, TypeError):
                     continue
             if not success:
-                errors[date_field] = f"{date_field} must be in MM-DD-YYYY or YYYY-MM-DD format"
-    
-    # Phone validation (basic)
+                errors[date_field] = f"{date_field} must be a valid date (YYYY-MM-DD)"
+
+    # Phone validation
     if data.get('phone_number'):
-        phone = str(data['phone_number']).replace('-', '').replace(' ', '')
-        if not phone.isdigit() or len(phone) < 6: # Flexible for international
+        phone = str(data['phone_number']).replace('-', '').replace(' ', '').replace('+', '')
+        if not phone.isdigit() or len(phone) < 6:
             errors['phone_number'] = "Invalid phone number format"
-    
+
     return errors
 
 
@@ -281,7 +278,7 @@ def intake(request, candidate_id):
 
     # Accept both { data: {...} } (legacy) and flat field submission
     payload = request.data.get('data') if 'data' in request.data else request.data
-    
+
     # Validate intake data
     validation_errors = validate_intake_data(payload)
     if validation_errors:
@@ -289,106 +286,131 @@ def intake(request, candidate_id):
             'error': 'Validation failed',
             'validation_errors': validation_errors
         }, status=status.HTTP_400_BAD_REQUEST)
-    
+
     intake, created = ClientIntake.objects.update_or_create(
         candidate=candidate,
         defaults={'data': payload, 'submitted_at': timezone.now(), 'is_locked': True},
     )
-    
-    # Update Candidate model top-level fields for better reporting/filtering
-    if payload.get('university_name'):
-        candidate.university = payload['university_name']
+
+    # ── Sync Candidate top-level fields from payload ──
+    # Education
+    if payload.get('masters_uni'):
+        candidate.university = payload['masters_uni']
     if payload.get('highest_degree'):
         candidate.degree = payload['highest_degree']
-    if payload.get('highest_field_of_study'):
-        candidate.major = payload['highest_field_of_study']
-    if payload.get('visa_type'):
-        candidate.visa_status = payload['visa_type']
-    
-    # Marketing and Contact Sync
+    if payload.get('masters_field'):
+        candidate.major = payload['masters_field']
+
+    # Visa & Authorization
+    if payload.get('visa_status'):
+        candidate.visa_status = payload['visa_status']
+
+    # Marketing & Contact
     if payload.get('marketing_email'):
         candidate.marketing_email = payload['marketing_email']
     if payload.get('marketing_phone'):
         candidate.marketing_phone = payload['marketing_phone']
-    if payload.get('personal_email'):
-        candidate.personal_email = payload['personal_email']
-    
-    # Years of Experience
-    if payload.get('desired_years_of_experience'):
-        candidate.desired_years_of_experience = str(payload['desired_years_of_experience'])
-    
-    # Attempt to parse specific date fields
+
+    # LinkedIn
+    if payload.get('linkedin_link'):
+        candidate.linkedin_url = payload['linkedin_link']
+
+    # Job Preferences
+    if payload.get('desired_exp_years'):
+        candidate.desired_years_of_experience = str(payload['desired_exp_years'])
+    if payload.get('current_address'):
+        candidate.current_location = payload['current_address']
+
+    # ── Date field sync ──
     date_map = {
-        'graduation_date': 'graduation_date',
-        'opt_start_date': 'opt_start_date',
+        'dob': 'graduation_date',           # closest model field for DOB
         'first_entry_us': 'first_entry_us',
-        'bachelors_graduation_date': 'bachelors_graduation_date',
-        'masters_graduation_date': 'masters_graduation_date'
+        'bachelors_grad_date': 'bachelors_graduation_date',
+        'masters_grad_date': 'masters_graduation_date',
     }
-    
     for payload_key, model_attr in date_map.items():
         if payload.get(payload_key):
-            for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
+            for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
                 try:
-                    setattr(candidate, model_attr, datetime.strptime(payload[payload_key], fmt).date())
+                    setattr(candidate, model_attr, datetime.strptime(str(payload[payload_key]), fmt).date())
                     break
-                except: continue
-    
-    if payload.get('current_location'):
-        candidate.current_location = payload['current_location']
-    
-    # Update user profile name if provided
+                except Exception:
+                    continue
+
+    # ── Update user profile name ──
     if payload.get('first_name') and payload.get('last_name'):
         if hasattr(candidate.user, 'profile'):
             candidate.user.profile.full_name = f"{payload['first_name']} {payload['last_name']}"
+            if payload.get('phone_number') and hasattr(candidate.user.profile, 'phone'):
+                candidate.user.profile.phone = payload['phone_number']
             candidate.user.profile.save()
 
-    # Process work experiences and certifications from payload
-    if payload.get('experiences'):
+    # ── Work experiences (sent as experiences array) ──
+    if payload.get('experiences') and isinstance(payload['experiences'], list):
         WorkExperience.objects.filter(candidate=candidate).delete()
         for exp in payload['experiences']:
             try:
                 s_date = None
-                for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
-                    try: s_date = datetime.strptime(exp.get('start_date'), fmt).date(); break
-                    except: continue
-                
+                for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
+                    try:
+                        s_date = datetime.strptime(str(exp.get('start_date', '')), fmt).date()
+                        break
+                    except Exception:
+                        continue
+
                 e_date = None
                 if exp.get('end_date'):
-                    for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
-                        try: e_date = datetime.strptime(exp.get('end_date'), fmt).date(); break
-                        except: continue
+                    for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
+                        try:
+                            e_date = datetime.strptime(str(exp.get('end_date', '')), fmt).date()
+                            break
+                        except Exception:
+                            continue
 
-                WorkExperience.objects.create(
-                    candidate=candidate,
-                    job_title=exp.get('job_title', ''),
-                    company_name=exp.get('company_name', ''),
-                    company_address=exp.get('company_address', ''),
-                    start_date=s_date,
-                    end_date=e_date,
-                    job_type=exp.get('job_type', 'full_time'),
-                    responsibilities=exp.get('responsibilities', ''),
-                )
+                # Map frontend job_type values to model choices
+                jt_map = {
+                    'Full-time': 'full_time', 'Part-time': 'part_time',
+                    'Internship': 'freelance', 'Contract': 'contract',
+                    'C2C': 'c2c',
+                }
+                job_type = jt_map.get(exp.get('job_type', ''), 'full_time')
+
+                if s_date:  # start_date is required by model
+                    WorkExperience.objects.create(
+                        candidate=candidate,
+                        job_title=exp.get('job_title', ''),
+                        company_name=exp.get('company_name', ''),
+                        company_address=exp.get('company_address', ''),
+                        start_date=s_date,
+                        end_date=e_date,
+                        job_type=job_type,
+                        responsibilities=exp.get('responsibilities', ''),
+                    )
             except Exception as e:
                 print(f"Error saving work experience: {e}")
-    
-    if payload.get('certifications'):
+
+    # ── Certifications (sent as certifications array) ──
+    if payload.get('certifications') and isinstance(payload['certifications'], list):
         Certification.objects.filter(candidate=candidate).delete()
         for cert in payload['certifications']:
             try:
                 i_date = None
-                for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
-                    try: i_date = datetime.strptime(cert.get('issued_date'), fmt).date(); break
-                    except: continue
+                for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
+                    try:
+                        i_date = datetime.strptime(str(cert.get('issued_date', '')), fmt).date()
+                        break
+                    except Exception:
+                        continue
 
-                Certification.objects.create(
-                    candidate=candidate,
-                    name=cert.get('name', ''),
-                    organization=cert.get('organization', ''),
-                    issued_date=i_date,
-                    expires_date=None, # Optional
-                    credential_url=cert.get('credential_url', ''),
-                )
+                if i_date:
+                    Certification.objects.create(
+                        candidate=candidate,
+                        name=cert.get('name', ''),
+                        organization=cert.get('organization', ''),
+                        issued_date=i_date,
+                        expires_date=None,
+                        credential_url=cert.get('credential_url', ''),
+                    )
             except Exception as e:
                 print(f"Error saving certification: {e}")
     
@@ -538,7 +560,6 @@ def proposed_roles(request, candidate_id):
         candidate_id=candidate_id,
         custom_role_title__isnull=False
     ).exclude(custom_role_title='').order_by('-responded_at')
-    from .serializers import RoleConfirmationSerializer
     return Response(RoleConfirmationSerializer(confirmations, many=True).data)
 
 @api_view(['DELETE'])
@@ -593,32 +614,41 @@ def credentials(request, candidate_id):
 
 
 def validate_credential_data(data):
-    """Validate required credential fields"""
+    """Validate credential form — aligned with CandidateCredentialsPage.tsx field names."""
     errors = {}
+
+    # Required fields matching the frontend form
     required_fields = {
-        'full_name_as_resume': 'Full Name (as on Resume)',
+        'email': 'Email Address',
+        'full_name': 'Full Name',
         'phone_number': 'Phone Number',
-        'linkedin_url': 'LinkedIn URL',
-        'shared_email': 'Shared Email (All Platforms)',
-        'gmail_password': 'Gmail Password',
-        'linkedin_password': 'LinkedIn Password',
-        'work_history_summary': 'Work History Summary',
-        'skills_summary': 'Skills Summary',
-        'tools_and_technologies': 'Tools & Technologies',
-        'visa_details': 'Visa Details',
-        'preferred_job_roles': 'Preferred Job Roles',
+        'location': 'Location',
+        'personal_email': 'Personal Email',
+        'preferred_roles': 'Preferred Job Roles',
         'preferred_locations': 'Preferred Locations',
+        'linkedin_id': 'LinkedIn Login ID',
+        'linkedin_pass': 'LinkedIn Password',
+        'indeed_id': 'Indeed Login ID',
+        'indeed_pass': 'Indeed Password',
+        'dice_id': 'Dice Login ID',
+        'dice_pass': 'Dice Password',
+        'monster_id': 'Monster Login ID',
+        'monster_pass': 'Monster Password',
+        'ziprecruiter_id': 'ZipRecruiter Login ID',
+        'ziprecruiter_pass': 'ZipRecruiter Password',
+        'other_platforms': 'Other Platforms',
     }
     for field, label in required_fields.items():
-        if not data.get(field, '').strip() if isinstance(data.get(field), str) else not data.get(field):
+        val = data.get(field)
+        if not val or (isinstance(val, str) and not val.strip()):
             errors[field] = f"{label} is required"
-    
+
     # Date validations
-    if not data.get('bachelors_graduation_date'):
-        errors['bachelors_graduation_date'] = "Bachelor's Graduation Date is required"
+    if not data.get('bachelors_grad_date'):
+        errors['bachelors_grad_date'] = "Bachelor's Graduation Date is required"
     if not data.get('opt_start_date'):
         errors['opt_start_date'] = "OPT Start Date is required"
-    
+
     return errors
 
 
@@ -650,30 +680,40 @@ def upsert_credential(request, candidate_id):
         version=new_version,
     )
 
-    # Sync key fields from credential data to top-level Candidate model
+    # ── Sync key fields from credential data to top-level Candidate model ──
     if payload.get('personal_email'):
         candidate.personal_email = payload['personal_email']
     if payload.get('preferred_locations'):
         candidate.current_location = payload['preferred_locations']
-    
+    if payload.get('linkedin_id'):
+        # Store LinkedIn ID as the linkedin_url field (best match in current model)
+        candidate.linkedin_url = payload['linkedin_id']
+
+    # Date field sync — frontend uses bachelors_grad_date / masters_grad_date
     date_map = {
+        'bachelors_grad_date': 'bachelors_graduation_date',
+        'masters_grad_date': 'masters_graduation_date',
         'opt_start_date': 'opt_start_date',
         'first_entry_us': 'first_entry_us',
-        'bachelors_graduation_date': 'bachelors_graduation_date',
-        'masters_graduation_date': 'masters_graduation_date'
     }
-    from datetime import datetime
     for payload_key, model_attr in date_map.items():
         if payload.get(payload_key):
-            for fmt in ('%Y-%m-%d', '%m-%d-%Y'):
+            for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
                 try:
-                    setattr(candidate, model_attr, datetime.strptime(payload[payload_key], fmt).date())
+                    setattr(candidate, model_attr, datetime.strptime(str(payload[payload_key]), fmt).date())
                     break
-                except: continue
+                except Exception:
+                    continue
 
     if candidate.status in ('payment_completed', 'roles_confirmed', 'pending_payment'):
         candidate.status = 'credentials_submitted'
-        candidate.save(update_fields=['status'])
+        candidate.save(update_fields=['status', 'personal_email', 'current_location',
+                                      'linkedin_url', 'bachelors_graduation_date',
+                                      'masters_graduation_date', 'opt_start_date', 'first_entry_us'])
+    else:
+        candidate.save(update_fields=['personal_email', 'current_location', 'linkedin_url',
+                                      'bachelors_graduation_date', 'masters_graduation_date',
+                                      'opt_start_date', 'first_entry_us'])
 
     log_action(request.user, 'credential_edit', str(candidate.id), 'credential', {'version': new_version})
 
@@ -802,13 +842,19 @@ def placement(request, candidate_id):
 
     data = request.data.copy()
     data['candidate'] = candidate_id
-    serializer = PlacementClosureSerializer(data=data)
+    
+    try:
+        instance = PlacementClosure.objects.get(candidate_id=candidate_id)
+        serializer = PlacementClosureSerializer(instance, data=data)
+    except PlacementClosure.DoesNotExist:
+        serializer = PlacementClosureSerializer(data=data)
+        
     serializer.is_valid(raise_exception=True)
     serializer.save(closed_by=request.user)
 
     Candidate.objects.filter(id=candidate_id).update(status='placed_closed')
     log_action(request.user, 'placement_closed', str(candidate_id), 'candidate', data)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.data, status=status.HTTP_201_CREATED if serializer.instance.id is None else status.HTTP_200_OK)
 
 
 @api_view(['GET'])

@@ -79,7 +79,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
           id={id}
           variant={"outline"}
           className={cn(
-            "w-full justify-start text-left font-normal h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm",
+            "w-full justify-start text-left font-bold h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-all shadow-sm",
             !date && "text-muted-foreground",
             className
           )}
