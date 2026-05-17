@@ -619,8 +619,10 @@ def verify_individual_payment(request, candidate_id, payment_id):
 
     # ── Create Invoice + send email with PDF receipt (non-critical) ────────────
     try:
+        from dateutil.relativedelta import relativedelta
         period_start = timezone.now().date()
         period_end   = period_start + relativedelta(months=1)
+        description  = pay.payment_type.replace('_', ' ').title()
 
         invoice = Invoice.objects.create(
             subscription=pay.subscription,   # may be None for add-on payments
@@ -632,10 +634,10 @@ def verify_individual_payment(request, candidate_id, payment_id):
             status='paid',
             paid_at=timezone.now(),
             payment_reference=rz_payment_id,
+            description=description,
         )
 
         pdf_bytes = generate_invoice_pdf(invoice)
-        description = pay.payment_type.replace('_', ' ').title()
         attachments = [{
             "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
             "content": list(pdf_bytes),
@@ -740,6 +742,7 @@ def record_payment(request, candidate_id):
             from dateutil.relativedelta import relativedelta
             period_start = pay.payment_date or timezone.now().date()
             period_end   = period_start + relativedelta(months=1)
+            description  = pay.payment_type.replace('_', ' ').title()
 
             invoice = Invoice.objects.create(
                 subscription=getattr(pay, 'subscription', None),
@@ -751,10 +754,10 @@ def record_payment(request, candidate_id):
                 status='paid',
                 paid_at=timezone.now(),
                 payment_reference=f"ADMIN-{pay.id}",
+                description=description,
             )
 
             pdf_bytes = generate_invoice_pdf(invoice)
-            description = pay.payment_type.replace('_', ' ').title()
             attachments = [{
                 "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
                 "content": list(pdf_bytes),

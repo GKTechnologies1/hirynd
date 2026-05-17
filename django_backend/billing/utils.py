@@ -192,11 +192,14 @@ def generate_invoice_pdf(invoice):
     # ═══════════════════════════════════════════════════════
     # 3. AMOUNT DUE
     # ═══════════════════════════════════════════════════════
-    plan_name = (
-        invoice.subscription.plan_name
-        if invoice.subscription
-        else "Profile Marketing Services Fee"
-    )
+    if getattr(invoice, 'description', None):
+        plan_name = invoice.description
+    else:
+        plan_name = (
+            invoice.subscription.plan_name
+            if invoice.subscription
+            else "Profile Marketing Services Fee"
+        )
     amount = invoice.amount
     currency = invoice.currency.upper() if invoice.currency else 'USD'
     currency_sym = '\u20b9' if currency == 'INR' else '$'

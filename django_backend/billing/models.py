@@ -201,6 +201,7 @@ class Invoice(models.Model):
     paid_at = models.DateTimeField(blank=True, null=True)
     payment_reference = models.CharField(max_length=255, blank=True, null=True)
     failure_reason = models.TextField(blank=True, null=True)
+    description = models.CharField(max_length=255, blank=True, null=True, help_text='Description of the invoice, especially useful if not tied to a subscription')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

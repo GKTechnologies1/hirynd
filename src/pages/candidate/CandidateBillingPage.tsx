@@ -142,7 +142,7 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
                 header: "Description / Period",
                 render: (inv: any) => (
                   <div className="space-y-0.5">
-                    <p className="text-[11px] font-bold text-slate-700">{inv.subscription?.plan_name || "Service Fee"}</p>
+                    <p className="text-[11px] font-bold text-slate-700">{inv.description || inv.subscription?.plan_name || "Service Fee"}</p>
                     <p className="text-[10px] text-slate-400 font-medium">{formatDate(inv.period_start)} — {formatDate(inv.period_end)}</p>
                   </div>
                 )
