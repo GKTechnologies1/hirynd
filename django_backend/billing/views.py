@@ -393,13 +393,35 @@ def verify_razorpay_payment(request, candidate_id):
             
         sub.save(update_fields=['status', 'last_payment_at', 'start_date', 'next_billing_at'])
 
-    payment = Payment.objects.create(
-        candidate_id=candidate_id, subscription=sub, razorpay_order=rp_order,
-        amount=rp_order.amount, currency=rp_order.currency,
-        payment_type='subscription', status='completed',
-        payment_date=timezone.now().date(),
-        notes=f'Razorpay payment {rz_payment_id}',
-    )
+    # Find any existing pending subscription payments to reuse or clean up
+    pending_payments = list(Payment.objects.filter(
+        candidate_id=candidate_id,
+        status='pending',
+        payment_type__in=['subscription', 'monthly_service']
+    ))
+
+    if pending_payments:
+        payment = pending_payments[0]
+        payment.subscription = sub
+        payment.razorpay_order = rp_order
+        payment.amount = rp_order.amount
+        payment.currency = rp_order.currency
+        payment.status = 'completed'
+        payment.payment_date = timezone.now().date()
+        payment.notes = (payment.notes or '') + f' | Razorpay payment {rz_payment_id}'
+        payment.save()
+
+        # Delete any other duplicate pending payments
+        for p in pending_payments[1:]:
+            p.delete()
+    else:
+        payment = Payment.objects.create(
+            candidate_id=candidate_id, subscription=sub, razorpay_order=rp_order,
+            amount=rp_order.amount, currency=rp_order.currency,
+            payment_type='subscription', status='completed',
+            payment_date=timezone.now().date(),
+            notes=f'Razorpay payment {rz_payment_id}',
+        )
 
     candidate = rp_order.candidate
     if candidate.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'intake_submitted'):
@@ -566,6 +588,32 @@ def verify_individual_payment(request, candidate_id, payment_id):
     pay.notes          = (pay.notes or '') + f' | Razorpay: {rz_payment_id}'
     pay.save(update_fields=['status', 'payment_date', 'razorpay_order', 'notes'])
 
+    if pay.payment_type in ('subscription', 'monthly_service') and pay.subscription:
+        sub = pay.subscription
+        sub.status = 'active'
+        sub.last_payment_at = timezone.now()
+        sub.start_date = timezone.now().date()
+        
+        from dateutil.relativedelta import relativedelta
+        if sub.billing_cycle == 'monthly':
+            sub.next_billing_at = timezone.now().date() + relativedelta(months=1)
+        elif sub.billing_cycle == 'quarterly':
+            sub.next_billing_at = timezone.now().date() + relativedelta(months=3)
+        elif sub.billing_cycle == 'annual':
+            sub.next_billing_at = timezone.now().date() + relativedelta(years=1)
+        else:
+            sub.next_billing_at = timezone.now().date() + relativedelta(months=1)
+            
+        sub.save(update_fields=['status', 'last_payment_at', 'start_date', 'next_billing_at'])
+        
+        # Also update candidate status if needed
+        if candidate.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'intake_submitted', 'past_due'):
+            if candidate.credentials.exists():
+                candidate.status = 'credentials_submitted'
+            else:
+                candidate.status = 'payment_completed'
+            candidate.save(update_fields=['status'])
+
     log_action(request.user, 'payment_completed', str(candidate_id), 'payment',
                {'payment_id': str(payment_id), 'razorpay_id': rz_payment_id})
 
@@ -675,6 +723,15 @@ def record_payment(request, candidate_id):
                     cand.save(update_fields=['status'])
             except Candidate.DoesNotExist:
                 pass
+            
+        # Clean up any lingering pending payments of the same type to avoid duplicates
+        # We do this regardless of whether the new payment is completed or pending,
+        # ensuring there is only ever one pending payment per type at a time.
+        Payment.objects.filter(
+            candidate_id=candidate_id,
+            status='pending',
+            payment_type=pay.payment_type
+        ).exclude(id=pay.id).delete()
     log_action(request.user, 'payment_recorded', str(candidate_id), 'payment', data)
 
     # ── Create Invoice + send email with PDF receipt (if success) ──────────────

@@ -38,7 +38,7 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
 
   const downloadInvoice = async (invoiceId: string) => {
     try {
-      const response = await billingApi.downloadInvoice(candidate.id, invoiceId);
+      const response = await billingApi.downloadInvoice(invoiceId);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
