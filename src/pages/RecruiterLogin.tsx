@@ -182,13 +182,47 @@ const RecruiterLogin = () => {
     } catch (err: any) {
       let msg = "Something went wrong";
       const error = err.response?.data;
-      if (typeof error === "string") {
-        msg = error;
-      } else if (error) {
-        const firstKey = Object.keys(error)[0];
-        if (firstKey) {
-          const firstErr = error[firstKey];
-          msg = Array.isArray(firstErr) ? `${firstKey}: ${firstErr[0]}` : String(firstErr);
+      
+      let isEmailError = false;
+      if (error && typeof error === "object") {
+        if (error.email) {
+          isEmailError = true;
+        } else {
+          for (const key of Object.keys(error)) {
+            if (key.toLowerCase().includes("email")) {
+              isEmailError = true;
+              break;
+            }
+          }
+        }
+      } else if (typeof error === "string" && (error.toLowerCase().includes("email already registered") || error.toLowerCase().includes("email is already registered"))) {
+        isEmailError = true;
+      }
+
+      if (isEmailError) {
+        setRegErrors(prev => ({
+          ...prev,
+          email: "Email is already registered",
+        }));
+        
+        setTimeout(() => {
+          const element = document.getElementById("reg-email");
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (element as HTMLElement).focus();
+          }
+        }, 100);
+        
+        msg = "Email is already registered";
+      } else {
+        if (typeof error === "string") {
+          msg = error;
+        } else if (error) {
+          const firstKey = Object.keys(error)[0];
+          if (firstKey) {
+            const firstErr = error[firstKey];
+            msg = Array.isArray(firstErr) ? `${firstKey}: ${firstErr[0]}` : String(firstErr);
+          }
         }
       }
       toast({ title: "Registration failed", description: msg, variant: "destructive" });
