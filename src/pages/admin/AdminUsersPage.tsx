@@ -64,7 +64,13 @@ const AdminUsersPage = () => {
       (u.company_name || "")
     ).toLowerCase();
     const matchesSearch = searchStr.includes(search.toLowerCase());
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    const matchesRole = roleFilter === 'all' 
+      ? true 
+      : roleFilter === 'team_lead' 
+        ? (u.role === 'team_lead' || u.role === 'team_manager') 
+        : roleFilter === 'admin'
+          ? (u.role === 'admin' || u.role === 'finance_admin')
+          : u.role === roleFilter;
     const matchesStatus = statusFilter === 'all' || (u.approval_status || u.status) === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -161,7 +167,15 @@ const AdminUsersPage = () => {
     fetchUsers();
   };
 
-  const countByRole = (role: string) => users.filter(u => u.role === role).length;
+  const countByRole = (role: string) => {
+    if (role === "team_lead") {
+      return users.filter(u => u.role === "team_lead" || u.role === "team_manager").length;
+    }
+    if (role === "admin") {
+      return users.filter(u => u.role === "admin" || u.role === "finance_admin").length;
+    }
+    return users.filter(u => u.role === role).length;
+  };
 
   return (
     <div className="space-y-6">
@@ -180,18 +194,27 @@ const AdminUsersPage = () => {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Candidates", role: "candidate", color: "bg-blue-50 text-blue-700" },
-          { label: "Recruiters", role: "recruiter", color: "bg-teal-50 text-teal-700" },
-          { label: "Team", role: "team_lead", color: "bg-orange-50 text-orange-700" },
-          { label: "Admins", role: "admin", color: "bg-purple-50 text-purple-700" },
-        ].map(c => (
-          <Card key={c.role} className={`${c.color} border-0`}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold">{countByRole(c.role)}</p>
-              <p className="text-sm font-medium">{c.label}</p>
-            </CardContent>
-          </Card>
-        ))}
+          { label: "Candidates", role: "candidate", color: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300", activeClass: "ring-2 ring-blue-500 dark:ring-blue-400 shadow-md" },
+          { label: "Recruiters", role: "recruiter", color: "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300", activeClass: "ring-2 ring-teal-500 dark:ring-teal-400 shadow-md" },
+          { label: "Team", role: "team_lead", color: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300", activeClass: "ring-2 ring-orange-500 dark:ring-orange-400 shadow-md" },
+          { label: "Admins", role: "admin", color: "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300", activeClass: "ring-2 ring-purple-500 dark:ring-purple-400 shadow-md" },
+        ].map(c => {
+          const isActive = roleFilter === c.role;
+          return (
+            <Card
+              key={c.role}
+              className={`${c.color} border-0 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+                isActive ? c.activeClass : "opacity-75 hover:opacity-100"
+              }`}
+              onClick={() => setRoleFilter(prev => prev === c.role ? "all" : c.role)}
+            >
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold">{countByRole(c.role)}</p>
+                <p className="text-sm font-medium">{c.label}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Filters */}
@@ -211,6 +234,16 @@ const AdminUsersPage = () => {
             <SelectItem value="admin">Admin</SelectItem>
           </SelectContent>
         </Select>
+        {roleFilter !== "all" && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setRoleFilter("all")} 
+            className="h-9 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Clear Role Filter
+          </Button>
+        )}
         <span className="text-sm text-muted-foreground font-medium">{filteredUsers.length} users found</span>
       </div>
 
