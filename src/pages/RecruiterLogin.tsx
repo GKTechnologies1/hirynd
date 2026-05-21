@@ -49,7 +49,7 @@ const RecruiterLogin = () => {
     work_type_preference: "",
     resume_file: null as File | null,
     consent_to_terms: false,
-    countryCode: "+1",
+    countryCode: "+91",
   });
   const [regErrors, setRegErrors] = useState<Record<string, string>>({});
 
@@ -299,7 +299,7 @@ const RecruiterLogin = () => {
     );
   }
 
-  const isFormFilled =
+  const areRequiredFieldsFilled =
     reg.first_name.trim() !== "" &&
     reg.last_name.trim() !== "" &&
     reg.email.trim() !== "" &&
@@ -313,8 +313,12 @@ const RecruiterLogin = () => {
     reg.linkedin_url.trim() !== "" &&
     reg.how_did_you_hear !== "" &&
     (reg.how_did_you_hear !== "Friend" || reg.friend_name.trim() !== "") &&
-    reg.resume_file !== null &&
-    reg.consent_to_terms === true;
+    reg.city.trim() !== "" &&
+    reg.state.trim() !== "" &&
+    reg.country.trim() !== "" &&
+    reg.resume_file !== null;
+
+  const isFormFilled = areRequiredFieldsFilled && reg.consent_to_terms === true;
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -498,17 +502,17 @@ const RecruiterLogin = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">City *</Label>
-                      <Input id="reg-city" value={reg.city} onChange={e => updateReg("city", e.target.value)} placeholder="e.g. Dallas" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
+                      <Input id="reg-city" value={reg.city} onChange={e => updateReg("city", e.target.value)} placeholder="e.g. Bengaluru" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
                       {regErrors.city && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.city}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium ml-1">State *</Label>
-                      <Input id="reg-state" value={reg.state} onChange={e => updateReg("state", e.target.value)} placeholder="e.g. TX" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
+                      <Input id="reg-state" value={reg.state} onChange={e => updateReg("state", e.target.value)} placeholder="e.g. Karnataka" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
                       {regErrors.state && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.state}</p>}
                     </div>
                     <div className="col-span-2 space-y-2">
                       <Label className="text-sm font-medium ml-1">Country *</Label>
-                      <Input id="reg-country" value={reg.country} onChange={e => updateReg("country", e.target.value)} placeholder="e.g. USA" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
+                      <Input id="reg-country" value={reg.country} onChange={e => updateReg("country", e.target.value)} placeholder="e.g. India" className="h-10 rounded-lg bg-neutral-50 shadow-sm" />
                       {regErrors.country && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.country}</p>}
                     </div>
                   </div>
@@ -539,11 +543,18 @@ const RecruiterLogin = () => {
                   </div>
 
                   <div className="pt-2 px-1">
-                    <div className="flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 transition-all hover:bg-white shadow-sm">
+                    <div className={`flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 transition-all shadow-sm ${areRequiredFieldsFilled ? 'hover:bg-white' : 'opacity-60'}`}>
                       <div className="pt-0.5">
-                        <input type="checkbox" id="reg-consent_to_terms" checked={reg.consent_to_terms} onChange={e => updateReg("consent_to_terms", e.target.checked)} className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary" />
+                        <input
+                          type="checkbox"
+                          id="reg-consent_to_terms"
+                          checked={reg.consent_to_terms}
+                          onChange={e => updateReg("consent_to_terms", e.target.checked)}
+                          disabled={!areRequiredFieldsFilled}
+                          className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
                       </div>
-                      <Label htmlFor="reg-consent_to_terms" className="text-xs text-muted-foreground leading-normal cursor-pointer select-none">
+                      <Label htmlFor={areRequiredFieldsFilled ? "reg-consent_to_terms" : undefined} className={`text-xs text-muted-foreground leading-normal select-none ${areRequiredFieldsFilled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                         I hereby confirm that all information provided is accurate and agree to HYRIND's{" "}
                         <Link to="/terms" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>
                         {" "}and{" "}

@@ -311,7 +311,7 @@ const CandidateLogin = () => {
     );
   }
 
-  const isFormFilled =
+  const areRequiredFieldsFilled =
     reg.first_name.trim() !== "" &&
     reg.last_name.trim() !== "" &&
     reg.email.trim() !== "" &&
@@ -327,8 +327,9 @@ const CandidateLogin = () => {
     reg.visa_status !== "" &&
     (reg.visa_status !== "Other" || reg.visa_other.trim() !== "") &&
     reg.current_location.trim() !== "" &&
-    reg.resume_file !== null &&
-    reg.consent_to_terms === true;
+    reg.resume_file !== null;
+
+  const isFormFilled = areRequiredFieldsFilled && reg.consent_to_terms === true;
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
@@ -623,17 +624,18 @@ const CandidateLogin = () => {
                   </div>
 
                   <div className="pt-2 px-1">
-                    <div className="flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 shadow-sm transition-all hover:bg-white">
+                    <div className={`flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 shadow-sm transition-all ${areRequiredFieldsFilled ? 'hover:bg-white' : 'opacity-60'}`}>
                       <div className="pt-0.5">
                         <input
                           type="checkbox"
                           id="consent_to_terms"
                           checked={reg.consent_to_terms}
                           onChange={e => updateReg("consent_to_terms", e.target.checked)}
-                          className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary"
+                          disabled={!areRequiredFieldsFilled}
+                          className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
-                      <Label htmlFor="consent_to_terms" className="text-xs text-muted-foreground leading-normal cursor-pointer select-none">
+                      <Label htmlFor={areRequiredFieldsFilled ? "consent_to_terms" : undefined} className={`text-xs text-muted-foreground leading-normal select-none ${areRequiredFieldsFilled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                         I hereby confirm that all information provided is accurate and I agree to HYRIND's{" "}
                         <Link to="/terms" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>
                         {" "}and{" "}
