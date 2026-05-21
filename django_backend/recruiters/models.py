@@ -17,6 +17,11 @@ class RecruiterProfile(models.Model):
     linkedin_url = models.URLField(blank=True, null=True)
     social_profile_url = models.URLField(blank=True, null=True)
     
+    # Discovery/referral/resume information
+    referral_source = models.CharField(max_length=255, blank=True, null=True)
+    referral_friend_name = models.CharField(max_length=255, blank=True, null=True)
+    resume_file = models.FileField(upload_to='resumes/', blank=True, null=True)
+    
     # New fields from legacy RecruiterRegister.jsx
     company_name = models.CharField(max_length=255, blank=True, null=True)
     employee_id = models.CharField(max_length=100, blank=True, null=True)

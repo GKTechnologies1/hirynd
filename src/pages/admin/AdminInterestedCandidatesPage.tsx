@@ -35,6 +35,8 @@ const AdminInterestedCandidatesPage = () => {
 
   useEffect(() => { fetchData(); }, []);
 
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+
   const stats = useMemo(() => {
     const total = candidates.length;
     const today = candidates.filter(c => {
@@ -46,12 +48,26 @@ const AdminInterestedCandidatesPage = () => {
     const withResume = candidates.filter(c => c.resume_url || c.resume_file).length;
 
     return [
-      { label: "Total Interest", count: total, icon: <Users className="h-4 w-4" />, color: "bg-muted" },
-      { label: "Today's Leads", count: today, icon: <Activity className="h-4 w-4" />, color: "bg-secondary/10" },
-      { label: "With Resume", count: withResume, icon: <FileText className="h-4 w-4" />, color: "bg-accent/10" },
-      { label: "Conversion Rate", count: "—", icon: <CheckCircle className="h-4 w-4" />, color: "bg-accent/20" },
+      { key: "all", label: "Total Interest", count: total, icon: <Users className="h-4 w-4" />, color: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300", activeClass: "ring-2 ring-blue-500 dark:ring-blue-400 shadow-md" },
+      { key: "today", label: "Today's Leads", count: today, icon: <Activity className="h-4 w-4" />, color: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300", activeClass: "ring-2 ring-orange-500 dark:ring-orange-400 shadow-md" },
+      { key: "resume", label: "With Resume", count: withResume, icon: <FileText className="h-4 w-4" />, color: "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300", activeClass: "ring-2 ring-teal-500 dark:ring-teal-400 shadow-md" },
+      { key: "conversion", label: "Conversion Rate", count: "—", icon: <CheckCircle className="h-4 w-4" />, color: "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300", activeClass: "" },
     ];
   }, [candidates]);
+
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter(c => {
+      if (activeFilter === "today") {
+        if (!c.created_at) return false;
+        const date = new Date(c.created_at);
+        return date.toDateString() === new Date().toDateString();
+      }
+      if (activeFilter === "resume") {
+        return !!(c.resume_url || c.resume_file);
+      }
+      return true;
+    });
+  }, [candidates, activeFilter]);
 
   return (
     <div className="space-y-6">
@@ -66,35 +82,72 @@ const AdminInterestedCandidatesPage = () => {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((w, i) => (
-          <motion.div
-            key={w.label}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.05 }}
-          >
-            <Card>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${w.color}`}>
-                  {w.icon}
-                </div>
-                <div>
-                  <p className="text-xl font-bold">{w.count}</p>
-                  <p className="text-xs text-muted-foreground">{w.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+        {stats.map((w, i) => {
+          const isFilterable = w.key !== "conversion";
+          const isActive = activeFilter === w.key;
+          return (
+            <motion.div
+              key={w.label}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <Card
+                className={`border-0 ${w.color} ${
+                  isFilterable 
+                    ? "cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]" 
+                    : ""
+                } ${isActive ? w.activeClass : isFilterable ? "opacity-75 hover:opacity-100" : ""}`}
+                onClick={() => {
+                  if (isFilterable) {
+                    setActiveFilter(prev => prev === w.key ? "all" : w.key);
+                  }
+                }}
+              >
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/40 dark:bg-black/20">
+                    {w.icon}
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{w.count}</p>
+                    <p className="text-xs text-muted-foreground">{w.label}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
       </div>
+
+      {activeFilter !== "all" && (
+        <div className="flex items-center gap-2 mb-2 animate-in fade-in duration-200">
+          <span className="text-xs text-muted-foreground font-semibold">
+            Filtered by: {activeFilter === "today" ? "Today's Leads" : "With Resume"}
+          </span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setActiveFilter("all")} 
+            className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Clear Filter
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">Interested Candidate Records</CardTitle>
+          <CardTitle className="text-sm font-semibold">
+            {activeFilter === "all" 
+              ? "Interested Candidate Records" 
+              : activeFilter === "today" 
+                ? "Today's Leads" 
+                : "Interested Candidates with Resume"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
-            data={candidates}
+            data={filteredCandidates}
             isLoading={loading}
             searchKey="name"
             searchPlaceholder="Search leads..."

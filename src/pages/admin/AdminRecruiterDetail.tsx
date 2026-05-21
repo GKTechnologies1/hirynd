@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { recruitersApi, authApi, auditApi, filesApi } from "@/services/api";
+import { recruitersApi, authApi, auditApi, filesApi, getFileUrl } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  User, Mail, Phone, MapPin, Briefcase, Award, Calendar, 
+import {
+  User, Mail, Phone, MapPin, Briefcase, Award, Calendar,
   BarChart3, TrendingUp, History, Save, ArrowLeft, Loader2,
   Shield, CheckCircle2, XCircle, Clock, Eye, EyeOff, Landmark, Users, FileUp, Check
 } from "lucide-react";
@@ -30,7 +30,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
   const id = propId || paramId;
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [recruiter, setRecruiter] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,7 +58,10 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
     specialization: "",
     max_clients: 3,
     prior_recruitment_experience: "",
-    work_type_preference: ""
+    work_type_preference: "",
+    referral_source: "",
+    referral_friend_name: "",
+    resume_file: ""
   });
   const [bankDetails, setBankDetails] = useState<any>({
     bank_name: "",
@@ -118,7 +121,10 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
         specialization: data.specialization || data.profile?.specialization || "",
         max_clients: data.max_clients || data.profile?.max_clients || 3,
         prior_recruitment_experience: data.prior_recruitment_experience || data.profile?.prior_recruitment_experience || "",
-        work_type_preference: data.work_type_preference || data.profile?.work_type_preference || ""
+        work_type_preference: data.work_type_preference || data.profile?.work_type_preference || "",
+        referral_source: data.referral_source || "",
+        referral_friend_name: data.referral_friend_name || "",
+        resume_file: data.resume_file || ""
       });
 
       if (data.bank_details || data.profile?.bank_details) {
@@ -137,7 +143,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
         pan_card_file: data.pan_card_file || data.profile?.pan_card_file,
         bank_passbook_file: data.bank_passbook_file || data.profile?.bank_passbook_file
       });
-      
+
       // Fetch stats
       setLoadingStats(true);
       const { data: statsData } = await recruitersApi.stats({ user_id: id });
@@ -168,7 +174,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
     setSaving(true);
     try {
       const cleanData = { ...formData };
-      
+
       // Convert MM-dd-yyyy back to yyyy-MM-dd for backend
       if (cleanData.graduation_date && cleanData.graduation_date.includes("-")) {
         try {
@@ -178,22 +184,22 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
             const parsed = parse(cleanData.graduation_date, "MM-dd-yyyy", new Date());
             if (!isNaN(parsed.getTime())) cleanData.graduation_date = format(parsed, "yyyy-MM-dd");
           }
-        } catch(e) {}
+        } catch (e) { }
       }
-      
+
       if (cleanData.date_of_joining && cleanData.date_of_joining.includes("-")) {
         try {
           const parts = cleanData.date_of_joining.split("-");
           if (parts[0].length === 2 && parts[2].length === 4) {
-             const parsed = parse(cleanData.date_of_joining, "MM-dd-yyyy", new Date());
-             if (!isNaN(parsed.getTime())) cleanData.date_of_joining = format(parsed, "yyyy-MM-dd");
+            const parsed = parse(cleanData.date_of_joining, "MM-dd-yyyy", new Date());
+            if (!isNaN(parsed.getTime())) cleanData.date_of_joining = format(parsed, "yyyy-MM-dd");
           }
-        } catch(e) {}
+        } catch (e) { }
       }
 
       if (!cleanData.graduation_date) (cleanData.graduation_date as any) = null;
       if (!cleanData.date_of_joining) (cleanData.date_of_joining as any) = null;
-      
+
       await recruitersApi.adminUpdateProfile(id, cleanData);
       toast({ title: "Profile updated successfully" });
       fetchData();
@@ -222,7 +228,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
     setUploadingDocs(prev => ({ ...prev, [docType]: true }));
     try {
       const { data } = await filesApi.upload(file, docType);
-      
+
       // Map docType to API field name
       const fieldMap: Record<string, string> = {
         'highest_degree_certificate': 'highest_degree_certificate_id',
@@ -230,10 +236,10 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
         'pan_card': 'pan_card_id',
         'bank_passbook': 'bank_passbook_id'
       };
-      
+
       const fieldName = fieldMap[docType];
       await recruitersApi.adminUpdateProfile(id!, { [fieldName]: data.id });
-      
+
       // Update local documents state
       setDocuments(prev => ({
         ...prev,
@@ -243,7 +249,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
           uploaded_at: new Date().toISOString()
         }
       }));
-      
+
       toast({ title: "Success", description: `${docType.replace(/_/g, ' ')} uploaded successfully` });
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || "Failed to upload document", variant: "destructive" });
@@ -291,10 +297,10 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <Button 
-            onClick={handleUpdate} 
+          <Button
+            onClick={handleUpdate}
             disabled={saving}
             className="rounded-xl px-6 h-11 font-black tracking-tight shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
@@ -327,40 +333,40 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                  <Input 
-                    value={formData.full_name} 
-                    onChange={e => setFormData({...formData, full_name: e.target.value})}
+                  <Input
+                    value={formData.full_name}
+                    onChange={e => setFormData({ ...formData, full_name: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Email Address (Read Only)</Label>
-                  <Input 
-                    value={recruiter.email} 
+                  <Input
+                    value={recruiter.email}
                     disabled
                     className="h-11 rounded-xl bg-muted/40 opacity-70"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
-                  <Input 
-                    value={formData.phone} 
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                  <Input
+                    value={formData.phone}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">City</Label>
-                    <Input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                    <Input value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">State</Label>
-                    <Input value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                    <Input value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Country</Label>
-                    <Input value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                    <Input value={formData.country} onChange={e => setFormData({ ...formData, country: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
                   </div>
                 </div>
               </CardContent>
@@ -380,17 +386,17 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Bank Name</Label>
-                  <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.bank_name} onChange={e => setBankDetails({...bankDetails, bank_name: e.target.value})} placeholder="e.g. Chase Bank, Wells Fargo" />
+                  <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.bank_name} onChange={e => setBankDetails({ ...bankDetails, bank_name: e.target.value })} placeholder="e.g. Chase Bank, Wells Fargo" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Account Number</Label>
                   <div className="relative">
-                    <Input 
+                    <Input
                       disabled={!isBankEditing}
-                      type={maskBank ? "password" : "text"} 
-                      className="bg-background/50 h-10 text-sm tracking-wider pr-10" 
-                      value={bankDetails.account_number} 
-                      onChange={e => setBankDetails({...bankDetails, account_number: e.target.value})} 
+                      type={maskBank ? "password" : "text"}
+                      className="bg-background/50 h-10 text-sm tracking-wider pr-10"
+                      value={bankDetails.account_number}
+                      onChange={e => setBankDetails({ ...bankDetails, account_number: e.target.value })}
                     />
                     <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground" onClick={() => setMaskBank(!maskBank)}>
                       {maskBank ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -399,7 +405,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Routing Number</Label>
-                  <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.routing_number} onChange={e => setBankDetails({...bankDetails, routing_number: e.target.value})} />
+                  <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.routing_number} onChange={e => setBankDetails({ ...bankDetails, routing_number: e.target.value })} />
                 </div>
                 {isBankEditing && (
                   <Button className="w-full h-11" onClick={handleSaveBankDetails} disabled={savingBank}>
@@ -412,29 +418,29 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
             <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
               <CardHeader className="bg-secondary/5 pb-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Award className="h-4 w-4 text-secondary" /> Education Background
+                  <Award className="h-4 w-4 text-secondary" /> University / College
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">University / Institute</Label>
-                  <Input 
-                    value={formData.university} 
-                    onChange={e => setFormData({...formData, university: e.target.value})}
+                  <Input
+                    value={formData.university}
+                    onChange={e => setFormData({ ...formData, university: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree & Major</Label>
-                  <Input 
-                    value={`${formData.degree || ""}${formData.degree && formData.major ? " & " : ""}${formData.major || ""}`} 
+                  <Input
+                    value={`${formData.degree || ""}${formData.degree && formData.major ? " & " : ""}${formData.major || ""}`}
                     onChange={e => {
                       const val = e.target.value;
                       const [d, ...m] = val.split("&");
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        degree: (d || "").trim(), 
-                        major: m.join("/").trim() 
+                      setFormData(prev => ({
+                        ...prev,
+                        degree: (d || "").trim(),
+                        major: m.join("/").trim()
                       }));
                     }}
                     className="h-11 rounded-xl bg-muted/20"
@@ -443,11 +449,59 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Graduation Date</Label>
-                  <DatePicker 
-                    value={formData.graduation_date} 
-                    onChange={val => setFormData({...formData, graduation_date: val})} 
+                  <DatePicker
+                    value={formData.graduation_date}
+                    onChange={val => setFormData({ ...formData, graduation_date: val })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Registration & Referral Card */}
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40 flex flex-col">
+              <CardHeader className="bg-primary/5 pb-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" /> Registration & Referral
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4 flex-1">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Discovery Source</Label>
+                  <Input
+                    value={formData.referral_source}
+                    onChange={e => setFormData({ ...formData, referral_source: e.target.value })}
+                    className="h-11 rounded-xl bg-muted/20"
+                    placeholder="e.g. LinkedIn, Google, Friend, etc."
+                  />
+                </div>
+                {formData.referral_source?.toLowerCase() === "friend" && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Friend's Name</Label>
+                    <Input
+                      value={formData.referral_friend_name}
+                      onChange={e => setFormData({ ...formData, referral_friend_name: e.target.value })}
+                      className="h-11 rounded-xl bg-muted/20"
+                      placeholder="Name of the referring friend"
+                    />
+                  </div>
+                )}
+                <div className="pt-2 border-t mt-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 block mb-2">Registration Resume</Label>
+                  {formData.resume_file ? (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 flex items-center gap-2 h-10 px-4"
+                        onClick={() => window.open(getFileUrl(formData.resume_file), "_blank")}
+                      >
+                        <FileUp className="h-4 w-4" /> View / Download Resume
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground italic ml-1">No resume uploaded during registration</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -539,9 +593,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     header: "Actions",
                     className: "text-right pr-6",
                     render: (a: any) => (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-8 w-8 p-0 rounded-lg hover:bg-primary/10 text-primary"
                         onClick={() => navigate(`/admin-dashboard/candidates/${a.candidate_id}`)}
                       >
@@ -567,10 +621,10 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">LinkedIn URL</Label>
-                  <Input 
+                  <Input
                     type="url"
-                    value={formData.linkedin_url} 
-                    onChange={e => setFormData({...formData, linkedin_url: e.target.value})}
+                    value={formData.linkedin_url}
+                    onChange={e => setFormData({ ...formData, linkedin_url: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                   {formData.linkedin_url && (
@@ -581,10 +635,10 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Other Social Profile (GitHub/Portfolio)</Label>
-                  <Input 
+                  <Input
                     type="url"
-                    value={formData.social_profile_url} 
-                    onChange={e => setFormData({...formData, social_profile_url: e.target.value})}
+                    value={formData.social_profile_url}
+                    onChange={e => setFormData({ ...formData, social_profile_url: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
@@ -600,18 +654,18 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Work Type Preference</Label>
-                  <Input 
-                    value={formData.work_type_preference} 
-                    onChange={e => setFormData({...formData, work_type_preference: e.target.value})}
+                  <Input
+                    value={formData.work_type_preference}
+                    onChange={e => setFormData({ ...formData, work_type_preference: e.target.value })}
                     placeholder="e.g. Full-time, Remote"
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Prior Recruitment Experience</Label>
-                  <Input 
-                    value={formData.prior_recruitment_experience} 
-                    onChange={e => setFormData({...formData, prior_recruitment_experience: e.target.value})}
+                  <Input
+                    value={formData.prior_recruitment_experience}
+                    onChange={e => setFormData({ ...formData, prior_recruitment_experience: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
@@ -635,25 +689,25 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Company Name</Label>
-                  <Input 
-                    value={formData.company_name} 
-                    onChange={e => setFormData({...formData, company_name: e.target.value})}
+                  <Input
+                    value={formData.company_name}
+                    onChange={e => setFormData({ ...formData, company_name: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Employee ID</Label>
-                  <Input 
-                    value={formData.employee_id} 
-                    onChange={e => setFormData({...formData, employee_id: e.target.value})}
+                  <Input
+                    value={formData.employee_id}
+                    onChange={e => setFormData({ ...formData, employee_id: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Date of Joining</Label>
-                  <DatePicker 
-                    value={formData.date_of_joining} 
-                    onChange={val => setFormData({...formData, date_of_joining: val})} 
+                  <DatePicker
+                    value={formData.date_of_joining}
+                    onChange={val => setFormData({ ...formData, date_of_joining: val })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
@@ -661,28 +715,28 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
-                  <Input 
-                    value={formData.department} 
-                    onChange={e => setFormData({...formData, department: e.target.value})}
+                  <Input
+                    value={formData.department}
+                    onChange={e => setFormData({ ...formData, department: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Specialization</Label>
-                  <Input 
-                    value={formData.specialization} 
-                    onChange={e => setFormData({...formData, specialization: e.target.value})}
+                  <Input
+                    value={formData.specialization}
+                    onChange={e => setFormData({ ...formData, specialization: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">System Limit (Max Clients)</Label>
-                  <Input 
+                  <Input
                     type="number"
                     min={1}
                     max={20}
-                    value={formData.max_clients} 
-                    onChange={e => setFormData({...formData, max_clients: parseInt(e.target.value) || 3})}
+                    value={formData.max_clients}
+                    onChange={e => setFormData({ ...formData, max_clients: parseInt(e.target.value) || 3 })}
                     className="h-11 rounded-xl bg-muted/20 font-bold"
                   />
                 </div>
@@ -728,9 +782,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">File: {documents.highest_degree_certificate_file.name}</p>
                       <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.highest_degree_certificate_file.uploaded_at).toLocaleDateString()}</p>
-                      <Button 
-                        variant="outline" 
-                        className="w-full text-xs" 
+                      <Button
+                        variant="outline"
+                        className="w-full text-xs"
                         disabled={uploadingDocs.highest_degree_certificate}
                         onClick={() => degreeInputRef.current?.click()}
                       >
@@ -746,9 +800,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                       </Button>
                     </div>
                   ) : (
-                    <Button 
-                      variant="outline" 
-                      className="w-full text-xs" 
+                    <Button
+                      variant="outline"
+                      className="w-full text-xs"
                       disabled={uploadingDocs.highest_degree_certificate}
                       onClick={() => degreeInputRef.current?.click()}
                     >
@@ -786,9 +840,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">File: {documents.government_id_card_file.name}</p>
                       <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.government_id_card_file.uploaded_at).toLocaleDateString()}</p>
-                      <Button 
-                        variant="outline" 
-                        className="w-full text-xs" 
+                      <Button
+                        variant="outline"
+                        className="w-full text-xs"
                         disabled={uploadingDocs.government_id_card}
                         onClick={() => idCardInputRef.current?.click()}
                       >
@@ -804,9 +858,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                       </Button>
                     </div>
                   ) : (
-                    <Button 
-                      variant="outline" 
-                      className="w-full text-xs" 
+                    <Button
+                      variant="outline"
+                      className="w-full text-xs"
                       disabled={uploadingDocs.government_id_card}
                       onClick={() => idCardInputRef.current?.click()}
                     >
@@ -844,9 +898,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">File: {documents.pan_card_file.name}</p>
                       <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.pan_card_file.uploaded_at).toLocaleDateString()}</p>
-                      <Button 
-                        variant="outline" 
-                        className="w-full text-xs" 
+                      <Button
+                        variant="outline"
+                        className="w-full text-xs"
                         disabled={uploadingDocs.pan_card}
                         onClick={() => panCardInputRef.current?.click()}
                       >
@@ -862,9 +916,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                       </Button>
                     </div>
                   ) : (
-                    <Button 
-                      variant="outline" 
-                      className="w-full text-xs" 
+                    <Button
+                      variant="outline"
+                      className="w-full text-xs"
                       disabled={uploadingDocs.pan_card}
                       onClick={() => panCardInputRef.current?.click()}
                     >
@@ -902,9 +956,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">File: {documents.bank_passbook_file.name}</p>
                       <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.bank_passbook_file.uploaded_at).toLocaleDateString()}</p>
-                      <Button 
-                        variant="outline" 
-                        className="w-full text-xs" 
+                      <Button
+                        variant="outline"
+                        className="w-full text-xs"
                         disabled={uploadingDocs.bank_passbook}
                         onClick={() => bankPassbookInputRef.current?.click()}
                       >
@@ -920,9 +974,9 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                       </Button>
                     </div>
                   ) : (
-                    <Button 
-                      variant="outline" 
-                      className="w-full text-xs" 
+                    <Button
+                      variant="outline"
+                      className="w-full text-xs"
                       disabled={uploadingDocs.bank_passbook}
                       onClick={() => bankPassbookInputRef.current?.click()}
                     >

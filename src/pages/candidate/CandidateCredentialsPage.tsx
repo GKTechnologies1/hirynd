@@ -109,8 +109,8 @@ const maskSensitive = (key: string, value: string) => {
 
 // --- Sub-components ---
 
-const FormField = ({ label, mandatory, children, error, icon: Icon, description }: any) => (
-  <div className="space-y-2 group text-left">
+const FormField = ({ id, label, mandatory, children, error, icon: Icon, description }: any) => (
+  <div id={id} className="space-y-2 group text-left">
     <div className="flex items-center gap-2 ml-1">
       {Icon && <Icon className="h-4 w-4 text-secondary/80" />}
       <Label className="text-sm font-semibold text-card-foreground/90 flex items-center">
@@ -121,14 +121,14 @@ const FormField = ({ label, mandatory, children, error, icon: Icon, description 
     <div className="relative">
       {children}
     </div>
-    {error && <p className="text-[11px] font-bold text-destructive mt-1 ml-1 animate-in fade-in slide-in-from-top-1">{error}</p>}
+    {error && <p className="text-[11px] font-bold text-destructive mt-1 ml-1 animate-in fade-in duration-150">{error}</p>}
   </div>
 );
 
-const PasswordField = ({ value, onChange, placeholder, error, mandatory, label, icon: Icon }: any) => {
+const PasswordField = ({ value, onChange, placeholder, error, mandatory, label, icon: Icon, id }: any) => {
   const [show, setShow] = useState(false);
   return (
-    <FormField label={label} mandatory={mandatory} error={error} icon={Icon}>
+    <FormField id={id} label={label} mandatory={mandatory} error={error} icon={Icon}>
       <div className="relative">
         <Input
           type={show ? "text" : "password"}
@@ -273,6 +273,33 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
     }
 
     setErrors(newErrors);
+
+    const hasErrors = Object.keys(newErrors).length > 0;
+    if (hasErrors) {
+      const fieldOrder = [
+        "email", "bachelors_grad_date", "first_entry_us", "masters_grad_date",
+        "opt_start_date", "opt_offer_submitted", "offer_letter_file",
+        "full_name", "personal_email", "phone_number", "location",
+        "preferred_roles", "preferred_locations",
+        "linkedin_id", "linkedin_pass", "indeed_id", "indeed_pass",
+        "dice_id", "dice_pass", "monster_id", "monster_pass",
+        "ziprecruiter_id", "ziprecruiter_pass", "other_platforms"
+      ];
+      const firstErrorField = fieldOrder.find(field => newErrors[field]);
+      if (firstErrorField) {
+        setTimeout(() => {
+          const element = document.getElementById(firstErrorField);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            const focusable = element.querySelector("input, textarea, select, button") || element;
+            if (focusable && typeof (focusable as any).focus === "function") {
+              (focusable as any).focus();
+            }
+          }
+        }, 100);
+      }
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -539,7 +566,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 text-left">
-                  <FormField label="Email Address" mandatory error={errors.email}>
+                  <FormField id="email" label="Email Address" mandatory error={errors.email}>
                     <Input 
                       value={formData.email} 
                       onChange={e => handleChange("email", e.target.value)}
@@ -548,39 +575,43 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     />
                   </FormField>
 
-                  <FormField label="Bachelors Graduation Date" mandatory error={errors.bachelors_grad_date}>
+                  <FormField id="bachelors_grad_date" label="Bachelors Graduation Date" mandatory error={errors.bachelors_grad_date}>
                     <DatePicker 
                       value={formData.bachelors_grad_date} 
                       onChange={v => handleChange("bachelors_grad_date", v)} 
                       placeholder="Select Date"
+                      className={cn("h-10 rounded-lg", errors.bachelors_grad_date && "border-destructive ring-1 ring-destructive/20")}
                     />
                   </FormField>
 
-                  <FormField label="First Entry into the U.S." mandatory error={errors.first_entry_us}>
+                  <FormField id="first_entry_us" label="First Entry into the U.S." mandatory error={errors.first_entry_us}>
                     <DatePicker 
                       value={formData.first_entry_us} 
                       onChange={v => handleChange("first_entry_us", v)} 
                       placeholder="Select Date"
+                      className={cn("h-10 rounded-lg", errors.first_entry_us && "border-destructive ring-1 ring-destructive/20")}
                     />
                   </FormField>
 
-                  <FormField label="Masters Graduation Date" mandatory error={errors.masters_grad_date}>
+                  <FormField id="masters_grad_date" label="Masters Graduation Date" mandatory error={errors.masters_grad_date}>
                     <DatePicker 
                       value={formData.masters_grad_date} 
                       onChange={v => handleChange("masters_grad_date", v)} 
                       placeholder="Select Date"
+                      className={cn("h-10 rounded-lg", errors.masters_grad_date && "border-destructive ring-1 ring-destructive/20")}
                     />
                   </FormField>
 
-                  <FormField label="OPT Start Date" mandatory error={errors.opt_start_date}>
+                  <FormField id="opt_start_date" label="OPT Start Date" mandatory error={errors.opt_start_date}>
                     <DatePicker 
                       value={formData.opt_start_date} 
                       onChange={v => handleChange("opt_start_date", v)} 
                       placeholder="Select Date"
+                      className={cn("h-10 rounded-lg", errors.opt_start_date && "border-destructive ring-1 ring-destructive/20")}
                     />
                   </FormField>
 
-                  <FormField label="Is OPT Offer Submitted?" mandatory error={errors.opt_offer_submitted}>
+                  <FormField id="opt_offer_submitted" label="Is OPT Offer Submitted?" mandatory error={errors.opt_offer_submitted}>
                     <Select value={formData.opt_offer_submitted} onValueChange={v => handleChange("opt_offer_submitted", v)}>
                       <SelectTrigger className={cn("h-10 rounded-lg bg-neutral-50", errors.opt_offer_submitted && "border-destructive ring-1 ring-destructive/20")}>
                         <SelectValue placeholder="Select Response" />
@@ -593,7 +624,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                   </FormField>
 
                   {formData.opt_offer_submitted === "yes" && (
-                    <div className="sm:col-span-2 p-5 border-2 border-dashed rounded-lg bg-neutral-50 border-neutral-300 hover:border-primary/40 transition-all text-center">
+                    <div id="offer_letter_file" className="sm:col-span-2 p-5 border-2 border-dashed rounded-lg bg-neutral-50 border-neutral-300 hover:border-primary/40 transition-all text-center">
                       <input 
                         type="file" 
                         ref={fileInputRef} 
@@ -648,15 +679,15 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 text-left">
-                  <FormField label="Full Name" mandatory error={errors.full_name}>
+                  <FormField id="full_name" label="Full Name" mandatory error={errors.full_name}>
                     <Input value={formData.full_name} onChange={e => handleChange("full_name", e.target.value)} placeholder="As per legal documents" className={cn("h-10 rounded-lg bg-neutral-50", errors.full_name && "border-destructive ring-1 ring-destructive/20")} />
                   </FormField>
 
-                  <FormField label="Personal Email Address" mandatory error={errors.personal_email}>
+                  <FormField id="personal_email" label="Personal Email Address" mandatory error={errors.personal_email}>
                     <Input value={formData.personal_email} onChange={e => handleChange("personal_email", e.target.value)} placeholder="personal@email.com" className={cn("h-10 rounded-lg bg-neutral-50", errors.personal_email && "border-destructive ring-1 ring-destructive/20")} />
                   </FormField>
 
-                  <FormField label="Mobile Phone Number" mandatory error={errors.phone_number}>
+                  <FormField id="phone_number" label="Mobile Phone Number" mandatory error={errors.phone_number}>
                     <div className="flex gap-2">
                       <Select value={formData.country_code} onValueChange={v => handleChange("country_code", v)}>
                         <SelectTrigger className="w-[100px] h-10 rounded-lg bg-neutral-50">
@@ -677,18 +708,18 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     </div>
                   </FormField>
 
-                  <FormField label="Location (City, State)" mandatory error={errors.location}>
+                  <FormField id="location" label="Location (City, State)" mandatory error={errors.location}>
                     <Input value={formData.location} onChange={e => handleChange("location", e.target.value)} placeholder="e.g. New York, NY" className={cn("h-10 rounded-lg bg-neutral-50", errors.location && "border-destructive ring-1 ring-destructive/20")} />
                   </FormField>
 
                   <div className="sm:col-span-2">
-                    <FormField label="Preferred Job Roles" mandatory error={errors.preferred_roles}>
+                    <FormField id="preferred_roles" label="Preferred Job Roles" mandatory error={errors.preferred_roles}>
                       <Input value={formData.preferred_roles} onChange={e => handleChange("preferred_roles", e.target.value)} placeholder="e.g. Software Engineer, Data Analyst" className={cn("h-10 rounded-lg bg-neutral-50", errors.preferred_roles && "border-destructive ring-1 ring-destructive/20")} />
                     </FormField>
                   </div>
 
                   <div className="sm:col-span-2">
-                    <FormField label="Preferred Location(s)" mandatory error={errors.preferred_locations}>
+                    <FormField id="preferred_locations" label="Preferred Location(s)" mandatory error={errors.preferred_locations}>
                       <Input value={formData.preferred_locations} onChange={e => handleChange("preferred_locations", e.target.value)} placeholder="e.g. Remote, Austin, Seattle" className={cn("h-10 rounded-lg bg-neutral-50", errors.preferred_locations && "border-destructive ring-1 ring-destructive/20")} />
                     </FormField>
                   </div>
@@ -705,49 +736,48 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2">
-                  
                   {/* LinkedIn */}
-                  <div className="space-y-1.5">
+                  <div id="linkedin_id" className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">LinkedIn Login ID *</Label>
                     <Input value={formData.linkedin_id} onChange={e => handleChange("linkedin_id", e.target.value)} placeholder="LinkedIn username or email" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.linkedin_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.linkedin_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.linkedin_id}</p>}
                   </div>
-                  <PasswordField label="LinkedIn Password" mandatory value={formData.linkedin_pass} onChange={(v: string) => handleChange("linkedin_pass", v)} error={errors.linkedin_pass} placeholder="Password" />
-
+                  <PasswordField id="linkedin_pass" label="LinkedIn Password" mandatory value={formData.linkedin_pass} onChange={(v: string) => handleChange("linkedin_pass", v)} error={errors.linkedin_pass} placeholder="Password" />
+ 
                   {/* Indeed */}
-                  <div className="space-y-1.5">
+                  <div id="indeed_id" className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Login ID *</Label>
                     <Input value={formData.indeed_id} onChange={e => handleChange("indeed_id", e.target.value)} placeholder="Indeed Email ID" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.indeed_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.indeed_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.indeed_id}</p>}
                   </div>
-                  <PasswordField label="Indeed Password" mandatory value={formData.indeed_pass} onChange={(v: string) => handleChange("indeed_pass", v)} error={errors.indeed_pass} placeholder="Password" />
-
+                  <PasswordField id="indeed_pass" label="Indeed Password" mandatory value={formData.indeed_pass} onChange={(v: string) => handleChange("indeed_pass", v)} error={errors.indeed_pass} placeholder="Password" />
+ 
                   {/* Dice */}
-                  <div className="space-y-1.5">
+                  <div id="dice_id" className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Login ID *</Label>
                     <Input value={formData.dice_id} onChange={e => handleChange("dice_id", e.target.value)} placeholder="Dice username/email" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.dice_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.dice_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.dice_id}</p>}
                   </div>
-                  <PasswordField label="Dice Password" mandatory value={formData.dice_pass} onChange={(v: string) => handleChange("dice_pass", v)} error={errors.dice_pass} placeholder="Password" />
-
+                  <PasswordField id="dice_pass" label="Dice Password" mandatory value={formData.dice_pass} onChange={(v: string) => handleChange("dice_pass", v)} error={errors.dice_pass} placeholder="Password" />
+ 
                   {/* Monster */}
-                  <div className="space-y-1.5">
+                  <div id="monster_id" className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Login ID *</Label>
                     <Input value={formData.monster_id} onChange={e => handleChange("monster_id", e.target.value)} placeholder="Monster email" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.monster_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.monster_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.monster_id}</p>}
                   </div>
-                  <PasswordField label="Monster Password" mandatory value={formData.monster_pass} onChange={(v: string) => handleChange("monster_pass", v)} error={errors.monster_pass} placeholder="Password" />
-
+                  <PasswordField id="monster_pass" label="Monster Password" mandatory value={formData.monster_pass} onChange={(v: string) => handleChange("monster_pass", v)} error={errors.monster_pass} placeholder="Password" />
+ 
                   {/* ZipRecruiter */}
-                  <div className="space-y-1.5">
+                  <div id="ziprecruiter_id" className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Login ID *</Label>
                     <Input value={formData.ziprecruiter_id} onChange={e => handleChange("ziprecruiter_id", e.target.value)} placeholder="ZipRecruiter email" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.ziprecruiter_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.ziprecruiter_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.ziprecruiter_id}</p>}
                   </div>
-                  <PasswordField label="ZipRecruiter Password" mandatory value={formData.ziprecruiter_pass} onChange={(v: string) => handleChange("ziprecruiter_pass", v)} error={errors.ziprecruiter_pass} placeholder="Password" />
-
+                  <PasswordField id="ziprecruiter_pass" label="ZipRecruiter Password" mandatory value={formData.ziprecruiter_pass} onChange={(v: string) => handleChange("ziprecruiter_pass", v)} error={errors.ziprecruiter_pass} placeholder="Password" />
+ 
                   {/* Other Platforms */}
-                  <div className="sm:col-span-2 space-y-1.5">
+                  <div id="other_platforms" className="sm:col-span-2 space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Mention other Platform accounts *</Label>
                     <Textarea 
                       value={formData.other_platforms} 

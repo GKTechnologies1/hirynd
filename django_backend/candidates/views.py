@@ -215,19 +215,62 @@ def validate_intake_data(data):
                 errors[url_field] = f"Invalid URL format for {url_field}"
 
     # Date format validation (ISO 8601: YYYY-MM-DD is preferred)
+    # Graduation date fields accept flexible human-readable formats
+    # (e.g. "May 2024", "12/2021", "2021", "December 2021", "05-2024")
+    grad_date_fields = {'masters_grad_date', 'bachelors_grad_date'}
     date_fields = ['dob', 'first_entry_us', 'masters_grad_date', 'bachelors_grad_date']
     for date_field in date_fields:
         if data.get(date_field):
-            success = False
+            raw = str(data[date_field]).strip()
+            parsed_date = None
+
+            # 1. Try standard full-date formats
             for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
                 try:
-                    datetime.strptime(str(data[date_field]), fmt)
-                    success = True
+                    parsed_date = datetime.strptime(raw, fmt)
                     break
                 except (ValueError, TypeError):
                     continue
-            if not success:
-                errors[date_field] = f"{date_field} must be a valid date (YYYY-MM-DD)"
+
+            # 2. For graduation fields, try additional flexible formats
+            if parsed_date is None and date_field in grad_date_fields:
+                # Month+Year combos: "May 2024", "December 2021", "05/2024", "05-2024", "May-2024"
+                month_year_formats = [
+                    '%B %Y',    # "May 2024", "December 2021"
+                    '%b %Y',    # "May 2024" (abbreviated)
+                    '%m/%Y',    # "05/2024"
+                    '%m-%Y',    # "05-2024"
+                    '%B-%Y',    # "May-2024"
+                    '%b-%Y',    # "May-2024" (abbreviated)
+                    '%Y/%m',    # "2024/05"
+                ]
+                for fmt in month_year_formats:
+                    try:
+                        parsed_date = datetime.strptime(raw, fmt)
+                        break
+                    except (ValueError, TypeError):
+                        continue
+
+                # Year-only: "2021"
+                if parsed_date is None and raw.isdigit() and 1900 <= int(raw) <= 2100:
+                    parsed_date = datetime(int(raw), 1, 1)
+
+                # Last resort: try general date parsing
+                if parsed_date is None:
+                    try:
+                        from dateutil import parser as dateutil_parser
+                        parsed_date = dateutil_parser.parse(raw, dayfirst=False)
+                    except Exception:
+                        pass
+
+            if parsed_date:
+                # Normalize to YYYY-MM-DD so downstream date parsing works
+                data[date_field] = parsed_date.strftime('%Y-%m-%d')
+            else:
+                if date_field in grad_date_fields:
+                    errors[date_field] = f"{date_field} must be a valid date (e.g. May 2024, 2021, or MM-DD-YYYY)"
+                else:
+                    errors[date_field] = f"{date_field} must be a valid date (YYYY-MM-DD)"
 
     # Phone validation
     if data.get('phone_number'):

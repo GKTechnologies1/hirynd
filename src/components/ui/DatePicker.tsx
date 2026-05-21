@@ -25,14 +25,14 @@ interface DatePickerProps {
 export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", className, id, disabled }: DatePickerProps) {
   const [date, setDate] = React.useState<Date | undefined>(() => {
     if (!value) return undefined;
-    
+
     // Try multiple formats
     const formats = ["MM-dd-yyyy", "MM/dd/yyyy", "yyyy-MM-dd"];
     for (const f of formats) {
       try {
         const parsed = parse(value, f, new Date());
         if (!isNaN(parsed.getTime())) return parsed;
-      } catch (e) {}
+      } catch (e) { }
     }
     return undefined;
   });
@@ -45,7 +45,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
       setDate(undefined);
       return;
     }
-    
+
     const formats = ["MM-dd-yyyy", "MM/dd/yyyy", "yyyy-MM-dd"];
     let found = false;
     for (const f of formats) {
@@ -56,7 +56,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
           found = true;
           break;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     if (!found) setDate(undefined);
   }, [value]);
@@ -74,20 +74,20 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
   };
 
   return (
-    <Popover open={disabled ? false : open} onOpenChange={disabled ? () => {} : setOpen}>
+    <Popover open={disabled ? false : open} onOpenChange={disabled ? () => { } : setOpen}>
       <PopoverTrigger asChild>
         <Button
           id={id}
           variant={"outline"}
           disabled={disabled}
           className={cn(
-            "w-full justify-start text-left font-bold h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-all shadow-sm",
+            "w-full justify-start text-left font-bold h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-colors",
             !date && "text-muted-foreground",
             className
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "MM-dd-yyyy") : <span>{placeholder}</span>}
+          {date ? format(date, "MM/dd/yyyy") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

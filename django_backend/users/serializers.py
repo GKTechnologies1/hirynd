@@ -170,6 +170,9 @@ class RegisterSerializer(serializers.Serializer):
                 social_profile_url=social_profile,
                 prior_recruitment_experience=prior_recruitment_experience,
                 work_type_preference=work_type_preference,
+                referral_source=how_did_you_hear,
+                referral_friend_name=friend_name,
+                resume_file=resume_file,
             )
 
         return user
@@ -312,13 +315,13 @@ class UserListSerializer(serializers.ModelSerializer):
         return getattr(p, 'visa_status', '') or ''
 
     def get_referral_source(self, obj):
-        if obj.role != 'candidate': return ''
-        p = getattr(obj, 'candidate', None)
+        p = self._get_target_profile(obj)
+        if p is None: return ''
         return getattr(p, 'referral_source', '') or ''
 
     def get_referral_friend_name(self, obj):
-        if obj.role != 'candidate': return ''
-        p = getattr(obj, 'candidate', None)
+        p = self._get_target_profile(obj)
+        if p is None: return ''
         return getattr(p, 'referral_friend_name', '') or ''
 
     def get_notes(self, obj):
@@ -327,9 +330,8 @@ class UserListSerializer(serializers.ModelSerializer):
         return getattr(p, 'notes', '') or ''
 
     def get_resume_file(self, obj):
-        if obj.role != 'candidate': return None
-        p = getattr(obj, 'candidate', None)
-        if p and p.resume_file:
+        p = self._get_target_profile(obj)
+        if p and getattr(p, 'resume_file', None):
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(p.resume_file.url)

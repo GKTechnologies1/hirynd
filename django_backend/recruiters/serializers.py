@@ -13,7 +13,7 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecruiterProfile
         fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'resume_file']
     
     def get_highest_degree_certificate_file(self, obj):
         if obj.highest_degree_certificate_id:
@@ -73,6 +73,7 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='user.profile.full_name', required=False)
     phone = serializers.CharField(source='user.profile.phone', required=False)
     email = serializers.EmailField(source='user.email', read_only=True)
+    resume_file = serializers.FileField(read_only=True)
     highest_degree_certificate_file = serializers.SerializerMethodField()
     government_id_card_file = serializers.SerializerMethodField()
     pan_card_file = serializers.SerializerMethodField()
@@ -88,6 +89,7 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
             'company_name', 'employee_id', 'date_of_joining', 
             'department', 'specialization', 'max_clients',
             'prior_recruitment_experience', 'work_type_preference',
+            'referral_source', 'referral_friend_name', 'resume_file',
             'highest_degree_certificate_id', 'government_id_card_id', 
             'pan_card_id', 'bank_passbook_id',
             'highest_degree_certificate_file', 'government_id_card_file',

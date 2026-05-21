@@ -31,24 +31,11 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   const isOfficeDoc = fileUrl.toLowerCase().match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i);
   const targetUrl = isOfficeDoc ? previewUrl : fileUrl;
 
-  const handleClick = async (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
-
-    try {
-      // Check if file exists before opening
-      const response = await fetch(fileUrl, { method: 'HEAD' });
-      if (!response.ok) {
-        throw new Error('File not found');
-      }
-      
+    if (variant !== 'link') {
+      e.preventDefault();
       window.open(targetUrl, '_blank', 'noopener,noreferrer');
-    } catch (err) {
-      toast({
-        title: "Document unavailable",
-        description: "The requested file could not be found or is currently inaccessible.",
-        variant: "destructive"
-      });
     }
   };
 

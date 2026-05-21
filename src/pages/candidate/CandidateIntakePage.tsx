@@ -278,6 +278,35 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     if (formData.linkedinLink && !formData.linkedinLink.includes("linkedin.com")) newErrors.linkedinLink = "Invalid URL";
 
     setErrors(newErrors);
+
+    const hasErrors = Object.keys(newErrors).length > 0;
+    if (hasErrors) {
+      const fieldOrder = [
+        "firstName", "lastName", "dob", "phoneNumber", "marketingEmail", "marketingPhone",
+        "visaStatus", "firstEntryUS", "totalYearsUS", "currentAddress", "mailingAddress",
+        "skilledIn", "recentlyLearned", "experiencedWith", "learningNow", "otherNonTech",
+        "hasWorkExp", "hasMoreWork1", "hasMoreWork2",
+        "highestDegree", "mastersField", "mastersUni", "mastersCountry", "mastersGradDate",
+        "linkedinLink", "bachelorsDegree", "bachelorsField", "bachelorsUni", "bachelorsCountry", "bachelorsGradDate",
+        "hasCerts", "certName", "certOrg", "certDate",
+        "passportUpload", "govIdUpload", "visaUpload", "workAuthUpload", "docUpload",
+        "desiredRole", "desiredExpYears", "resumeUpload"
+      ];
+      const firstErrorField = fieldOrder.find(field => newErrors[field]);
+      if (firstErrorField) {
+        setTimeout(() => {
+          const element = document.getElementById(firstErrorField);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            const focusable = element.querySelector("input, textarea, select, button") || element;
+            if (focusable && typeof (focusable as any).focus === "function") {
+              (focusable as any).focus();
+            }
+          }
+        }, 100);
+      }
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -433,7 +462,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     const error = errors[fieldId];
 
     return (
-      <div className="space-y-2 text-left">
+      <div id={fieldId} className="space-y-2 text-left">
         <Label className="text-sm font-medium">{label} *</Label>
         <div 
           className={cn(
@@ -444,7 +473,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
           {!isLocked && (
             <input 
               type="file" 
-              id={fieldId}
+              id={fieldId + "_input"}
               className="mb-2 h-10 w-full py-1.5 cursor-pointer text-xs bg-white border border-neutral-200 rounded px-2"
               onChange={e => {
                 const file = e.target.files?.[0];
@@ -563,17 +592,17 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-left">
-                  <div className="space-y-2">
+                  <div id="firstName" className="space-y-2">
                     <Label className="text-sm font-medium">First Name *</Label>
                     <Input value={formData.firstName} onChange={e => handleChange("firstName", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.firstName && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.firstName && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.firstName}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="lastName" className="space-y-2">
                     <Label className="text-sm font-medium">Last Name *</Label>
                     <Input value={formData.lastName} onChange={e => handleChange("lastName", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.lastName && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.lastName && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.lastName}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="dob" className="space-y-2">
                     <Label className="text-sm font-medium">Date of Birth *</Label>
                     <DatePicker value={formData.dob} onChange={val => handleChange("dob", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.dob && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.dob && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.dob}</p>}
@@ -582,20 +611,20 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     <Label className="text-sm font-medium">Email Address *</Label>
                     <Input type="email" value={formData.email} disabled className="h-10 rounded-lg bg-neutral-50 opacity-60" />
                   </div>
-                  <div className="space-y-2">
+                  <div id="phoneNumber" className="space-y-2">
                     <Label className="text-sm font-medium">Phone Number *</Label>
                     <Input type="tel" value={formData.phoneNumber} onChange={e => handleChange("phoneNumber", e.target.value)} disabled={isLocked} required placeholder="1234567890" className={cn("h-10 rounded-lg bg-neutral-50", errors.phoneNumber && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.phoneNumber && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.phoneNumber}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="marketingEmail" className="space-y-2">
                     <Label className="text-sm font-medium">New E-mail for Marketing</Label>
                     <Input type="email" value={formData.marketingEmail} onChange={e => handleChange("marketingEmail", e.target.value)} disabled={isLocked} placeholder="Optional" className="h-10 rounded-lg bg-neutral-50" />
                   </div>
-                  <div className="space-y-2">
+                  <div id="marketingPhone" className="space-y-2">
                     <Label className="text-sm font-medium">Contact number for Marketing</Label>
                     <Input type="tel" value={formData.marketingPhone} onChange={e => handleChange("marketingPhone", e.target.value)} disabled={isLocked} placeholder="Optional" className="h-10 rounded-lg bg-neutral-50" />
                   </div>
-                  <div className="space-y-2">
+                  <div id="visaStatus" className="space-y-2">
                     <Label className="text-sm font-medium">Current Visa Status *</Label>
                     <Select value={formData.visaStatus} onValueChange={v => handleChange("visaStatus", v)} disabled={isLocked}>
                       <SelectTrigger className={cn("h-10 rounded-lg bg-neutral-50", errors.visaStatus && "border-destructive ring-1 ring-destructive/20")}>
@@ -607,12 +636,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     </Select>
                     {errors.visaStatus && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.visaStatus}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="firstEntryUS" className="space-y-2">
                     <Label className="text-sm font-medium">First Entry into the U.S. *</Label>
                     <DatePicker value={formData.firstEntryUS} onChange={val => handleChange("firstEntryUS", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.firstEntryUS && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.firstEntryUS && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.firstEntryUS}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="totalYearsUS" className="space-y-2">
                     <Label className="text-sm font-medium">Total Years in the U.S. *</Label>
                     <Input type="number" value={formData.totalYearsUS} onChange={e => handleChange("totalYearsUS", e.target.value)} disabled={isLocked} placeholder="e.g. 3" className={cn("h-10 rounded-lg bg-neutral-50", errors.totalYearsUS && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.totalYearsUS && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.totalYearsUS}</p>}
@@ -620,12 +649,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 text-left">
-                  <div className="space-y-2">
+                  <div id="currentAddress" className="space-y-2">
                     <Label className="text-sm font-medium">Current Address *</Label>
                     <Textarea value={formData.currentAddress} onChange={e => handleChange("currentAddress", e.target.value)} disabled={isLocked} required className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.currentAddress && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.currentAddress && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.currentAddress}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="mailingAddress" className="space-y-2">
                     <Label className="text-sm font-medium">Mailing Address *</Label>
                     <Textarea value={formData.mailingAddress} onChange={e => handleChange("mailingAddress", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.mailingAddress && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.mailingAddress && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mailingAddress}</p>}
@@ -643,27 +672,27 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 text-left">
-                  <div className="sm:col-span-2 space-y-2">
+                  <div id="skilledIn" className="sm:col-span-2 space-y-2">
                     <Label className="text-sm font-medium">Skilled In (Skills you can confidently work with, e.g., Python, React, Java) *</Label>
                     <Textarea value={formData.skilledIn} onChange={e => handleChange("skilledIn", e.target.value)} disabled={isLocked} required className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.skilledIn && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.skilledIn && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.skilledIn}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="recentlyLearned" className="space-y-2">
                     <Label className="text-sm font-medium">Currently Learning / Recently Learned *</Label>
                     <Textarea value={formData.recentlyLearned} onChange={e => handleChange("recentlyLearned", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.recentlyLearned && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.recentlyLearned && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.recentlyLearned}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="experiencedWith" className="space-y-2">
                     <Label className="text-sm font-medium">Experienced With Tools *</Label>
                     <Textarea value={formData.experiencedWith} onChange={e => handleChange("experiencedWith", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.experiencedWith && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.experiencedWith && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.experiencedWith}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="learningNow" className="space-y-2">
                     <Label className="text-sm font-medium">Learning Now / Self-Taught Tools *</Label>
                     <Textarea value={formData.learningNow} onChange={e => handleChange("learningNow", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.learningNow && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.learningNow && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.learningNow}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="otherNonTech" className="space-y-2">
                     <Label className="text-sm font-medium">Other Non-Technical Skills / Courses *</Label>
                     <Textarea value={formData.otherNonTech} onChange={e => handleChange("otherNonTech", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.otherNonTech && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.otherNonTech && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.otherNonTech}</p>}
@@ -681,7 +710,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
 
                 <div className="space-y-4 text-left">
-                  <div className="space-y-2">
+                  <div id="hasWorkExp" className="space-y-2">
                     <Label className="text-sm font-medium">Do you have any work experience (U.S. and/or International)? *</Label>
                     <div className={cn("flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border", errors.hasWorkExp ? "border-destructive ring-1 ring-destructive/20" : "border-neutral-200")}>
                       <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
@@ -737,7 +766,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                           </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-neutral-100">
+                        <div id="hasMoreWork1" className="mt-4 pt-4 border-t border-neutral-100">
                           <Label className="text-xs font-medium">Did you work anywhere else? *</Label>
                           <div className="flex gap-4 mt-1.5">
                             <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
@@ -793,7 +822,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                             </div>
                           </div>
 
-                          <div className="mt-4 pt-4 border-t border-neutral-100">
+                          <div id="hasMoreWork2" className="mt-4 pt-4 border-t border-neutral-100">
                             <Label className="text-xs font-medium">Did you work anywhere else? *</Label>
                             <div className="flex gap-4 mt-1.5">
                               <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
@@ -866,32 +895,32 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 text-left">
-                  <div className="space-y-2">
+                  <div id="highestDegree" className="space-y-2">
                     <Label className="text-sm font-medium">Highest Degree *</Label>
                     <Input value={formData.highestDegree} onChange={e => handleChange("highestDegree", e.target.value)} disabled={isLocked} placeholder="e.g. Masters" className={cn("h-10 rounded-lg bg-neutral-50", errors.highestDegree && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.highestDegree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.highestDegree}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="mastersField" className="space-y-2">
                     <Label className="text-sm font-medium">Field of Study (Highest Degree) *</Label>
                     <Input value={formData.mastersField} onChange={e => handleChange("mastersField", e.target.value)} disabled={isLocked} placeholder="e.g. Computer Science" className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersField && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.mastersField && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersField}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="mastersUni" className="space-y-2">
                     <Label className="text-sm font-medium">University / Institution Name (Highest) *</Label>
                     <Input value={formData.mastersUni} onChange={e => handleChange("mastersUni", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersUni && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.mastersUni && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersUni}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="mastersCountry" className="space-y-2">
                     <Label className="text-sm font-medium">Country (Highest) *</Label>
                     <Input value={formData.mastersCountry} onChange={e => handleChange("mastersCountry", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersCountry && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.mastersCountry && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersCountry}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="mastersGradDate" className="space-y-2">
                     <Label className="text-sm font-medium">Graduation Month & Year (Highest) *</Label>
                     <Input value={formData.mastersGradDate} onChange={e => handleChange("mastersGradDate", e.target.value)} disabled={isLocked} placeholder="e.g. May 2024" className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersGradDate && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.mastersGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersGradDate}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="linkedinLink" className="space-y-2">
                     <Label className="text-sm font-medium">LinkedIn Profile Link *</Label>
                     <Input value={formData.linkedinLink} onChange={e => handleChange("linkedinLink", e.target.value)} disabled={isLocked} placeholder="https://linkedin.com/in/..." className={cn("h-10 rounded-lg bg-neutral-50", errors.linkedinLink && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.linkedinLink && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.linkedinLink}</p>}
@@ -901,27 +930,27 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-2">Additional Education Detail (Bachelors)</h4>
                   </div>
 
-                  <div className="space-y-2">
+                  <div id="bachelorsDegree" className="space-y-2">
                     <Label className="text-sm font-medium">Bachelors Degree *</Label>
                     <Input value={formData.bachelorsDegree} onChange={e => handleChange("bachelorsDegree", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsDegree && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.bachelorsDegree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsDegree}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="bachelorsField" className="space-y-2">
                     <Label className="text-sm font-medium">Field of Study *</Label>
                     <Input value={formData.bachelorsField} onChange={e => handleChange("bachelorsField", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsField && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.bachelorsField && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsField}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="bachelorsUni" className="space-y-2">
                     <Label className="text-sm font-medium">University / Institution Name *</Label>
                     <Input value={formData.bachelorsUni} onChange={e => handleChange("bachelorsUni", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsUni && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.bachelorsUni && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsUni}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="bachelorsCountry" className="space-y-2">
                     <Label className="text-sm font-medium">Country *</Label>
                     <Input value={formData.bachelorsCountry} onChange={e => handleChange("bachelorsCountry", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsCountry && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.bachelorsCountry && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsCountry}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="bachelorsGradDate" className="space-y-2">
                     <Label className="text-sm font-medium">Graduation Month & Year *</Label>
                     <Input value={formData.bachelorsGradDate} onChange={e => handleChange("bachelorsGradDate", e.target.value)} disabled={isLocked} placeholder="e.g. May 2020" className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsGradDate && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.bachelorsGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsGradDate}</p>}
@@ -939,7 +968,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
 
                 <div className="space-y-4 text-left">
-                  <div className="space-y-2">
+                  <div id="hasCerts" className="space-y-2">
                     <Label className="text-sm font-medium">Have you completed any professional certifications? *</Label>
                     <div className={cn("flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border", errors.hasCerts ? "border-destructive ring-1 ring-destructive/20" : "border-neutral-200")}>
                       <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
@@ -955,17 +984,17 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   {formData.hasCerts === "yes" && (
                     <Card className="border border-neutral-200 rounded-lg p-5">
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <div className="space-y-1">
+                        <div id="certName" className="space-y-1">
                           <Label className="text-xs font-medium">Certification Name *</Label>
                           <Input value={formData.certName} onChange={e => handleChange("certName", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certName && "border-destructive")} />
                           {errors.certName && <p className="text-[10px] text-destructive mt-1">{errors.certName}</p>}
                         </div>
-                        <div className="space-y-1">
+                        <div id="certOrg" className="space-y-1">
                           <Label className="text-xs font-medium">Issuing Organization *</Label>
                           <Input value={formData.certOrg} onChange={e => handleChange("certOrg", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certOrg && "border-destructive")} />
                           {errors.certOrg && <p className="text-[10px] text-destructive mt-1">{errors.certOrg}</p>}
                         </div>
-                        <div className="space-y-1">
+                        <div id="certDate" className="space-y-1">
                           <Label className="text-xs font-medium">Issued Date *</Label>
                           <DatePicker value={formData.certDate} onChange={val => handleChange("certDate", val)} className="h-9" />
                           {errors.certDate && <p className="text-[10px] text-destructive mt-1">{errors.certDate}</p>}
@@ -1006,12 +1035,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 text-left">
-                  <div className="space-y-2">
+                  <div id="desiredRole" className="space-y-2">
                     <Label className="text-sm font-medium">Desired Job Role / Roles *</Label>
                     <Input value={formData.desiredRole} onChange={e => handleChange("desiredRole", e.target.value)} disabled={isLocked} placeholder="e.g. Software Engineer" className={cn("h-10 rounded-lg bg-neutral-50", errors.desiredRole && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.desiredRole && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.desiredRole}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div id="desiredExpYears" className="space-y-2">
                     <Label className="text-sm font-medium">Desired Years of Experience *</Label>
                     <Input type="number" value={formData.desiredExpYears} onChange={e => handleChange("desiredExpYears", e.target.value)} disabled={isLocked} placeholder="e.g. 3" className={cn("h-10 rounded-lg bg-neutral-50", errors.desiredExpYears && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.desiredExpYears && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.desiredExpYears}</p>}
