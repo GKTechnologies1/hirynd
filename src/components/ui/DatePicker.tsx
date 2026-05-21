@@ -19,9 +19,10 @@ interface DatePickerProps {
   placeholder?: string
   className?: string
   id?: string
+  disabled?: boolean
 }
 
-export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", className, id }: DatePickerProps) {
+export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", className, id, disabled }: DatePickerProps) {
   const [date, setDate] = React.useState<Date | undefined>(() => {
     if (!value) return undefined;
     
@@ -73,11 +74,12 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={disabled ? false : open} onOpenChange={disabled ? () => {} : setOpen}>
       <PopoverTrigger asChild>
         <Button
           id={id}
           variant={"outline"}
+          disabled={disabled}
           className={cn(
             "w-full justify-start text-left font-bold h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-all shadow-sm",
             !date && "text-muted-foreground",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { candidatesApi, filesApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,15 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
-  User, Mail, Phone, MapPin, Calendar, Briefcase, GraduationCap, 
+  User, Mail, Phone, MapPin, Calendar, Briefcase, 
   Award, FileText, Upload, CheckCircle, RotateCcw, AlertCircle, 
-  ChevronDown, ChevronUp, Globe, Link as LinkIcon, Building2, 
-  Trash2, CloudUpload, Clock, Sparkles
+  Globe, Link as LinkIcon, Building2, Trash2, CloudUpload, Clock, Sparkles, Lock, FileCheck
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
+import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 // --- Types & Constants ---
 
@@ -99,40 +100,12 @@ const INITIAL_STATE: FormData = {
   resumeUpload: null,
 };
 
-// --- Reusable UI Components ---
+interface CandidateIntakePageProps {
+  candidate?: any;
+  onStatusChange?: () => void;
+}
 
-const FormField = ({ label, mandatory, children, error, icon: Icon, description }: any) => (
-  <div className="space-y-2 group animate-in fade-in slide-in-from-bottom-2 duration-300">
-    <div className="flex items-center gap-2">
-      {Icon && <Icon className="h-4 w-4 text-sky-500" />}
-      <Label className="text-sm font-bold text-slate-700 flex items-center">
-        {label} {mandatory && <span className="text-rose-500 ml-1 font-black">*</span>}
-      </Label>
-    </div>
-    {description && <p className="text-[10px] text-slate-400 font-medium">{description}</p>}
-    <div className="relative">
-      {children}
-    </div>
-    {error && <p className="text-[11px] font-bold text-rose-500 mt-1 animate-pulse">{error}</p>}
-  </div>
-);
-
-const SectionHeader = ({ title, icon: Icon, isOpen, onToggle }: any) => (
-  <div 
-    onClick={onToggle}
-    className="flex items-center justify-between p-6 bg-white cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-100"
-  >
-    <div className="flex items-center gap-4">
-      <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center shadow-sm">
-        <Icon className="h-5 w-5 text-sky-600" />
-      </div>
-      <h3 className="text-lg font-black text-slate-800">{title}</h3>
-    </div>
-    {isOpen ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
-  </div>
-);
-
-const CandidateIntakePage = () => {
+const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState<FormData>(INITIAL_STATE);
@@ -144,15 +117,6 @@ const CandidateIntakePage = () => {
   const [sendCopy, setSendCopy] = useState(false);
   const [candidateId, setCandidateId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    personal: true,
-    skills: true,
-    experience: true,
-    education: true,
-    certs: true,
-    docs: true,
-    prefs: true
-  });
 
   useEffect(() => {
     const init = async () => {
@@ -169,7 +133,7 @@ const CandidateIntakePage = () => {
           const intake = intakeRes.data;
           if (intake?.is_locked) {
             setIsLocked(true);
-            setIsSubmitted(true);
+            setIsSubmitted(false);
             if (intake.data) {
               setFormData(prev => ({
                 ...prev,
@@ -178,6 +142,8 @@ const CandidateIntakePage = () => {
                 dob: intake.data.dob || "",
                 phoneNumber: intake.data.phone_number || "",
                 email: intake.data.email || prev.email,
+                marketingEmail: intake.data.marketing_email || "",
+                marketingPhone: intake.data.marketing_phone || "",
                 currentAddress: intake.data.current_address || "",
                 mailingAddress: intake.data.mailing_address || "",
                 visaStatus: intake.data.visa_status || "",
@@ -201,6 +167,47 @@ const CandidateIntakePage = () => {
                 bachelorsGradDate: intake.data.bachelors_grad_date || "",
                 desiredRole: intake.data.desired_role || "",
                 desiredExpYears: intake.data.desired_exp_years || "",
+                hasWorkExp: intake.data.has_work_exp || "",
+                hasCerts: intake.data.has_certs || "",
+                // Document URLs
+                docUpload: intake.data.doc_url || null,
+                passportUpload: intake.data.passport_url || null,
+                govIdUpload: intake.data.gov_id_url || null,
+                visaUpload: intake.data.visa_url || null,
+                workAuthUpload: intake.data.work_auth_url || null,
+                resumeUpload: intake.data.resume_url || null,
+                // Nested work experiences mapping
+                job1_title: intake.data.experiences?.[0]?.job_title || "",
+                job1_company: intake.data.experiences?.[0]?.company_name || "",
+                job1_address: intake.data.experiences?.[0]?.company_address || "",
+                job1_start: intake.data.experiences?.[0]?.start_date || "",
+                job1_end: intake.data.experiences?.[0]?.end_date || "",
+                job1_type: intake.data.experiences?.[0]?.job_type || "",
+                job1_resp: intake.data.experiences?.[0]?.responsibilities || "",
+                hasMoreWork1: intake.data.experiences?.length > 1 ? "yes" : "no",
+
+                job2_title: intake.data.experiences?.[1]?.job_title || "",
+                job2_company: intake.data.experiences?.[1]?.company_name || "",
+                job2_address: intake.data.experiences?.[1]?.company_address || "",
+                job2_start: intake.data.experiences?.[1]?.start_date || "",
+                job2_end: intake.data.experiences?.[1]?.end_date || "",
+                job2_type: intake.data.experiences?.[1]?.job_type || "",
+                job2_resp: intake.data.experiences?.[1]?.responsibilities || "",
+                hasMoreWork2: intake.data.experiences?.length > 2 ? "yes" : "no",
+
+                job3_title: intake.data.experiences?.[2]?.job_title || "",
+                job3_company: intake.data.experiences?.[2]?.company_name || "",
+                job3_address: intake.data.experiences?.[2]?.company_address || "",
+                job3_start: intake.data.experiences?.[2]?.start_date || "",
+                job3_end: intake.data.experiences?.[2]?.end_date || "",
+                job3_type: intake.data.experiences?.[2]?.job_type || "",
+                job3_resp: intake.data.experiences?.[2]?.responsibilities || "",
+
+                // Certification details mapping
+                certName: intake.data.certifications?.[0]?.name || "",
+                certOrg: intake.data.certifications?.[0]?.organization || "",
+                certDate: intake.data.certifications?.[0]?.issued_date || "",
+
                 timestamp: intake.submitted_at
                   ? new Date(intake.submitted_at).toLocaleString()
                   : prev.timestamp,
@@ -218,10 +225,6 @@ const CandidateIntakePage = () => {
     };
     init();
   }, [user]);
-
-  const toggleSection = (section: string) => {
-    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -282,8 +285,6 @@ const CandidateIntakePage = () => {
     e.preventDefault();
     if (!validate()) {
       toast({ variant: "destructive", title: "Form Incomplete", description: "Please check the red marked fields." });
-      const firstError = document.querySelector(".animate-pulse");
-      if (firstError) firstError.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     if (!candidateId) {
@@ -309,6 +310,9 @@ const CandidateIntakePage = () => {
           setUploadProgress(`Uploading ${file.name}...`);
           const res = await filesApi.upload(file, urlKey.replace("_url", ""));
           uploadedUrls[urlKey] = res.data.url;
+        } else if (typeof file === "string") {
+          // Previously uploaded URL
+          uploadedUrls[urlKey] = file;
         }
       }
       setUploadProgress("");
@@ -363,7 +367,6 @@ const CandidateIntakePage = () => {
 
       // ── Step 4: Build final payload (snake_case field names) ──
       const payload: Record<string, any> = {
-        // Personal
         first_name: formData.firstName,
         last_name: formData.lastName,
         dob: formData.dob,
@@ -376,13 +379,11 @@ const CandidateIntakePage = () => {
         visa_status: formData.visaStatus,
         first_entry_us: formData.firstEntryUS,
         total_years_us: formData.totalYearsUS,
-        // Skills
         skilled_in: formData.skilledIn,
         recently_learned: formData.recentlyLearned,
         experienced_with: formData.experiencedWith,
         learning_now: formData.learningNow,
         other_non_tech: formData.otherNonTech,
-        // Education
         highest_degree: formData.highestDegree,
         masters_field: formData.mastersField,
         masters_uni: formData.mastersUni,
@@ -394,19 +395,13 @@ const CandidateIntakePage = () => {
         bachelors_uni: formData.bachelorsUni,
         bachelors_country: formData.bachelorsCountry,
         bachelors_grad_date: formData.bachelorsGradDate,
-        // Certs
         has_certs: formData.hasCerts,
-        // Preferences
         desired_role: formData.desiredRole,
         desired_exp_years: formData.desiredExpYears,
-        // Work experience flag
         has_work_exp: formData.hasWorkExp,
-        // Nested arrays
         experiences,
         certifications,
-        // Uploaded file URLs
         ...uploadedUrls,
-        // Timestamp
         submitted_timestamp: formData.timestamp,
       };
 
@@ -416,6 +411,10 @@ const CandidateIntakePage = () => {
       setIsSubmitted(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
       toast({ title: "✅ Intake Submitted!", description: "Your intake sheet has been saved successfully." });
+      onStatusChange?.();
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (err: any) {
       const detail = err?.response?.data?.validation_errors
         ? Object.values(err.response.data.validation_errors).join(", ")
@@ -427,76 +426,105 @@ const CandidateIntakePage = () => {
     }
   };
 
+  const renderDocBox = (fieldId: string, label: string) => {
+    const value = formData[fieldId];
+    const isUrl = typeof value === "string";
+    const isUploaded = !!value;
+    const error = errors[fieldId];
+
+    return (
+      <div className="space-y-2 text-left">
+        <Label className="text-sm font-medium">{label} *</Label>
+        <div 
+          className={cn(
+            "p-5 border-2 border-dashed rounded-lg transition-all text-center relative",
+            isUploaded ? "bg-green-50 border-green-300" : (error ? "bg-red-50 border-destructive" : "bg-neutral-50 border-neutral-300 hover:border-primary/40")
+          )}
+        >
+          {!isLocked && (
+            <input 
+              type="file" 
+              id={fieldId}
+              className="mb-2 h-10 w-full py-1.5 cursor-pointer text-xs bg-white border border-neutral-200 rounded px-2"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (file && file.size <= 5*1024*1024) handleChange(fieldId, file);
+                else toast({ variant: "destructive", title: "Error", description: "Max 5MB PDF/DOC/IMG" });
+              }}
+            />
+          )}
+          {error && !isUploaded && <p className="text-[10px] text-destructive mt-1 font-medium">{error}</p>}
+          {isUploaded ? (
+            <div className="flex flex-col items-center gap-2 mt-2">
+              <FileCheck className="h-6 w-6 text-green-600" />
+              <p className="text-xs font-bold text-green-700">
+                {isUrl ? "Document Uploaded" : (value as File).name}
+              </p>
+              {isUrl && (
+                <DocumentPreview 
+                  url={value as string} 
+                  label="View Document" 
+                  className="text-xs text-green-600 hover:text-green-800 font-bold underline cursor-pointer" 
+                />
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-1">Accepted: PDF, DOC, IMG (Max 5MB)</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Loading spinner while checking intake status
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#f8fbff] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-slate-500">
-          <div className="w-12 h-12 border-4 border-sky-200 border-t-sky-600 rounded-full animate-spin" />
-          <p className="text-sm font-bold uppercase tracking-widest">Checking your intake status...</p>
-        </div>
+      <div className="py-20 flex flex-col items-center justify-center gap-4 text-muted-foreground animate-in fade-in duration-300">
+        <div className="w-12 h-12 border-4 border-secondary/20 border-t-secondary rounded-full animate-spin" />
+        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground/80">Checking your intake status...</p>
       </div>
     );
   }
 
-  if (isSubmitted) {
+  if (isSubmitted && !isLocked) {
     return (
-      <div className="min-h-screen bg-[#f8fbff] flex flex-col items-center p-6 lg:p-12 animate-in fade-in zoom-in duration-500">
-        <Card className="max-w-3xl w-full border-none shadow-[0_40px_80px_-16px_rgba(0,0,0,0.1)] rounded-[3rem] overflow-hidden bg-white mb-8">
-          <div className={`h-3 bg-gradient-to-r ${isLocked ? "from-emerald-400 via-teal-500 to-green-600" : "from-sky-400 via-blue-500 to-indigo-600"}`} />
-          <CardContent className="p-12 text-center space-y-10">
-            <div className={`w-24 h-24 ${isLocked ? "bg-emerald-50" : "bg-sky-50"} rounded-full flex items-center justify-center mx-auto shadow-inner`}>
-              <CheckCircle className={`h-12 w-12 ${isLocked ? "text-emerald-500" : "text-sky-500"}`} />
+      <div className="max-w-3xl mx-auto py-12 animate-in fade-in zoom-in duration-500">
+        <Card className="border-none shadow-2xl rounded-[2rem] overflow-hidden bg-card">
+          <div className="h-2 bg-gradient-to-r from-blue-600 to-blue-700" />
+          <CardContent className="p-8 md:p-12 text-center space-y-8">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto shadow-inner">
+              <CheckCircle className="h-10 w-10 text-green-600" />
             </div>
 
-            <div className="space-y-4">
-              <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-                {isLocked ? "Intake Sheet Submitted ✅" : "Submit Confirmation"}
-              </h2>
-              <div className="space-y-6 text-slate-600 font-medium leading-relaxed max-w-lg mx-auto">
-                {isLocked ? (
-                  <>
-                    <p className="text-xl text-emerald-600 font-bold">Your intake sheet is locked and under review.</p>
-                    <p>Our team is reviewing your profile. You'll be notified once roles are published for your approval.</p>
-                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800 font-semibold text-left flex gap-3 items-start">
-                      <span className="text-lg">🔒</span>
-                      <span>To make any changes, please contact your admin to reopen the intake form.</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-xl text-sky-600 font-bold">You're one step away to get your application workflow started..!</p>
-                    <p>Our team will now start setting up your application workflow. Please stay in touch via your Hyrind email and WhatsApp for future updates.</p>
-                  </>
-                )}
-                <div className="pt-6 border-t border-slate-100">
-                  <p className="italic text-slate-800 font-black">"Let's build your future together."</p>
-                  <div className="mt-4 text-sm font-bold uppercase tracking-widest text-slate-400">
+            <div className="space-y-3">
+              <h2 className="text-3xl font-extrabold text-card-foreground tracking-tight">Submit Confirmation</h2>
+              <div className="space-y-4 text-muted-foreground text-sm leading-relaxed max-w-md mx-auto">
+                <p className="text-base text-blue-600 font-bold">You're one step away to get your application workflow started!</p>
+                <p>Our team will now start setting up your application workflow. Please stay in touch via your Hyrind email and WhatsApp for future updates.</p>
+                <div className="pt-6 border-t border-border/40">
+                  <p className="italic text-card-foreground font-semibold">"Let's build your future together."</p>
+                  <div className="mt-3 text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
                     — Team Hyrind <br/>
-                    <span className="text-[10px]">'You focus on skills. We'll handle the rest.'</span>
+                    <span className="text-[10px] font-normal">'You focus on skills. We'll handle the rest.'</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-50 p-8 rounded-3xl flex flex-col gap-4 border border-slate-100 max-w-md mx-auto">
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-3">
+            <div className="bg-muted/30 p-6 rounded-2xl flex flex-col gap-4 border border-border/40 max-w-sm mx-auto">
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2.5">
                 <span>Submitted On</span>
                 <span>{formData.timestamp}</span>
               </div>
-              {!isLocked && (
-                <div className="flex items-center gap-3">
-                  <Checkbox id="send-copy" checked={sendCopy} onCheckedChange={v => setSendCopy(!!v)} className="data-[state=checked]:bg-sky-500" />
-                  <Label htmlFor="send-copy" className="text-sm font-bold text-slate-700 cursor-pointer">Send me a copy of my responses</Label>
-                </div>
-              )}
+              <div className="flex items-center gap-3">
+                <Checkbox id="send-copy" checked={sendCopy} onCheckedChange={v => setSendCopy(!!v)} className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
+                <Label htmlFor="send-copy" className="text-sm font-semibold text-card-foreground cursor-pointer">Send me a copy of my responses</Label>
+              </div>
             </div>
 
-            {!isLocked && (
-              <Button onClick={() => setIsSubmitted(false)} variant="outline" className="rounded-2xl h-16 px-10 border-slate-200 hover:bg-slate-50 font-bold text-slate-600 gap-3 shadow-sm hover:shadow transition-all">
-                <RotateCcw className="h-5 w-5" /> Edit/View Responses
-              </Button>
-            )}
+            <Button onClick={() => setIsSubmitted(false)} variant="outline" className="rounded-xl h-12 px-6 border-border hover:bg-muted/50 font-bold text-muted-foreground gap-2 shadow-sm transition-all">
+              <RotateCcw className="h-4 w-4" /> Edit/View Responses
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -504,372 +532,525 @@ const CandidateIntakePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4faff] pb-40 font-sans selection:bg-sky-100 selection:text-sky-900">
-      {/* Header */}
-      <header className="bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 h-[350px] w-full relative overflow-hidden flex items-center">
-        <div className="absolute inset-0">
-          <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[80%] bg-white/10 rounded-full blur-[120px]" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[100%] bg-sky-400/20 rounded-full blur-[150px]" />
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-        </div>
-        <div className="max-w-7xl mx-auto px-6 w-full relative z-10">
-          <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-8">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-xl rounded-full text-white text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl border border-white/20">
-                <Sparkles className="h-3.5 w-3.5" /> Professional Portal
-              </div>
-              <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-none">Client Intake Sheet</h1>
-              <p className="text-sky-100 text-lg font-medium max-w-xl opacity-90 leading-relaxed">Please provide precise information to initialize your premium application workflow. Our team will review your data within 24 hours.</p>
+    <div className="max-w-5xl mx-auto space-y-8 pb-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Card className="border-none shadow-xl shadow-neutral-200/50 rounded-2xl overflow-hidden">
+        <CardHeader className="bg-primary/5 border-b border-primary/10 pb-6 text-left">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-2xl font-bold flex items-center gap-3 text-foreground">
+                <FileText className="h-6 w-6 text-primary" /> Enhanced Client Intake Sheet
+              </CardTitle>
+              <p className="text-sm text-muted-foreground font-medium">Complete professional details for our comprehensive review.</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/20 text-white min-w-[280px] shadow-2xl group transition-transform hover:scale-105">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-200 mb-2 flex items-center gap-2 opacity-60">
-                <Clock className="h-3.5 w-3.5" /> Auto-Generated
-              </p>
-              <p className="text-2xl font-black font-mono tracking-tight">{formData.timestamp}</p>
-              <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-sky-200">
-                <span>Fields</span>
-                <span className="bg-sky-400/20 px-2 py-1 rounded-md text-sky-300 border border-sky-400/30">65 Total</span>
-              </div>
-            </div>
+            {isLocked && (
+              <Badge variant="secondary" className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary border-primary/20 font-bold uppercase tracking-wider text-[10px]">
+                <Lock className="h-3 w-3" /> Submitted & Locked
+              </Badge>
+            )}
           </div>
-        </div>
-      </header>
+        </CardHeader>
+        <CardContent className="pt-8">
+          <form className="space-y-12" onSubmit={handleSubmit}>
+            <fieldset disabled={isLocked} className="space-y-12">
 
-      <main className="max-w-7xl mx-auto px-6 -mt-24 relative z-20 pb-40">
-        <form onSubmit={handleSubmit} className="space-y-12">
-          
-          {/* Section 1: Personal Details */}
-          <Card className="border-none shadow-[0_32px_64px_-16px_rgba(15,23,42,0.1)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-            <SectionHeader title="Personal Information" icon={User} isOpen={openSections.personal} onToggle={() => toggleSection("personal")} />
-            {openSections.personal && (
-              <CardContent className="p-10 space-y-10 animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  <FormField label="First Name" mandatory icon={User} error={errors.firstName}>
-                    <Input value={formData.firstName} onChange={e => handleChange("firstName", e.target.value)} placeholder="John" className="rounded-xl h-14 font-medium" />
-                  </FormField>
-                  <FormField label="Last Name" mandatory icon={User} error={errors.lastName}>
-                    <Input value={formData.lastName} onChange={e => handleChange("lastName", e.target.value)} placeholder="Doe" className="rounded-xl h-14 font-medium" />
-                  </FormField>
-                  <FormField label="Date of Birth" mandatory icon={Calendar} error={errors.dob}>
-                    <DatePicker value={formData.dob} onChange={v => handleChange("dob", v)} placeholder="MM/DD/YYYY" />
-                  </FormField>
-                  <FormField label="Phone Number" mandatory icon={Phone} error={errors.phoneNumber}>
-                    <Input value={formData.phoneNumber} onChange={e => handleChange("phoneNumber", e.target.value)} placeholder="+1 123 456 7890" className="rounded-xl h-14 font-medium" />
-                  </FormField>
-                  <FormField label="Email Address" mandatory icon={Mail} error={errors.email}>
-                    <Input value={formData.email} onChange={e => handleChange("email", e.target.value)} placeholder="official@email.com" className="rounded-xl h-14 font-medium" />
-                  </FormField>
-                  <FormField label="New E-mail for Marketing" icon={Mail}>
-                    <Input value={formData.marketingEmail} onChange={e => handleChange("marketingEmail", e.target.value)} placeholder="marketing@email.com" className="rounded-xl h-14 font-medium" />
-                  </FormField>
-                  <FormField label="Contact Number for Marketing" icon={Phone}>
-                    <Input value={formData.marketingPhone} onChange={e => handleChange("marketingPhone", e.target.value)} placeholder="+1 000 000 0000" className="rounded-xl h-14 font-medium" />
-                  </FormField>
-                  <FormField label="Current Visa Status" mandatory icon={Globe} error={errors.visaStatus}>
-                    <Select value={formData.visaStatus} onValueChange={v => handleChange("visaStatus", v)}>
-                      <SelectTrigger className="rounded-xl h-14 bg-slate-50 border-none font-bold text-slate-700">
-                        <SelectValue placeholder="Select Status" />
+              {/* ── SECTION 1: PERSONAL DETAILS ── */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-200 pb-4 text-left">
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <User className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-blue-600">Personal Details</h3>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-left">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">First Name *</Label>
+                    <Input value={formData.firstName} onChange={e => handleChange("firstName", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.firstName && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.firstName && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.firstName}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Last Name *</Label>
+                    <Input value={formData.lastName} onChange={e => handleChange("lastName", e.target.value)} disabled={isLocked} required className={cn("h-10 rounded-lg bg-neutral-50", errors.lastName && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.lastName && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.lastName}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Date of Birth *</Label>
+                    <DatePicker value={formData.dob} onChange={val => handleChange("dob", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.dob && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.dob && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.dob}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Email Address *</Label>
+                    <Input type="email" value={formData.email} disabled className="h-10 rounded-lg bg-neutral-50 opacity-60" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Phone Number *</Label>
+                    <Input type="tel" value={formData.phoneNumber} onChange={e => handleChange("phoneNumber", e.target.value)} disabled={isLocked} required placeholder="1234567890" className={cn("h-10 rounded-lg bg-neutral-50", errors.phoneNumber && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.phoneNumber && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.phoneNumber}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">New E-mail for Marketing</Label>
+                    <Input type="email" value={formData.marketingEmail} onChange={e => handleChange("marketingEmail", e.target.value)} disabled={isLocked} placeholder="Optional" className="h-10 rounded-lg bg-neutral-50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Contact number for Marketing</Label>
+                    <Input type="tel" value={formData.marketingPhone} onChange={e => handleChange("marketingPhone", e.target.value)} disabled={isLocked} placeholder="Optional" className="h-10 rounded-lg bg-neutral-50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Current Visa Status *</Label>
+                    <Select value={formData.visaStatus} onValueChange={v => handleChange("visaStatus", v)} disabled={isLocked}>
+                      <SelectTrigger className={cn("h-10 rounded-lg bg-neutral-50", errors.visaStatus && "border-destructive ring-1 ring-destructive/20")}>
+                        <SelectValue placeholder="Select status" />
                       </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
+                      <SelectContent>
                         {["F1-OPT", "H1B", "H4 EAD", "Green Card", "US Citizen", "Other"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  </FormField>
-                  <FormField label="First Entry into the U.S." mandatory icon={Calendar} error={errors.firstEntryUS}>
-                    <DatePicker value={formData.firstEntryUS} onChange={v => handleChange("firstEntryUS", v)} placeholder="DD/MM/YYYY" />
-                  </FormField>
-                  <FormField label="Total Years in the U.S." mandatory icon={Clock} error={errors.totalYearsUS}>
-                    <Input type="number" value={formData.totalYearsUS} onChange={e => handleChange("totalYearsUS", e.target.value)} placeholder="e.g. 5" className="rounded-xl h-14 font-medium" />
-                  </FormField>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <FormField label="Current Address" mandatory icon={MapPin} error={errors.currentAddress}>
-                    <Textarea value={formData.currentAddress} onChange={e => handleChange("currentAddress", e.target.value)} placeholder="Street, City, State, ZIP" className="rounded-2xl min-h-[100px]" />
-                  </FormField>
-                  <FormField label="Mailing Address" mandatory icon={MapPin} error={errors.mailingAddress}>
-                    <Textarea value={formData.mailingAddress} onChange={e => handleChange("mailingAddress", e.target.value)} placeholder="Same as above or different" className="rounded-2xl min-h-[100px]" />
-                  </FormField>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Section 2: Skillset */}
-          <Card className="border-none shadow-[0_32px_64px_-16px_rgba(15,23,42,0.1)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-            <SectionHeader title="Technical Skillset" icon={Sparkles} isOpen={openSections.skills} onToggle={() => toggleSection("skills")} />
-            {openSections.skills && (
-              <CardContent className="p-10 grid grid-cols-1 md:grid-cols-2 gap-10 animate-in fade-in duration-500">
-                <FormField label="Skilled In" mandatory description="Python, Java, React, Node.js, etc." error={errors.skilledIn}>
-                  <Textarea value={formData.skilledIn} onChange={e => handleChange("skilledIn", e.target.value)} className="rounded-2xl min-h-[120px]" />
-                </FormField>
-                <FormField label="Currently Learning / Recently Learned" mandatory error={errors.recentlyLearned}>
-                  <Textarea value={formData.recentlyLearned} onChange={e => handleChange("recentlyLearned", e.target.value)} className="rounded-2xl min-h-[120px]" />
-                </FormField>
-                <FormField label="Experienced With" mandatory error={errors.experiencedWith}>
-                  <Textarea value={formData.experiencedWith} onChange={e => handleChange("experiencedWith", e.target.value)} className="rounded-2xl min-h-[120px]" />
-                </FormField>
-                <FormField label="Learning Now / Self-Taught Tools" mandatory error={errors.learningNow}>
-                  <Textarea value={formData.learningNow} onChange={e => handleChange("learningNow", e.target.value)} className="rounded-2xl min-h-[120px]" />
-                </FormField>
-                <FormField label="Other Non Technical Skills / Courses" mandatory error={errors.otherNonTech}>
-                  <Textarea value={formData.otherNonTech} onChange={e => handleChange("otherNonTech", e.target.value)} className="rounded-2xl min-h-[120px]" />
-                </FormField>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Section 3: Work Experience Chained */}
-          <Card className="border-none shadow-[0_32px_64px_-16px_rgba(15,23,42,0.1)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-            <SectionHeader title="Professional History" icon={Briefcase} isOpen={openSections.experience} onToggle={() => toggleSection("experience")} />
-            {openSections.experience && (
-              <CardContent className="p-10 space-y-12 animate-in fade-in duration-500">
-                <FormField label="Work Experience (U.S. and/or International)" mandatory error={errors.hasWorkExp}>
-                  <div className="flex gap-4 mt-2">
-                    {["yes", "no"].map(v => (
-                      <button 
-                        key={v} type="button" 
-                        onClick={() => handleChange("hasWorkExp", v)}
-                        className={cn(
-                          "px-8 py-3 rounded-xl border-2 font-black text-sm transition-all uppercase tracking-widest",
-                          formData.hasWorkExp === v ? "bg-sky-600 border-sky-600 text-white shadow-lg" : "bg-white border-slate-100 text-slate-400 hover:border-sky-200"
-                        )}
-                      >
-                        {v}
-                      </button>
-                    ))}
+                    {errors.visaStatus && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.visaStatus}</p>}
                   </div>
-                </FormField>
-
-                {/* Section 1 */}
-                {formData.hasWorkExp === "yes" && (
-                  <div className="space-y-8 p-8 rounded-[2rem] bg-slate-50 border border-slate-100 animate-in slide-in-from-top-4">
-                    <h4 className="font-black text-sky-700 uppercase tracking-widest text-xs">Work Experience Section 1</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      <FormField label="Job Title"><Input value={formData.job1_title} onChange={e => handleChange("job1_title", e.target.value)} className="rounded-xl" /></FormField>
-                      <FormField label="Company Name"><Input value={formData.job1_company} onChange={e => handleChange("job1_company", e.target.value)} className="rounded-xl" /></FormField>
-                      <FormField label="Job Type">
-                        <Select value={formData.job1_type} onValueChange={v => handleChange("job1_type", v)}>
-                          <SelectTrigger className="rounded-xl h-10 font-bold border-slate-200">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {["Full-time", "Part-time", "Internship"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </FormField>
-                      <FormField label="Start Date"><DatePicker value={formData.job1_start} onChange={v => handleChange("job1_start", v)} placeholder="DD/MM/YYYY" /></FormField>
-                      <FormField label="End Date"><DatePicker value={formData.job1_end} onChange={v => handleChange("job1_end", v)} placeholder="DD/MM/YYYY" /></FormField>
-                    </div>
-                    <FormField label="Company Address"><Textarea value={formData.job1_address} onChange={e => handleChange("job1_address", e.target.value)} className="rounded-xl min-h-[80px]" /></FormField>
-                    <FormField label="Key Responsibilities / Projects"><Textarea value={formData.job1_resp} onChange={e => handleChange("job1_resp", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Did you work anywhere else..?" mandatory error={errors.hasMoreWork1}>
-                      <div className="flex gap-4"><button type="button" onClick={() => handleChange("hasMoreWork1", "yes")} className={cn("px-6 py-2 rounded-lg border-2", formData.hasMoreWork1 === "yes" ? "bg-sky-500 text-white border-sky-500" : "bg-white border-slate-100")}>Yes</button> <button type="button" onClick={() => handleChange("hasMoreWork1", "no")} className={cn("px-6 py-2 rounded-lg border-2", formData.hasMoreWork1 === "no" ? "bg-sky-500 text-white border-sky-500" : "bg-white border-slate-100")}>No</button></div>
-                    </FormField>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">First Entry into the U.S. *</Label>
+                    <DatePicker value={formData.firstEntryUS} onChange={val => handleChange("firstEntryUS", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.firstEntryUS && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.firstEntryUS && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.firstEntryUS}</p>}
                   </div>
-                )}
-
-                {/* Section 2 */}
-                {formData.hasMoreWork1 === "yes" && (
-                  <div className="space-y-8 p-8 rounded-[2rem] bg-slate-50 border border-slate-100 animate-in slide-in-from-top-4">
-                    <h4 className="font-black text-sky-700 uppercase tracking-widest text-xs">Work Experience Section 2</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      <FormField label="Job Title"><Input value={formData.job2_title} onChange={e => handleChange("job2_title", e.target.value)} className="rounded-xl" /></FormField>
-                      <FormField label="Company Name"><Input value={formData.job2_company} onChange={e => handleChange("job2_company", e.target.value)} className="rounded-xl" /></FormField>
-                      <FormField label="Job Type">
-                        <Select value={formData.job2_type} onValueChange={v => handleChange("job2_type", v)}>
-                          <SelectTrigger className="rounded-xl h-10 font-bold border-slate-200"><SelectValue placeholder="Select" /></SelectTrigger>
-                          <SelectContent>{["Full-time", "Part-time", "Internship"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </FormField>
-                      <FormField label="Start Date"><DatePicker value={formData.job2_start} onChange={v => handleChange("job2_start", v)} placeholder="DD/MM/YYYY" /></FormField>
-                      <FormField label="End Date"><DatePicker value={formData.job2_end} onChange={v => handleChange("job2_end", v)} placeholder="DD/MM/YYYY" /></FormField>
-                    </div>
-                    <FormField label="Company Address"><Textarea value={formData.job2_address} onChange={e => handleChange("job2_address", e.target.value)} className="rounded-xl min-h-[80px]" /></FormField>
-                    <FormField label="Key Responsibilities / Projects"><Textarea value={formData.job2_resp} onChange={e => handleChange("job2_resp", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Did you work anywhere else..?" mandatory error={errors.hasMoreWork2}>
-                      <div className="flex gap-4"><button type="button" onClick={() => handleChange("hasMoreWork2", "yes")} className={cn("px-6 py-2 rounded-lg border-2", formData.hasMoreWork2 === "yes" ? "bg-sky-500 text-white border-sky-500" : "bg-white border-slate-100")}>Yes</button> <button type="button" onClick={() => handleChange("hasMoreWork2", "no")} className={cn("px-6 py-2 rounded-lg border-2", formData.hasMoreWork2 === "no" ? "bg-sky-500 text-white border-sky-500" : "bg-white border-slate-100")}>No</button></div>
-                    </FormField>
-                  </div>
-                )}
-
-                {/* Section 3 */}
-                {formData.hasMoreWork2 === "yes" && (
-                  <div className="space-y-8 p-8 rounded-[2rem] bg-slate-50 border border-slate-100 animate-in slide-in-from-top-4">
-                    <h4 className="font-black text-sky-700 uppercase tracking-widest text-xs">Work Experience Section 3</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      <FormField label="Job Title"><Input value={formData.job3_title} onChange={e => handleChange("job3_title", e.target.value)} className="rounded-xl" /></FormField>
-                      <FormField label="Company Name"><Input value={formData.job3_company} onChange={e => handleChange("job3_company", e.target.value)} className="rounded-xl" /></FormField>
-                      <FormField label="Job Type">
-                        <Select value={formData.job3_type} onValueChange={v => handleChange("job3_type", v)}>
-                          <SelectTrigger className="rounded-xl h-10 font-bold border-slate-200"><SelectValue placeholder="Select" /></SelectTrigger>
-                          <SelectContent>{["Full-time", "Part-time", "Internship"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </FormField>
-                      <FormField label="Start Date"><DatePicker value={formData.job3_start} onChange={v => handleChange("job3_start", v)} placeholder="DD/MM/YYYY" /></FormField>
-                      <FormField label="End Date"><DatePicker value={formData.job3_end} onChange={v => handleChange("job3_end", v)} placeholder="DD/MM/YYYY" /></FormField>
-                    </div>
-                    <FormField label="Company Address"><Textarea value={formData.job3_address} onChange={e => handleChange("job3_address", e.target.value)} className="rounded-xl min-h-[80px]" /></FormField>
-                    <FormField label="Key Responsibilities / Projects"><Textarea value={formData.job3_resp} onChange={e => handleChange("job3_resp", e.target.value)} className="rounded-xl" /></FormField>
-                  </div>
-                )}
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Section 4: Education */}
-          <Card className="border-none shadow-[0_32px_64px_-16px_rgba(15,23,42,0.1)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-            <SectionHeader title="Academic Background" icon={GraduationCap} isOpen={openSections.education} onToggle={() => toggleSection("education")} />
-            {openSections.education && (
-              <CardContent className="p-10 space-y-12 animate-in fade-in duration-500">
-                <div className="space-y-6">
-                  <h4 className="font-black text-sky-700 uppercase tracking-widest text-xs">Masters Education Details</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <FormField label="Highest Degree" mandatory error={errors.highestDegree}><Input value={formData.highestDegree} onChange={e => handleChange("highestDegree", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Field of Study" mandatory error={errors.mastersField}><Input value={formData.mastersField} onChange={e => handleChange("mastersField", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="University / Institution Name" mandatory error={errors.mastersUni}><Input value={formData.mastersUni} onChange={e => handleChange("mastersUni", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Country" mandatory error={errors.mastersCountry}><Input value={formData.mastersCountry} onChange={e => handleChange("mastersCountry", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Graduation Month & Year" mandatory error={errors.mastersGradDate}><Input value={formData.mastersGradDate} onChange={e => handleChange("mastersGradDate", e.target.value)} placeholder="e.g. May 2024" className="rounded-xl" /></FormField>
-                    <FormField label="LinkedIn Profile Link" mandatory icon={LinkIcon} error={errors.linkedinLink}><Input value={formData.linkedinLink} onChange={e => handleChange("linkedinLink", e.target.value)} placeholder="https://linkedin.com/in/..." className="rounded-xl" /></FormField>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Total Years in the U.S. *</Label>
+                    <Input type="number" value={formData.totalYearsUS} onChange={e => handleChange("totalYearsUS", e.target.value)} disabled={isLocked} placeholder="e.g. 3" className={cn("h-10 rounded-lg bg-neutral-50", errors.totalYearsUS && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.totalYearsUS && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.totalYearsUS}</p>}
                   </div>
                 </div>
-                <div className="space-y-6 pt-10 border-t border-slate-100">
-                  <h4 className="font-black text-sky-700 uppercase tracking-widest text-xs">Bachelors Education Details</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <FormField label="Bachelors Degree" mandatory error={errors.bachelorsDegree}><Input value={formData.bachelorsDegree} onChange={e => handleChange("bachelorsDegree", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Field of Study" mandatory error={errors.bachelorsField}><Input value={formData.bachelorsField} onChange={e => handleChange("bachelorsField", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="University / Institution Name" mandatory error={errors.bachelorsUni}><Input value={formData.bachelorsUni} onChange={e => handleChange("bachelorsUni", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Country" mandatory error={errors.bachelorsCountry}><Input value={formData.bachelorsCountry} onChange={e => handleChange("bachelorsCountry", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Graduation Month & Year" mandatory error={errors.bachelorsGradDate}><Input value={formData.bachelorsGradDate} onChange={e => handleChange("bachelorsGradDate", e.target.value)} placeholder="e.g. June 2020" className="rounded-xl" /></FormField>
+
+                <div className="grid gap-4 sm:grid-cols-2 text-left">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Current Address *</Label>
+                    <Textarea value={formData.currentAddress} onChange={e => handleChange("currentAddress", e.target.value)} disabled={isLocked} required className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.currentAddress && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.currentAddress && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.currentAddress}</p>}
                   </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Section 5: Certifications */}
-          <Card className="border-none shadow-[0_32px_64px_-16px_rgba(15,23,42,0.1)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-            <SectionHeader title="Professional Certifications" icon={Award} isOpen={openSections.certs} onToggle={() => toggleSection("certs")} />
-            {openSections.certs && (
-              <CardContent className="p-10 space-y-8 animate-in fade-in duration-500">
-                <FormField label="Have you completed any professional certifications?" mandatory error={errors.hasCerts}>
-                  <div className="flex gap-4"><button type="button" onClick={() => handleChange("hasCerts", "yes")} className={cn("px-8 py-3 rounded-xl border-2 font-black", formData.hasCerts === "yes" ? "bg-sky-600 text-white border-sky-600" : "bg-white border-slate-100")}>YES</button> <button type="button" onClick={() => handleChange("hasCerts", "no")} className={cn("px-8 py-3 rounded-xl border-2 font-black", formData.hasCerts === "no" ? "bg-sky-600 text-white border-sky-600" : "bg-white border-slate-100")}>NO</button></div>
-                </FormField>
-                {formData.hasCerts === "yes" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8 bg-sky-50/50 rounded-3xl animate-in slide-in-from-top-4">
-                    <FormField label="Certification Name" mandatory error={errors.certName}><Input value={formData.certName} onChange={e => handleChange("certName", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Issuing Organization" mandatory error={errors.certOrg}><Input value={formData.certOrg} onChange={e => handleChange("certOrg", e.target.value)} className="rounded-xl" /></FormField>
-                    <FormField label="Issued Date" mandatory error={errors.certDate}><DatePicker value={formData.certDate} onChange={v => handleChange("certDate", v)} /></FormField>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Mailing Address *</Label>
+                    <Textarea value={formData.mailingAddress} onChange={e => handleChange("mailingAddress", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.mailingAddress && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.mailingAddress && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mailingAddress}</p>}
                   </div>
-                )}
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Section 6: Documents */}
-          <Card className="border-none shadow-[0_32px_64px_-16px_rgba(15,23,42,0.1)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-            <SectionHeader title="Document Uploads" icon={FileText} isOpen={openSections.docs} onToggle={() => toggleSection("docs")} />
-            {openSections.docs && (
-              <CardContent className="p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
-                {[
-                  { id: "docUpload", label: "Upload Any Documents" },
-                  { id: "passportUpload", label: "Please Upload Passport" },
-                  { id: "govIdUpload", label: "Please Upload Government ID" },
-                  { id: "visaUpload", label: "Please Upload Visa" },
-                  { id: "workAuthUpload", label: "Work Authorization Proof" }
-                ].map(d => (
-                  <FormField key={d.id} label={d.label} mandatory error={errors[d.id]}>
-                    <div 
-                      onClick={() => document.getElementById(d.id)?.click()}
-                      className={cn(
-                        "border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer group",
-                        formData[d.id] ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-200 hover:border-sky-400"
-                      )}
-                    >
-                      <input type="file" id={d.id} className="hidden" onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file && file.size <= 5*1024*1024) handleChange(d.id, file);
-                        else toast({ variant: "destructive", title: "Error", description: "Max 5MB PDF/DOC/IMG" });
-                      }} />
-                      {formData[d.id] ? <CheckCircle className="h-8 w-8 text-emerald-500 mx-auto" /> : <CloudUpload className="h-8 w-8 text-slate-300 mx-auto group-hover:text-sky-500" />}
-                      <p className="mt-2 text-xs font-bold text-slate-600 truncate">{formData[d.id] ? formData[d.id].name : "Select File"}</p>
-                    </div>
-                  </FormField>
-                ))}
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Section 7: Job Preferences */}
-          <Card className="border-none shadow-[0_32px_64px_-16px_rgba(15,23,42,0.1)] rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-            <SectionHeader title="Job Preferences" icon={Building2} isOpen={openSections.prefs} onToggle={() => toggleSection("prefs")} />
-            {openSections.prefs && (
-              <CardContent className="p-10 space-y-10 animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <FormField label="Desired Job Role / Roles" mandatory error={errors.desiredRole}><Input value={formData.desiredRole} onChange={e => handleChange("desiredRole", e.target.value)} placeholder="e.g. Software Engineer" className="rounded-xl h-12" /></FormField>
-                  <FormField label="Desired Years of Experience" mandatory error={errors.desiredExpYears}><Input type="number" value={formData.desiredExpYears} onChange={e => handleChange("desiredExpYears", e.target.value)} placeholder="e.g. 3" className="rounded-xl h-12" /></FormField>
-                </div>
-                <FormField label="Please Upload Original Resume" mandatory error={errors.resumeUpload}>
-                  <div 
-                    onClick={() => document.getElementById("resumeUpload")?.click()}
-                    className={cn(
-                      "border-2 border-dashed rounded-3xl p-12 text-center transition-all cursor-pointer bg-sky-50/50",
-                      formData.resumeUpload ? "border-emerald-400" : "border-sky-200 hover:border-sky-500"
-                    )}
-                  >
-                    <input type="file" id="resumeUpload" className="hidden" onChange={e => handleChange("resumeUpload", e.target.files?.[0])} />
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg"><Upload className="h-8 w-8 text-sky-600" /></div>
-                      <div><p className="text-xl font-black text-slate-800">{formData.resumeUpload ? formData.resumeUpload.name : "Drop Original Resume Here"}</p><p className="text-sm text-slate-500 font-medium">Accepted: PDF, DOC, DOCX, PNG, JPG (Max 5MB)</p></div>
-                    </div>
-                  </div>
-                </FormField>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Sticky Action Bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-3xl border-t border-slate-100 p-6 z-[100] shadow-[0_-20px_80px_rgba(0,0,0,0.08)]">
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-6">
-              <div className="hidden lg:flex items-center gap-4">
-                <div className="w-12 h-12 bg-sky-50 rounded-full flex items-center justify-center shadow-inner">
-                  <AlertCircle className="h-6 w-6 text-sky-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-black text-slate-800 tracking-tight leading-tight flex items-center gap-2">
-                    {uploadProgress ? "Uploading Assets..." : "Submission Ready"} 
-                    <span className="bg-sky-100 text-sky-700 px-2 py-0.5 rounded-md text-[10px] uppercase">Reviewing Form</span>
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                    {uploadProgress ? "Please wait — processing files..." : "Verify all 65 fields before clicking"}
-                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 w-full lg:w-auto">
-                <Button 
-                  type="button" 
-                  onClick={() => setFormData({...INITIAL_STATE, timestamp: new Date().toLocaleString(), email: user?.email || ""})} 
-                  variant="ghost" 
-                  disabled={isSubmitting}
-                  className="h-14 px-8 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 gap-2 transition-all"
-                >
-                  <RotateCcw className="h-4 w-4" /> Reset
-                </Button>
-                <Button 
-                  type="submit" 
+
+              {/* ── SECTION 2: SKILLS ── */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-200 pb-4 text-left">
+                  <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                    <Briefcase className="h-4 w-4 text-green-600" />
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-green-600">Skills</h3>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 text-left">
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label className="text-sm font-medium">Skilled In (Skills you can confidently work with, e.g., Python, React, Java) *</Label>
+                    <Textarea value={formData.skilledIn} onChange={e => handleChange("skilledIn", e.target.value)} disabled={isLocked} required className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.skilledIn && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.skilledIn && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.skilledIn}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Currently Learning / Recently Learned *</Label>
+                    <Textarea value={formData.recentlyLearned} onChange={e => handleChange("recentlyLearned", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.recentlyLearned && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.recentlyLearned && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.recentlyLearned}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Experienced With Tools *</Label>
+                    <Textarea value={formData.experiencedWith} onChange={e => handleChange("experiencedWith", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.experiencedWith && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.experiencedWith && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.experiencedWith}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Learning Now / Self-Taught Tools *</Label>
+                    <Textarea value={formData.learningNow} onChange={e => handleChange("learningNow", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.learningNow && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.learningNow && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.learningNow}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Other Non-Technical Skills / Courses *</Label>
+                    <Textarea value={formData.otherNonTech} onChange={e => handleChange("otherNonTech", e.target.value)} disabled={isLocked} className={cn("rounded-lg bg-neutral-50 min-h-[80px]", errors.otherNonTech && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.otherNonTech && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.otherNonTech}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── SECTION 3: WORK EXPERIENCE ── */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-200 pb-4 text-left">
+                  <div className="h-8 w-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                    <Briefcase className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-orange-600">Work Experience</h3>
+                </div>
+
+                <div className="space-y-4 text-left">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Do you have any work experience (U.S. and/or International)? *</Label>
+                    <div className={cn("flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border", errors.hasWorkExp ? "border-destructive ring-1 ring-destructive/20" : "border-neutral-200")}>
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                        <input type="radio" name="hasWorkExp" checked={formData.hasWorkExp === "yes"} onChange={() => handleChange("hasWorkExp", "yes")} disabled={isLocked} className="accent-primary h-4 w-4" /> Yes
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                        <input type="radio" name="hasWorkExp" checked={formData.hasWorkExp === "no"} onChange={() => handleChange("hasWorkExp", "no")} disabled={isLocked} className="accent-primary h-4 w-4" /> No
+                      </label>
+                    </div>
+                    {errors.hasWorkExp && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.hasWorkExp}</p>}
+                  </div>
+
+                  {formData.hasWorkExp === "yes" && (
+                    <div className="space-y-6">
+                      {/* Job 1 */}
+                      <Card className="border border-neutral-200 rounded-lg p-5">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-4">Work Experience Section 1</h4>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Job Title</Label>
+                            <Input value={formData.job1_title} onChange={e => handleChange("job1_title", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Company Name</Label>
+                            <Input value={formData.job1_company} onChange={e => handleChange("job1_company", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Job Type</Label>
+                            <Select value={formData.job1_type} onValueChange={v => handleChange("job1_type", v)} disabled={isLocked}>
+                              <SelectTrigger className="h-9 rounded-lg bg-neutral-50"><SelectValue placeholder="Select" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="full_time">Full Time</SelectItem>
+                                <SelectItem value="part_time">Part Time</SelectItem>
+                                <SelectItem value="internship">Internship</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Start Date</Label>
+                            <DatePicker value={formData.job1_start} onChange={val => handleChange("job1_start", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">End Date</Label>
+                            <DatePicker value={formData.job1_end} onChange={val => handleChange("job1_end", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                          </div>
+                          <div className="sm:col-span-2 lg:col-span-3 space-y-1">
+                            <Label className="text-xs font-medium">Company Address</Label>
+                            <Input value={formData.job1_address} onChange={e => handleChange("job1_address", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                          </div>
+                          <div className="sm:col-span-2 lg:col-span-3 space-y-1">
+                            <Label className="text-xs font-medium">Key Responsibilities / Projects</Label>
+                            <Textarea value={formData.job1_resp} onChange={e => handleChange("job1_resp", e.target.value)} disabled={isLocked} className="rounded-lg bg-neutral-50 min-h-[60px]" />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-neutral-100">
+                          <Label className="text-xs font-medium">Did you work anywhere else? *</Label>
+                          <div className="flex gap-4 mt-1.5">
+                            <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                              <input type="radio" name="hasMoreWork1" checked={formData.hasMoreWork1 === "yes"} onChange={() => handleChange("hasMoreWork1", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                              <input type="radio" name="hasMoreWork1" checked={formData.hasMoreWork1 === "no"} onChange={() => handleChange("hasMoreWork1", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
+                            </label>
+                          </div>
+                          {errors.hasMoreWork1 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreWork1}</p>}
+                        </div>
+                      </Card>
+
+                      {/* Job 2 */}
+                      {formData.hasMoreWork1 === "yes" && (
+                        <Card className="border border-neutral-200 rounded-lg p-5">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-4">Work Experience Section 2</h4>
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Job Title</Label>
+                              <Input value={formData.job2_title} onChange={e => handleChange("job2_title", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Company Name</Label>
+                              <Input value={formData.job2_company} onChange={e => handleChange("job2_company", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Job Type</Label>
+                              <Select value={formData.job2_type} onValueChange={v => handleChange("job2_type", v)} disabled={isLocked}>
+                                <SelectTrigger className="h-9 rounded-lg bg-neutral-50"><SelectValue placeholder="Select" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="full_time">Full Time</SelectItem>
+                                  <SelectItem value="part_time">Part Time</SelectItem>
+                                  <SelectItem value="internship">Internship</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Start Date</Label>
+                              <DatePicker value={formData.job2_start} onChange={val => handleChange("job2_start", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">End Date</Label>
+                              <DatePicker value={formData.job2_end} onChange={val => handleChange("job2_end", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-3 space-y-1">
+                              <Label className="text-xs font-medium">Company Address</Label>
+                              <Input value={formData.job2_address} onChange={e => handleChange("job2_address", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-3 space-y-1">
+                              <Label className="text-xs font-medium">Key Responsibilities / Projects</Label>
+                              <Textarea value={formData.job2_resp} onChange={e => handleChange("job2_resp", e.target.value)} disabled={isLocked} className="rounded-lg bg-neutral-50 min-h-[60px]" />
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-4 border-t border-neutral-100">
+                            <Label className="text-xs font-medium">Did you work anywhere else? *</Label>
+                            <div className="flex gap-4 mt-1.5">
+                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                <input type="radio" name="hasMoreWork2" checked={formData.hasMoreWork2 === "yes"} onChange={() => handleChange("hasMoreWork2", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                <input type="radio" name="hasMoreWork2" checked={formData.hasMoreWork2 === "no"} onChange={() => handleChange("hasMoreWork2", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
+                              </label>
+                            </div>
+                            {errors.hasMoreWork2 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreWork2}</p>}
+                          </div>
+                        </Card>
+                      )}
+
+                      {/* Job 3 */}
+                      {formData.hasMoreWork2 === "yes" && (
+                        <Card className="border border-neutral-200 rounded-lg p-5">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-4">Work Experience Section 3</h4>
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Job Title</Label>
+                              <Input value={formData.job3_title} onChange={e => handleChange("job3_title", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Company Name</Label>
+                              <Input value={formData.job3_company} onChange={e => handleChange("job3_company", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Job Type</Label>
+                              <Select value={formData.job3_type} onValueChange={v => handleChange("job3_type", v)} disabled={isLocked}>
+                                <SelectTrigger className="h-9 rounded-lg bg-neutral-50"><SelectValue placeholder="Select" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="full_time">Full Time</SelectItem>
+                                  <SelectItem value="part_time">Part Time</SelectItem>
+                                  <SelectItem value="internship">Internship</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Start Date</Label>
+                              <DatePicker value={formData.job3_start} onChange={val => handleChange("job3_start", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">End Date</Label>
+                              <DatePicker value={formData.job3_end} onChange={val => handleChange("job3_end", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-3 space-y-1">
+                              <Label className="text-xs font-medium">Company Address</Label>
+                              <Input value={formData.job3_address} onChange={e => handleChange("job3_address", e.target.value)} disabled={isLocked} className="h-9 rounded-lg bg-neutral-50" />
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-3 space-y-1">
+                              <Label className="text-xs font-medium">Key Responsibilities / Projects</Label>
+                              <Textarea value={formData.job3_resp} onChange={e => handleChange("job3_resp", e.target.value)} disabled={isLocked} className="rounded-lg bg-neutral-50 min-h-[60px]" />
+                            </div>
+                          </div>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── SECTION 4: EDUCATION ── */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-200 pb-4 text-left">
+                  <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                    <Award className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-purple-600">Education</h3>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 text-left">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Highest Degree *</Label>
+                    <Input value={formData.highestDegree} onChange={e => handleChange("highestDegree", e.target.value)} disabled={isLocked} placeholder="e.g. Masters" className={cn("h-10 rounded-lg bg-neutral-50", errors.highestDegree && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.highestDegree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.highestDegree}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Field of Study (Highest Degree) *</Label>
+                    <Input value={formData.mastersField} onChange={e => handleChange("mastersField", e.target.value)} disabled={isLocked} placeholder="e.g. Computer Science" className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersField && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.mastersField && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersField}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">University / Institution Name (Highest) *</Label>
+                    <Input value={formData.mastersUni} onChange={e => handleChange("mastersUni", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersUni && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.mastersUni && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersUni}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Country (Highest) *</Label>
+                    <Input value={formData.mastersCountry} onChange={e => handleChange("mastersCountry", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersCountry && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.mastersCountry && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersCountry}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Graduation Month & Year (Highest) *</Label>
+                    <Input value={formData.mastersGradDate} onChange={e => handleChange("mastersGradDate", e.target.value)} disabled={isLocked} placeholder="e.g. May 2024" className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersGradDate && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.mastersGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersGradDate}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">LinkedIn Profile Link *</Label>
+                    <Input value={formData.linkedinLink} onChange={e => handleChange("linkedinLink", e.target.value)} disabled={isLocked} placeholder="https://linkedin.com/in/..." className={cn("h-10 rounded-lg bg-neutral-50", errors.linkedinLink && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.linkedinLink && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.linkedinLink}</p>}
+                  </div>
+
+                  <div className="sm:col-span-2 border-t border-neutral-200 pt-4 mt-4 text-left">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-2">Additional Education Detail (Bachelors)</h4>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Bachelors Degree *</Label>
+                    <Input value={formData.bachelorsDegree} onChange={e => handleChange("bachelorsDegree", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsDegree && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.bachelorsDegree && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsDegree}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Field of Study *</Label>
+                    <Input value={formData.bachelorsField} onChange={e => handleChange("bachelorsField", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsField && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.bachelorsField && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsField}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">University / Institution Name *</Label>
+                    <Input value={formData.bachelorsUni} onChange={e => handleChange("bachelorsUni", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsUni && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.bachelorsUni && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsUni}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Country *</Label>
+                    <Input value={formData.bachelorsCountry} onChange={e => handleChange("bachelorsCountry", e.target.value)} disabled={isLocked} className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsCountry && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.bachelorsCountry && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsCountry}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Graduation Month & Year *</Label>
+                    <Input value={formData.bachelorsGradDate} onChange={e => handleChange("bachelorsGradDate", e.target.value)} disabled={isLocked} placeholder="e.g. May 2020" className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsGradDate && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.bachelorsGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsGradDate}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── SECTION 5: CERTIFICATIONS ── */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-200 pb-4 text-left">
+                  <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                    <Award className="h-4 w-4 text-red-600" />
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-red-600">Certifications & Credentials</h3>
+                </div>
+
+                <div className="space-y-4 text-left">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Have you completed any professional certifications? *</Label>
+                    <div className={cn("flex items-center gap-6 py-2.5 px-4 bg-neutral-50 rounded-lg border", errors.hasCerts ? "border-destructive ring-1 ring-destructive/20" : "border-neutral-200")}>
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                        <input type="radio" name="hasCerts" checked={formData.hasCerts === "yes"} onChange={() => handleChange("hasCerts", "yes")} disabled={isLocked} className="accent-primary h-4 w-4" /> Yes
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                        <input type="radio" name="hasCerts" checked={formData.hasCerts === "no"} onChange={() => handleChange("hasCerts", "no")} disabled={isLocked} className="accent-primary h-4 w-4" /> No
+                      </label>
+                    </div>
+                    {errors.hasCerts && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.hasCerts}</p>}
+                  </div>
+
+                  {formData.hasCerts === "yes" && (
+                    <Card className="border border-neutral-200 rounded-lg p-5">
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">Certification Name *</Label>
+                          <Input value={formData.certName} onChange={e => handleChange("certName", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certName && "border-destructive")} />
+                          {errors.certName && <p className="text-[10px] text-destructive mt-1">{errors.certName}</p>}
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">Issuing Organization *</Label>
+                          <Input value={formData.certOrg} onChange={e => handleChange("certOrg", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certOrg && "border-destructive")} />
+                          {errors.certOrg && <p className="text-[10px] text-destructive mt-1">{errors.certOrg}</p>}
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">Issued Date *</Label>
+                          <DatePicker value={formData.certDate} onChange={val => handleChange("certDate", val)} className="h-9" />
+                          {errors.certDate && <p className="text-[10px] text-destructive mt-1">{errors.certDate}</p>}
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              </div>
+
+              {/* ── SECTION 6: DOCUMENTS ── */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-200 pb-4 text-left">
+                  <div className="h-8 w-8 rounded-lg bg-teal-500/10 flex items-center justify-center">
+                    <FileCheck className="h-4 w-4 text-teal-600" />
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-teal-600">Identity & Legal Documents</h3>
+                </div>
+
+                <div className="grid gap-6 sm:grid-cols-2 text-left">
+                  {renderDocBox("passportUpload", "Please Upload Passport")}
+                  {renderDocBox("govIdUpload", "Please Upload Government ID")}
+                  {renderDocBox("visaUpload", "Please Upload Visa")}
+                  {renderDocBox("workAuthUpload", "Work Authorization Proof")}
+                  <div className="sm:col-span-2">
+                    {renderDocBox("docUpload", "Upload Any Additional Documents")}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── SECTION 7: JOB PREFERENCES ── */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-200 pb-4 text-left">
+                  <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                    <Sparkles className="h-4 w-4 text-cyan-600" />
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-cyan-600">Job Preferences</h3>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 text-left">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Desired Job Role / Roles *</Label>
+                    <Input value={formData.desiredRole} onChange={e => handleChange("desiredRole", e.target.value)} disabled={isLocked} placeholder="e.g. Software Engineer" className={cn("h-10 rounded-lg bg-neutral-50", errors.desiredRole && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.desiredRole && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.desiredRole}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Desired Years of Experience *</Label>
+                    <Input type="number" value={formData.desiredExpYears} onChange={e => handleChange("desiredExpYears", e.target.value)} disabled={isLocked} placeholder="e.g. 3" className={cn("h-10 rounded-lg bg-neutral-50", errors.desiredExpYears && "border-destructive ring-1 ring-destructive/20")} />
+                    {errors.desiredExpYears && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.desiredExpYears}</p>}
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    {renderDocBox("resumeUpload", "Please Upload Original Resume")}
+                  </div>
+                </div>
+              </div>
+
+            </fieldset>
+
+            {/* ── SUBMIT BUTTON ── */}
+            {!isLocked && (
+              <div className="pt-8 border-t border-neutral-200">
+                <Button
+                  onClick={handleSubmit}
+                  type="submit"
+                  className="w-full h-12 text-base font-bold transition-all duration-300 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
                   disabled={isSubmitting || !candidateId}
-                  className="flex-1 lg:flex-none h-14 px-16 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black shadow-xl shadow-sky-200 hover:shadow-sky-300 transition-all gap-3 text-lg active:scale-[0.98]"
                 >
                   {isSubmitting ? (
-                    <><div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" /> {uploadProgress ? "Uploading..." : "Submitting..."}</>
+                    <span className="flex items-center gap-2">
+                      <Lock className="h-5 w-5 animate-pulse" /> 
+                      {uploadProgress ? uploadProgress : "Submitting..."}
+                    </span>
                   ) : (
-                    <>Submit Sheet <CheckCircle className="h-5 w-5" /></>
+                    <span className="flex items-center gap-2">Submit & Lock Intake Form <CheckCircle className="h-5 w-5" /></span>
                   )}
                 </Button>
+                <p className="text-center text-[11px] text-muted-foreground mt-4 font-medium italic opacity-70">
+                  ⚠️ Submitting this form will lock it for administrative review. Ensure all details are accurate before submitting.
+                </p>
               </div>
-            </div>
-          </div>
-        </form>
-      </main>
+            )}
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };
