@@ -68,6 +68,7 @@ const AdminDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [customTitles, setCustomTitles] = useState<Record<string, string>>({});
   const [recruiters, setRecruiters] = useState<any[]>([]);
   const [pipelineCounts, setPipelineCounts] = useState<Record<string, number>>({});
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -173,15 +174,15 @@ const AdminDashboard = () => {
   const getContent = () => {
     if (subPath.startsWith("interested-candidates/")) {
       const leadId = subPath.replace("interested-candidates/", "");
-      return <AdminInterestedCandidateDetail leadId={leadId} />;
+      return <AdminInterestedCandidateDetail leadId={leadId} onLoaded={(name) => setCustomTitles(prev => ({ ...prev, [subPath]: `Leads / ${name}` }))} />;
     }
     if (subPath.startsWith("candidates/")) {
       const candidateId = subPath.replace("candidates/", "");
-      return <AdminCandidateDetail candidateId={candidateId} />;
+      return <AdminCandidateDetail candidateId={candidateId} onLoaded={(name) => setCustomTitles(prev => ({ ...prev, [subPath]: `Candidates / ${name}` }))} />;
     }
     if (subPath.startsWith("recruiters/")) {
       const recruiterId = subPath.replace("recruiters/", "");
-      return <AdminRecruiterDetail id={recruiterId} />;
+      return <AdminRecruiterDetail id={recruiterId} onLoaded={(name) => setCustomTitles(prev => ({ ...prev, [subPath]: `Recruiters / ${name}` }))} />;
     }
 
     switch (subPath) {
@@ -475,7 +476,7 @@ const AdminDashboard = () => {
 
   return (
     <DashboardLayout
-      title={subPath === "" ? "Admin Operations" : subPath.charAt(0).toUpperCase() + subPath.slice(1).replace(/-/g, " ")}
+      title={customTitles[subPath] || (subPath === "" ? "Admin Operations" : subPath.charAt(0).toUpperCase() + subPath.slice(1).replace(/-/g, " "))}
       navItems={navItems}
     >
       <div key={location.pathname} className="animate-in fade-in duration-500">

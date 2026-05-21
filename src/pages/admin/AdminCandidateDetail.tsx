@@ -42,9 +42,10 @@ const navItems = [
 
 interface AdminCandidateDetailProps {
   candidateId: string;
+  onLoaded?: (name: string) => void;
 }
 
-const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
+const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [candidate, setCandidate] = useState<any>(null);
@@ -84,6 +85,10 @@ const AdminCandidateDetail = ({ candidateId }: AdminCandidateDetailProps) => {
       const { data: cand } = await candidatesApi.detail(candidateId);
       setCandidate(cand);
       if (cand) {
+        if (onLoaded) {
+          const name = cand.full_name || cand.profile?.full_name || cand.email || "Candidate";
+          onLoaded(name);
+        }
         const [intakeRes, roleRes, credRes, payRes, subRes, interviewRes, proposedRoleRes] = await Promise.all([
           candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
           candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),

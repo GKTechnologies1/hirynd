@@ -14,9 +14,10 @@ import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
 interface AdminInterestedCandidateDetailProps {
   leadId: string;
+  onLoaded?: (name: string) => void;
 }
 
-const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDetailProps) => {
+const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCandidateDetailProps) => {
   const [lead, setLead] = useState<any>(null);
   const [form, setForm] = useState<Record<string, string>>({
     name: "",
@@ -42,6 +43,9 @@ const AdminInterestedCandidateDetail = ({ leadId }: AdminInterestedCandidateDeta
     try {
       const { data } = await candidatesApi.interestedDetail(leadId);
       setLead(data);
+      if (onLoaded) {
+        onLoaded(data.name || data.email || "Lead");
+      }
       setForm({
         name: data.name || "",
         email: data.email || "",

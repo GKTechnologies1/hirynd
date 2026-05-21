@@ -22,9 +22,10 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 
 interface AdminRecruiterDetailProps {
   id?: string;
+  onLoaded?: (name: string) => void;
 }
 
-const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
+const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProps) => {
   const { id: paramId } = useParams<{ id: string }>();
   const id = propId || paramId;
   const navigate = useNavigate();
@@ -94,6 +95,10 @@ const AdminRecruiterDetail = ({ id: propId }: AdminRecruiterDetailProps) => {
     try {
       const { data } = await recruitersApi.adminGetDetail(id);
       setRecruiter(data);
+      if (onLoaded) {
+        const name = data.full_name || data.profile?.full_name || data.email || "Recruiter";
+        onLoaded(name);
+      }
       setFormData({
         full_name: data.full_name || data.profile?.full_name || "",
         phone: data.phone || data.profile?.phone || "",
