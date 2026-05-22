@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  User, Mail, Phone, MapPin, Calendar, Briefcase, 
-  Award, FileText, Upload, CheckCircle, RotateCcw, AlertCircle, 
+import {
+  User, Mail, Phone, MapPin, Calendar, Briefcase,
+  Award, FileText, Upload, CheckCircle, RotateCcw, AlertCircle,
   Globe, Link as LinkIcon, Building2, Trash2, CloudUpload, Clock, Sparkles, Lock, FileCheck
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { MonthYearPicker } from "@/components/ui/MonthYearPicker";
 import { cn } from "@/lib/utils";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
@@ -37,6 +38,7 @@ const INITIAL_STATE: FormData = {
   currentAddress: "",
   mailingAddress: "",
   visaStatus: "",
+  visaStatusOther: "",
   firstEntryUS: "",
   totalYearsUS: "",
   skilledIn: "",
@@ -88,6 +90,16 @@ const INITIAL_STATE: FormData = {
   certName: "",
   certOrg: "",
   certDate: "",
+  hasMoreCerts1: "",
+  cert2Name: "",
+  cert2Org: "",
+  cert2Date: "",
+  hasMoreCerts2: "",
+  cert3Name: "",
+  cert3Org: "",
+  cert3Date: "",
+  hasMoreWork3: "",
+  hasMoreCerts3: "",
   // Documents
   docUpload: null,
   passportUpload: null,
@@ -109,6 +121,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
   const { user } = useAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState<FormData>(INITIAL_STATE);
+  const [countryCode, setCountryCode] = useState("+1");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -135,18 +148,37 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
             setIsLocked(true);
             setIsSubmitted(false);
             if (intake.data) {
+              // Parse phone number
+              let rawPhone = intake.data.phone_number || "";
+              let loadedCountryCode = "+1";
+              let loadedPhoneNumber = rawPhone;
+              const codes = ["+91", "+44", "+1"];
+              for (const code of codes) {
+                if (rawPhone.startsWith(code)) {
+                  loadedCountryCode = code;
+                  loadedPhoneNumber = rawPhone.slice(code.length).trim();
+                  break;
+                }
+              }
+              setCountryCode(loadedCountryCode);
+
               setFormData(prev => ({
                 ...prev,
                 firstName: intake.data.first_name || "",
                 lastName: intake.data.last_name || "",
                 dob: intake.data.dob || "",
-                phoneNumber: intake.data.phone_number || "",
+                phoneNumber: loadedPhoneNumber,
                 email: intake.data.email || prev.email,
                 marketingEmail: intake.data.marketing_email || "",
                 marketingPhone: intake.data.marketing_phone || "",
                 currentAddress: intake.data.current_address || "",
                 mailingAddress: intake.data.mailing_address || "",
-                visaStatus: intake.data.visa_status || "",
+                visaStatus: ["F1-OPT", "H1B", "H4 EAD", "Green Card", "US Citizen"].includes(intake.data.visa_status) 
+                  ? intake.data.visa_status 
+                  : (intake.data.visa_status ? "Other" : ""),
+                visaStatusOther: ["F1-OPT", "H1B", "H4 EAD", "Green Card", "US Citizen"].includes(intake.data.visa_status)
+                  ? ""
+                  : (intake.data.visa_status || ""),
                 firstEntryUS: intake.data.first_entry_us || "",
                 totalYearsUS: intake.data.total_years_us || "",
                 skilledIn: intake.data.skilled_in || "",
@@ -202,11 +234,23 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 job3_end: intake.data.experiences?.[2]?.end_date || "",
                 job3_type: intake.data.experiences?.[2]?.job_type || "",
                 job3_resp: intake.data.experiences?.[2]?.responsibilities || "",
+                hasMoreWork3: intake.data.experiences?.length === 3 ? "no" : "",
 
                 // Certification details mapping
                 certName: intake.data.certifications?.[0]?.name || "",
                 certOrg: intake.data.certifications?.[0]?.organization || "",
                 certDate: intake.data.certifications?.[0]?.issued_date || "",
+                hasMoreCerts1: intake.data.certifications?.length > 1 ? "yes" : "no",
+                
+                cert2Name: intake.data.certifications?.[1]?.name || "",
+                cert2Org: intake.data.certifications?.[1]?.organization || "",
+                cert2Date: intake.data.certifications?.[1]?.issued_date || "",
+                hasMoreCerts2: intake.data.certifications?.length > 2 ? "yes" : "no",
+                
+                cert3Name: intake.data.certifications?.[2]?.name || "",
+                cert3Org: intake.data.certifications?.[2]?.organization || "",
+                cert3Date: intake.data.certifications?.[2]?.issued_date || "",
+                hasMoreCerts3: intake.data.certifications?.length === 3 ? "no" : "",
 
                 timestamp: intake.submitted_at
                   ? new Date(intake.submitted_at).toLocaleString()
@@ -227,14 +271,175 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
   }, [user]);
 
   const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => {
-        const next = { ...prev };
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      if (field === "visaStatus" && value !== "Other") {
+        updated.visaStatusOther = "";
+      }
+      
+      // If hasWorkExp is changed to "no", reset all Job 1, 2, 3 details and chain fields
+      if (field === "hasWorkExp" && value === "no") {
+        updated.job1_title = "";
+        updated.job1_company = "";
+        updated.job1_address = "";
+        updated.job1_start = "";
+        updated.job1_end = "";
+        updated.job1_type = "";
+        updated.job1_resp = "";
+        
+        updated.hasMoreWork1 = "";
+        updated.job2_title = "";
+        updated.job2_company = "";
+        updated.job2_address = "";
+        updated.job2_start = "";
+        updated.job2_end = "";
+        updated.job2_type = "";
+        updated.job2_resp = "";
+        
+        updated.hasMoreWork2 = "";
+        updated.job3_title = "";
+        updated.job3_company = "";
+        updated.job3_address = "";
+        updated.job3_start = "";
+        updated.job3_end = "";
+        updated.job3_type = "";
+        updated.job3_resp = "";
+        
+        updated.hasMoreWork3 = "";
+      }
+      
+      // If hasMoreWork1 is changed to "no", reset Job 2 and 3 details and hasMoreWork2
+      if (field === "hasMoreWork1" && value === "no") {
+        updated.job2_title = "";
+        updated.job2_company = "";
+        updated.job2_address = "";
+        updated.job2_start = "";
+        updated.job2_end = "";
+        updated.job2_type = "";
+        updated.job2_resp = "";
+        
+        updated.hasMoreWork2 = "";
+        updated.job3_title = "";
+        updated.job3_company = "";
+        updated.job3_address = "";
+        updated.job3_start = "";
+        updated.job3_end = "";
+        updated.job3_type = "";
+        updated.job3_resp = "";
+        
+        updated.hasMoreWork3 = "";
+      }
+      
+      // If hasMoreWork2 is changed to "no", reset Job 3 details and hasMoreWork3
+      if (field === "hasMoreWork2" && value === "no") {
+        updated.job3_title = "";
+        updated.job3_company = "";
+        updated.job3_address = "";
+        updated.job3_start = "";
+        updated.job3_end = "";
+        updated.job3_type = "";
+        updated.job3_resp = "";
+        
+        updated.hasMoreWork3 = "";
+      }
+
+      // If hasCerts is changed to "no", reset all Cert 1, 2, 3 details and chain fields
+      if (field === "hasCerts" && value === "no") {
+        updated.certName = "";
+        updated.certOrg = "";
+        updated.certDate = "";
+        
+        updated.hasMoreCerts1 = "";
+        updated.cert2Name = "";
+        updated.cert2Org = "";
+        updated.cert2Date = "";
+        
+        updated.hasMoreCerts2 = "";
+        updated.cert3Name = "";
+        updated.cert3Org = "";
+        updated.cert3Date = "";
+        
+        updated.hasMoreCerts3 = "";
+      }
+      
+      // If hasMoreCerts1 is changed to "no", reset Cert 2 and 3 details and hasMoreCerts2
+      if (field === "hasMoreCerts1" && value === "no") {
+        updated.cert2Name = "";
+        updated.cert2Org = "";
+        updated.cert2Date = "";
+        
+        updated.hasMoreCerts2 = "";
+        updated.cert3Name = "";
+        updated.cert3Org = "";
+        updated.cert3Date = "";
+        
+        updated.hasMoreCerts3 = "";
+      }
+      
+      // If hasMoreCerts2 is changed to "no", reset Cert 3 details and hasMoreCerts3
+      if (field === "hasMoreCerts2" && value === "no") {
+        updated.cert3Name = "";
+        updated.cert3Org = "";
+        updated.cert3Date = "";
+        
+        updated.hasMoreCerts3 = "";
+      }
+      
+      return updated;
+    });
+
+    setErrors(prev => {
+      const next = { ...prev };
+      if (next[field]) {
         delete next[field];
-        return next;
-      });
-    }
+      }
+      
+      if (field === "visaStatus" && value !== "Other") {
+        delete next["visaStatusOther"];
+      }
+      
+      // Also clear chained errors if parent is set to "no"
+      if (field === "hasWorkExp" && value === "no") {
+        ["job1_title", "job1_company", "job1_start", "job1_type", "hasMoreWork1",
+         "job2_title", "job2_company", "job2_start", "job2_type", "hasMoreWork2",
+         "job3_title", "job3_company", "job3_start", "job3_type", "hasMoreWork3"].forEach(f => {
+           delete next[f];
+         });
+      }
+      if (field === "hasMoreWork1" && value === "no") {
+        ["job2_title", "job2_company", "job2_start", "job2_type", "hasMoreWork2",
+         "job3_title", "job3_company", "job3_start", "job3_type", "hasMoreWork3"].forEach(f => {
+           delete next[f];
+         });
+      }
+      if (field === "hasMoreWork2" && value === "no") {
+        ["job3_title", "job3_company", "job3_start", "job3_type", "hasMoreWork3"].forEach(f => {
+           delete next[f];
+         });
+      }
+
+      if (field === "hasCerts" && value === "no") {
+        ["certName", "certOrg", "certDate", "hasMoreCerts1",
+         "cert2Name", "cert2Org", "cert2Date", "hasMoreCerts2",
+         "cert3Name", "cert3Org", "cert3Date", "hasMoreCerts3"].forEach(f => {
+           delete next[f];
+         });
+      }
+      if (field === "hasMoreCerts1" && value === "no") {
+        ["cert2Name", "cert2Org", "cert2Date", "hasMoreCerts2",
+         "cert3Name", "cert3Org", "cert3Date", "hasMoreCerts3"].forEach(f => {
+           delete next[f];
+         });
+      }
+      if (field === "hasMoreCerts2" && value === "no") {
+        ["cert3Name", "cert3Org", "cert3Date", "hasMoreCerts3"].forEach(f => {
+           delete next[f];
+         });
+      }
+      
+      return next;
+    });
   };
 
   const validate = () => {
@@ -244,7 +449,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
       "visaStatus", "firstEntryUS", "totalYearsUS", "skilledIn", "recentlyLearned", "experiencedWith",
       "learningNow", "otherNonTech", "hasWorkExp", "highestDegree", "mastersField", "mastersUni",
       "mastersCountry", "mastersGradDate", "linkedinLink", "bachelorsDegree", "bachelorsField",
-      "bachelorsUni", "bachelorsCountry", "bachelorsGradDate", "hasCerts", "desiredRole", 
+      "bachelorsUni", "bachelorsCountry", "bachelorsGradDate", "hasCerts", "desiredRole",
       "desiredExpYears"
     ];
 
@@ -253,16 +458,37 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     });
 
     // Chained Mandatory Fields
+    if (formData.visaStatus === "Other") {
+      if (!formData.visaStatusOther || !formData.visaStatusOther.trim()) {
+        newErrors.visaStatusOther = "Required";
+      }
+    }
     if (formData.hasWorkExp === "yes") {
       if (!formData.hasMoreWork1) newErrors.hasMoreWork1 = "Please specify";
     }
     if (formData.hasMoreWork1 === "yes") {
       if (!formData.hasMoreWork2) newErrors.hasMoreWork2 = "Please specify";
     }
+    if (formData.hasMoreWork2 === "yes") {
+      if (!formData.hasMoreWork3) newErrors.hasMoreWork3 = "Please specify";
+    }
     if (formData.hasCerts === "yes") {
       ["certName", "certOrg", "certDate"].forEach(f => {
         if (!formData[f]) newErrors[f] = "Required";
       });
+      if (!formData.hasMoreCerts1) newErrors.hasMoreCerts1 = "Please specify";
+    }
+    if (formData.hasMoreCerts1 === "yes") {
+      ["cert2Name", "cert2Org", "cert2Date"].forEach(f => {
+        if (!formData[f]) newErrors[f] = "Required";
+      });
+      if (!formData.hasMoreCerts2) newErrors.hasMoreCerts2 = "Please specify";
+    }
+    if (formData.hasMoreCerts2 === "yes") {
+      ["cert3Name", "cert3Org", "cert3Date"].forEach(f => {
+        if (!formData[f]) newErrors[f] = "Required";
+      });
+      if (!formData.hasMoreCerts3) newErrors.hasMoreCerts3 = "Please specify";
     }
 
     // Document Uploads (Mandatory)
@@ -274,8 +500,16 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (formData.email && !emailRegex.test(formData.email)) newErrors.email = "Invalid format";
     if (formData.marketingEmail && !emailRegex.test(formData.marketingEmail)) newErrors.marketingEmail = "Invalid format";
-    
+
     if (formData.linkedinLink && !formData.linkedinLink.includes("linkedin.com")) newErrors.linkedinLink = "Invalid URL";
+
+    if (formData.phoneNumber && !/^\d{10}$/.test(formData.phoneNumber.replace(/\D/g, ''))) {
+      newErrors.phoneNumber = "Phone number must be exactly 10 digits";
+    }
+
+    if (formData.totalYearsUS !== "" && parseFloat(formData.totalYearsUS) < 0) {
+      newErrors.totalYearsUS = "Cannot be negative";
+    }
 
     setErrors(newErrors);
 
@@ -283,12 +517,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     if (hasErrors) {
       const fieldOrder = [
         "firstName", "lastName", "dob", "phoneNumber", "marketingEmail", "marketingPhone",
-        "visaStatus", "firstEntryUS", "totalYearsUS", "currentAddress", "mailingAddress",
+        "visaStatus", "visaStatusOther", "firstEntryUS", "totalYearsUS", "currentAddress", "mailingAddress",
         "skilledIn", "recentlyLearned", "experiencedWith", "learningNow", "otherNonTech",
-        "hasWorkExp", "hasMoreWork1", "hasMoreWork2",
+        "hasWorkExp", "hasMoreWork1", "hasMoreWork2", "hasMoreWork3",
         "highestDegree", "mastersField", "mastersUni", "mastersCountry", "mastersGradDate",
         "linkedinLink", "bachelorsDegree", "bachelorsField", "bachelorsUni", "bachelorsCountry", "bachelorsGradDate",
-        "hasCerts", "certName", "certOrg", "certDate",
+        "hasCerts", "certName", "certOrg", "certDate", "hasMoreCerts1", "cert2Name", "cert2Org", "cert2Date", "hasMoreCerts2", "cert3Name", "cert3Org", "cert3Date", "hasMoreCerts3",
         "passportUpload", "govIdUpload", "visaUpload", "workAuthUpload", "docUpload",
         "desiredRole", "desiredExpYears", "resumeUpload"
       ];
@@ -392,6 +626,20 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
           organization: formData.certOrg,
           issued_date: formData.certDate,
         });
+        if (formData.hasMoreCerts1 === "yes" && formData.cert2Name) {
+          certifications.push({
+            name: formData.cert2Name,
+            organization: formData.cert2Org,
+            issued_date: formData.cert2Date,
+          });
+          if (formData.hasMoreCerts2 === "yes" && formData.cert3Name) {
+            certifications.push({
+              name: formData.cert3Name,
+              organization: formData.cert3Org,
+              issued_date: formData.cert3Date,
+            });
+          }
+        }
       }
 
       // ── Step 4: Build final payload (snake_case field names) ──
@@ -399,13 +647,13 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
         first_name: formData.firstName,
         last_name: formData.lastName,
         dob: formData.dob,
-        phone_number: formData.phoneNumber,
+        phone_number: `${countryCode} ${formData.phoneNumber.trim()}`,
         email: formData.email,
         marketing_email: formData.marketingEmail,
         marketing_phone: formData.marketingPhone,
         current_address: formData.currentAddress,
         mailing_address: formData.mailingAddress,
-        visa_status: formData.visaStatus,
+        visa_status: formData.visaStatus === "Other" ? formData.visaStatusOther : formData.visaStatus,
         first_entry_us: formData.firstEntryUS,
         total_years_us: formData.totalYearsUS,
         skilled_in: formData.skilledIn,
@@ -464,21 +712,48 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     return (
       <div id={fieldId} className="space-y-2 text-left">
         <Label className="text-sm font-medium">{label} *</Label>
-        <div 
+        <div
           className={cn(
             "p-5 border-2 border-dashed rounded-lg transition-all text-center relative",
             isUploaded ? "bg-green-50 border-green-300" : (error ? "bg-red-50 border-destructive" : "bg-neutral-50 border-neutral-300 hover:border-primary/40")
           )}
         >
           {!isLocked && (
-            <input 
-              type="file" 
+            <input
+              type="file"
               id={fieldId + "_input"}
+              accept=".pdf,image/*,.docx"
               className="mb-2 h-10 w-full py-1.5 cursor-pointer text-xs bg-white border border-neutral-200 rounded px-2"
               onChange={e => {
                 const file = e.target.files?.[0];
-                if (file && file.size <= 5*1024*1024) handleChange(fieldId, file);
-                else toast({ variant: "destructive", title: "Error", description: "Max 5MB PDF/DOC/IMG" });
+                if (file) {
+                  const name = file.name.toLowerCase();
+                  const isPdf = name.endsWith(".pdf") || file.type === "application/pdf";
+                  const isImg = /\.(jpe?g|png|gif|webp|bmp)$/i.test(name) || file.type.startsWith("image/");
+                  const isDocx = name.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                  
+                  if (!isPdf && !isImg && !isDocx) {
+                    toast({
+                      variant: "destructive",
+                      title: "Invalid File Type",
+                      description: "Only PDF, Images (JPG, PNG, WEBP), and DOCX files are allowed.",
+                    });
+                    e.target.value = ""; // Clear file input
+                    return;
+                  }
+                  
+                  if (file.size > 5 * 1024 * 1024) {
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: "File size must be 5MB or less.",
+                    });
+                    e.target.value = ""; // Clear file input
+                    return;
+                  }
+                  
+                  handleChange(fieldId, file);
+                }
               }}
             />
           )}
@@ -490,15 +765,15 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 {isUrl ? "Document Uploaded" : (value as File).name}
               </p>
               {isUrl && (
-                <DocumentPreview 
-                  url={value as string} 
-                  label="View Document" 
-                  className="text-xs text-green-600 hover:text-green-800 font-bold underline cursor-pointer" 
+                <DocumentPreview
+                  url={value as string}
+                  label="View Document"
+                  className="text-xs text-green-600 hover:text-green-800 font-bold underline cursor-pointer"
                 />
               )}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground mt-1">Accepted: PDF, DOC, IMG (Max 5MB)</p>
+            <p className="text-xs text-muted-foreground mt-1">Accepted: PDF, Images, DOCX (Max 5MB)</p>
           )}
         </div>
       </div>
@@ -533,7 +808,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 <div className="pt-6 border-t border-border/40">
                   <p className="italic text-card-foreground font-semibold">"Let's build your future together."</p>
                   <div className="mt-3 text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
-                    — Team Hyrind <br/>
+                    — Team Hyrind <br />
                     <span className="text-[10px] font-normal">'You focus on skills. We'll handle the rest.'</span>
                   </div>
                 </div>
@@ -613,7 +888,27 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="phoneNumber" className="space-y-2">
                     <Label className="text-sm font-medium">Phone Number *</Label>
-                    <Input type="tel" value={formData.phoneNumber} onChange={e => handleChange("phoneNumber", e.target.value)} disabled={isLocked} required placeholder="1234567890" className={cn("h-10 rounded-lg bg-neutral-50", errors.phoneNumber && "border-destructive ring-1 ring-destructive/20")} />
+                    <div className="flex gap-2">
+                      <Select value={countryCode} onValueChange={setCountryCode} disabled={isLocked}>
+                        <SelectTrigger className="w-[100px] h-10 rounded-lg bg-neutral-50 border-neutral-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                          <SelectItem value="+91">🇮🇳 +91</SelectItem>
+                          <SelectItem value="+44">🇬🇧 +44</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="tel"
+                        value={formData.phoneNumber}
+                        onChange={e => handleChange("phoneNumber", e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        disabled={isLocked}
+                        required
+                        placeholder="1234567890"
+                        className={cn("h-10 flex-1 rounded-lg bg-neutral-50", errors.phoneNumber && "border-destructive ring-1 ring-destructive/20")}
+                      />
+                    </div>
                     {errors.phoneNumber && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.phoneNumber}</p>}
                   </div>
                   <div id="marketingEmail" className="space-y-2">
@@ -636,6 +931,19 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     </Select>
                     {errors.visaStatus && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.visaStatus}</p>}
                   </div>
+                  {formData.visaStatus === "Other" && (
+                    <div id="visaStatusOther" className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <Label className="text-sm font-medium">Specify Visa Status *</Label>
+                      <Input
+                        value={formData.visaStatusOther}
+                        onChange={e => handleChange("visaStatusOther", e.target.value)}
+                        disabled={isLocked}
+                        placeholder="Please specify visa status"
+                        className={cn("h-10 rounded-lg bg-neutral-50", errors.visaStatusOther && "border-destructive ring-1 ring-destructive/20")}
+                      />
+                      {errors.visaStatusOther && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.visaStatusOther}</p>}
+                    </div>
+                  )}
                   <div id="firstEntryUS" className="space-y-2">
                     <Label className="text-sm font-medium">First Entry into the U.S. *</Label>
                     <DatePicker value={formData.firstEntryUS} onChange={val => handleChange("firstEntryUS", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.firstEntryUS && "border-destructive ring-1 ring-destructive/20")} />
@@ -643,7 +951,24 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="totalYearsUS" className="space-y-2">
                     <Label className="text-sm font-medium">Total Years in the U.S. *</Label>
-                    <Input type="number" value={formData.totalYearsUS} onChange={e => handleChange("totalYearsUS", e.target.value)} disabled={isLocked} placeholder="e.g. 3" className={cn("h-10 rounded-lg bg-neutral-50", errors.totalYearsUS && "border-destructive ring-1 ring-destructive/20")} />
+                    <Input
+                      type="number"
+                      min="0"
+                      onKeyPress={e => {
+                        if (e.key === "-") {
+                          e.preventDefault();
+                        }
+                      }}
+                      value={formData.totalYearsUS}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val && parseFloat(val) < 0) return;
+                        handleChange("totalYearsUS", val);
+                      }}
+                      disabled={isLocked}
+                      placeholder="e.g. 3"
+                      className={cn("h-10 rounded-lg bg-neutral-50", errors.totalYearsUS && "border-destructive ring-1 ring-destructive/20")}
+                    />
                     {errors.totalYearsUS && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.totalYearsUS}</p>}
                   </div>
                 </div>
@@ -878,6 +1203,24 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                               <Textarea value={formData.job3_resp} onChange={e => handleChange("job3_resp", e.target.value)} disabled={isLocked} className="rounded-lg bg-neutral-50 min-h-[60px]" />
                             </div>
                           </div>
+
+                          <div id="hasMoreWork3" className="mt-4 pt-4 border-t border-neutral-100">
+                            <Label className="text-xs font-medium">Did you work anywhere else? *</Label>
+                            <div className="flex gap-4 mt-1.5">
+                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                <input type="radio" name="hasMoreWork3" checked={formData.hasMoreWork3 === "yes"} onChange={() => handleChange("hasMoreWork3", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                <input type="radio" name="hasMoreWork3" checked={formData.hasMoreWork3 === "no"} onChange={() => handleChange("hasMoreWork3", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
+                              </label>
+                            </div>
+                            {formData.hasMoreWork3 === "yes" && (
+                              <p className="text-[11px] text-amber-600 mt-1.5 font-medium flex items-center gap-1">
+                                <AlertCircle className="h-3.5 w-3.5" /> Note: A maximum of 3 work experiences can be added.
+                              </p>
+                            )}
+                            {errors.hasMoreWork3 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreWork3}</p>}
+                          </div>
                         </Card>
                       )}
                     </div>
@@ -917,7 +1260,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="mastersGradDate" className="space-y-2">
                     <Label className="text-sm font-medium">Graduation Month & Year (Highest) *</Label>
-                    <Input value={formData.mastersGradDate} onChange={e => handleChange("mastersGradDate", e.target.value)} disabled={isLocked} placeholder="e.g. May 2024" className={cn("h-10 rounded-lg bg-neutral-50", errors.mastersGradDate && "border-destructive ring-1 ring-destructive/20")} />
+                    <MonthYearPicker
+                      value={formData.mastersGradDate}
+                      onChange={val => handleChange("mastersGradDate", val)}
+                      placeholder="Select Month & Year"
+                      className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.mastersGradDate && "border-destructive ring-1 ring-destructive/20")}
+                    />
                     {errors.mastersGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersGradDate}</p>}
                   </div>
                   <div id="linkedinLink" className="space-y-2">
@@ -952,7 +1300,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="bachelorsGradDate" className="space-y-2">
                     <Label className="text-sm font-medium">Graduation Month & Year *</Label>
-                    <Input value={formData.bachelorsGradDate} onChange={e => handleChange("bachelorsGradDate", e.target.value)} disabled={isLocked} placeholder="e.g. May 2020" className={cn("h-10 rounded-lg bg-neutral-50", errors.bachelorsGradDate && "border-destructive ring-1 ring-destructive/20")} />
+                    <MonthYearPicker
+                      value={formData.bachelorsGradDate}
+                      onChange={val => handleChange("bachelorsGradDate", val)}
+                      placeholder="Select Month & Year"
+                      className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.bachelorsGradDate && "border-destructive ring-1 ring-destructive/20")}
+                    />
                     {errors.bachelorsGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsGradDate}</p>}
                   </div>
                 </div>
@@ -982,25 +1335,117 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
 
                   {formData.hasCerts === "yes" && (
-                    <Card className="border border-neutral-200 rounded-lg p-5">
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <div id="certName" className="space-y-1">
-                          <Label className="text-xs font-medium">Certification Name *</Label>
-                          <Input value={formData.certName} onChange={e => handleChange("certName", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certName && "border-destructive")} />
-                          {errors.certName && <p className="text-[10px] text-destructive mt-1">{errors.certName}</p>}
+                    <div className="space-y-6">
+                      <Card className="border border-neutral-200 rounded-lg p-5">
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          <div id="certName" className="space-y-1">
+                            <Label className="text-xs font-medium">Certification Name *</Label>
+                            <Input value={formData.certName} onChange={e => handleChange("certName", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certName && "border-destructive")} />
+                            {errors.certName && <p className="text-[10px] text-destructive mt-1">{errors.certName}</p>}
+                          </div>
+                          <div id="certOrg" className="space-y-1">
+                            <Label className="text-xs font-medium">Issuing Organization *</Label>
+                            <Input value={formData.certOrg} onChange={e => handleChange("certOrg", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certOrg && "border-destructive")} />
+                            {errors.certOrg && <p className="text-[10px] text-destructive mt-1">{errors.certOrg}</p>}
+                          </div>
+                          <div id="certDate" className="space-y-1">
+                            <Label className="text-xs font-medium">Issued Date *</Label>
+                            <DatePicker value={formData.certDate} onChange={val => handleChange("certDate", val)} className="h-9" />
+                            {errors.certDate && <p className="text-[10px] text-destructive mt-1">{errors.certDate}</p>}
+                          </div>
+
+                          <div id="hasMoreCerts1" className="mt-4 pt-4 border-t border-neutral-100 sm:col-span-2 lg:col-span-3">
+                            <Label className="text-xs font-medium">Do you have another certification? *</Label>
+                            <div className="flex gap-4 mt-1.5">
+                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                <input type="radio" name="hasMoreCerts1" checked={formData.hasMoreCerts1 === "yes"} onChange={() => handleChange("hasMoreCerts1", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                <input type="radio" name="hasMoreCerts1" checked={formData.hasMoreCerts1 === "no"} onChange={() => handleChange("hasMoreCerts1", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
+                              </label>
+                            </div>
+                            {errors.hasMoreCerts1 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreCerts1}</p>}
+                          </div>
                         </div>
-                        <div id="certOrg" className="space-y-1">
-                          <Label className="text-xs font-medium">Issuing Organization *</Label>
-                          <Input value={formData.certOrg} onChange={e => handleChange("certOrg", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certOrg && "border-destructive")} />
-                          {errors.certOrg && <p className="text-[10px] text-destructive mt-1">{errors.certOrg}</p>}
-                        </div>
-                        <div id="certDate" className="space-y-1">
-                          <Label className="text-xs font-medium">Issued Date *</Label>
-                          <DatePicker value={formData.certDate} onChange={val => handleChange("certDate", val)} className="h-9" />
-                          {errors.certDate && <p className="text-[10px] text-destructive mt-1">{errors.certDate}</p>}
-                        </div>
-                      </div>
-                    </Card>
+                      </Card>
+
+                      {formData.hasMoreCerts1 === "yes" && (
+                        <Card className="border border-neutral-200 rounded-lg p-5">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-4">Certification Section 2</h4>
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div id="cert2Name" className="space-y-1">
+                              <Label className="text-xs font-medium">Certification Name *</Label>
+                              <Input value={formData.cert2Name} onChange={e => handleChange("cert2Name", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.cert2Name && "border-destructive")} />
+                              {errors.cert2Name && <p className="text-[10px] text-destructive mt-1">{errors.cert2Name}</p>}
+                            </div>
+                            <div id="cert2Org" className="space-y-1">
+                              <Label className="text-xs font-medium">Issuing Organization *</Label>
+                              <Input value={formData.cert2Org} onChange={e => handleChange("cert2Org", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.cert2Org && "border-destructive")} />
+                              {errors.cert2Org && <p className="text-[10px] text-destructive mt-1">{errors.cert2Org}</p>}
+                            </div>
+                            <div id="cert2Date" className="space-y-1">
+                              <Label className="text-xs font-medium">Issued Date *</Label>
+                              <DatePicker value={formData.cert2Date} onChange={val => handleChange("cert2Date", val)} className="h-9" />
+                              {errors.cert2Date && <p className="text-[10px] text-destructive mt-1">{errors.cert2Date}</p>}
+                            </div>
+
+                            <div id="hasMoreCerts2" className="mt-4 pt-4 border-t border-neutral-100 sm:col-span-2 lg:col-span-3">
+                              <Label className="text-xs font-medium">Do you have another certification? *</Label>
+                              <div className="flex gap-4 mt-1.5">
+                                <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                  <input type="radio" name="hasMoreCerts2" checked={formData.hasMoreCerts2 === "yes"} onChange={() => handleChange("hasMoreCerts2", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                  <input type="radio" name="hasMoreCerts2" checked={formData.hasMoreCerts2 === "no"} onChange={() => handleChange("hasMoreCerts2", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
+                                </label>
+                              </div>
+                              {errors.hasMoreCerts2 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreCerts2}</p>}
+                            </div>
+                          </div>
+                        </Card>
+                      )}
+
+                      {formData.hasMoreCerts2 === "yes" && (
+                        <Card className="border border-neutral-200 rounded-lg p-5">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-4">Certification Section 3</h4>
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div id="cert3Name" className="space-y-1">
+                              <Label className="text-xs font-medium">Certification Name *</Label>
+                              <Input value={formData.cert3Name} onChange={e => handleChange("cert3Name", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.cert3Name && "border-destructive")} />
+                              {errors.cert3Name && <p className="text-[10px] text-destructive mt-1">{errors.cert3Name}</p>}
+                            </div>
+                            <div id="cert3Org" className="space-y-1">
+                              <Label className="text-xs font-medium">Issuing Organization *</Label>
+                              <Input value={formData.cert3Org} onChange={e => handleChange("cert3Org", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.cert3Org && "border-destructive")} />
+                              {errors.cert3Org && <p className="text-[10px] text-destructive mt-1">{errors.cert3Org}</p>}
+                            </div>
+                            <div id="cert3Date" className="space-y-1">
+                              <Label className="text-xs font-medium">Issued Date *</Label>
+                              <DatePicker value={formData.cert3Date} onChange={val => handleChange("cert3Date", val)} className="h-9" />
+                              {errors.cert3Date && <p className="text-[10px] text-destructive mt-1">{errors.cert3Date}</p>}
+                            </div>
+                          </div>
+
+                          <div id="hasMoreCerts3" className="mt-4 pt-4 border-t border-neutral-100 sm:col-span-2 lg:col-span-3">
+                            <Label className="text-xs font-medium">Do you have another certification? *</Label>
+                            <div className="flex gap-4 mt-1.5">
+                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                <input type="radio" name="hasMoreCerts3" checked={formData.hasMoreCerts3 === "yes"} onChange={() => handleChange("hasMoreCerts3", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
+                                <input type="radio" name="hasMoreCerts3" checked={formData.hasMoreCerts3 === "no"} onChange={() => handleChange("hasMoreCerts3", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
+                              </label>
+                            </div>
+                            {formData.hasMoreCerts3 === "yes" && (
+                              <p className="text-[11px] text-amber-600 mt-1.5 font-medium flex items-center gap-1">
+                                <AlertCircle className="h-3.5 w-3.5" /> Note: A maximum of 3 certifications can be added.
+                              </p>
+                            )}
+                            {errors.hasMoreCerts3 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreCerts3}</p>}
+                          </div>
+                        </Card>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1065,7 +1510,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
-                      <Lock className="h-5 w-5 animate-pulse" /> 
+                      <Lock className="h-5 w-5 animate-pulse" />
                       {uploadProgress ? uploadProgress : "Submitting..."}
                     </span>
                   ) : (

@@ -19,7 +19,7 @@ import { formatDate } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown, Calendar as CalendarIcon, FileCheck, Sparkles } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -61,10 +61,10 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   const [newRoleTitle, setNewRoleTitle] = useState("");
   const [newRoleDescription, setNewRoleDescription] = useState("");
   const [addingRole, setAddingRole] = useState(false);
-  
+
   const [confirmRoleModal, setConfirmRoleModal] = useState<any>(null);
   const [addingProposedRole, setAddingProposedRole] = useState(false);
-  
+
   const [removeRoleModal, setRemoveRoleModal] = useState<any>(null);
   const [removingProposedRole, setRemovingProposedRole] = useState(false);
 
@@ -117,11 +117,11 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
   const handleAddRole = async () => {
     if (!newRoleTitle.trim()) return;
-    
+
     const isDuplicate = roles.some(r => r.role_title.toLowerCase().trim() === newRoleTitle.toLowerCase().trim());
     if (isDuplicate) {
-       toast({ title: "Duplicate Role", description: "This role has already been suggested.", variant: "destructive" });
-       return;
+      toast({ title: "Duplicate Role", description: "This role has already been suggested.", variant: "destructive" });
+      return;
     }
 
     setAddingRole(true);
@@ -139,8 +139,8 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
     if (!confirmRoleModal) return;
     setAddingProposedRole(true);
     try {
-      await candidatesApi.addRole(candidateId, { 
-        role_title: confirmRoleModal.custom_role_title, 
+      await candidatesApi.addRole(candidateId, {
+        role_title: confirmRoleModal.custom_role_title,
         description: confirmRoleModal.custom_reason || "",
         delete_proposed_role_id: confirmRoleModal.id
       });
@@ -282,7 +282,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   if (loading) return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading candidate data...</p></div>;
   if (!candidate) return <div className="p-8 text-center bg-muted/20 rounded-xl border border-dashed"><p className="text-muted-foreground">Candidate not found or internal system error.</p></div>;
 
-  const intakeData = intake?.data as Record<string, string> | null;
+  const intakeData = intake?.data as Record<string, any> | null;
   const status = candidate.status;
   const isPlaced = status === "placed_closed";
   const STATUSES = [
@@ -450,21 +450,21 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
               <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">University / College</Label>
-                  <p className="font-semibold text-foreground tracking-tight">{candidate?.university || intakeData?.university_name || "—"}</p>
+                  <p className="font-semibold text-foreground tracking-tight">{candidate?.university || "—"}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Degree & Major</Label>
                     <p className="font-medium text-foreground">
-                      {candidate?.degree || intakeData?.degree || "—"}
-                      {(candidate?.major || intakeData?.major) ? ` & ${candidate?.major || intakeData?.major}` : ""}
+                      {candidate?.degree || "—"}
+                      {candidate?.major ? ` & ${candidate.major}` : ""}
                     </p>
                   </div>
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Graduation Date</Label>
                   <p className="font-medium text-foreground">
-                    {formatDate(candidate?.graduation_date || intakeData?.graduation_date)}
+                    {formatDate(candidate?.graduation_date)}
                     {candidate?.graduation_year && !candidate?.graduation_date && ` (${candidate.graduation_year})`}
                   </p>
                 </div>
@@ -581,123 +581,291 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                 )}
               </div>
             </CardHeader>
-            <CardContent className="min-h-[300px]">
+            <CardContent className="min-h-[300px] p-6">
               {intakeData ? (
-                <div className="space-y-8">
+                <div className="space-y-8 animate-in fade-in duration-350">
                   {!intake.is_locked && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs flex items-center gap-2">
                       <Clock className="h-4 w-4" /> This is a draft version. The candidate has not yet submitted and locked this form.
                     </div>
                   )}
 
-                  {/* Personal & Contact */}
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Personal & Contact</h4>
-                      <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Full Name</p><p className="font-semibold text-sm">{(intakeData.first_name && intakeData.last_name) ? `${intakeData.first_name} ${intakeData.last_name}` : (intakeData.full_name || "—")}</p></div>
-                        <div><p className="text-muted-foreground mb-1">DOB</p><p className="font-semibold">{intakeData.date_of_birth || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Primary Phone</p><p className="font-semibold">{intakeData.phone_number || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Alternate Phone</p><p className="font-semibold">{intakeData.alternate_phone || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Email</p><p className="font-semibold">{intakeData.email || "—"}</p></div>
-                        {intakeData.marketing_email && <div className="col-span-2"><p className="text-muted-foreground mb-1">Marketing Email</p><p className="font-semibold">{intakeData.marketing_email}</p></div>}
-                        <div className="col-span-2 space-y-1">
-                          <p className="text-muted-foreground mb-1">Address</p>
-                          <p className="font-semibold">{intakeData.current_address || "—"}</p>
-                          <p className="font-semibold">{intakeData.city}{intakeData.city && intakeData.state ? ", " : ""}{intakeData.state} {intakeData.zip_code} {intakeData.country}</p>
+                  {/* Personal & Contact Details */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Personal & Contact Details
+                    </h4>
+                    <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 bg-neutral-50/50 p-4 rounded-xl border text-xs">
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">First Name</p>
+                        <p className="font-bold text-neutral-900">{intakeData.first_name || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Last Name</p>
+                        <p className="font-bold text-neutral-900">{intakeData.last_name || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Date of Birth</p>
+                        <p className="font-bold text-neutral-900">{intakeData.dob || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Phone Number</p>
+                        <p className="font-bold text-neutral-900">{intakeData.phone_number || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Email Address</p>
+                        <p className="font-bold text-neutral-900 break-all">{intakeData.email || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Marketing Email</p>
+                        <p className="font-bold text-neutral-900 break-all">{intakeData.marketing_email || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Marketing Phone</p>
+                        <p className="font-bold text-neutral-900">{intakeData.marketing_phone || "—"}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-muted-foreground font-semibold mb-0.5">Current Address</p>
+                        <p className="font-bold text-neutral-900 leading-relaxed">{intakeData.current_address || "—"}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-muted-foreground font-semibold mb-0.5">Mailing Address</p>
+                        <p className="font-bold text-neutral-900 leading-relaxed">{intakeData.mailing_address || "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Education Background */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                      <Award className="h-4 w-4" /> Educational Background
+                    </h4>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      {/* Highest / Master's */}
+                      <div className="bg-neutral-50/50 p-4 rounded-xl border space-y-3 text-xs">
+                        <p className="font-bold text-primary/80 uppercase tracking-wider text-[10px]">Highest Degree Details</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground font-semibold mb-0.5">University / College</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_uni || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Degree Type</p>
+                            <p className="font-bold text-neutral-900">{intakeData.highest_degree || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Major / Field</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_field || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Country</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_country || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_grad_date || "—"}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bachelor's */}
+                      <div className="bg-neutral-50/50 p-4 rounded-xl border space-y-3 text-xs">
+                        <p className="font-bold text-primary/80 uppercase tracking-wider text-[10px]">Bachelor's Degree Details</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground font-semibold mb-0.5">University / College</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_uni || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Degree Type</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_degree || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Major / Field</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_field || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Country</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_country || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_grad_date || "—"}</p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Immigration & Eligibility</h4>
-                      <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div><p className="text-muted-foreground mb-1">Visa Type</p><p className="font-semibold">{intakeData.visa_type === "Other" ? intakeData.visa_other : (intakeData.visa_type || "—")}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Visa Expiry</p><p className="font-semibold">{intakeData.visa_expiry_date || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Auth Status</p><p className="font-semibold">{intakeData.work_authorization_status || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Sponsorship Required</p><p className="font-semibold">{intakeData.sponsorship_required?.toString() === "true" ? "Yes" : intakeData.sponsorship_required?.toString() === "false" ? "No" : "—"}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Country of Auth</p><p className="font-semibold">{intakeData.country_of_work_authorization || "—"}</p></div>
-                      </div>
-                    </div>
                   </div>
 
                   <Separator />
 
-                  {/* Education & Career */}
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Education</h4>
-                      <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Degree & Major</p><p className="font-semibold text-sm">{intakeData.degree === "other" ? intakeData.degree_other : (intakeData.degree || "—")}{intakeData.major ? ` & ${intakeData.major}` : ""}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">University</p><p className="font-medium text-sm">{intakeData.university_name || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Graduation Date</p><p className="font-medium">{intakeData.graduation_date || "—"}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Certifications</p><p className="font-medium whitespace-pre-wrap">{intakeData.additional_certifications || "—"}</p></div>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Job Preferences</h4>
-                      <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1 text-sm">Target Roles</p><p className="font-bold text-primary text-sm">{intakeData.target_roles || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Desired Years of Exp</p><p className="font-bold text-sm">{intakeData.desired_years_of_experience || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Salary Expectation</p><p className="font-bold text-sm">{intakeData.salary_expectation ? `$${intakeData.salary_expectation}` : "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Remote Preference</p><p className="font-medium">{intakeData.remote_preference || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Relocate?</p><p className="font-medium">{intakeData.relocation_preference?.toString() === "true" ? "Yes" : intakeData.relocation_preference?.toString() === "false" ? "No" : "—"}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Preferred Locations</p><p className="font-medium">{intakeData.preferred_locations || "—"}</p></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Professional Background */}
+                  {/* Immigration & U.S. Status */}
                   <div className="space-y-4">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Professional Background</h4>
-                    <div className="grid gap-4 md:grid-cols-3 text-xs">
-                      <div><p className="text-muted-foreground mb-1">Experience</p><p className="font-semibold">{intakeData.years_of_experience || "—"} Years</p></div>
-                      <div><p className="text-muted-foreground mb-1">Recent Employer</p><p className="font-semibold">{intakeData.recent_employer || "—"}</p></div>
-                      <div><p className="text-muted-foreground mb-1">Current Title</p><p className="font-semibold">{intakeData.current_job_title || "—"}</p></div>
-                      <div className="md:col-span-3"><p className="text-muted-foreground mb-1">Skills Summary</p><p className="bg-muted p-3 rounded font-medium leading-relaxed">{intakeData.technologies_or_skills || "—"}</p></div>
-                      <div className="md:col-span-3"><p className="text-muted-foreground mb-1">Academic Projects</p><p className="bg-muted/30 p-3 rounded font-medium italic">{intakeData.academic_projects || "No projects listed"}</p></div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-6 md:grid-cols-2 pt-2">
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Social & Portfolio</h4>
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>LinkedIn</span>{intakeData.linkedin_url ? <DocumentPreview url={intakeData.linkedin_url} label="View Profile" /> : <span>—</span>}</div>
-                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>GitHub</span>{intakeData.github_url ? <DocumentPreview url={intakeData.github_url} label="View GitHub" /> : <span>—</span>}</div>
-                        <div className="flex justify-between items-center bg-white p-2 rounded border"><span>Portfolio</span>{intakeData.portfolio_url ? <DocumentPreview url={intakeData.portfolio_url} label="View Portfolio" /> : <span>—</span>}</div>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                      <Shield className="h-4 w-4" /> Immigration & Eligibility
+                    </h4>
+                    <div className="grid gap-6 sm:grid-cols-3 bg-neutral-50/50 p-4 rounded-xl border text-xs">
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Current Visa Status</p>
+                        <p className="font-bold text-neutral-900">{intakeData.visa_status || "—"}</p>
                       </div>
-                    </div>
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Marketing & Availability</h4>
-                      <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div><p className="text-muted-foreground mb-1">Ready to Start</p><p className="font-semibold">{intakeData.ready_to_start_date || "—"}</p></div>
-                        <div><p className="text-muted-foreground mb-1">Emp Type</p><p className="font-semibold">{intakeData.preferred_employment_type || "—"}</p></div>
-                        <div className="col-span-2"><p className="text-muted-foreground mb-1">Notes</p><p className="font-medium italic">{intakeData.additional_notes || "—"}</p></div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">First Entry into the U.S.</p>
+                        <p className="font-bold text-neutral-900">{intakeData.first_entry_us || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Total Years in the U.S.</p>
+                        <p className="font-bold text-neutral-900">{intakeData.total_years_us || "—"}</p>
                       </div>
                     </div>
                   </div>
 
-                  {intakeData.resume_url && (
-                    <div className="pt-4">
-                      <DocumentPreview
-                        url={intakeData.resume_url}
-                        label="View Submitted Resume"
-                        variant="button"
-                        className="w-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
-                      />
+                  <Separator />
+
+                  {/* Skills Summary */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-green-500" /> Technical & Non-Technical Skills
+                    </h4>
+                    <div className="space-y-3 bg-neutral-50/50 p-4 rounded-xl border text-xs">
+                      <div>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Strongly Skilled In</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.skilled_in || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Recently Learned</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.recently_learned || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Experience / Familiarity With</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.experienced_with || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Learning Now</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.learning_now || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Other Non-Technical Skills</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.other_non_tech || "—"}</p>
+                      </div>
                     </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Job Preferences */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4" /> Job Preferences
+                    </h4>
+                    <div className="grid gap-6 sm:grid-cols-2 bg-neutral-50/50 p-4 rounded-xl border text-xs">
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Desired Role</p>
+                        <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_role || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Desired Years of Experience</p>
+                        <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_exp_years || "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Uploaded Documents */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                      <FileCheck className="h-4 w-4" /> Uploaded Verification Documents
+                    </h4>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {[
+                        { label: "Resume / CV", url: intakeData.resume_url, required: true },
+                        { label: "Passport (First & Last Page)", url: intakeData.passport_url, required: true },
+                        { label: "Government Issued ID", url: intakeData.gov_id_url, required: true },
+                        { label: "Visa / I-797 / I-20", url: intakeData.visa_url, required: true },
+                        { label: "Work Authorization Document", url: intakeData.work_auth_url, required: true },
+                        { label: "Other Verification Document", url: intakeData.doc_url, required: false },
+                      ].map((doc, idx) => (
+                        <div key={idx} className="bg-neutral-50 p-4 rounded-xl border flex flex-col justify-between gap-3 text-xs">
+                          <div>
+                            <p className="font-semibold text-neutral-800">{doc.label}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{doc.required ? "Mandatory Field" : "Optional Field"}</p>
+                          </div>
+                          {doc.url ? (
+                            <DocumentPreview
+                              url={doc.url}
+                              label={`View ${doc.label}`}
+                              variant="button"
+                              className="w-full text-xs font-bold h-9 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                            />
+                          ) : (
+                            <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 p-2 rounded text-center border border-amber-100">Not Uploaded</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Work Experience dynamic mapping */}
+                  {intakeData.experiences && Array.isArray(intakeData.experiences) && intakeData.experiences.length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                          <Briefcase className="h-4 w-4" /> Professional Work History
+                        </h4>
+                        <div className="grid gap-6 sm:grid-cols-2">
+                          {intakeData.experiences.map((exp: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-xl bg-neutral-50 border space-y-3 text-xs">
+                              <div className="flex items-center justify-between border-b pb-2">
+                                <p className="font-bold text-neutral-900 text-sm">{exp.job_title || "—"}</p>
+                                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] uppercase font-bold">{exp.job_type || "—"}</span>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="font-bold text-neutral-800">{exp.company_name || "—"}</p>
+                                <p className="text-[11px] text-muted-foreground">{exp.company_address || "—"}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[10px]">
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                                <span>{exp.start_date || "—"} to {exp.end_date || "Present"}</span>
+                              </div>
+                              {exp.responsibilities && (
+                                <div className="pt-2 border-t mt-2">
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Responsibilities</p>
+                                  <p className="text-[11px] text-neutral-700 leading-relaxed bg-white p-2.5 rounded border italic whitespace-pre-wrap">{exp.responsibilities}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
                   )}
-                  {intakeData.any_documents_url && (
-                    <div className="pt-2">
-                      <DocumentPreview
-                        url={intakeData.any_documents_url}
-                        label="Download Additional Documents"
-                        variant="button"
-                        className="w-full border-neutral-200 bg-neutral-50"
-                      />
-                    </div>
+
+                  {/* Certifications dynamic mapping */}
+                  {intakeData.certifications && Array.isArray(intakeData.certifications) && intakeData.certifications.length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                          <Award className="h-4 w-4" /> Professional Certifications
+                        </h4>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          {intakeData.certifications.map((cert: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-xl bg-neutral-50 border space-y-2 text-xs">
+                              <p className="font-bold text-neutral-900 text-sm leading-tight">{cert.name || "—"}</p>
+                              <p className="font-semibold text-muted-foreground">{cert.organization || "—"}</p>
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t text-[10px] text-muted-foreground font-semibold">
+                                <span>Issued: {cert.issued_date || "—"}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               ) : (
@@ -816,8 +984,8 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                             onClick={() => {
                               const isDuplicate = roles.some(role => role.role_title.toLowerCase().trim() === r.custom_role_title.toLowerCase().trim());
                               if (isDuplicate) {
-                                 toast({ title: "Duplicate Role", description: "This role has already been suggested.", variant: "destructive" });
-                                 return;
+                                toast({ title: "Duplicate Role", description: "This role has already been suggested.", variant: "destructive" });
+                                return;
                               }
                               setConfirmRoleModal(r);
                             }}
@@ -1297,8 +1465,8 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmRoleModal(null)}>Cancel</Button>
-            <Button 
-              onClick={handleConfirmProposedRole} 
+            <Button
+              onClick={handleConfirmProposedRole}
               disabled={addingProposedRole}
             >
               {addingProposedRole ? "Adding..." : "Add to Suggestions"}
@@ -1317,9 +1485,9 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRemoveRoleModal(null)}>Cancel</Button>
-            <Button 
+            <Button
               variant="destructive"
-              onClick={handleRemoveProposedRole} 
+              onClick={handleRemoveProposedRole}
               disabled={removingProposedRole}
             >
               {removingProposedRole ? "Removing..." : "Remove Role"}

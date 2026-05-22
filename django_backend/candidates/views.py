@@ -335,58 +335,7 @@ def intake(request, candidate_id):
         defaults={'data': payload, 'submitted_at': timezone.now(), 'is_locked': True},
     )
 
-    # ── Sync Candidate top-level fields from payload ──
-    # Education
-    if payload.get('masters_uni'):
-        candidate.university = payload['masters_uni']
-    if payload.get('highest_degree'):
-        candidate.degree = payload['highest_degree']
-    if payload.get('masters_field'):
-        candidate.major = payload['masters_field']
-
-    # Visa & Authorization
-    if payload.get('visa_status'):
-        candidate.visa_status = payload['visa_status']
-
-    # Marketing & Contact
-    if payload.get('marketing_email'):
-        candidate.marketing_email = payload['marketing_email']
-    if payload.get('marketing_phone'):
-        candidate.marketing_phone = payload['marketing_phone']
-
-    # LinkedIn
-    if payload.get('linkedin_link'):
-        candidate.linkedin_url = payload['linkedin_link']
-
-    # Job Preferences
-    if payload.get('desired_exp_years'):
-        candidate.desired_years_of_experience = str(payload['desired_exp_years'])
-    if payload.get('current_address'):
-        candidate.current_location = payload['current_address']
-
-    # ── Date field sync ──
-    date_map = {
-        'dob': 'graduation_date',           # closest model field for DOB
-        'first_entry_us': 'first_entry_us',
-        'bachelors_grad_date': 'bachelors_graduation_date',
-        'masters_grad_date': 'masters_graduation_date',
-    }
-    for payload_key, model_attr in date_map.items():
-        if payload.get(payload_key):
-            for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
-                try:
-                    setattr(candidate, model_attr, datetime.strptime(str(payload[payload_key]), fmt).date())
-                    break
-                except Exception:
-                    continue
-
-    # ── Update user profile name ──
-    if payload.get('first_name') and payload.get('last_name'):
-        if hasattr(candidate.user, 'profile'):
-            candidate.user.profile.full_name = f"{payload['first_name']} {payload['last_name']}"
-            if payload.get('phone_number') and hasattr(candidate.user.profile, 'phone'):
-                candidate.user.profile.phone = payload['phone_number']
-            candidate.user.profile.save()
+    # Candidate registration details are kept pristine and are not mutated by intake sheet submissions.
 
     # ── Work experiences (sent as experiences array) ──
     if payload.get('experiences') and isinstance(payload['experiences'], list):
