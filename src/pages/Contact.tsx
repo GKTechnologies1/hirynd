@@ -482,6 +482,7 @@ const Contact = () => {
                         <CalendarIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                         <Input
                           name="graduation_year"
+                          type="date"
                           value={formValues.graduation_year}
                           onChange={handleInputChange}
                           placeholder="e.g., 2025"
