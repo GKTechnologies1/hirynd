@@ -16,7 +16,6 @@ import {
   Globe, Link as LinkIcon, Building2, Trash2, CloudUpload, Clock, Sparkles, Lock, FileCheck
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
-import { MonthYearPicker } from "@/components/ui/MonthYearPicker";
 import { cn } from "@/lib/utils";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
@@ -1260,10 +1259,10 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="mastersGradDate" className="space-y-2">
                     <Label className="text-sm font-medium">Graduation Month & Year (Highest) *</Label>
-                    <MonthYearPicker
+                    <DatePicker
                       value={formData.mastersGradDate}
                       onChange={val => handleChange("mastersGradDate", val)}
-                      placeholder="Select Month & Year"
+                      placeholder="MM-DD-YYYY"
                       className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.mastersGradDate && "border-destructive ring-1 ring-destructive/20")}
                     />
                     {errors.mastersGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersGradDate}</p>}
@@ -1300,10 +1299,10 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="bachelorsGradDate" className="space-y-2">
                     <Label className="text-sm font-medium">Graduation Month & Year *</Label>
-                    <MonthYearPicker
+                    <DatePicker
                       value={formData.bachelorsGradDate}
                       onChange={val => handleChange("bachelorsGradDate", val)}
-                      placeholder="Select Month & Year"
+                      placeholder="MM-DD-YYYY"
                       className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.bachelorsGradDate && "border-destructive ring-1 ring-destructive/20")}
                     />
                     {errors.bachelorsGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsGradDate}</p>}
