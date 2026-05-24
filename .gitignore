@@ -42,6 +42,8 @@ db.sqlite3-journal
 db.sqlite3
 django_backend/db.sqlite3
 django_backend/media/
+minio_data/
+django_backend/minio_data/
 
 # Environment variables
 .env
@@ -87,3 +89,4 @@ django_backend/backfill_invoices.py
 django_backend/db.sqlite3
 *migrations
 cache
+implementation_plan.md

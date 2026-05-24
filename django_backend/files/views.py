@@ -21,6 +21,21 @@ def _get_s3_client():
     )
 
 
+def _ensure_bucket_exists(s3_client, bucket_name):
+    try:
+        s3_client.head_bucket(Bucket=bucket_name)
+    except Exception as e:
+        error_code = getattr(e, 'response', {}).get('Error', {}).get('Code', '')
+        if error_code in ('404', 'NoSuchBucket', '403'): # 403 might be returned on check if permissions are restricted but usually 404 for missing
+            try:
+                s3_client.create_bucket(Bucket=bucket_name)
+            except Exception:
+                # If we cannot create it (e.g. read-only user), raise original error
+                raise e
+        else:
+            raise e
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
@@ -40,10 +55,11 @@ def upload_file(request):
     else:
         try:
             s3 = _get_s3_client()
+            _ensure_bucket_exists(s3, settings.AWS_STORAGE_BUCKET_NAME)
             s3.upload_fileobj(file, settings.AWS_STORAGE_BUCKET_NAME, bucket_path)
             saved_path = bucket_path
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f"MinIO storage error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     record = UploadedFile.objects.create(
         user=request.user,
