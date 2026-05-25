@@ -40,8 +40,15 @@ def serve_media(request, path):
             
             # FileResponse can wrap the StreamingBody from boto3
             response = FileResponse(obj['Body'])
-            if 'ContentType' in obj:
-                response['Content-Type'] = obj['ContentType']
+            content_type = obj.get('ContentType')
+            if not content_type or content_type in ('application/octet-stream', 'binary/octet-stream'):
+                import mimetypes
+                guessed_type, _ = mimetypes.guess_type(normalized_path)
+                if guessed_type:
+                    content_type = guessed_type
+            
+            if content_type:
+                response['Content-Type'] = content_type
             if 'ContentLength' in obj:
                 response['Content-Length'] = obj['ContentLength']
             return response

@@ -56,7 +56,12 @@ def upload_file(request):
         try:
             s3 = _get_s3_client()
             _ensure_bucket_exists(s3, settings.AWS_STORAGE_BUCKET_NAME)
-            s3.upload_fileobj(file, settings.AWS_STORAGE_BUCKET_NAME, bucket_path)
+            s3.upload_fileobj(
+                file,
+                settings.AWS_STORAGE_BUCKET_NAME,
+                bucket_path,
+                ExtraArgs={'ContentType': getattr(file, 'content_type', 'application/octet-stream')}
+            )
             saved_path = bucket_path
         except Exception as e:
             return Response({'error': f"MinIO storage error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
