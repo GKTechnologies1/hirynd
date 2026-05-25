@@ -24,12 +24,33 @@ def serve_media(request, path):
     Industry standard media server for development/staging.
     Ensures that missing files return a proper JSON error
     rather than a debug routes page.
+    Supports serving from both local storage and MinIO.
     """
     # Security check: prevent directory traversal
-    if '..' in path or path.startswith('/'):
+    normalized_path = os.path.normpath(path)
+    if normalized_path.startswith('..') or normalized_path.startswith('/') or '..' in normalized_path:
         return JsonResponse({'error': 'Invalid path'}, status=400)
 
-    file_path = os.path.join(settings.MEDIA_ROOT, path)
+    # 1. If not using local storage, try serving from S3/MinIO first
+    if not getattr(settings, 'USE_LOCAL_STORAGE', True):
+        try:
+            from files.views import _get_s3_client
+            s3 = _get_s3_client()
+            obj = s3.get_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=normalized_path)
+            
+            # FileResponse can wrap the StreamingBody from boto3
+            response = FileResponse(obj['Body'])
+            if 'ContentType' in obj:
+                response['Content-Type'] = obj['ContentType']
+            if 'ContentLength' in obj:
+                response['Content-Length'] = obj['ContentLength']
+            return response
+        except Exception as e:
+            # Fall back to local check in case it's a legacy local file or temporary transition
+            pass
+
+    # 2. Local storage serving
+    file_path = os.path.join(settings.MEDIA_ROOT, normalized_path)
     
     if not os.path.exists(file_path):
         return JsonResponse({
