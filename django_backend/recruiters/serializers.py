@@ -19,9 +19,11 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
         if obj.highest_degree_certificate_id:
             try:
                 file_obj = UploadedFile.objects.get(id=obj.highest_degree_certificate_id)
+                request = self.context.get('request')
                 return {
                     'id': str(file_obj.id),
                     'name': file_obj.original_name,
+                    'url': file_obj.get_download_url(request),
                     'uploaded_at': file_obj.uploaded_at
                 }
             except UploadedFile.DoesNotExist:
@@ -32,9 +34,11 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
         if obj.government_id_card_id:
             try:
                 file_obj = UploadedFile.objects.get(id=obj.government_id_card_id)
+                request = self.context.get('request')
                 return {
                     'id': str(file_obj.id),
                     'name': file_obj.original_name,
+                    'url': file_obj.get_download_url(request),
                     'uploaded_at': file_obj.uploaded_at
                 }
             except UploadedFile.DoesNotExist:
@@ -45,9 +49,11 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
         if obj.pan_card_id:
             try:
                 file_obj = UploadedFile.objects.get(id=obj.pan_card_id)
+                request = self.context.get('request')
                 return {
                     'id': str(file_obj.id),
                     'name': file_obj.original_name,
+                    'url': file_obj.get_download_url(request),
                     'uploaded_at': file_obj.uploaded_at
                 }
             except UploadedFile.DoesNotExist:
@@ -58,9 +64,11 @@ class RecruiterProfileSerializer(serializers.ModelSerializer):
         if obj.bank_passbook_id:
             try:
                 file_obj = UploadedFile.objects.get(id=obj.bank_passbook_id)
+                request = self.context.get('request')
                 return {
                     'id': str(file_obj.id),
                     'name': file_obj.original_name,
+                    'url': file_obj.get_download_url(request),
                     'uploaded_at': file_obj.uploaded_at
                 }
             except UploadedFile.DoesNotExist:
@@ -73,7 +81,7 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='user.profile.full_name', required=False)
     phone = serializers.CharField(source='user.profile.phone', required=False)
     email = serializers.EmailField(source='user.email', read_only=True)
-    resume_file = serializers.FileField(read_only=True)
+    resume_file = serializers.SerializerMethodField()
     highest_degree_certificate_file = serializers.SerializerMethodField()
     government_id_card_file = serializers.SerializerMethodField()
     pan_card_file = serializers.SerializerMethodField()
@@ -96,13 +104,22 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
             'pan_card_file', 'bank_passbook_file'
         ]
 
+    def get_resume_file(self, obj):
+        if not obj.resume_file:
+            return None
+        request = self.context.get('request')
+        relative = f"/media/{obj.resume_file.name}"
+        return request.build_absolute_uri(relative) if request else relative
+
     def get_highest_degree_certificate_file(self, obj):
         if obj.highest_degree_certificate_id:
             try:
                 file_obj = UploadedFile.objects.get(id=obj.highest_degree_certificate_id)
+                request = self.context.get('request')
                 return {
                     'id': str(file_obj.id),
                     'name': file_obj.original_name,
+                    'url': file_obj.get_download_url(request),
                     'uploaded_at': file_obj.uploaded_at
                 }
             except UploadedFile.DoesNotExist:
@@ -113,9 +130,11 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
         if obj.government_id_card_id:
             try:
                 file_obj = UploadedFile.objects.get(id=obj.government_id_card_id)
+                request = self.context.get('request')
                 return {
                     'id': str(file_obj.id),
                     'name': file_obj.original_name,
+                    'url': file_obj.get_download_url(request),
                     'uploaded_at': file_obj.uploaded_at
                 }
             except UploadedFile.DoesNotExist:
@@ -126,9 +145,11 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
         if obj.pan_card_id:
             try:
                 file_obj = UploadedFile.objects.get(id=obj.pan_card_id)
+                request = self.context.get('request')
                 return {
                     'id': str(file_obj.id),
                     'name': file_obj.original_name,
+                    'url': file_obj.get_download_url(request),
                     'uploaded_at': file_obj.uploaded_at
                 }
             except UploadedFile.DoesNotExist:
@@ -139,9 +160,11 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
         if obj.bank_passbook_id:
             try:
                 file_obj = UploadedFile.objects.get(id=obj.bank_passbook_id)
+                request = self.context.get('request')
                 return {
                     'id': str(file_obj.id),
                     'name': file_obj.original_name,
+                    'url': file_obj.get_download_url(request),
                     'uploaded_at': file_obj.uploaded_at
                 }
             except UploadedFile.DoesNotExist:

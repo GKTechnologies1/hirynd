@@ -75,22 +75,7 @@ def upload_file(request):
     )
 
     # Generate download URL to return immediately
-    use_local = getattr(settings, 'USE_LOCAL_STORAGE', True)
-    if use_local:
-        from django.http import HttpRequest
-        # We need a dummy request or building it manually
-        # Simple approach for local:
-        url = request.build_absolute_uri(default_storage.url(saved_path))
-    else:
-        try:
-            s3 = _get_s3_client()
-            url = s3.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': settings.AWS_STORAGE_BUCKET_NAME, 'Key': saved_path},
-                ExpiresIn=3600 * 24 * 7, # 7 days
-            )
-        except:
-            url = saved_path
+    url = record.get_download_url(request)
 
     return Response({
         'id': str(record.id),
@@ -104,23 +89,49 @@ def upload_file(request):
 @permission_classes([IsAuthenticated])
 def get_download_url(request, file_id):
     try:
-        record = UploadedFile.objects.get(id=file_id, user=request.user)
+        # Check permissions: if request.user is admin/staff/recruiter/team_lead, bypass user filter.
+        # Otherwise, restrict to user=request.user
+        if request.user.role in ('admin', 'finance_admin', 'team_lead', 'team_manager', 'recruiter'):
+            record = UploadedFile.objects.get(id=file_id)
+        else:
+            record = UploadedFile.objects.get(id=file_id, user=request.user)
     except UploadedFile.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    use_local = getattr(settings, 'USE_LOCAL_STORAGE', True)
-    if use_local:
-        url = request.build_absolute_uri(default_storage.url(record.bucket_path))
-    else:
-        try:
-            s3 = _get_s3_client()
-            url = s3.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': settings.AWS_STORAGE_BUCKET_NAME, 'Key': record.bucket_path},
-                ExpiresIn=3600,
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    url = record.get_download_url(request)
     return Response({'url': url, 'original_name': record.original_name})
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_files(request):
+    """
+    List all files uploaded by the current user.
+    Admins/staff can optionally filter by user_id via ?user_id=<uuid>.
+    """
+    if request.user.role in ('admin', 'finance_admin', 'team_lead', 'team_manager', 'recruiter'):
+        user_id = request.query_params.get('user_id')
+        if user_id:
+            qs = UploadedFile.objects.filter(user_id=user_id)
+        else:
+            qs = UploadedFile.objects.filter(user=request.user)
+    else:
+        qs = UploadedFile.objects.filter(user=request.user)
+
+    file_type = request.query_params.get('file_type')
+    if file_type:
+        qs = qs.filter(file_type=file_type)
+
+    results = [
+        {
+            'id': str(f.id),
+            'file_type': f.file_type,
+            'original_name': f.original_name,
+            'size_bytes': f.size_bytes,
+            'uploaded_at': f.uploaded_at,
+            'url': f.get_download_url(request),
+        }
+        for f in qs
+    ]
+    return Response(results)

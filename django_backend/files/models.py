@@ -18,3 +18,14 @@ class UploadedFile(models.Model):
 
     def __str__(self):
         return f"{self.original_name} ({self.user.email})"
+
+    def get_download_url(self, request=None):
+        """
+        Returns an absolute URL to fetch the file via the /media/ proxy.
+        The proxy (serve_media view) transparently fetches from MinIO or local disk.
+        No S3 credentials are exposed to the frontend.
+        """
+        relative = f"/media/{self.bucket_path}"
+        if request:
+            return request.build_absolute_uri(relative)
+        return relative

@@ -23,11 +23,19 @@ class CertificationSerializer(serializers.ModelSerializer):
 
 class InterestedCandidateSerializer(serializers.ModelSerializer):
     display_id = serializers.CharField(read_only=True)
+    resume_file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = InterestedCandidate
         fields = '__all__'
         read_only_fields = ['id', 'display_id', 'seq_number', 'user', 'created_at', 'updated_at']
+
+    def get_resume_file_url(self, obj):
+        if not obj.resume_file:
+            return None
+        request = self.context.get('request')
+        relative = f"/media/{obj.resume_file.name}"
+        return request.build_absolute_uri(relative) if request else relative
 
 
 class CandidateSerializer(serializers.ModelSerializer):
@@ -38,11 +46,19 @@ class CandidateSerializer(serializers.ModelSerializer):
     total_applications = serializers.SerializerMethodField()
     total_interviews = serializers.SerializerMethodField()
     display_id = serializers.CharField(read_only=True)
+    resume_file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
         fields = '__all__'
         read_only_fields = ['id', 'display_id', 'user', 'created_at', 'updated_at', 'subscription_status', 'total_applications', 'total_interviews']
+
+    def get_resume_file_url(self, obj):
+        if not obj.resume_file:
+            return None
+        request = self.context.get('request')
+        relative = f"/media/{obj.resume_file.name}"
+        return request.build_absolute_uri(relative) if request else relative
 
     def get_subscription_status(self, obj):
         if hasattr(obj, 'subscription'):
@@ -127,6 +143,9 @@ class ClientIntakeSerializer(serializers.ModelSerializer):
                 many=True
             ).data
         return []
+
+    def to_representation(self, instance):
+        return super().to_representation(instance)
 
 
 class RoleSuggestionSerializer(serializers.ModelSerializer):

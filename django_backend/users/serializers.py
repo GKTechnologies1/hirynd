@@ -332,10 +332,11 @@ class UserListSerializer(serializers.ModelSerializer):
     def get_resume_file(self, obj):
         p = self._get_target_profile(obj)
         if p and getattr(p, 'resume_file', None):
+            url = f"/media/{p.resume_file.name}"
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(p.resume_file.url)
-            return p.resume_file.url
+                return request.build_absolute_uri(url)
+            return url
         return None
 
     def get_portfolio_url(self, obj):

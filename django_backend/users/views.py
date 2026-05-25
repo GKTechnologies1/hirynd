@@ -336,7 +336,7 @@ def submit_contact(request):
         # Build absolute URL for resume
         resume_url = ''
         if lead.resume_file:
-            resume_url = request.build_absolute_uri(lead.resume_file.url)
+            resume_url = request.build_absolute_uri(f"/media/{lead.resume_file.name}")
             lead.resume_url = resume_url
             lead.save(update_fields=['resume_url'])
 

@@ -177,8 +177,12 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
+# Reverse proxy SSL settings
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # File Storage — local for dev, MinIO/S3 for production
-USE_LOCAL_STORAGE = os.getenv('USE_LOCAL_STORAGE', 'True') == 'True'
+USE_LOCAL_STORAGE = os.getenv('USE_LOCAL_STORAGE', 'true').lower() == 'true'
 
 # Always define MEDIA_URL and MEDIA_ROOT so media server views and fallbacks work without crashing
 MEDIA_URL = '/media/'
@@ -189,7 +193,7 @@ if not USE_LOCAL_STORAGE:
     AWS_SECRET_ACCESS_KEY = os.getenv('MINIO_SECRET_KEY', '')
     AWS_STORAGE_BUCKET_NAME = os.getenv('MINIO_BUCKET', 'hyrind-files')
     AWS_S3_ENDPOINT_URL = os.getenv('MINIO_ENDPOINT', 'http://localhost:9000')
-    AWS_S3_REGION_NAME = 'us-east-1'
+    AWS_S3_REGION_NAME = os.getenv('MINIO_REGION', 'us-east-1')
     AWS_DEFAULT_ACL = 'private'
     AWS_S3_FILE_OVERWRITE = False
 

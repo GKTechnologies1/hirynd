@@ -32,11 +32,9 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   const targetUrl = isOfficeDoc ? previewUrl : fileUrl;
 
   const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (variant !== 'link') {
-      e.preventDefault();
-      window.open(targetUrl, '_blank', 'noopener,noreferrer');
-    }
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
   if (variant === 'button') {
@@ -44,7 +42,7 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       <Button
         variant="outline"
         size="sm"
-        className={cn("h-8 gap-2 text-xs font-semibold rounded-xl", className)}
+        className={cn("h-8 gap-2 text-xs font-semibold rounded-xl pointer-events-auto", className)}
         onClick={handleClick}
       >
         <Eye className={cn("h-3.5 w-3.5", iconClassName)} />
@@ -58,7 +56,7 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       <Button
         variant="ghost"
         size="icon"
-        className={cn("h-8 w-8 rounded-full", className)}
+        className={cn("h-8 w-8 rounded-full pointer-events-auto", className)}
         onClick={handleClick}
         title={typeof label === 'string' ? label : undefined}
       >
@@ -73,7 +71,7 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "inline-flex items-center gap-1.5 text-secondary hover:text-secondary/80 underline underline-offset-4 decoration-secondary/30 transition-all font-medium",
+        "inline-flex items-center gap-1.5 text-secondary hover:text-secondary/80 underline underline-offset-4 decoration-secondary/30 transition-all font-medium pointer-events-auto",
         className
       )}
       onClick={handleClick}

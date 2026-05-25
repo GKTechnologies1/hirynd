@@ -13,7 +13,27 @@ const API_BASE_URL = `${BACKEND_URL}/api`;
 
 export const getFileUrl = (url: string | null | undefined): string => {
   if (!url) return "";
-  if (url.startsWith("http")) return url;
+  
+  // 1. If it's a direct MinIO/S3 URL containing the bucket name 'hyrind-files', proxy it through the backend
+  if (url.includes('/hyrind-files/')) {
+    const parts = url.split('/hyrind-files/');
+    if (parts.length > 1) {
+      const cleanPath = parts[1].split('?')[0]; // Strip query parameters like ?AWSAccessKeyId=...
+      return `${BACKEND_URL}/media/${cleanPath}`;
+    }
+  }
+
+  // 2. If it's an absolute URL pointing to a media path on another staging/prod host,
+  // rewrite it to use the current BACKEND_URL so it loads correctly in local/current env
+  if (url.startsWith("http")) {
+    if (url.includes('/media/')) {
+      const parts = url.split('/media/');
+      if (parts.length > 1) {
+        return `${BACKEND_URL}/media/${parts[1]}`;
+      }
+    }
+    return url;
+  }
   
   let path = url;
   // If the path doesn't start with /media/ and it's a relative path from Django,
@@ -27,6 +47,7 @@ export const getFileUrl = (url: string | null | undefined): string => {
   
   return `${BACKEND_URL}${path}`;
 };
+
 
 const api = axios.create({
   baseURL: API_BASE_URL,
