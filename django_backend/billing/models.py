@@ -98,6 +98,27 @@ class Subscription(models.Model):
     def __str__(self):
         return f"Sub({self.candidate.user.email} — {self.plan_name})"
 
+    def check_status(self):
+        """
+        Dynamically checks if the active subscription is past its next billing date.
+        If it is, transitions the status to 'pending_payment' and saves.
+        """
+        from django.utils import timezone
+        if self.status == 'active' and self.next_billing_at and self.next_billing_at < timezone.now().date():
+            self.status = 'pending_payment'
+            self.save(update_fields=['status'])
+            
+            # Revert candidate status to past_due if they were payment_completed or credentials_submitted
+            try:
+                candidate = self.candidate
+                if candidate.status in ('payment_completed', 'credentials_submitted'):
+                    candidate.status = 'past_due'
+                    candidate.save(update_fields=['status'])
+            except Exception:
+                pass
+        return self.status
+
+
 
 class SubscriptionAddonAssignment(models.Model):
     """Addons added to a specific candidate's subscription."""

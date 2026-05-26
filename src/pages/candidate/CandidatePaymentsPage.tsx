@@ -186,10 +186,19 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
                     <CardTitle className="text-2xl font-bold tracking-tight">
                       {subscription?.plan_name || "Hyrind Subscription"}
                     </CardTitle>
-                    <CardDescription className="flex items-center gap-1.5 mt-0.5">
+                    <CardDescription className="flex flex-wrap items-center gap-1.5 mt-0.5">
                       <Clock className="h-3.5 w-3.5" />
-                      {subscription?.billing_cycle ? subscription.billing_cycle.replace(/_/g, " ") : "monthly"} billing
+                      <span>{subscription?.billing_cycle ? subscription.billing_cycle.replace(/_/g, " ") : "monthly"} billing</span>
+                      {subscription?.next_billing_at && (
+                        <>
+                          <span className="text-muted-foreground/30">•</span>
+                          <span className="font-semibold text-foreground/80">
+                            {subscription.status === "pending_payment" || subscription.status === "past_due" ? "Due" : "Next Billing"}: {formatDate(subscription.next_billing_at)}
+                          </span>
+                        </>
+                      )}
                     </CardDescription>
+
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">

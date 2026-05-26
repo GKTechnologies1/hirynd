@@ -982,11 +982,15 @@ def admin_ledger_report(request):
     
     report_data = []
     for s in subs:
+        # Trigger dynamic checks to update status if expired
+        s.check_status()
+        
         # Get total paid by this candidate
         total_paid = Payment.objects.filter(candidate=s.candidate, status='completed').aggregate(total=Sum('amount'))['total'] or 0
         
         # Get addons list
         addons = ", ".join([a.addon.name for a in s.addon_assignments.all()])
+
         
         report_data.append({
             'candidate_name': s.candidate.user.profile.full_name if hasattr(s.candidate.user, 'profile') and s.candidate.user.profile.full_name else s.candidate.user.email,

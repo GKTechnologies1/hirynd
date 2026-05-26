@@ -50,6 +50,11 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         total = sum(a.addon.amount for a in obj.addon_assignments.all())
         return float(total)
 
+    def to_representation(self, instance):
+        instance.check_status()
+        return super().to_representation(instance)
+
+
 
 class RazorpayOrderSerializer(serializers.ModelSerializer):
     class Meta:

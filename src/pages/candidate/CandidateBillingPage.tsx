@@ -89,9 +89,12 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
                 </p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Next Billing Date</p>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                  {subscription.status === "pending_payment" || subscription.status === "past_due" ? "Payment Due Date" : "Next Billing Date"}
+                </p>
                 <p className="font-bold text-slate-800">{formatDate(subscription.next_billing_at)}</p>
               </div>
+
             </div>
           )}
 
