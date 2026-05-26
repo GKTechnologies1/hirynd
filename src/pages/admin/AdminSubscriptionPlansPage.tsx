@@ -431,24 +431,10 @@ const AdminSubscriptionPlansPage = () => {
                 <SelectTrigger><SelectValue placeholder="Select candidate..." /></SelectTrigger>
                 <SelectContent>
                   {candidates
-                    .filter(c => [
-                      "approved",
-                      "intake_submitted",
-                      "roles_published",
-                      "roles_candidate_responded",
-                      "roles_confirmed",
-                      "payment_pending",
-                      "payment_completed",
-                      "credentials_submitted",
-                      "active_marketing",
-                      "paused",
-                      "on_hold",
-                      "past_due",
-                      "placed_closed"
-                    ].includes(c.status))
+                    .filter(c => c.status !== "pending_approval" && c.status !== "lead")
                     .map(c => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.full_name || c.user_email} — <span className="text-xs opacity-60">{c.status?.replace(/_/g, " ")}</span>
+                        {c.full_name || c.email} — <span className="text-xs opacity-60">{c.status?.replace(/_/g, " ")}</span>
                       </SelectItem>
                     ))}
 

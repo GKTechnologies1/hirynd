@@ -108,10 +108,10 @@ class Subscription(models.Model):
             self.status = 'pending_payment'
             self.save(update_fields=['status'])
             
-            # Revert candidate status to past_due if they were payment_completed or credentials_submitted
+            # Revert candidate status to past_due if they were payment_completed, credentials_submitted, or active_marketing
             try:
                 candidate = self.candidate
-                if candidate.status in ('payment_completed', 'credentials_submitted'):
+                if candidate.status in ('payment_completed', 'credentials_submitted', 'active_marketing'):
                     candidate.status = 'past_due'
                     candidate.save(update_fields=['status'])
             except Exception:

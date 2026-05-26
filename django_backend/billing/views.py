@@ -42,6 +42,40 @@ from django.http import HttpResponse
 logger = logging.getLogger(__name__)
 
 
+def _update_candidate_and_subscription_status(candidate, subscription):
+    """
+    Activates the subscription and dynamically updates candidate status
+    based on active recruiter assignments and submitted credentials.
+    """
+    if subscription:
+        subscription.status = 'active'
+        subscription.last_payment_at = timezone.now()
+        subscription.start_date = timezone.now().date()
+        
+        # Calculate next billing date based on cycle
+        cycle = subscription.billing_cycle or 'monthly'
+        if cycle == 'monthly':
+            subscription.next_billing_at = timezone.now().date() + relativedelta(months=1)
+        elif cycle == 'quarterly':
+            subscription.next_billing_at = timezone.now().date() + relativedelta(months=3)
+        elif cycle == 'annual':
+            subscription.next_billing_at = timezone.now().date() + relativedelta(years=1)
+        else:
+            subscription.next_billing_at = timezone.now().date() + relativedelta(months=1)
+            
+        subscription.save(update_fields=['status', 'last_payment_at', 'start_date', 'next_billing_at'])
+
+    # Sync candidate status
+    if candidate.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'past_due', 'intake_submitted'):
+        if candidate.assignments.filter(is_active=True).exists() and candidate.credentials.exists():
+            candidate.status = 'active_marketing'
+        elif candidate.credentials.exists():
+            candidate.status = 'credentials_submitted'
+        else:
+            candidate.status = 'payment_completed'
+        candidate.save(update_fields=['status'])
+
+
 def _get_razorpay_client():
     try:
         import razorpay
@@ -377,21 +411,8 @@ def verify_razorpay_payment(request, candidate_id):
     rp_order.save()
 
     sub = rp_order.subscription
-    if sub:
-        sub.status = 'active'
-        sub.last_payment_at = timezone.now()
-        sub.start_date = timezone.now().date()
-        
-        if sub.billing_cycle == 'monthly':
-            sub.next_billing_at = timezone.now().date() + relativedelta(months=1)
-        elif sub.billing_cycle == 'quarterly':
-            sub.next_billing_at = timezone.now().date() + relativedelta(months=3)
-        elif sub.billing_cycle == 'annual':
-            sub.next_billing_at = timezone.now().date() + relativedelta(years=1)
-        else:
-            sub.next_billing_at = timezone.now().date() + relativedelta(months=1)
-            
-        sub.save(update_fields=['status', 'last_payment_at', 'start_date', 'next_billing_at'])
+    candidate = rp_order.candidate
+    _update_candidate_and_subscription_status(candidate, sub)
 
     # Find any existing pending subscription payments to reuse or clean up
     pending_payments = list(Payment.objects.filter(
@@ -422,14 +443,6 @@ def verify_razorpay_payment(request, candidate_id):
             payment_date=timezone.now().date(),
             notes=f'Razorpay payment {rz_payment_id}',
         )
-
-    candidate = rp_order.candidate
-    if candidate.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'intake_submitted'):
-        if candidate.credentials.exists():
-            candidate.status = 'credentials_submitted'
-        else:
-            candidate.status = 'payment_completed'
-        candidate.save(update_fields=['status'])
 
     # Fulfillment: Create Invoice and PDF (Non-critical to the payment itself)
     try:
@@ -589,30 +602,7 @@ def verify_individual_payment(request, candidate_id, payment_id):
     pay.save(update_fields=['status', 'payment_date', 'razorpay_order', 'notes'])
 
     if pay.payment_type in ('subscription', 'monthly_service') and pay.subscription:
-        sub = pay.subscription
-        sub.status = 'active'
-        sub.last_payment_at = timezone.now()
-        sub.start_date = timezone.now().date()
-        
-        from dateutil.relativedelta import relativedelta
-        if sub.billing_cycle == 'monthly':
-            sub.next_billing_at = timezone.now().date() + relativedelta(months=1)
-        elif sub.billing_cycle == 'quarterly':
-            sub.next_billing_at = timezone.now().date() + relativedelta(months=3)
-        elif sub.billing_cycle == 'annual':
-            sub.next_billing_at = timezone.now().date() + relativedelta(years=1)
-        else:
-            sub.next_billing_at = timezone.now().date() + relativedelta(months=1)
-            
-        sub.save(update_fields=['status', 'last_payment_at', 'start_date', 'next_billing_at'])
-        
-        # Also update candidate status if needed
-        if candidate.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'intake_submitted', 'past_due'):
-            if candidate.credentials.exists():
-                candidate.status = 'credentials_submitted'
-            else:
-                candidate.status = 'payment_completed'
-            candidate.save(update_fields=['status'])
+        _update_candidate_and_subscription_status(candidate, pay.subscription)
 
     log_action(request.user, 'payment_completed', str(candidate_id), 'payment',
                {'payment_id': str(payment_id), 'razorpay_id': rz_payment_id})
@@ -681,27 +671,13 @@ def record_payment(request, candidate_id):
                 'assigned_by': request.user,
             }
         )
-        if not created and pay.status == 'completed':
-            sub.status = 'active'
-            sub.last_payment_at = pay.created_at
-            sub.save()
-            
-            # Simple fulfillment logic: move to payment_completed or credentials_submitted
-            candidate = sub.candidate
-            if candidate.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'intake_submitted'):
-                if candidate.credentials.exists():
-                    candidate.status = 'credentials_submitted'
-                else:
-                    candidate.status = 'payment_completed'
-                candidate.save()
+        
+        # Sync existing subscription if this is a newer/relevant payment
         if not created:
-            # Sync existing subscription if this is a newer/relevant payment
             if pay.status == 'completed':
-                sub.status = 'active'
-                sub.last_payment_at = timezone.now()
                 sub.amount = pay.amount
                 sub.currency = pay.currency
-                sub.save(update_fields=['status', 'last_payment_at', 'amount', 'currency'])
+                # Note: helper will update status, last_payment_at, start_date, next_billing_at and save sub
             elif pay.status == 'pending':
                 # If a new pending payment is recorded, make sure the subscription reflects it
                 sub.status = 'pending_payment'
@@ -713,18 +689,9 @@ def record_payment(request, candidate_id):
         pay.subscription = sub
         pay.save(update_fields=['subscription'])
         
-        # Update candidate status if payment is completed
+        # Helper call to activate/sync candidate & subscription if payment is completed
         if pay.status == 'completed':
-            try:
-                cand = Candidate.objects.get(id=candidate_id)
-                if cand.status in ('payment_pending', 'roles_confirmed', 'pending_payment', 'past_due', 'intake_submitted'):
-                    if cand.credentials.exists():
-                        cand.status = 'credentials_submitted'
-                    else:
-                        cand.status = 'payment_completed'
-                    cand.save(update_fields=['status'])
-            except Candidate.DoesNotExist:
-                pass
+            _update_candidate_and_subscription_status(pay.candidate, sub)
             
         # Clean up any lingering pending payments of the same type to avoid duplicates
         # We do this regardless of whether the new payment is completed or pending,
@@ -919,7 +886,7 @@ def manage_payment(request, payment_id):
                 sub.save(update_fields=['status'])
                 # Also revert candidate status if necessary
                 cand = sub.candidate
-                if cand.status == 'payment_completed' or cand.status == 'credentials_submitted':
+                if cand.status in ('payment_completed', 'credentials_submitted', 'active_marketing'):
                     cand.status = 'pending_payment'
                     cand.save(update_fields=['status'])
 
