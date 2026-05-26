@@ -85,6 +85,16 @@ class CandidateSerializer(serializers.ModelSerializer):
         from .models import InterviewLog
         return InterviewLog.objects.filter(candidate=obj).count()
 
+    def to_representation(self, instance):
+        try:
+            sub = instance.subscription
+        except Exception:
+            sub = None
+
+        if sub:
+            sub.check_status()
+        return super().to_representation(instance)
+
 
 class CandidateListSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
@@ -115,6 +125,16 @@ class CandidateListSerializer(serializers.ModelSerializer):
     def get_total_interviews(self, obj):
         from .models import InterviewLog
         return InterviewLog.objects.filter(candidate=obj).count()
+
+    def to_representation(self, instance):
+        try:
+            sub = instance.subscription
+        except Exception:
+            sub = None
+
+        if sub:
+            sub.check_status()
+        return super().to_representation(instance)
 
 
 class ClientIntakeSerializer(serializers.ModelSerializer):

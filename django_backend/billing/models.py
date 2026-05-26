@@ -102,8 +102,11 @@ class Subscription(models.Model):
         """
         Dynamically checks if the active subscription is past its next billing date.
         If it is, transitions the status to 'pending_payment' and saves.
+        If it is active and valid, ensures the candidate status is healed if desynced.
         """
         from django.utils import timezone
+        
+        # 1. Expiration check
         if self.status == 'active' and self.next_billing_at and self.next_billing_at < timezone.now().date():
             self.status = 'pending_payment'
             self.save(update_fields=['status'])
@@ -116,6 +119,22 @@ class Subscription(models.Model):
                     candidate.save(update_fields=['status'])
             except Exception:
                 pass
+                
+        # 2. Self-healing check (if active and not expired, candidate should not be in an unpaid state)
+        elif self.status == 'active' and (not self.next_billing_at or self.next_billing_at >= timezone.now().date()):
+            try:
+                candidate = self.candidate
+                if candidate.status in ('past_due', 'pending_payment', 'payment_pending'):
+                    if candidate.assignments.filter(is_active=True).exists() and candidate.credentials.exists():
+                        candidate.status = 'active_marketing'
+                    elif candidate.credentials.exists():
+                        candidate.status = 'credentials_submitted'
+                    else:
+                        candidate.status = 'payment_completed'
+                    candidate.save(update_fields=['status'])
+            except Exception:
+                pass
+                
         return self.status
 
 
