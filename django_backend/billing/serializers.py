@@ -21,7 +21,7 @@ class SubscriptionAddonAssignmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubscriptionAddonAssignment
-        fields = ['id', 'addon', 'addon_detail', 'added_by', 'added_at']
+        fields = ['id', 'addon', 'addon_detail', 'added_by', 'added_at', 'amount']
         read_only_fields = ['id', 'added_at', 'added_by']
 
 
@@ -47,7 +47,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         return obj.candidate.user.email
 
     def get_total_addons_amount(self, obj):
-        total = sum(a.addon.amount for a in obj.addon_assignments.all())
+        total = sum(a.amount if a.amount > 0 else a.addon.amount for a in obj.addon_assignments.all())
         return float(total)
 
     def to_representation(self, instance):

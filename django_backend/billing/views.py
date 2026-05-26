@@ -229,46 +229,106 @@ def assign_plan(request, candidate_id):
             'payment_initiated_at': timezone.now(),
         },
     )
+    
+    original_status = None
     if not created:
+        original_status = sub.status
+        
+        # Guard against duplicate identical plan/addon assignments for pending payment subscriptions
+        if original_status == 'pending_payment':
+            import uuid
+            plan_changed = (sub.plan_id != uuid.UUID(str(plan_id))) or (float(sub.amount) != float(sub_amount))
+            current_addon_ids = set(sub.addon_assignments.values_list('addon_id', flat=True))
+            target_addon_ids = set(uuid.UUID(str(aid)) for aid in addon_ids)
+            addons_changed = current_addon_ids != target_addon_ids
+            
+            if not plan_changed and not addons_changed:
+                return Response(
+                    {'error': 'This exact plan and addon combination is already assigned and pending payment for this candidate.'},
+                    status=400
+                )
+
         sub.plan = plan
         sub.plan_name = plan.name
         sub.amount = sub_amount
         sub.currency = plan.currency
         sub.billing_cycle = plan.billing_cycle
-        sub.status = 'pending_payment'
+        # Preserve 'active' state to prevent disrupting paying candidates!
+        if original_status != 'active':
+            sub.status = 'pending_payment'
+            sub.payment_initiated_at = timezone.now()
         sub.assigned_by = request.user
-        sub.payment_initiated_at = timezone.now()
         sub.save()
-        sub.addon_assignments.all().delete()
+        # Non-destructive addon sync: delete only no longer selected addons
+        sub.addon_assignments.exclude(addon_id__in=addon_ids).delete()
 
+    new_addon_payments_created = []
     for addon_id in addon_ids:
         try:
             addon = SubscriptionAddon.objects.get(id=addon_id, is_active=True)
             # Default to addon amount if not specified
             amt = request.data.get('addon_amounts', {}).get(str(addon_id), addon.amount)
-            SubscriptionAddonAssignment.objects.get_or_create(
+            assignment, addon_created = SubscriptionAddonAssignment.objects.get_or_create(
                 subscription=sub, addon=addon, 
                 defaults={'added_by': request.user, 'amount': amt},
             )
+            # If the subscription is active and the addon is newly assigned, generate a pending payment
+            if sub.status == 'active' and addon_created:
+                Payment.objects.create(
+                    candidate=sub.candidate,
+                    subscription=sub,
+                    amount=assignment.amount,
+                    currency=addon.currency,
+                    payment_type='addon',
+                    status='pending',
+                    notes=f"Add-on Fee: {addon.name}",
+                    recorded_by=request.user,
+                )
+                new_addon_payments_created.append(addon.name)
         except SubscriptionAddon.DoesNotExist:
             pass
 
     log_action(request.user, 'plan_assigned', str(candidate_id), 'subscription', {'plan': plan.name})
-    create_notification(
-        candidate.user, 'Payment Required',
-        f'Your plan "{plan.name}" has been assigned. Please complete payment to continue.',
-        link='/candidate-dashboard/payments',
-    )
-    send_email(
-        candidate.user.email, 'Action Required: Complete Your Payment',
-        get_styled_email_html(
-            _user_name(candidate.user),
-            f'<p>Your Hyrind plan <strong>{plan.name}</strong> ({plan.currency} {plan.amount}) has been assigned. '
-            f'Please log in and complete the payment to proceed.</p>',
-            action_label="Pay Now",
-            action_url="/candidate-dashboard/payments"
+    
+    # If new addon payments were created for an active subscriber, notify them
+    if new_addon_payments_created and original_status == 'active':
+        addons_str = ", ".join(new_addon_payments_created)
+        try:
+            create_notification(
+                sub.candidate.user, 'Add-On(s) Assigned',
+                f'New service addon(s) "{addons_str}" assigned to your subscription. Please complete payment to activate.',
+                link='/candidate-dashboard/payments',
+            )
+            send_email(
+                sub.candidate.user.email, 'Payment Required: New Add-On Service(s) Assigned',
+                get_styled_email_html(
+                    _user_name(sub.candidate.user),
+                    f'<p>The following addon service(s) have been added to your subscription: <strong>{addons_str}</strong>. '
+                    f'Please log in and complete the payment to activate these services.</p>',
+                    action_label="Pay Now",
+                    action_url="/candidate-dashboard/payments"
+                )
+            )
+        except Exception as e:
+            logger.error("Failed to notify candidate for addon(s) payment: %s", str(e))
+            
+    # Only notify candidate to complete payment if the subscription is NOT already active!
+    elif created or original_status != 'active':
+        create_notification(
+            candidate.user, 'Payment Required',
+            f'Your plan "{plan.name}" has been assigned. Please complete payment to continue.',
+            link='/candidate-dashboard/payments',
         )
-    )
+        send_email(
+            candidate.user.email, 'Action Required: Complete Your Payment',
+            get_styled_email_html(
+                _user_name(candidate.user),
+                f'<p>Your Hyrind plan <strong>{plan.name}</strong> ({plan.currency} {plan.amount}) has been assigned. '
+                f'Please log in and complete the payment to proceed.</p>',
+                action_label="Pay Now",
+                action_url="/candidate-dashboard/payments"
+            )
+        )
     return Response(SubscriptionSerializer(sub).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
@@ -296,6 +356,40 @@ def add_addon_to_subscription(request, candidate_id):
     if not created and 'amount' in request.data:
         assignment.amount = request.data['amount']
         assignment.save(update_fields=['amount'])
+
+    # If the subscription is already active and a new addon was assigned, generate a pending individual payment record
+    if sub.status == 'active' and created:
+        payment = Payment.objects.create(
+            candidate=sub.candidate,
+            subscription=sub,
+            amount=assignment.amount,
+            currency=addon.currency,
+            payment_type='addon',
+            status='pending',
+            notes=f"Add-on Fee: {addon.name}",
+            recorded_by=request.user,
+        )
+        
+        # Trigger dashboard notification and email for the candidate to pay for this addon
+        try:
+            create_notification(
+                sub.candidate.user, 'Add-On Assigned',
+                f'Add-on "{addon.name}" has been added to your subscription. Please complete payment of {addon.currency} {assignment.amount} to activate.',
+                link='/candidate-dashboard/payments',
+            )
+            send_email(
+                sub.candidate.user.email, f'Payment Required: Add-On "{addon.name}" Assigned',
+                get_styled_email_html(
+                    _user_name(sub.candidate.user),
+                    f'<p>Add-on <strong>{addon.name}</strong> ({addon.currency} {assignment.amount}) has been added to your subscription. '
+                    f'Please log in and complete the payment to activate this service.</p>',
+                    action_label="Pay Now",
+                    action_url="/candidate-dashboard/payments"
+                )
+            )
+        except Exception as e:
+            logger.error("Failed to notify candidate for individual addon payment: %s", str(e))
+
     log_action(request.user, 'addon_added', str(candidate_id), 'subscription_addon', {'addon': addon.name, 'amount': float(assignment.amount)})
     return Response({'detail': 'Addon added', 'created': created, 'amount': float(assignment.amount)})
 

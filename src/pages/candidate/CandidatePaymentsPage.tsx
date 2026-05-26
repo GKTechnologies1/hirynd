@@ -234,7 +234,9 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
                 )}
                 <div className="border-t border-primary/20 pt-4 flex justify-between items-end">
                   <div>
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Total Amount Due</p>
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
+                      {subscriptionPending ? "Total Amount Due" : "Active Package Total"}
+                    </p>
                     <h2 className="text-3xl font-black tracking-tighter">
                       ${totalAmount.toLocaleString()}
                       <span className="text-sm font-normal text-muted-foreground ml-1">{subscription?.currency || "USD"}</span>

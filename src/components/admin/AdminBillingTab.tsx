@@ -43,6 +43,11 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Addon list and states
+  const [addonsCatalog, setAddonsCatalog] = useState<any[]>([]);
+  const [selectedAddonId, setSelectedAddonId] = useState("");
+  const [addingAddon, setAddingAddon] = useState(false);
+
   // Create/update form
   const [formAmount, setFormAmount] = useState("400.00");
   const [formNextDate, setFormNextDate] = useState("");
@@ -66,15 +71,17 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
 
   const fetchBilling = async () => {
     try {
-      const [subRes, invRes, payRes] = await Promise.all([
+      const [subRes, invRes, payRes, addRes] = await Promise.all([
         billingApi.subscription(candidateId).catch(() => ({ data: null })),
         billingApi.invoices(candidateId).catch(() => ({ data: [] })),
         billingApi.payments(candidateId).catch(() => ({ data: [] })),
+        billingApi.listAddons().catch(() => ({ data: [] })),
       ]);
       const hasSub = subRes.data && Object.keys(subRes.data).length > 0;
       setSubscription(hasSub ? subRes.data : null);
       setInvoices(invRes.data || []);
       setPayments(payRes.data || []);
+      setAddonsCatalog(addRes.data || []);
       if (hasSub) {
         setFormAmount(String(subRes.data.amount));
         setFormStatus(subRes.data.status);
@@ -121,6 +128,21 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSaving(false);
+  };
+
+  const handleAddAddon = async () => {
+    if (!selectedAddonId) { toast({ title: "Select an addon", variant: "destructive" }); return; }
+    setAddingAddon(true);
+    try {
+      await billingApi.addAddonToSubscription(candidateId, selectedAddonId);
+      toast({ title: "Add-on added successfully!" });
+      setSelectedAddonId("");
+      fetchBilling();
+      onRefresh();
+    } catch (err: any) {
+      toast({ title: "Error adding addon", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+    setAddingAddon(false);
   };
 
   const handleRecordPayment = async () => {
@@ -189,36 +211,78 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
         </CardHeader>
         <CardContent className="space-y-4">
           {subscription && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4 pb-4 border-b border-border">
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge className={statusBadgeClass[subscription.status] || ""}>{subscription.status?.replace(/_/g, " ").toUpperCase() || "UNKNOWN"}</Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Amount</p>
-                <p className="font-bold text-card-foreground flex items-center gap-0.5"><DollarSign className="h-3.5 w-3.5" />{Number(subscription.amount).toLocaleString()}/mo</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Next Charge</p>
-                <p className="text-card-foreground">{formatDate(subscription.next_billing_at)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Failed Attempts</p>
-                <p className="text-card-foreground">{subscription.failed_attempts || 0}</p>
-              </div>
-              {subscription.grace_period_ends_at && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4 pb-4 border-b border-border">
                 <div>
-                  <p className="text-sm text-muted-foreground">Grace Period Ends</p>
-                  <p className="text-destructive font-semibold">{formatDate(subscription.grace_period_ends_at)}</p>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge className={statusBadgeClass[subscription.status] || ""}>{subscription.status?.replace(/_/g, " ").toUpperCase() || "UNKNOWN"}</Badge>
                 </div>
-              )}
-              {subscription.last_payment_at && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Last Payment</p>
-                  <p className="text-card-foreground">{formatDate(subscription.last_payment_at)}</p>
+                  <p className="text-sm text-muted-foreground">Amount</p>
+                  <p className="font-bold text-card-foreground flex items-center gap-0.5"><DollarSign className="h-3.5 w-3.5" />{Number(subscription.amount).toLocaleString()}/mo</p>
                 </div>
-              )}
-            </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Next Charge</p>
+                  <p className="text-card-foreground">{formatDate(subscription.next_billing_at)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Failed Attempts</p>
+                  <p className="text-card-foreground">{subscription.failed_attempts || 0}</p>
+                </div>
+                {subscription.grace_period_ends_at && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Grace Period Ends</p>
+                    <p className="text-destructive font-semibold">{formatDate(subscription.grace_period_ends_at)}</p>
+                  </div>
+                )}
+                {subscription.last_payment_at && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Last Payment</p>
+                    <p className="text-card-foreground">{formatDate(subscription.last_payment_at)}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Active Add-Ons and Add Addon Form inside the Subscription Card */}
+              <div className="border-t border-border pt-4 mt-2">
+                <Label className="text-sm font-semibold mb-2 block">Active Add-Ons</Label>
+                {subscription.addon_assignments?.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {subscription.addon_assignments.map((a: any) => (
+                      <Badge key={a.id} variant="outline" className="px-2.5 py-1 text-xs bg-muted">
+                        {a.addon_detail?.name} — ${Number(a.amount).toLocaleString()}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mb-4">No active add-ons assigned yet.</p>
+                )}
+
+                {/* Add Addon Inline Form */}
+                <div className="flex flex-col sm:flex-row gap-3 items-end max-w-md bg-muted/30 p-3 rounded-lg border border-border/50">
+                  <div className="flex-1 w-full">
+                    <Label className="text-xs">Add New Add-On</Label>
+                    <Select value={selectedAddonId} onValueChange={setSelectedAddonId}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Select an add-on service..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {addonsCatalog
+                          .filter(a => !subscription.addon_assignments?.some((curr: any) => curr.addon === a.id))
+                          .map(a => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.name} (+${Number(a.amount).toLocaleString()})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button size="sm" variant="hero" onClick={handleAddAddon} disabled={addingAddon || !selectedAddonId} className="h-9 text-xs">
+                    {addingAddon ? "Adding..." : "Add Add-On"}
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

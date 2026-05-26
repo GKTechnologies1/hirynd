@@ -17,7 +17,7 @@ import { formatDate } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, CreditCard, Package, Users, DollarSign, CheckCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, CreditCard, Package, Users, DollarSign, CheckCircle, AlertTriangle } from "lucide-react";
 
 // Shared empty plan form
 const emptyPlan = { name: "", description: "", amount: "", currency: "USD", billing_cycle: "monthly", is_base: true };
@@ -131,7 +131,8 @@ const AdminSubscriptionPlansPage = () => {
   // ── Assign Plan ──
   const openAssign = () => {
     setAssignCandidateId("");
-    setAssignPlanId("");
+    const defaultPlan = plans.find(p => p.is_base && (p.name.toLowerCase().includes("monthly") || p.name.toLowerCase().includes("standard"))) || plans.find(p => p.is_base);
+    setAssignPlanId(defaultPlan?.id || "");
     setAssignAddonIds([]);
     setAssignDialogOpen(true);
   };
@@ -149,6 +150,21 @@ const AdminSubscriptionPlansPage = () => {
       toast({ title: "Error", description: e.response?.data?.error || e.message, variant: "destructive" });
     }
     setAssigning(false);
+  };
+
+  const handleSelectCandidate = (candidateId: string) => {
+    setAssignCandidateId(candidateId);
+    const existingSub = subscriptions.find(s => s.candidate === candidateId);
+    if (existingSub) {
+      setAssignPlanId(existingSub.plan || existingSub.plan_detail?.id || "");
+      const currentAddonIds = existingSub.addon_assignments?.map((a: any) => a.addon) || [];
+      setAssignAddonIds(currentAddonIds);
+    } else {
+      // Automatically default to the 'Monthly Service Fee' plan (or first available base plan)
+      const defaultPlan = plans.find(p => p.is_base && (p.name.toLowerCase().includes("monthly") || p.name.toLowerCase().includes("standard"))) || plans.find(p => p.is_base);
+      setAssignPlanId(defaultPlan?.id || "");
+      setAssignAddonIds([]);
+    }
   };
 
   const toggleAddonSelection = (id: string) => {
@@ -427,67 +443,164 @@ const AdminSubscriptionPlansPage = () => {
           <div className="space-y-4">
             <div>
               <Label>Candidate</Label>
-              <Select value={assignCandidateId} onValueChange={setAssignCandidateId}>
+              <Select value={assignCandidateId} onValueChange={handleSelectCandidate}>
                 <SelectTrigger><SelectValue placeholder="Select candidate..." /></SelectTrigger>
                 <SelectContent>
                   {candidates
                     .filter(c => c.status !== "pending_approval" && c.status !== "lead")
-                    .map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.full_name || c.email} — <span className="text-xs opacity-60">{c.status?.replace(/_/g, " ")}</span>
-                      </SelectItem>
-                    ))}
-
+                    .map(c => {
+                      const existingSub = subscriptions.find(s => s.candidate === c.id);
+                      const isSubActive = existingSub?.status === "active";
+                      const isSubPending = existingSub?.status === "pending_payment";
+                      return (
+                        <SelectItem key={c.id} value={c.id}>
+                          <span className="flex items-center gap-1.5">
+                            {c.full_name || c.email} — <span className="opacity-60 text-xs">{c.status?.replace(/_/g, " ")}</span>
+                            {isSubActive && (
+                              <span className="text-[9px] font-bold tracking-wider text-green-600 bg-green-50 px-1 py-0.5 rounded uppercase ml-2 border border-green-200">
+                                Active Sub
+                              </span>
+                            )}
+                            {isSubPending && (
+                              <span className="text-[9px] font-bold tracking-wider text-amber-600 bg-amber-50 px-1 py-0.5 rounded uppercase ml-2 border border-amber-200 animate-pulse">
+                                Pending Payment
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Base Plan</Label>
-              <Select value={assignPlanId} onValueChange={setAssignPlanId}>
-                <SelectTrigger><SelectValue placeholder="Select plan..." /></SelectTrigger>
-                <SelectContent>
-                  {plans.filter(p => p.is_base).map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} — ${Number(p.amount).toLocaleString()} / {p.billing_cycle}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {addons.length > 0 && (
-              <div>
-                <Label>Add-Ons (optional)</Label>
-                <div className="mt-2 space-y-2">
-                  {addons.map(a => (
-                    <label key={a.id} className="flex items-center gap-3 cursor-pointer rounded-lg border border-border p-3 hover:bg-muted/50">
-                      <input
-                        type="checkbox"
-                        checked={assignAddonIds.includes(a.id)}
-                        onChange={() => toggleAddonSelection(a.id)}
-                        className="h-4 w-4"
-                      />
-                      <span className="flex-1 font-medium text-sm">{a.name}</span>
-                      <span className="text-sm text-muted-foreground">+${Number(a.amount).toLocaleString()}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-            {assignPlanId && (
-              <div className="rounded-lg bg-muted/50 p-3">
-                <p className="text-sm font-medium">Total</p>
-                <p className="text-2xl font-bold text-foreground">
-                  ${(
-                    Number(plans.find(p => p.id === assignPlanId)?.amount || 0) +
-                    assignAddonIds.reduce((sum, id) => sum + Number(addons.find(a => a.id === id)?.amount || 0), 0)
-                  ).toLocaleString()}
+            
+            {assignCandidateId && subscriptions.find(s => s.candidate === assignCandidateId)?.status === "pending_payment" && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-1.5 animate-in fade-in duration-300">
+                <p className="text-sm font-bold text-blue-800 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-blue-600" /> Pending Billing Record
+                </p>
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  This candidate has an outstanding payment assigned on <strong className="text-blue-900">{formatDate(subscriptions.find(s => s.candidate === assignCandidateId)?.payment_initiated_at)}</strong>. 
+                  Re-assigning a different plan/addons will update their pending checkout total. Re-assigning the identical combination is restricted.
                 </p>
               </div>
+            )}
+            
+            {assignCandidateId && subscriptions.find(s => s.candidate === assignCandidateId)?.status === "active" ? (
+              // Active subscriber updates view
+              <>
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-1.5 animate-in fade-in duration-300">
+                  <p className="text-sm font-bold text-blue-800 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-blue-600" /> Active Subscription Updates
+                  </p>
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    This candidate has an active base plan. You can select and assign <strong>new addons</strong> below. The candidate will be notified to pay for only the newly added services under "Pending Charges" on their dashboard.
+                  </p>
+                </div>
+                <div>
+                  <Label>Base Plan</Label>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 mt-1 text-sm font-semibold flex items-center justify-between text-foreground">
+                    <span>{plans.find(p => p.id === assignPlanId)?.name || "Monthly Service Fee"}</span>
+                    <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded uppercase">Active & Paid</span>
+                  </div>
+                </div>
+                {addons.length > 0 && (
+                  <div>
+                    <Label>Add-Ons</Label>
+                    <div className="mt-2 space-y-2">
+                      {addons.map(a => {
+                        const existingSub = subscriptions.find(s => s.candidate === assignCandidateId);
+                        const isAlreadyAssigned = existingSub?.addon_assignments?.some((ea: any) => ea.addon === a.id);
+                        return (
+                          <label key={a.id} className={`flex items-center gap-3 cursor-pointer rounded-lg border border-border p-3 hover:bg-muted/50 ${isAlreadyAssigned ? "opacity-60 bg-muted/10 cursor-not-allowed" : ""}`}>
+                            <input
+                              type="checkbox"
+                              checked={assignAddonIds.includes(a.id)}
+                              onChange={() => !isAlreadyAssigned && toggleAddonSelection(a.id)}
+                              disabled={isAlreadyAssigned}
+                              className="h-4 w-4"
+                            />
+                            <span className="flex-1 font-medium text-sm">
+                              {a.name}
+                              {isAlreadyAssigned && (
+                                <span className="text-[9px] text-green-600 bg-green-50 border border-green-200 px-1.5 ml-2 rounded font-bold uppercase whitespace-nowrap">
+                                  Active & Paid
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-sm text-muted-foreground">+${Number(a.amount).toLocaleString()}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">New Charges to Complete</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    ${assignAddonIds
+                      .filter(id => !subscriptions.find(s => s.candidate === assignCandidateId)?.addon_assignments?.some((ea: any) => ea.addon === id))
+                      .reduce((sum, id) => sum + Number(addons.find(a => a.id === id)?.amount || 0), 0)
+                      .toLocaleString()}
+                  </p>
+                </div>
+              </>
+            ) : (
+              // New provisioning view
+              <>
+                <div>
+                  <Label>Base Plan</Label>
+                  <Select value={assignPlanId} onValueChange={setAssignPlanId}>
+                    <SelectTrigger><SelectValue placeholder="Select plan..." /></SelectTrigger>
+                    <SelectContent>
+                      {plans.filter(p => p.is_base).map(p => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} — ${Number(p.amount).toLocaleString()} / {p.billing_cycle}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {addons.length > 0 && (
+                  <div>
+                    <Label>Add-Ons (optional)</Label>
+                    <div className="mt-2 space-y-2">
+                      {addons.map(a => (
+                        <label key={a.id} className="flex items-center gap-3 cursor-pointer rounded-lg border border-border p-3 hover:bg-muted/50">
+                          <input
+                            type="checkbox"
+                            checked={assignAddonIds.includes(a.id)}
+                            onChange={() => toggleAddonSelection(a.id)}
+                            className="h-4 w-4"
+                          />
+                          <span className="flex-1 font-medium text-sm">{a.name}</span>
+                          <span className="text-sm text-muted-foreground">+${Number(a.amount).toLocaleString()}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {assignPlanId && (
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-sm font-medium">Total</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      ${(
+                        Number(plans.find(p => p.id === assignPlanId)?.amount || 0) +
+                        assignAddonIds.reduce((sum, id) => sum + Number(addons.find(a => a.id === id)?.amount || 0), 0)
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
-            <Button variant="hero" onClick={doAssign} disabled={assigning || !assignCandidateId || !assignPlanId}>
+            <Button 
+              variant="hero" 
+              onClick={doAssign} 
+              disabled={assigning || !assignCandidateId || !assignPlanId}
+            >
               {assigning ? "Assigning..." : "Assign & Notify Candidate"}
             </Button>
           </DialogFooter>
