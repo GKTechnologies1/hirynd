@@ -456,11 +456,18 @@ def add_role(request, candidate_id):
     data = request.data.copy()
     data['candidate'] = candidate_id
     data['suggested_by'] = request.user.id
-    serializer = RoleSuggestionSerializer(data=data)
-    serializer.is_valid(raise_exception=True)
-    serializer.save()
     
     proposed_role_id = data.get('delete_proposed_role_id')
+    
+    serializer = RoleSuggestionSerializer(data=data)
+    serializer.is_valid(raise_exception=True)
+    
+    if proposed_role_id:
+        serializer.validated_data['candidate_confirmed'] = True
+        serializer.validated_data['confirmed_at'] = timezone.now()
+        
+    serializer.save()
+    
     if proposed_role_id:
         RoleConfirmation.objects.filter(id=proposed_role_id, candidate_id=candidate_id).delete()
         
