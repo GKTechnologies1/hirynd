@@ -278,6 +278,68 @@ def validate_intake_data(data):
         if not phone.isdigit() or len(phone) < 6:
             errors['phone_number'] = "Invalid phone number format"
 
+    # Certifications validation if enabled
+    if data.get('has_certs') == 'yes':
+        certs = data.get('certifications')
+        if not certs or not isinstance(certs, list):
+            errors['certifications'] = "Please add at least one certification entry"
+        else:
+            cert_errors = []
+            for index, cert in enumerate(certs):
+                single_errors = {}
+                if not cert.get('name'):
+                    single_errors['name'] = "Certification name is required"
+                if not cert.get('organization'):
+                    single_errors['organization'] = "Issuing organization is required"
+                
+                # Validate issued_date
+                issued_date = cert.get('issued_date')
+                if not issued_date:
+                    single_errors['issued_date'] = "Issued date is required"
+                else:
+                    raw = str(issued_date).strip()
+                    parsed_issued = None
+                    for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
+                        try:
+                            parsed_issued = datetime.strptime(raw, fmt)
+                            break
+                        except (ValueError, TypeError):
+                            continue
+                    if parsed_issued:
+                        cert['issued_date'] = parsed_issued.strftime('%Y-%m-%d')
+                    else:
+                        single_errors['issued_date'] = "Must be a valid date"
+
+                # Validate expires_date (if present)
+                expires_date = cert.get('expires_date')
+                if expires_date:
+                    raw = str(expires_date).strip()
+                    parsed_expires = None
+                    for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
+                        try:
+                            parsed_expires = datetime.strptime(raw, fmt)
+                            break
+                        except (ValueError, TypeError):
+                            continue
+                    if parsed_expires:
+                        cert['expires_date'] = parsed_expires.strftime('%Y-%m-%d')
+                    else:
+                        single_errors['expires_date'] = "Must be a valid date"
+
+                # Validate credential_url (if present)
+                cred_url = cert.get('credential_url')
+                if cred_url:
+                    try:
+                        URLValidator()(cred_url)
+                    except ValidationError:
+                        single_errors['credential_url'] = "Invalid URL format"
+
+                if single_errors:
+                    cert_errors.append({'index': index, 'errors': single_errors})
+            
+            if cert_errors:
+                errors['certifications'] = cert_errors
+
     return errors
 
 
@@ -394,13 +456,22 @@ def intake(request, candidate_id):
                     except Exception:
                         continue
 
+                e_date = None
+                if cert.get('expires_date'):
+                    for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
+                        try:
+                            e_date = datetime.strptime(str(cert.get('expires_date', '')), fmt).date()
+                            break
+                        except Exception:
+                            continue
+
                 if i_date:
                     Certification.objects.create(
                         candidate=candidate,
                         name=cert.get('name', ''),
                         organization=cert.get('organization', ''),
                         issued_date=i_date,
-                        expires_date=None,
+                        expires_date=e_date,
                         credential_url=cert.get('credential_url', ''),
                     )
             except Exception as e:

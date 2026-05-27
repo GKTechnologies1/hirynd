@@ -129,6 +129,35 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
   const [sendCopy, setSendCopy] = useState(false);
   const [candidateId, setCandidateId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
+  
+  const [certifications, setCertifications] = useState<any[]>([
+    { id: Math.random().toString(), name: "", organization: "", credentialId: "", issuedDate: "", expiresDate: "", notes: "", file: null }
+  ]);
+
+  const addCertification = () => {
+    setCertifications(prev => [
+      ...prev,
+      { id: Math.random().toString(), name: "", organization: "", credentialId: "", issuedDate: "", expiresDate: "", notes: "", file: null }
+    ]);
+  };
+
+  const removeCertification = (id: string) => {
+    setCertifications(prev => {
+      const filtered = prev.filter(c => c.id !== id);
+      return filtered.length > 0 ? filtered : [{ id: Math.random().toString(), name: "", organization: "", credentialId: "", issuedDate: "", expiresDate: "", notes: "", file: null }];
+    });
+  };
+
+  const updateCertification = (id: string, field: string, value: any) => {
+    setCertifications(prev =>
+      prev.map(c => (c.id === id ? { ...c, [field]: value } : c))
+    );
+    setErrors(prev => {
+      const next = { ...prev };
+      delete next[`cert_${id}_${field}`];
+      return next;
+    });
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -255,6 +284,21 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   ? new Date(intake.submitted_at).toLocaleString()
                   : prev.timestamp,
               }));
+
+              const dbCerts = intake.data?.certifications || intake.certifications || [];
+              const mappedCerts = dbCerts.map((c: any) => ({
+                id: c.id || Math.random().toString(),
+                name: c.name || "",
+                organization: c.organization || "",
+                credentialId: c.credential_id || c.credentialId || "",
+                issuedDate: c.issued_date || c.issuedDate || "",
+                expiresDate: c.expires_date || c.expiresDate || "",
+                notes: c.notes || "",
+                file: c.credential_url || c.file || null,
+              }));
+              if (mappedCerts.length > 0) {
+                setCertifications(mappedCerts);
+              }
             }
           }
         } catch {
@@ -360,6 +404,9 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
         updated.cert3Date = "";
         
         updated.hasMoreCerts3 = "";
+        setCertifications([
+          { id: Math.random().toString(), name: "", organization: "", credentialId: "", issuedDate: "", expiresDate: "", notes: "", file: null }
+        ]);
       }
       
       // If hasMoreCerts1 is changed to "no", reset Cert 2 and 3 details and hasMoreCerts2
@@ -424,6 +471,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
          "cert3Name", "cert3Org", "cert3Date", "hasMoreCerts3"].forEach(f => {
            delete next[f];
          });
+        Object.keys(next).forEach(key => {
+          if (key.startsWith("cert_")) {
+            delete next[key];
+          }
+        });
       }
       if (field === "hasMoreCerts1" && value === "no") {
         ["cert2Name", "cert2Org", "cert2Date", "hasMoreCerts2",
@@ -472,26 +524,24 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
       if (!formData.hasMoreWork3) newErrors.hasMoreWork3 = "Please specify";
     }
     if (formData.hasCerts === "yes") {
-      ["certName", "certOrg", "certDate"].forEach(f => {
-        if (!formData[f]) newErrors[f] = "Required";
+      certifications.forEach(cert => {
+        if (!cert.name || !cert.name.trim()) {
+          newErrors[`cert_${cert.id}_name`] = "Required";
+        }
+        if (!cert.organization || !cert.organization.trim()) {
+          newErrors[`cert_${cert.id}_organization`] = "Required";
+        }
+        if (!cert.issuedDate) {
+          newErrors[`cert_${cert.id}_issuedDate`] = "Required";
+        }
+        if (!cert.file) {
+          newErrors[`cert_${cert.id}_file`] = "Document required";
+        }
       });
-      if (!formData.hasMoreCerts1) newErrors.hasMoreCerts1 = "Please specify";
-    }
-    if (formData.hasMoreCerts1 === "yes") {
-      ["cert2Name", "cert2Org", "cert2Date"].forEach(f => {
-        if (!formData[f]) newErrors[f] = "Required";
-      });
-      if (!formData.hasMoreCerts2) newErrors.hasMoreCerts2 = "Please specify";
-    }
-    if (formData.hasMoreCerts2 === "yes") {
-      ["cert3Name", "cert3Org", "cert3Date"].forEach(f => {
-        if (!formData[f]) newErrors[f] = "Required";
-      });
-      if (!formData.hasMoreCerts3) newErrors.hasMoreCerts3 = "Please specify";
     }
 
     // Document Uploads (Mandatory)
-    ["docUpload", "passportUpload", "govIdUpload", "visaUpload", "workAuthUpload", "resumeUpload"].forEach(f => {
+    ["passportUpload", "govIdUpload", "visaUpload", "workAuthUpload", "resumeUpload"].forEach(f => {
       if (!formData[f]) newErrors[f] = "File required";
     });
 
@@ -525,7 +575,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
         "passportUpload", "govIdUpload", "visaUpload", "workAuthUpload", "docUpload",
         "desiredRole", "desiredExpYears", "resumeUpload"
       ];
-      const firstErrorField = fieldOrder.find(field => newErrors[field]);
+      const firstErrorField = fieldOrder.find(field => newErrors[field]) || Object.keys(newErrors)[0];
       if (firstErrorField) {
         setTimeout(() => {
           const element = document.getElementById(firstErrorField);
@@ -575,6 +625,33 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
         } else if (typeof file === "string") {
           // Previously uploaded URL
           uploadedUrls[urlKey] = file;
+        } else {
+          uploadedUrls[urlKey] = "";
+        }
+      }
+
+      // ── Step 1.5: Upload all certification files ──
+      const finalCertifications: any[] = [];
+      if (formData.hasCerts === "yes") {
+        for (const cert of certifications) {
+          let credentialUrl = "";
+          if (cert.file instanceof File) {
+            setUploadProgress(`Uploading ${cert.file.name}...`);
+            const res = await filesApi.upload(cert.file, "certification");
+            credentialUrl = res.data.url;
+          } else if (typeof cert.file === "string") {
+            credentialUrl = cert.file;
+          }
+
+          finalCertifications.push({
+            name: cert.name,
+            organization: cert.organization,
+            credential_id: cert.credentialId || "",
+            issued_date: cert.issuedDate,
+            expires_date: cert.expiresDate || null,
+            notes: cert.notes || "",
+            credential_url: credentialUrl,
+          });
         }
       }
       setUploadProgress("");
@@ -617,30 +694,6 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
         }
       }
 
-      // ── Step 3: Build certifications array ──
-      const certifications: any[] = [];
-      if (formData.hasCerts === "yes" && formData.certName) {
-        certifications.push({
-          name: formData.certName,
-          organization: formData.certOrg,
-          issued_date: formData.certDate,
-        });
-        if (formData.hasMoreCerts1 === "yes" && formData.cert2Name) {
-          certifications.push({
-            name: formData.cert2Name,
-            organization: formData.cert2Org,
-            issued_date: formData.cert2Date,
-          });
-          if (formData.hasMoreCerts2 === "yes" && formData.cert3Name) {
-            certifications.push({
-              name: formData.cert3Name,
-              organization: formData.cert3Org,
-              issued_date: formData.cert3Date,
-            });
-          }
-        }
-      }
-
       // ── Step 4: Build final payload (snake_case field names) ──
       const payload: Record<string, any> = {
         first_name: formData.firstName,
@@ -676,7 +729,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
         desired_exp_years: formData.desiredExpYears,
         has_work_exp: formData.hasWorkExp,
         experiences,
-        certifications,
+        certifications: finalCertifications,
         ...uploadedUrls,
         submitted_timestamp: formData.timestamp,
       };
@@ -702,7 +755,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     }
   };
 
-  const renderDocBox = (fieldId: string, label: string) => {
+  const renderDocBox = (fieldId: string, label: string, required: boolean = true) => {
     const value = formData[fieldId];
     const isUrl = typeof value === "string";
     const isUploaded = !!value;
@@ -710,7 +763,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
 
     return (
       <div id={fieldId} className="space-y-2 text-left">
-        <Label className="text-sm font-medium">{label} *</Label>
+        <Label className="text-sm font-medium">{label}{required ? " *" : ""}</Label>
         <div
           className={cn(
             "p-5 border-2 border-dashed rounded-lg transition-all text-center relative",
@@ -1335,114 +1388,176 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
 
                   {formData.hasCerts === "yes" && (
                     <div className="space-y-6">
-                      <Card className="border border-neutral-200 rounded-lg p-5">
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                          <div id="certName" className="space-y-1">
-                            <Label className="text-xs font-medium">Certification Name *</Label>
-                            <Input value={formData.certName} onChange={e => handleChange("certName", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certName && "border-destructive")} />
-                            {errors.certName && <p className="text-[10px] text-destructive mt-1">{errors.certName}</p>}
-                          </div>
-                          <div id="certOrg" className="space-y-1">
-                            <Label className="text-xs font-medium">Issuing Organization *</Label>
-                            <Input value={formData.certOrg} onChange={e => handleChange("certOrg", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.certOrg && "border-destructive")} />
-                            {errors.certOrg && <p className="text-[10px] text-destructive mt-1">{errors.certOrg}</p>}
-                          </div>
-                          <div id="certDate" className="space-y-1">
-                            <Label className="text-xs font-medium">Issued Date *</Label>
-                            <DatePicker value={formData.certDate} onChange={val => handleChange("certDate", val)} className="h-9" />
-                            {errors.certDate && <p className="text-[10px] text-destructive mt-1">{errors.certDate}</p>}
-                          </div>
-
-                          <div id="hasMoreCerts1" className="mt-4 pt-4 border-t border-neutral-100 sm:col-span-2 lg:col-span-3">
-                            <Label className="text-xs font-medium">Do you have another certification? *</Label>
-                            <div className="flex gap-4 mt-1.5">
-                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
-                                <input type="radio" name="hasMoreCerts1" checked={formData.hasMoreCerts1 === "yes"} onChange={() => handleChange("hasMoreCerts1", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
-                              </label>
-                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
-                                <input type="radio" name="hasMoreCerts1" checked={formData.hasMoreCerts1 === "no"} onChange={() => handleChange("hasMoreCerts1", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
-                              </label>
-                            </div>
-                            {errors.hasMoreCerts1 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreCerts1}</p>}
-                          </div>
-                        </div>
-                      </Card>
-
-                      {formData.hasMoreCerts1 === "yes" && (
-                        <Card className="border border-neutral-200 rounded-lg p-5">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-4">Certification Section 2</h4>
-                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            <div id="cert2Name" className="space-y-1">
-                              <Label className="text-xs font-medium">Certification Name *</Label>
-                              <Input value={formData.cert2Name} onChange={e => handleChange("cert2Name", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.cert2Name && "border-destructive")} />
-                              {errors.cert2Name && <p className="text-[10px] text-destructive mt-1">{errors.cert2Name}</p>}
-                            </div>
-                            <div id="cert2Org" className="space-y-1">
-                              <Label className="text-xs font-medium">Issuing Organization *</Label>
-                              <Input value={formData.cert2Org} onChange={e => handleChange("cert2Org", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.cert2Org && "border-destructive")} />
-                              {errors.cert2Org && <p className="text-[10px] text-destructive mt-1">{errors.cert2Org}</p>}
-                            </div>
-                            <div id="cert2Date" className="space-y-1">
-                              <Label className="text-xs font-medium">Issued Date *</Label>
-                              <DatePicker value={formData.cert2Date} onChange={val => handleChange("cert2Date", val)} className="h-9" />
-                              {errors.cert2Date && <p className="text-[10px] text-destructive mt-1">{errors.cert2Date}</p>}
-                            </div>
-
-                            <div id="hasMoreCerts2" className="mt-4 pt-4 border-t border-neutral-100 sm:col-span-2 lg:col-span-3">
-                              <Label className="text-xs font-medium">Do you have another certification? *</Label>
-                              <div className="flex gap-4 mt-1.5">
-                                <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
-                                  <input type="radio" name="hasMoreCerts2" checked={formData.hasMoreCerts2 === "yes"} onChange={() => handleChange("hasMoreCerts2", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
-                                  <input type="radio" name="hasMoreCerts2" checked={formData.hasMoreCerts2 === "no"} onChange={() => handleChange("hasMoreCerts2", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
-                                </label>
-                              </div>
-                              {errors.hasMoreCerts2 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreCerts2}</p>}
-                            </div>
-                          </div>
-                        </Card>
-                      )}
-
-                      {formData.hasMoreCerts2 === "yes" && (
-                        <Card className="border border-neutral-200 rounded-lg p-5">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-4">Certification Section 3</h4>
-                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            <div id="cert3Name" className="space-y-1">
-                              <Label className="text-xs font-medium">Certification Name *</Label>
-                              <Input value={formData.cert3Name} onChange={e => handleChange("cert3Name", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.cert3Name && "border-destructive")} />
-                              {errors.cert3Name && <p className="text-[10px] text-destructive mt-1">{errors.cert3Name}</p>}
-                            </div>
-                            <div id="cert3Org" className="space-y-1">
-                              <Label className="text-xs font-medium">Issuing Organization *</Label>
-                              <Input value={formData.cert3Org} onChange={e => handleChange("cert3Org", e.target.value)} disabled={isLocked} className={cn("h-9 rounded-lg bg-neutral-50", errors.cert3Org && "border-destructive")} />
-                              {errors.cert3Org && <p className="text-[10px] text-destructive mt-1">{errors.cert3Org}</p>}
-                            </div>
-                            <div id="cert3Date" className="space-y-1">
-                              <Label className="text-xs font-medium">Issued Date *</Label>
-                              <DatePicker value={formData.cert3Date} onChange={val => handleChange("cert3Date", val)} className="h-9" />
-                              {errors.cert3Date && <p className="text-[10px] text-destructive mt-1">{errors.cert3Date}</p>}
-                            </div>
-                          </div>
-
-                          <div id="hasMoreCerts3" className="mt-4 pt-4 border-t border-neutral-100 sm:col-span-2 lg:col-span-3">
-                            <Label className="text-xs font-medium">Do you have another certification? *</Label>
-                            <div className="flex gap-4 mt-1.5">
-                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
-                                <input type="radio" name="hasMoreCerts3" checked={formData.hasMoreCerts3 === "yes"} onChange={() => handleChange("hasMoreCerts3", "yes")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> Yes
-                              </label>
-                              <label className="flex items-center gap-2 cursor-pointer font-medium text-xs">
-                                <input type="radio" name="hasMoreCerts3" checked={formData.hasMoreCerts3 === "no"} onChange={() => handleChange("hasMoreCerts3", "no")} disabled={isLocked} className="accent-primary h-3.5 w-3.5" /> No
-                              </label>
-                            </div>
-                            {formData.hasMoreCerts3 === "yes" && (
-                              <p className="text-[11px] text-amber-600 mt-1.5 font-medium flex items-center gap-1">
-                                <AlertCircle className="h-3.5 w-3.5" /> Note: A maximum of 3 certifications can be added.
-                              </p>
+                      {certifications.map((cert, index) => (
+                        <Card key={cert.id} className="border border-neutral-200 rounded-lg p-5 text-left relative overflow-hidden transition-all shadow-sm hover:shadow-md">
+                          <div className="flex items-center justify-between border-b border-neutral-100 pb-3 mb-4">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-600 flex items-center gap-2">
+                              <Award className="h-3.5 w-3.5 text-red-500" /> Certification #{index + 1}
+                            </h4>
+                            {!isLocked && certifications.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => removeCertification(cert.id)}
+                                className="h-8 px-2 text-destructive hover:bg-destructive/10 rounded-lg text-xs font-bold gap-1 transition-all"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Remove
+                              </Button>
                             )}
-                            {errors.hasMoreCerts3 && <p className="text-[10px] text-destructive mt-1 font-medium">{errors.hasMoreCerts3}</p>}
+                          </div>
+                          
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div id={`cert_${cert.id}_name`} className="space-y-1">
+                              <Label className="text-xs font-medium">Certification Name *</Label>
+                              <Input
+                                value={cert.name}
+                                onChange={e => updateCertification(cert.id, "name", e.target.value)}
+                                disabled={isLocked}
+                                className={cn("h-9 rounded-lg bg-neutral-50", errors[`cert_${cert.id}_name`] && "border-destructive")}
+                              />
+                              {errors[`cert_${cert.id}_name`] && (
+                                <p className="text-[10px] text-destructive mt-1 font-medium">{errors[`cert_${cert.id}_name`]}</p>
+                              )}
+                            </div>
+                            
+                            <div id={`cert_${cert.id}_organization`} className="space-y-1">
+                              <Label className="text-xs font-medium">Issuing Organization *</Label>
+                              <Input
+                                value={cert.organization}
+                                onChange={e => updateCertification(cert.id, "organization", e.target.value)}
+                                disabled={isLocked}
+                                className={cn("h-9 rounded-lg bg-neutral-50", errors[`cert_${cert.id}_organization`] && "border-destructive")}
+                              />
+                              {errors[`cert_${cert.id}_organization`] && (
+                                <p className="text-[10px] text-destructive mt-1 font-medium">{errors[`cert_${cert.id}_organization`]}</p>
+                              )}
+                            </div>
+                            
+                            <div id={`cert_${cert.id}_credentialId`} className="space-y-1">
+                              <Label className="text-xs font-medium">Credential ID / Certification ID (Optional)</Label>
+                              <Input
+                                value={cert.credentialId || ""}
+                                onChange={e => updateCertification(cert.id, "credentialId", e.target.value)}
+                                disabled={isLocked}
+                                placeholder="e.g. 123-456"
+                                className="h-9 rounded-lg bg-neutral-50"
+                              />
+                            </div>
+                            
+                            <div id={`cert_${cert.id}_issuedDate`} className="space-y-1">
+                              <Label className="text-xs font-medium">Issued Date *</Label>
+                              <DatePicker
+                                value={cert.issuedDate}
+                                onChange={val => updateCertification(cert.id, "issuedDate", val)}
+                                className={cn("h-9", isLocked && "opacity-50 pointer-events-none", errors[`cert_${cert.id}_issuedDate`] && "border-destructive")}
+                              />
+                              {errors[`cert_${cert.id}_issuedDate`] && (
+                                <p className="text-[10px] text-destructive mt-1 font-medium">{errors[`cert_${cert.id}_issuedDate`]}</p>
+                              )}
+                            </div>
+                            
+                            <div id={`cert_${cert.id}_expiresDate`} className="space-y-1">
+                              <Label className="text-xs font-medium">Expiry Date (Optional)</Label>
+                              <DatePicker
+                                value={cert.expiresDate || ""}
+                                onChange={val => updateCertification(cert.id, "expiresDate", val)}
+                                className={cn("h-9", isLocked && "opacity-50 pointer-events-none")}
+                              />
+                            </div>
+                            
+                            <div id={`cert_${cert.id}_notes`} className="sm:col-span-2 lg:col-span-3 space-y-1">
+                              <Label className="text-xs font-medium">Description / Notes (Optional)</Label>
+                              <Textarea
+                                value={cert.notes || ""}
+                                onChange={e => updateCertification(cert.id, "notes", e.target.value)}
+                                disabled={isLocked}
+                                placeholder="e.g. Completed with honors, key focus areas, etc."
+                                className="rounded-lg bg-neutral-50 min-h-[60px]"
+                              />
+                            </div>
+                            
+                            <div id={`cert_${cert.id}_file`} className="sm:col-span-2 lg:col-span-3 space-y-2">
+                              <Label className="text-xs font-medium">Upload Certification Document *</Label>
+                              <div
+                                className={cn(
+                                  "p-4 border-2 border-dashed rounded-lg transition-all text-center relative",
+                                  cert.file ? "bg-green-50 border-green-300" : (errors[`cert_${cert.id}_file`] ? "bg-red-50 border-destructive" : "bg-neutral-50 border-neutral-300 hover:border-primary/40")
+                                )}
+                              >
+                                {!isLocked && (
+                                  <input
+                                    type="file"
+                                    id={`cert_${cert.id}_file_input`}
+                                    accept=".pdf,image/*,.doc,.docx"
+                                    className="mb-2 h-10 w-full py-1.5 cursor-pointer text-xs bg-white border border-neutral-200 rounded px-2"
+                                    onChange={e => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const name = file.name.toLowerCase();
+                                        const isPdf = name.endsWith(".pdf") || file.type === "application/pdf";
+                                        const isImg = /\.(jpe?g|png|gif|webp|bmp)$/i.test(name) || file.type.startsWith("image/");
+                                        const isDoc = name.endsWith(".doc") || name.endsWith(".docx") || file.type === "application/msword" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                                        
+                                        if (!isPdf && !isImg && !isDoc) {
+                                          toast({
+                                            variant: "destructive",
+                                            title: "Invalid File Type",
+                                            description: "Only PDF, DOC/DOCX, and Images (JPG, PNG) are allowed.",
+                                          });
+                                          e.target.value = "";
+                                          return;
+                                        }
+                                        
+                                        if (file.size > 5 * 1024 * 1024) {
+                                          toast({
+                                            variant: "destructive",
+                                            title: "Error",
+                                            description: "File size must be 5MB or less.",
+                                          });
+                                          e.target.value = "";
+                                          return;
+                                        }
+                                        
+                                        updateCertification(cert.id, "file", file);
+                                      }
+                                    }}
+                                  />
+                                )}
+                                {errors[`cert_${cert.id}_file`] && !cert.file && (
+                                  <p className="text-[10px] text-destructive mt-1 font-medium">{errors[`cert_${cert.id}_file`]}</p>
+                                )}
+                                {cert.file ? (
+                                  <div className="flex flex-col items-center gap-1.5 mt-1">
+                                    <FileCheck className="h-5 w-5 text-green-600" />
+                                    <p className="text-xs font-bold text-green-700">
+                                      {typeof cert.file === "string" ? "Document Uploaded" : cert.file.name}
+                                    </p>
+                                    {typeof cert.file === "string" && (
+                                      <DocumentPreview
+                                        url={cert.file}
+                                        label="View Document"
+                                        className="text-xs text-green-600 hover:text-green-800 font-bold underline cursor-pointer"
+                                      />
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">Accepted: PDF, DOC/DOCX, Images (Max 5MB)</p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </Card>
+                      ))}
+                      
+                      {!isLocked && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={addCertification}
+                          className="w-full h-10 border-dashed border-primary/40 text-primary hover:bg-primary/5 rounded-lg flex items-center justify-center font-bold text-xs gap-2 transition-all"
+                        >
+                          <Award className="h-4 w-4" /> + Add Certification
+                        </Button>
                       )}
                     </div>
                   )}
@@ -1464,7 +1579,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   {renderDocBox("visaUpload", "Please Upload Visa")}
                   {renderDocBox("workAuthUpload", "Work Authorization Proof")}
                   <div className="sm:col-span-2">
-                    {renderDocBox("docUpload", "Upload Any Additional Documents")}
+                    {renderDocBox("docUpload", "Upload Any Additional Documents (Optional)", false)}
                   </div>
                 </div>
               </div>
