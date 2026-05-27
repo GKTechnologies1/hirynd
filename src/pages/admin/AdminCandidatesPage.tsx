@@ -138,7 +138,7 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
                   </span>
                 ),
                 sortable: true,
-                accessorKey: "id",
+                accessorKey: "display_id",
                 className: "text-xs pl-4"
               },
               { header: "Name", accessorKey: "full_name", className: "text-xs font-bold", sortable: true },
