@@ -240,8 +240,10 @@ export const billingApi = {
 
   // Per-candidate subscription
   subscription: (candidateId: string) => api.get(`/billing/${candidateId}/subscription/`),
-  assignPlan: (candidateId: string, data: { plan_id: string; addons?: string[] }) =>
+  assignPlan: (candidateId: string, data: { plan_id: string; amount?: number; admin_notes?: string; addons?: string[] }) =>
     api.post(`/billing/${candidateId}/subscription/assign/`, data),
+  assignAddon: (candidateId: string, data: { addon_id: string; amount?: number; admin_notes?: string; activate_immediately?: boolean }) =>
+    api.post(`/billing/${candidateId}/addon/assign/`, data),
   updateSubscription: (candidateId: string, data: Record<string, any>) =>
     api.patch(`/billing/${candidateId}/subscription/update/`, data),
   addAddonToSubscription: (candidateId: string, addon_id: string) =>

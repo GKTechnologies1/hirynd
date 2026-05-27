@@ -45,12 +45,26 @@ const AdminSubscriptionPlansPage = () => {
   const [addonForm, setAddonForm] = useState({ ...emptyAddon });
   const [savingAddon, setSavingAddon] = useState(false);
 
-  // Assign-plan dialog
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [assignCandidateId, setAssignCandidateId] = useState("");
-  const [assignPlanId, setAssignPlanId] = useState("");
-  const [assignAddonIds, setAssignAddonIds] = useState<string[]>([]);
-  const [assigning, setAssigning] = useState(false);
+  // Assign Base Subscription Dialog
+  const [assignSubDialogOpen, setAssignSubDialogOpen] = useState(false);
+  const [assignSubCandidateId, setAssignSubCandidateId] = useState("");
+  const [assignSubPlanId, setAssignSubPlanId] = useState("");
+  const [assignSubAmount, setAssignSubAmount] = useState("");
+  const [assignSubNotes, setAssignSubNotes] = useState("");
+  const [assigningSub, setAssigningSub] = useState(false);
+
+  // Assign Standalone Addon Dialog
+  const [assignAddonDialogOpen, setAssignAddonDialogOpen] = useState(false);
+  const [assignAddonCandidateId, setAssignAddonCandidateId] = useState("");
+  const [assignAddonId, setAssignAddonId] = useState("");
+  const [assignAddonAmount, setAssignAddonAmount] = useState("");
+  const [assignAddonNotes, setAssignAddonNotes] = useState("");
+  const [activateImmediately, setActivateImmediately] = useState(false);
+  const [assigningAddon, setAssigningAddon] = useState(false);
+
+  // Search filter queries for Searchable ComboBox
+  const [subSearchQuery, setSubSearchQuery] = useState("");
+  const [addonSearchQuery, setAddonSearchQuery] = useState("");
 
   const fetchAll = async () => {
     setLoading(true);
@@ -128,47 +142,97 @@ const AdminSubscriptionPlansPage = () => {
     catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
   };
 
-  // ── Assign Plan ──
-  const openAssign = () => {
-    setAssignCandidateId("");
+  // ── Assign Base Subscription ──
+  const openAssignSub = () => {
+    setAssignSubCandidateId("");
     const defaultPlan = plans.find(p => p.is_base && (p.name.toLowerCase().includes("monthly") || p.name.toLowerCase().includes("standard"))) || plans.find(p => p.is_base);
-    setAssignPlanId(defaultPlan?.id || "");
-    setAssignAddonIds([]);
-    setAssignDialogOpen(true);
+    setAssignSubPlanId(defaultPlan?.id || "");
+    setAssignSubAmount(defaultPlan?.amount || "");
+    setAssignSubNotes("");
+    setSubSearchQuery("");
+    setAssignSubDialogOpen(true);
   };
-  const doAssign = async () => {
-    if (!assignCandidateId || !assignPlanId) {
+
+  const handleSelectSubCandidate = (candidateId: string) => {
+    setAssignSubCandidateId(candidateId);
+    const existingSub = subscriptions.find(s => s.candidate === candidateId);
+    if (existingSub) {
+      setAssignSubPlanId(existingSub.plan || existingSub.plan_detail?.id || "");
+      setAssignSubAmount(existingSub.amount || "");
+    } else {
+      const defaultPlan = plans.find(p => p.is_base && (p.name.toLowerCase().includes("monthly") || p.name.toLowerCase().includes("standard"))) || plans.find(p => p.is_base);
+      setAssignSubPlanId(defaultPlan?.id || "");
+      setAssignSubAmount(defaultPlan?.amount || "");
+    }
+  };
+
+  const handleSelectSubPlan = (planId: string) => {
+    setAssignSubPlanId(planId);
+    const plan = plans.find(p => p.id === planId);
+    setAssignSubAmount(plan?.amount || "");
+  };
+
+  const doAssignSub = async () => {
+    if (!assignSubCandidateId || !assignSubPlanId) {
       toast({ title: "Select a candidate and plan", variant: "destructive" }); return;
     }
-    setAssigning(true);
+    setAssigningSub(true);
     try {
-      await billingApi.assignPlan(assignCandidateId, { plan_id: assignPlanId, addons: assignAddonIds });
-      toast({ title: "Plan assigned! Candidate will receive a payment notification." });
-      setAssignDialogOpen(false);
+      await billingApi.assignPlan(assignSubCandidateId, { 
+        plan_id: assignSubPlanId, 
+        amount: assignSubAmount ? parseFloat(assignSubAmount) : undefined,
+        admin_notes: assignSubNotes 
+      });
+      toast({ title: "Base plan assigned! Candidate will receive a payment notification." });
+      setAssignSubDialogOpen(false);
       fetchAll();
     } catch (e: any) {
       toast({ title: "Error", description: e.response?.data?.error || e.message, variant: "destructive" });
     }
-    setAssigning(false);
+    setAssigningSub(false);
   };
 
-  const handleSelectCandidate = (candidateId: string) => {
-    setAssignCandidateId(candidateId);
-    const existingSub = subscriptions.find(s => s.candidate === candidateId);
-    if (existingSub) {
-      setAssignPlanId(existingSub.plan || existingSub.plan_detail?.id || "");
-      const currentAddonIds = existingSub.addon_assignments?.map((a: any) => a.addon) || [];
-      setAssignAddonIds(currentAddonIds);
-    } else {
-      // Automatically default to the 'Monthly Service Fee' plan (or first available base plan)
-      const defaultPlan = plans.find(p => p.is_base && (p.name.toLowerCase().includes("monthly") || p.name.toLowerCase().includes("standard"))) || plans.find(p => p.is_base);
-      setAssignPlanId(defaultPlan?.id || "");
-      setAssignAddonIds([]);
+
+  // ── Assign Standalone Addon ──
+  const openAssignAddon = () => {
+    setAssignAddonCandidateId("");
+    setAssignAddonId(addons[0]?.id || "");
+    setAssignAddonAmount(addons[0]?.amount || "");
+    setAssignAddonNotes("");
+    setActivateImmediately(false);
+    setAddonSearchQuery("");
+    setAssignAddonDialogOpen(true);
+  };
+
+  const handleSelectAddon = (addonId: string) => {
+    setAssignAddonId(addonId);
+    const addon = addons.find(a => a.id === addonId);
+    setAssignAddonAmount(addon?.amount || "");
+  };
+
+  const doAssignAddon = async () => {
+    if (!assignAddonCandidateId || !assignAddonId) {
+      toast({ title: "Select a candidate and addon", variant: "destructive" }); return;
     }
-  };
-
-  const toggleAddonSelection = (id: string) => {
-    setAssignAddonIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setAssigningAddon(true);
+    try {
+      await billingApi.assignAddon(assignAddonCandidateId, {
+        addon_id: assignAddonId,
+        amount: assignAddonAmount ? parseFloat(assignAddonAmount) : undefined,
+        admin_notes: assignAddonNotes,
+        activate_immediately: activateImmediately
+      });
+      toast({ 
+        title: activateImmediately 
+          ? "Addon assigned and activated successfully!" 
+          : "Addon assigned! Candidate will receive a payment notification." 
+      });
+      setAssignAddonDialogOpen(false);
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.response?.data?.error || e.message, variant: "destructive" });
+    }
+    setAssigningAddon(false);
   };
 
   const subStatusColor: Record<string, string> = {
@@ -189,9 +253,14 @@ const AdminSubscriptionPlansPage = () => {
           <h2 className="text-2xl font-bold text-foreground">Subscription Plans</h2>
           <p className="text-muted-foreground text-sm mt-1">Manage base plans, add-ons, and assign subscriptions to candidates</p>
         </div>
-        <Button variant="hero" onClick={openAssign}>
-          <Users className="mr-2 h-4 w-4" /> Assign Plan to Candidate
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="outline" className="border-primary/20 text-foreground hover:bg-muted/80" onClick={openAssignAddon}>
+            <Package className="mr-2 h-4 w-4 text-primary" /> Assign Addon Service
+          </Button>
+          <Button variant="hero" onClick={openAssignSub}>
+            <Users className="mr-2 h-4 w-4" /> Assign Base Subscription
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="plans">
@@ -433,186 +502,307 @@ const AdminSubscriptionPlansPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ── Assign Plan Dialog ── */}
-      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+      {/* ── Assign Base Subscription Dialog ── */}
+      <Dialog open={assignSubDialogOpen} onOpenChange={setAssignSubDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Assign Subscription Plan</DialogTitle>
-            <DialogDescription>Select a candidate, choose a base plan and optional add-ons. The candidate will be notified to complete payment.</DialogDescription>
+            <DialogTitle>Assign Base Subscription Plan</DialogTitle>
+            <DialogDescription>
+              Select a candidate and assign a core subscription plan. This will initiate their monthly/quarterly billing cycle and they will be notified to pay.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Candidate</Label>
-              <Select value={assignCandidateId} onValueChange={handleSelectCandidate}>
-                <SelectTrigger><SelectValue placeholder="Select candidate..." /></SelectTrigger>
-                <SelectContent>
-                  {candidates
-                    .filter(c => {
-                      const allowedStatuses = [
-                        "payment_completed",
-                        "credentials_submitted",
-                        "active_marketing",
-                        "paused",
-                        "on_hold",
-                        "past_due",
-                        "placed_closed"
-                      ];
-                      return allowedStatuses.includes(c.status);
-                    })
-                    .map(c => {
-                      const existingSub = subscriptions.find(s => s.candidate === c.id);
-                      const isSubActive = existingSub?.status === "active";
-                      const isSubPending = existingSub?.status === "pending_payment";
-                      return (
-                        <SelectItem key={c.id} value={c.id}>
-                          <span className="flex items-center gap-1.5">
-                            {c.full_name || c.email} — <span className="opacity-60 text-xs">{c.status?.replace(/_/g, " ")}</span>
-                            {isSubActive && (
-                              <span className="text-[9px] font-bold tracking-wider text-green-600 bg-green-50 px-1 py-0.5 rounded uppercase ml-2 border border-green-200">
-                                Active Sub
-                              </span>
-                            )}
-                            {isSubPending && (
-                              <span className="text-[9px] font-bold tracking-wider text-amber-600 bg-amber-50 px-1 py-0.5 rounded uppercase ml-2 border border-amber-200 animate-pulse">
-                                Pending Payment
-                              </span>
-                            )}
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
+              <Label className="font-semibold text-slate-800">Search Candidate (Name, Email, or ID)</Label>
+              {!assignSubCandidateId ? (
+                <div className="space-y-2 mt-1">
+                  <Input
+                    placeholder="Type to search (e.g. John Doe)..."
+                    value={subSearchQuery}
+                    onChange={e => setSubSearchQuery(e.target.value)}
+                    className="h-10 rounded-xl"
+                  />
+                  <div className="max-h-52 overflow-y-auto border border-border/80 rounded-xl bg-card/50 backdrop-blur-md divide-y divide-border/60 shadow-inner">
+                    {candidates
+                      .filter(c => {
+                        if (!subSearchQuery) return true;
+                        const q = subSearchQuery.toLowerCase();
+                        const name = (c.full_name || "").toLowerCase();
+                        const email = (c.email || "").toLowerCase();
+                        const dispId = (c.display_id || "").toLowerCase();
+                        return name.includes(q) || email.includes(q) || dispId.includes(q);
+                      })
+                      .map(c => {
+                        const existingSub = subscriptions.find(s => s.candidate === c.id);
+                        const isSubActive = existingSub?.status === "active";
+                        const isSubPending = existingSub?.status === "pending_payment";
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => handleSelectSubCandidate(c.id)}
+                            className="p-3 hover:bg-primary/5 cursor-pointer flex items-center justify-between transition-colors"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-800">{c.full_name || c.email}</p>
+                              <p className="text-xs text-muted-foreground">{c.email}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge variant="outline" className="text-[10px] uppercase font-bold py-0.5 px-1.5">{c.status?.replace(/_/g, " ")}</Badge>
+                              {isSubActive && <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1 py-0.5 rounded border border-green-200">Active Sub</span>}
+                              {isSubPending && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-200">Pending</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {candidates.filter(c => {
+                      if (!subSearchQuery) return true;
+                      const q = subSearchQuery.toLowerCase();
+                      const name = (c.full_name || "").toLowerCase();
+                      const email = (c.email || "").toLowerCase();
+                      const dispId = (c.display_id || "").toLowerCase();
+                      return name.includes(q) || email.includes(q) || dispId.includes(q);
+                    }).length === 0 && (
+                      <p className="p-4 text-center text-xs text-muted-foreground italic">No matching candidates found.</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // Selected Candidate View
+                <div className="mt-1 flex items-center justify-between p-4 rounded-xl border border-primary/20 bg-primary/[0.02] shadow-sm animate-in fade-in duration-300">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center font-bold text-primary shrink-0">
+                      {(candidates.find(c => c.id === assignSubCandidateId)?.full_name || candidates.find(c => c.id === assignSubCandidateId)?.email)?.[0]?.toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">
+                        {candidates.find(c => c.id === assignSubCandidateId)?.full_name || candidates.find(c => c.id === assignSubCandidateId)?.email}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">{candidates.find(c => c.id === assignSubCandidateId)?.email}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs font-bold text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={() => setAssignSubCandidateId("")}
+                  >
+                    Change Candidate
+                  </Button>
+                </div>
+              )}
             </div>
-            
-            {assignCandidateId && subscriptions.find(s => s.candidate === assignCandidateId)?.status === "pending_payment" && (
+
+            {assignSubCandidateId && subscriptions.find(s => s.candidate === assignSubCandidateId)?.status === "pending_payment" && (
               <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-1.5 animate-in fade-in duration-300">
                 <p className="text-sm font-bold text-blue-800 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-blue-600" /> Pending Billing Record
                 </p>
                 <p className="text-xs text-blue-700 leading-relaxed">
-                  This candidate has an outstanding payment assigned on <strong className="text-blue-900">{formatDate(subscriptions.find(s => s.candidate === assignCandidateId)?.payment_initiated_at)}</strong>. 
-                  Re-assigning a different plan/addons will update their pending checkout total. Re-assigning the identical combination is restricted.
+                  This candidate already has a pending payment assigned on <strong className="text-blue-900">{formatDate(subscriptions.find(s => s.candidate === assignSubCandidateId)?.payment_initiated_at)}</strong>. 
+                  Re-assigning will update their pending subscription checkout price.
                 </p>
               </div>
             )}
-            
-            {assignCandidateId && subscriptions.find(s => s.candidate === assignCandidateId)?.status === "active" ? (
-              // Active subscriber updates view
-              <>
-                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-1.5 animate-in fade-in duration-300">
-                  <p className="text-sm font-bold text-blue-800 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-blue-600" /> Active Subscription Updates
-                  </p>
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    This candidate has an active base plan. You can select and assign <strong>new addons</strong> below. The candidate will be notified to pay for only the newly added services under "Pending Charges" on their dashboard.
-                  </p>
-                </div>
-                <div>
-                  <Label>Base Plan</Label>
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 mt-1 text-sm font-semibold flex items-center justify-between text-foreground">
-                    <span>{plans.find(p => p.id === assignPlanId)?.name || "Monthly Service Fee"}</span>
-                    <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded uppercase">Active & Paid</span>
-                  </div>
-                </div>
-                {addons.length > 0 && (
-                  <div>
-                    <Label>Add-Ons</Label>
-                    <div className="mt-2 space-y-2">
-                      {addons.map(a => {
-                        const existingSub = subscriptions.find(s => s.candidate === assignCandidateId);
-                        const isAlreadyAssigned = existingSub?.addon_assignments?.some((ea: any) => ea.addon === a.id);
-                        return (
-                          <label key={a.id} className={`flex items-center gap-3 cursor-pointer rounded-lg border border-border p-3 hover:bg-muted/50 ${isAlreadyAssigned ? "opacity-60 bg-muted/10 cursor-not-allowed" : ""}`}>
-                            <input
-                              type="checkbox"
-                              checked={assignAddonIds.includes(a.id)}
-                              onChange={() => !isAlreadyAssigned && toggleAddonSelection(a.id)}
-                              disabled={isAlreadyAssigned}
-                              className="h-4 w-4"
-                            />
-                            <span className="flex-1 font-medium text-sm">
-                              {a.name}
-                              {isAlreadyAssigned && (
-                                <span className="text-[9px] text-green-600 bg-green-50 border border-green-200 px-1.5 ml-2 rounded font-bold uppercase whitespace-nowrap">
-                                  Active & Paid
-                                </span>
-                              )}
-                            </span>
-                            <span className="text-sm text-muted-foreground">+${Number(a.amount).toLocaleString()}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">New Charges to Complete</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    ${assignAddonIds
-                      .filter(id => !subscriptions.find(s => s.candidate === assignCandidateId)?.addon_assignments?.some((ea: any) => ea.addon === id))
-                      .reduce((sum, id) => sum + Number(addons.find(a => a.id === id)?.amount || 0), 0)
-                      .toLocaleString()}
-                  </p>
-                </div>
-              </>
-            ) : (
-              // New provisioning view
-              <>
-                <div>
-                  <Label>Base Plan</Label>
-                  <Select value={assignPlanId} onValueChange={setAssignPlanId}>
-                    <SelectTrigger><SelectValue placeholder="Select plan..." /></SelectTrigger>
-                    <SelectContent>
-                      {plans.filter(p => p.is_base).map(p => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} — ${Number(p.amount).toLocaleString()} / {p.billing_cycle}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {addons.length > 0 && (
-                  <div>
-                    <Label>Add-Ons (optional)</Label>
-                    <div className="mt-2 space-y-2">
-                      {addons.map(a => (
-                        <label key={a.id} className="flex items-center gap-3 cursor-pointer rounded-lg border border-border p-3 hover:bg-muted/50">
-                          <input
-                            type="checkbox"
-                            checked={assignAddonIds.includes(a.id)}
-                            onChange={() => toggleAddonSelection(a.id)}
-                            className="h-4 w-4"
-                          />
-                          <span className="flex-1 font-medium text-sm">{a.name}</span>
-                          <span className="text-sm text-muted-foreground">+${Number(a.amount).toLocaleString()}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {assignPlanId && (
-                  <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="text-sm font-medium">Total</p>
-                    <p className="text-2xl font-bold text-foreground">
-                      ${(
-                        Number(plans.find(p => p.id === assignPlanId)?.amount || 0) +
-                        assignAddonIds.reduce((sum, id) => sum + Number(addons.find(a => a.id === id)?.amount || 0), 0)
-                      ).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-              </>
+
+            {assignSubCandidateId && subscriptions.find(s => s.candidate === assignSubCandidateId)?.status === "active" && (
+              <div className="rounded-xl border border-green-200 bg-green-50/50 p-4 space-y-1.5 animate-in fade-in duration-300">
+                <p className="text-sm font-bold text-green-800 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" /> Active Subscription Found
+                </p>
+                <p className="text-xs text-green-700 leading-relaxed">
+                  This candidate currently has an active subscription. If you assign a new plan, it will update their current base subscription terms.
+                </p>
+              </div>
             )}
+
+            <div>
+              <Label>Base Plan</Label>
+              <Select value={assignSubPlanId} onValueChange={handleSelectSubPlan}>
+                <SelectTrigger><SelectValue placeholder="Select base plan..." /></SelectTrigger>
+                <SelectContent>
+                  {plans.filter(p => p.is_base).map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} — ${Number(p.amount).toLocaleString()} / {p.billing_cycle}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Custom Price Override (USD)</Label>
+              <Input
+                type="number"
+                value={assignSubAmount}
+                onChange={e => setAssignSubAmount(e.target.value)}
+                placeholder="Leave blank to use default plan price"
+              />
+            </div>
+
+            <div>
+              <Label>Admin Notes / Comments</Label>
+              <Textarea
+                value={assignSubNotes}
+                onChange={e => setAssignSubNotes(e.target.value)}
+                placeholder="Provide details about discounts or payment agreements..."
+                rows={3}
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAssignSubDialogOpen(false)}>Cancel</Button>
             <Button 
               variant="hero" 
-              onClick={doAssign} 
-              disabled={assigning || !assignCandidateId || !assignPlanId}
+              onClick={doAssignSub} 
+              disabled={assigningSub || !assignSubCandidateId || !assignSubPlanId}
             >
-              {assigning ? "Assigning..." : "Assign & Notify Candidate"}
+              {assigningSub ? "Assigning..." : "Assign Base Plan & Notify"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Assign Standalone Addon Dialog ── */}
+      <Dialog open={assignAddonDialogOpen} onOpenChange={setAssignAddonDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign Add-On Service</DialogTitle>
+            <DialogDescription>
+              Assign a standalone one-time addon (Mock Practice, Interview Support, etc.) to a candidate. This is independent of any base subscription plan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="font-semibold text-slate-800">Search Candidate (Name, Email, or ID)</Label>
+              {!assignAddonCandidateId ? (
+                <div className="space-y-2 mt-1">
+                  <Input
+                    placeholder="Type to search (e.g. John Doe)..."
+                    value={addonSearchQuery}
+                    onChange={e => setAddonSearchQuery(e.target.value)}
+                    className="h-10 rounded-xl"
+                  />
+                  <div className="max-h-52 overflow-y-auto border border-border/80 rounded-xl bg-card/50 backdrop-blur-md divide-y divide-border/60 shadow-inner">
+                    {candidates
+                      .filter(c => {
+                        if (!addonSearchQuery) return true;
+                        const q = addonSearchQuery.toLowerCase();
+                        const name = (c.full_name || "").toLowerCase();
+                        const email = (c.email || "").toLowerCase();
+                        const dispId = (c.display_id || "").toLowerCase();
+                        return name.includes(q) || email.includes(q) || dispId.includes(q);
+                      })
+                      .map(c => (
+                        <div
+                          key={c.id}
+                          onClick={() => setAssignAddonCandidateId(c.id)}
+                          className="p-3 hover:bg-primary/5 cursor-pointer flex items-center justify-between transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-800">{c.full_name || c.email}</p>
+                            <p className="text-xs text-muted-foreground">{c.email}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] uppercase font-bold py-0.5 px-1.5 shrink-0">{c.status?.replace(/_/g, " ")}</Badge>
+                        </div>
+                      ))}
+                    {candidates.filter(c => {
+                      if (!addonSearchQuery) return true;
+                      const q = addonSearchQuery.toLowerCase();
+                      const name = (c.full_name || "").toLowerCase();
+                      const email = (c.email || "").toLowerCase();
+                      const dispId = (c.display_id || "").toLowerCase();
+                      return name.includes(q) || email.includes(q) || dispId.includes(q);
+                    }).length === 0 && (
+                      <p className="p-4 text-center text-xs text-muted-foreground italic">No matching candidates found.</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // Selected Candidate View
+                <div className="mt-1 flex items-center justify-between p-4 rounded-xl border border-primary/20 bg-primary/[0.02] shadow-sm animate-in fade-in duration-300">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center font-bold text-primary shrink-0">
+                      {(candidates.find(c => c.id === assignAddonCandidateId)?.full_name || candidates.find(c => c.id === assignAddonCandidateId)?.email)?.[0]?.toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">
+                        {candidates.find(c => c.id === assignAddonCandidateId)?.full_name || candidates.find(c => c.id === assignAddonCandidateId)?.email}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">{candidates.find(c => c.id === assignAddonCandidateId)?.email}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs font-bold text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={() => setAssignAddonCandidateId("")}
+                  >
+                    Change Candidate
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label>Add-On Service</Label>
+              <Select value={assignAddonId} onValueChange={handleSelectAddon}>
+                <SelectTrigger><SelectValue placeholder="Select addon..." /></SelectTrigger>
+                <SelectContent>
+                  {addons.map(a => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} — ${Number(a.amount).toLocaleString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Custom Price Override (USD)</Label>
+              <Input
+                type="number"
+                value={assignAddonAmount}
+                onChange={e => setAssignAddonAmount(e.target.value)}
+                placeholder="Leave blank to use default addon price"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2 border rounded-lg p-3 bg-muted/20">
+              <input
+                id="activate-immediately"
+                type="checkbox"
+                checked={activateImmediately}
+                onChange={e => setActivateImmediately(e.target.checked)}
+                className="h-4 w-4 text-primary accent-primary rounded cursor-pointer"
+              />
+              <div className="grid gap-1.5 leading-none">
+                <label htmlFor="activate-immediately" className="text-sm font-semibold cursor-pointer">
+                  Activate Immediately (Complimentary or Manual Payment)
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Skips Candidate dashboard payment checkout, completes assignment instantly, and creates a completed invoice.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <Label>Admin Notes</Label>
+              <Textarea
+                value={assignAddonNotes}
+                onChange={e => setAssignAddonNotes(e.target.value)}
+                placeholder="Enter special agreement notes or candidate details..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignAddonDialogOpen(false)}>Cancel</Button>
+            <Button 
+              variant="hero" 
+              onClick={doAssignAddon} 
+              disabled={assigningAddon || !assignAddonCandidateId || !assignAddonId}
+            >
+              {assigningAddon ? "Assigning Addon..." : activateImmediately ? "Assign & Activate Instantly" : "Assign Addon & Notify"}
             </Button>
           </DialogFooter>
         </DialogContent>

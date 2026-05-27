@@ -29,11 +29,14 @@ from users.permissions import IsAdmin, IsApproved
 from .models import (
     Invoice, Payment, RazorpayOrder,
     Subscription, SubscriptionAddon, SubscriptionAddonAssignment, SubscriptionPlan,
+    PurchaseHistory,
 )
 from .serializers import (
     InvoiceSerializer, PaymentSerializer, RazorpayOrderSerializer,
     SubscriptionAddonSerializer, SubscriptionPlanSerializer, SubscriptionSerializer,
+    SubscriptionAddonAssignmentSerializer, PurchaseHistorySerializer,
 )
+from .services import SubscriptionService, AddonService, PaymentService, SubscriptionLifecycleManager, PurchaseHistoryService
 
 from .utils import generate_invoice_pdf
 from dateutil.relativedelta import relativedelta
@@ -204,14 +207,13 @@ def subscription_detail(request, candidate_id):
 @api_view(['POST'])
 @permission_classes([IsAdmin])
 def assign_plan(request, candidate_id):
-    """Admin assigns a SubscriptionPlan to a candidate."""
+    """Admin assigns a base SubscriptionPlan to a candidate."""
     try:
         candidate = Candidate.objects.select_related('user').get(id=candidate_id)
     except Candidate.DoesNotExist:
         return Response({'error': 'Candidate not found'}, status=404)
 
     plan_id = request.data.get('plan_id')
-    addon_ids = request.data.get('addons', [])
     if not plan_id:
         return Response({'error': 'plan_id is required'}, status=400)
     try:
@@ -220,125 +222,83 @@ def assign_plan(request, candidate_id):
         return Response({'error': 'Plan not found or inactive'}, status=404)
 
     sub_amount = request.data.get('amount', plan.amount)
-    sub, created = Subscription.objects.get_or_create(
-        candidate=candidate,
-        defaults={
-            'plan': plan, 'plan_name': plan.name, 'amount': sub_amount,
-            'currency': plan.currency, 'billing_cycle': plan.billing_cycle,
-            'status': 'pending_payment', 'assigned_by': request.user,
-            'payment_initiated_at': timezone.now(),
-        },
-    )
-    
-    original_status = None
-    if not created:
-        original_status = sub.status
-        
-        # Guard against duplicate identical plan/addon assignments for pending payment subscriptions
-        if original_status == 'pending_payment':
-            import uuid
-            plan_changed = (sub.plan_id != uuid.UUID(str(plan_id))) or (float(sub.amount) != float(sub_amount))
-            current_addon_ids = set(sub.addon_assignments.values_list('addon_id', flat=True))
-            target_addon_ids = set(uuid.UUID(str(aid)) for aid in addon_ids)
-            addons_changed = current_addon_ids != target_addon_ids
-            
-            if not plan_changed and not addons_changed:
-                return Response(
-                    {'error': 'This exact plan and addon combination is already assigned and pending payment for this candidate.'},
-                    status=400
-                )
+    try:
+        sub_amount = Decimal(str(sub_amount))
+    except Exception:
+        sub_amount = plan.amount
 
-        sub.plan = plan
-        sub.plan_name = plan.name
-        sub.amount = sub_amount
-        sub.currency = plan.currency
-        sub.billing_cycle = plan.billing_cycle
-        # Preserve 'active' state to prevent disrupting paying candidates!
-        if original_status != 'active':
-            sub.status = 'pending_payment'
-            sub.payment_initiated_at = timezone.now()
-        sub.assigned_by = request.user
-        sub.save()
-        # Non-destructive addon sync: delete only no longer selected addons
-        sub.addon_assignments.exclude(addon_id__in=addon_ids).delete()
+    billing_cycle = request.data.get('billing_cycle', plan.billing_cycle)
+    admin_notes = request.data.get('admin_notes', '')
 
-    new_addon_payments_created = []
-    for addon_id in addon_ids:
-        try:
-            addon = SubscriptionAddon.objects.get(id=addon_id, is_active=True)
-            # Default to addon amount if not specified
-            amt = request.data.get('addon_amounts', {}).get(str(addon_id), addon.amount)
-            assignment, addon_created = SubscriptionAddonAssignment.objects.get_or_create(
-                subscription=sub, addon=addon, 
-                defaults={'added_by': request.user, 'amount': amt},
-            )
-            # If the subscription is active and the addon is newly assigned, generate a pending payment
-            if sub.status == 'active' and addon_created:
-                Payment.objects.create(
-                    candidate=sub.candidate,
-                    subscription=sub,
-                    amount=assignment.amount,
-                    currency=addon.currency,
-                    payment_type='addon',
-                    status='pending',
-                    notes=f"Add-on Fee: {addon.name}",
-                    recorded_by=request.user,
-                )
-                new_addon_payments_created.append(addon.name)
-        except SubscriptionAddon.DoesNotExist:
-            pass
-
-    log_action(request.user, 'plan_assigned', str(candidate_id), 'subscription', {'plan': plan.name})
-    
-    # If new addon payments were created for an active subscriber, notify them
-    if new_addon_payments_created and original_status == 'active':
-        addons_str = ", ".join(new_addon_payments_created)
-        try:
-            create_notification(
-                sub.candidate.user, 'Add-On(s) Assigned',
-                f'New service addon(s) "{addons_str}" assigned to your subscription. Please complete payment to activate.',
-                link='/candidate-dashboard/payments',
-            )
-            send_email(
-                sub.candidate.user.email, 'Payment Required: New Add-On Service(s) Assigned',
-                get_styled_email_html(
-                    _user_name(sub.candidate.user),
-                    f'<p>The following addon service(s) have been added to your subscription: <strong>{addons_str}</strong>. '
-                    f'Please log in and complete the payment to activate these services.</p>',
-                    action_label="Pay Now",
-                    action_url="/candidate-dashboard/payments"
-                )
-            )
-        except Exception as e:
-            logger.error("Failed to notify candidate for addon(s) payment: %s", str(e))
-            
-    # Only notify candidate to complete payment if the subscription is NOT already active!
-    elif created or original_status != 'active':
-        create_notification(
-            candidate.user, 'Payment Required',
-            f'Your plan "{plan.name}" has been assigned. Please complete payment to continue.',
-            link='/candidate-dashboard/payments',
+    try:
+        sub = SubscriptionService.assign_subscription(
+            candidate=candidate,
+            plan=plan,
+            custom_amount=sub_amount,
+            billing_cycle=billing_cycle,
+            admin_notes=admin_notes,
+            assigned_by=request.user
         )
-        send_email(
-            candidate.user.email, 'Action Required: Complete Your Payment',
-            get_styled_email_html(
-                _user_name(candidate.user),
-                f'<p>Your Hyrind plan <strong>{plan.name}</strong> ({plan.currency} {plan.amount}) has been assigned. '
-                f'Please log in and complete the payment to proceed.</p>',
-                action_label="Pay Now",
-                action_url="/candidate-dashboard/payments"
-            )
+        log_action(request.user, 'plan_assigned', str(candidate_id), 'subscription', {'plan': plan.name})
+        return Response(SubscriptionSerializer(sub).data, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Failed to assign subscription: {e}")
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdmin])
+def assign_addon(request, candidate_id):
+    """Admin assigns an independent standalone addon to a candidate."""
+    try:
+        candidate = Candidate.objects.select_related('user').get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
+
+    addon_id = request.data.get('addon_id')
+    if not addon_id:
+        return Response({'error': 'addon_id is required'}, status=400)
+    try:
+        addon = SubscriptionAddon.objects.get(id=addon_id, is_active=True)
+    except SubscriptionAddon.DoesNotExist:
+        return Response({'error': 'Addon not found or inactive'}, status=404)
+
+    custom_amount = request.data.get('amount', addon.amount)
+    try:
+        custom_amount = Decimal(str(custom_amount))
+    except Exception:
+        custom_amount = addon.amount
+
+    admin_notes = request.data.get('admin_notes', '')
+    activate_immediately = request.data.get('activate_immediately', False)
+
+    try:
+        assignment = AddonService.assign_addon(
+            candidate=candidate,
+            addon=addon,
+            custom_amount=custom_amount,
+            admin_notes=admin_notes,
+            added_by=request.user,
+            activate_immediately=activate_immediately
         )
-    return Response(SubscriptionSerializer(sub).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        log_action(request.user, 'addon_assigned', str(candidate_id), 'subscription_addon', {'addon': addon.name, 'amount': float(custom_amount)})
+        return Response(SubscriptionAddonAssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        logger.error(f"Failed to assign addon: {e}")
+        return Response({'error': str(e)}, status=400)
 
 
 @api_view(['POST'])
 @permission_classes([IsAdmin])
 def add_addon_to_subscription(request, candidate_id):
+    """
+    DEPRECATED: Backward compatible wrapper for older frontends.
+    Routes to Stand-alone AddonService assignment.
+    """
     try:
-        sub = Subscription.objects.get(candidate_id=candidate_id)
-    except Subscription.DoesNotExist:
-        return Response({'error': 'No subscription found'}, status=404)
+        candidate = Candidate.objects.select_related('user').get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=404)
     addon_id = request.data.get('addon_id')
     if not addon_id:
         return Response({'error': 'addon_id required'}, status=400)
@@ -346,52 +306,25 @@ def add_addon_to_subscription(request, candidate_id):
         addon = SubscriptionAddon.objects.get(id=addon_id, is_active=True)
     except SubscriptionAddon.DoesNotExist:
         return Response({'error': 'Addon not found'}, status=404)
-    assignment, created = SubscriptionAddonAssignment.objects.get_or_create(
-        subscription=sub, addon=addon, 
-        defaults={
-            'added_by': request.user,
-            'amount': request.data.get('amount', addon.amount)
-        },
-    )
-    if not created and 'amount' in request.data:
-        assignment.amount = request.data['amount']
-        assignment.save(update_fields=['amount'])
-
-    # If the subscription is already active and a new addon was assigned, generate a pending individual payment record
-    if sub.status == 'active' and created:
-        payment = Payment.objects.create(
-            candidate=sub.candidate,
-            subscription=sub,
-            amount=assignment.amount,
-            currency=addon.currency,
-            payment_type='addon',
-            status='pending',
-            notes=f"Add-on Fee: {addon.name}",
-            recorded_by=request.user,
-        )
         
-        # Trigger dashboard notification and email for the candidate to pay for this addon
-        try:
-            create_notification(
-                sub.candidate.user, 'Add-On Assigned',
-                f'Add-on "{addon.name}" has been added to your subscription. Please complete payment of {addon.currency} {assignment.amount} to activate.',
-                link='/candidate-dashboard/payments',
-            )
-            send_email(
-                sub.candidate.user.email, f'Payment Required: Add-On "{addon.name}" Assigned',
-                get_styled_email_html(
-                    _user_name(sub.candidate.user),
-                    f'<p>Add-on <strong>{addon.name}</strong> ({addon.currency} {assignment.amount}) has been added to your subscription. '
-                    f'Please log in and complete the payment to activate this service.</p>',
-                    action_label="Pay Now",
-                    action_url="/candidate-dashboard/payments"
-                )
-            )
-        except Exception as e:
-            logger.error("Failed to notify candidate for individual addon payment: %s", str(e))
+    custom_amount = request.data.get('amount', addon.amount)
+    try:
+        custom_amount = Decimal(str(custom_amount))
+    except Exception:
+        custom_amount = addon.amount
 
-    log_action(request.user, 'addon_added', str(candidate_id), 'subscription_addon', {'addon': addon.name, 'amount': float(assignment.amount)})
-    return Response({'detail': 'Addon added', 'created': created, 'amount': float(assignment.amount)})
+    try:
+        assignment = AddonService.assign_addon(
+            candidate=candidate,
+            addon=addon,
+            custom_amount=custom_amount,
+            added_by=request.user,
+            activate_immediately=False
+        )
+        log_action(request.user, 'addon_added', str(candidate_id), 'subscription_addon', {'addon': addon.name, 'amount': float(custom_amount)})
+        return Response({'detail': 'Addon added', 'created': True, 'amount': float(custom_amount)})
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
 
 
 @api_view(['PATCH'])
@@ -420,49 +353,18 @@ def create_razorpay_order(request, candidate_id):
         return Response({'error': 'Forbidden'}, status=403)
 
     try:
-        sub = Subscription.objects.prefetch_related('addon_assignments__addon').get(candidate=candidate)
+        sub = Subscription.objects.get(candidate=candidate)
     except Subscription.DoesNotExist:
         return Response({'error': 'No subscription assigned. Contact your advisor.'}, status=400)
 
-    if sub.status == 'active':
-        return Response({'error': 'Subscription already active'}, status=400)
-
-    addons_total = sum(a.amount for a in sub.addon_assignments.all())
-    total_amount = float(sub.amount) + float(addons_total)
-    total_paise = int(total_amount * 100)
-
-    razorpay_client, key_id = _get_razorpay_client()
-
-    if razorpay_client is None:
-        return Response({'error': 'Payment gateway not configured'}, status=500)
-
     try:
-        rz_order = razorpay_client.order.create({
-            'amount': total_paise, 'currency': sub.currency,
-            'receipt': f'hyrind_{str(candidate_id)[:8]}',
-            'notes': {'plan': sub.plan_name, 'candidate': str(candidate_id)},
-        })
+        order_details = PaymentService.create_razorpay_order_for_subscription(candidate, sub)
+        return Response(order_details)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=400)
     except Exception as e:
-        logger.error("Razorpay order creation failed: %s", str(e))
-        return Response({'error': f'Failed to create Razorpay order: {str(e)}'}, status=500)
-
-    RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
-    rp_order = RazorpayOrder.objects.create(
-        candidate=candidate, subscription=sub,
-        razorpay_order_id=rz_order['id'],
-        amount=total_amount, currency=sub.currency,
-        payment_type='subscription', notes={'plan': sub.plan_name},
-    )
-    return Response({
-        'order_id': rz_order['id'], 'amount': total_paise, 'currency': sub.currency,
-        'key_id': key_id,
-        'subscription_id': str(sub.id), 'internal_order_id': str(rp_order.id),
-        'description': f'Hyrind | {sub.plan_name}',
-        'prefill': {
-            'name': _user_name(candidate.user), 'email': candidate.user.email,
-            'contact': getattr(candidate.user.profile, 'phone', '') if hasattr(candidate.user, 'profile') else '',
-        },
-    })
+        logger.error(f"Failed to create Razorpay order for subscription: {e}")
+        return Response({'error': 'Payment order generation failed'}, status=500)
 
 
 #  Razorpay  Verify Payment 
@@ -474,109 +376,30 @@ def verify_razorpay_payment(request, candidate_id):
     rz_signature = request.data.get('razorpay_signature', '')
 
     try:
-        rp_order = RazorpayOrder.objects.select_related('candidate', 'subscription').get(
+        rp_order = PaymentService.verify_subscription_payment(
+            candidate_id=candidate_id,
             razorpay_order_id=rz_order_id,
-        )
-    except RazorpayOrder.DoesNotExist:
-        return Response({'error': 'Order not found'}, status=404)
-
-    if str(rp_order.candidate_id) != str(candidate_id):
-        return Response({'error': 'Order does not belong to this candidate'}, status=403)
-
-    client, _ = _get_razorpay_client()
-    if client:
-        params_dict = {
-            'razorpay_order_id': rz_order_id,
-            'razorpay_payment_id': rz_payment_id,
-            'razorpay_signature': rz_signature
-        }
-        try:
-            client.utility.verify_payment_signature(params_dict)
-        except Exception as e:
-            logger.warning("Razorpay signature verification failed: %s", str(e))
-            return Response({'error': 'Payment verification failed'}, status=400)
-    else:
-        return Response({'error': 'Payment gateway not configured'}, status=500)
-
-    rp_order.razorpay_payment_id = rz_payment_id
-    rp_order.razorpay_signature = rz_signature
-    rp_order.status = 'paid'
-    rp_order.verified_at = timezone.now()
-    rp_order.save()
-
-    sub = rp_order.subscription
-    candidate = rp_order.candidate
-    _update_candidate_and_subscription_status(candidate, sub)
-
-    # Find any existing pending subscription payments to reuse or clean up
-    pending_payments = list(Payment.objects.filter(
-        candidate_id=candidate_id,
-        status='pending',
-        payment_type__in=['subscription', 'monthly_service']
-    ))
-
-    if pending_payments:
-        payment = pending_payments[0]
-        payment.subscription = sub
-        payment.razorpay_order = rp_order
-        payment.amount = rp_order.amount
-        payment.currency = rp_order.currency
-        payment.status = 'completed'
-        payment.payment_date = timezone.now().date()
-        payment.notes = (payment.notes or '') + f' | Razorpay payment {rz_payment_id}'
-        payment.save()
-
-        # Delete any other duplicate pending payments
-        for p in pending_payments[1:]:
-            p.delete()
-    else:
-        payment = Payment.objects.create(
-            candidate_id=candidate_id, subscription=sub, razorpay_order=rp_order,
-            amount=rp_order.amount, currency=rp_order.currency,
-            payment_type='subscription', status='completed',
-            payment_date=timezone.now().date(),
-            notes=f'Razorpay payment {rz_payment_id}',
+            razorpay_payment_id=rz_payment_id,
+            razorpay_signature=rz_signature
         )
 
-    # Fulfillment: Create Invoice and PDF (Non-critical to the payment itself)
-    try:
-        invoice = Invoice.objects.create(
-            subscription=sub, candidate=candidate,
-            amount=rp_order.amount, currency=rp_order.currency,
-            period_start=timezone.now().date(),
-            period_end=sub.next_billing_at if sub else (timezone.now().date() + relativedelta(months=1)),
-            status='paid', paid_at=timezone.now(),
-            payment_reference=rz_payment_id
-        )
+        candidate = rp_order.candidate
+        sub = rp_order.subscription
 
-        pdf_bytes = generate_invoice_pdf(invoice)
-        attachments = [{
-            "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
-            "content": list(pdf_bytes)
-        }]
+        # Get transaction details
+        payment = Payment.objects.filter(razorpay_order=rp_order).first()
 
-        send_email(
-            candidate.user.email, 'Payment Confirmed & Invoice - Hyrind',
-            get_styled_email_html(
-                _user_name(candidate.user),
-                f'<p>We received your payment of <strong>{rp_order.currency} {rp_order.amount}</strong>. '
-                f'Your subscription is now <strong>Active</strong>. Please find your receipt attached.</p>',
-                action_label="Go to Dashboard",
-                action_url="/candidate-dashboard"
-            ),
-            attachments=attachments,
-        )
+        return Response({
+            'detail': 'Payment verified successfully',
+            'payment_id': str(payment.id) if payment else None,
+            'candidate_status': candidate.status,
+            'subscription_status': sub.status if sub else None,
+        })
+    except ValueError as e:
+        return Response({'error': str(e)}, status=400)
     except Exception as e:
-        logger.error("Non-critical fulfillment failed after successful payment: %s", str(e))
-        # We don't return 500 here because the payment was actually successful
-
-    return Response({
-        'detail': 'Payment verified successfully',
-        'payment_id': str(payment.id),
-        'candidate_status': candidate.status,
-        'subscription_status': sub.status if sub else None,
-    })
-
+        logger.error(f"Fulfillment failed after verification: {e}")
+        return Response({'error': 'Verification post-processing failed'}, status=500)
 
 
 #  Manual / Admin Payments 
@@ -591,7 +414,7 @@ def payments(request, candidate_id):
 @api_view(['POST'])
 @permission_classes([IsApproved])
 def initiate_payment(request, candidate_id, payment_id):
-    """Create a Razorpay order for a specific pending billing.Payment record."""
+    """Create a Razorpay order for a specific pending billing.Payment record (addon)."""
     try:
         candidate = Candidate.objects.select_related('user').get(id=candidate_id)
     except Candidate.DoesNotExist:
@@ -605,144 +428,47 @@ def initiate_payment(request, candidate_id, payment_id):
     except Payment.DoesNotExist:
         return Response({'error': 'Payment not found'}, status=404)
 
-    if pay.status != 'pending':
-        return Response({'error': f'Payment is already {pay.status}'}, status=400)
-
-    total_amount = float(pay.amount)
-    currency     = pay.currency or 'USD'
-    total_paise  = int(total_amount * 100)
-    description  = pay.payment_type.replace('_', ' ').title()
-
-    razorpay_client, key_id = _get_razorpay_client()
-    if razorpay_client is None:
-        return Response({'error': 'Payment gateway not configured'}, status=500)
-
     try:
-        rz_order = razorpay_client.order.create({
-            'amount': total_paise, 'currency': currency,
-            'receipt': f'hyrind_pay_{str(payment_id)[:8]}',
-            'notes': {'payment_type': pay.payment_type, 'candidate': str(candidate_id)},
-        })
+        order_details = PaymentService.create_razorpay_order_for_payment(candidate, pay)
+        return Response(order_details)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=400)
     except Exception as e:
-        logger.error("Razorpay order creation (individual payment) failed: %s", str(e))
-        return Response({'error': f'Failed to create Razorpay order: {str(e)}'}, status=500)
-
-    RazorpayOrder.objects.filter(candidate=candidate, status='created').update(status='failed')
-    rp_order = RazorpayOrder.objects.create(
-        candidate=candidate, subscription=pay.subscription,
-        razorpay_order_id=rz_order['id'],
-        amount=total_amount, currency=currency,
-        payment_type=pay.payment_type, notes={'billing_payment_id': str(pay.id)},
-    )
-    return Response({
-        'order_id': rz_order['id'], 'amount': total_paise, 'currency': currency, 'key_id': key_id,
-        'internal_order_id': str(rp_order.id), 'billing_payment_id': str(pay.id),
-        'description': f'Hyrind | {description}',
-        'prefill': {
-            'name': _user_name(candidate.user), 'email': candidate.user.email,
-            'contact': getattr(candidate.user.profile, 'phone', '') if hasattr(candidate.user, 'profile') else '',
-        },
-    })
+        logger.error(f"Failed to create individual Razorpay order: {e}")
+        return Response({'error': 'Individual payment order generation failed'}, status=500)
 
 
 # ─── Verify individual payment via Razorpay ───────────────────────────────────
 @api_view(['POST'])
 @permission_classes([IsApproved])
 def verify_individual_payment(request, candidate_id, payment_id):
-    """Verify a Razorpay payment for an individual billing.Payment and mark it completed."""
-    rz_order_id   = request.data.get('razorpay_order_id')
+    """Verify a Razorpay payment for an individual billing.Payment (addon) and mark it completed."""
+    rz_order_id = request.data.get('razorpay_order_id')
     rz_payment_id = request.data.get('razorpay_payment_id')
-    rz_signature  = request.data.get('razorpay_signature', '')
+    rz_signature = request.data.get('razorpay_signature', '')
 
     try:
-        candidate = Candidate.objects.select_related('user').get(id=candidate_id)
-    except Candidate.DoesNotExist:
-        return Response({'error': 'Candidate not found'}, status=404)
-
-    try:
-        pay = Payment.objects.get(id=payment_id, candidate=candidate)
-    except Payment.DoesNotExist:
-        return Response({'error': 'Payment not found'}, status=404)
-
-    try:
-        rp_order = RazorpayOrder.objects.get(razorpay_order_id=rz_order_id, candidate=candidate)
-    except RazorpayOrder.DoesNotExist:
-        return Response({'error': 'Order not found'}, status=404)
-
-    client, _ = _get_razorpay_client()
-    if client:
-        try:
-            client.utility.verify_payment_signature({
-                'razorpay_order_id': rz_order_id,
-                'razorpay_payment_id': rz_payment_id,
-                'razorpay_signature': rz_signature,
-            })
-        except Exception as e:
-            logger.warning("Signature verification failed (individual payment): %s", str(e))
-            return Response({'error': 'Payment verification failed'}, status=400)
-    else:
-        return Response({'error': 'Payment gateway not configured'}, status=500)
-
-    rp_order.razorpay_payment_id = rz_payment_id
-    rp_order.razorpay_signature  = rz_signature
-    rp_order.status              = 'paid'
-    rp_order.verified_at         = timezone.now()
-    rp_order.save()
-
-    pay.status         = 'completed'
-    pay.payment_date   = timezone.now().date()
-    pay.razorpay_order = rp_order
-    pay.notes          = (pay.notes or '') + f' | Razorpay: {rz_payment_id}'
-    pay.save(update_fields=['status', 'payment_date', 'razorpay_order', 'notes'])
-
-    if pay.payment_type in ('subscription', 'monthly_service') and pay.subscription:
-        _update_candidate_and_subscription_status(candidate, pay.subscription)
-
-    log_action(request.user, 'payment_completed', str(candidate_id), 'payment',
-               {'payment_id': str(payment_id), 'razorpay_id': rz_payment_id})
-
-    # ── Create Invoice + send email with PDF receipt (non-critical) ────────────
-    try:
-        from dateutil.relativedelta import relativedelta
-        period_start = timezone.now().date()
-        period_end   = period_start + relativedelta(months=1)
-        description  = pay.payment_type.replace('_', ' ').title()
-
-        invoice = Invoice.objects.create(
-            subscription=pay.subscription,   # may be None for add-on payments
-            candidate=candidate,
-            amount=pay.amount,
-            currency=pay.currency,
-            period_start=period_start,
-            period_end=period_end,
-            status='paid',
-            paid_at=timezone.now(),
-            payment_reference=rz_payment_id,
-            description=description,
+        pay = PaymentService.verify_individual_payment(
+            candidate_id=candidate_id,
+            payment_id=payment_id,
+            razorpay_order_id=rz_order_id,
+            razorpay_payment_id=rz_payment_id,
+            razorpay_signature=rz_signature
         )
 
-        pdf_bytes = generate_invoice_pdf(invoice)
-        attachments = [{
-            "filename": f"hyrind_invoice_{str(invoice.id).split('-')[0]}.pdf",
-            "content": list(pdf_bytes),
-        }]
+        log_action(request.user, 'payment_completed', str(candidate_id), 'payment',
+                   {'payment_id': str(payment_id), 'razorpay_id': rz_payment_id})
 
-        send_email(
-            candidate.user.email,
-            f'Payment Confirmed — {description} — Hyrind',
-            get_styled_email_html(
-                _user_name(candidate.user),
-                f'<p>Your payment of <strong>{pay.currency} {pay.amount}</strong> '
-                f'for <strong>{description}</strong> has been received and confirmed. '
-                f'Please find your receipt attached.</p>',
-                action_label='View Payments', action_url='/candidate-dashboard/payments',
-            ),
-            attachments=attachments,
-        )
+        return Response({
+            'detail': 'Payment verified successfully',
+            'payment_id': str(pay.id),
+            'status': pay.status
+        })
+    except ValueError as e:
+        return Response({'error': str(e)}, status=400)
     except Exception as e:
-        logger.error("Invoice/email after individual payment failed: %s", str(e))
-
-    return Response({'detail': 'Payment verified successfully', 'payment_id': str(pay.id), 'status': pay.status})
+        logger.error(f"Fulfillment failed for individual payment verification: {e}")
+        return Response({'error': 'Verification post-processing failed'}, status=500)
 
 
 @api_view(['POST'])
@@ -816,7 +542,23 @@ def record_payment(request, candidate_id):
                 paid_at=timezone.now(),
                 payment_reference=f"ADMIN-{pay.id}",
                 description=description,
+                tax_amount=Decimal('0.00'),
+                tax_rate=Decimal('0.00'),
             )
+
+            # Record in Purchase History if manual addon payment recorded successfully
+            if pay.payment_type == 'addon':
+                purchased_by_val = f"Admin ({_user_name(request.user)})"
+                PurchaseHistoryService.record_purchase(
+                    candidate=pay.candidate,
+                    service_name=pay.addon_assignment.addon.name if pay.addon_assignment else 'Service Add-on',
+                    amount=pay.amount,
+                    currency=pay.currency,
+                    addon_assignment=pay.addon_assignment,
+                    payment=pay,
+                    invoice=invoice,
+                    purchased_by=purchased_by_val
+                )
 
             pdf_bytes = generate_invoice_pdf(invoice)
             attachments = [{
@@ -997,7 +739,7 @@ def manage_payment(request, payment_id):
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def candidate_overview(request, candidate_id):
-    """Aggregate Subscription, Invoices, and Payments for candidate dashboard."""
+    """Aggregate Subscription, stand-alone Addons, Invoices, and Payments for candidate dashboard."""
     try:
         candidate = Candidate.objects.get(id=candidate_id)
     except Candidate.DoesNotExist:
@@ -1005,15 +747,27 @@ def candidate_overview(request, candidate_id):
         
     try:
         sub = Subscription.objects.select_related('plan').get(candidate_id=candidate_id)
+        # Dynamically verify status using check_status
+        sub.check_status()
         sub_data = SubscriptionSerializer(sub).data
     except Subscription.DoesNotExist:
         sub_data = None
         
+    # Stand-alone Addon Assignments
+    addons = SubscriptionAddonAssignment.objects.filter(candidate=candidate).order_by('-added_at')
+    addons_data = SubscriptionAddonAssignmentSerializer(addons, many=True).data
+
+    # Purchase History
+    purchase_history = PurchaseHistory.objects.filter(candidate=candidate).order_by('-created_at')
+    purchase_history_data = PurchaseHistorySerializer(purchase_history, many=True).data
+
     invoices = Invoice.objects.filter(candidate_id=candidate_id).order_by('-period_start')
     payments = Payment.objects.filter(candidate_id=candidate_id).order_by('-created_at')
     
     return Response({
         'subscription': sub_data,
+        'addons': addons_data,
+        'purchase_history': purchase_history_data,
         'invoices': InvoiceSerializer(invoices, many=True).data,
         'payments': PaymentSerializer(payments, many=True).data,
     })

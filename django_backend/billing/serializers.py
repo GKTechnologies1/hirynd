@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SubscriptionPlan, SubscriptionAddon, Subscription, SubscriptionAddonAssignment, RazorpayOrder, Payment, Invoice
+from .models import SubscriptionPlan, SubscriptionAddon, Subscription, SubscriptionAddonAssignment, RazorpayOrder, Payment, Invoice, PurchaseHistory
 
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
@@ -21,7 +21,7 @@ class SubscriptionAddonAssignmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubscriptionAddonAssignment
-        fields = ['id', 'addon', 'addon_detail', 'added_by', 'added_at', 'amount']
+        fields = ['id', 'addon', 'addon_detail', 'added_by', 'added_at', 'amount', 'status', 'candidate', 'subscription']
         read_only_fields = ['id', 'added_at', 'added_by']
 
 
@@ -101,3 +101,22 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     def get_display_id(self, obj):
         return f"INV{str(obj.id)[:8].upper()}"
+
+
+class PurchaseHistorySerializer(serializers.ModelSerializer):
+    candidate_name = serializers.SerializerMethodField()
+    candidate_display_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PurchaseHistory
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_candidate_name(self, obj):
+        user = obj.candidate.user
+        if hasattr(user, 'profile') and user.profile.full_name:
+            return user.profile.full_name
+        return user.email
+
+    def get_candidate_display_id(self, obj):
+        return obj.candidate.display_id

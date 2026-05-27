@@ -46,7 +46,7 @@ const openRazorpay = async (
       description: orderData.description,
       order_id: orderData.order_id,
       prefill: orderData.prefill,
-      theme: { color: "#3b82f6" },
+      theme: { color: "#0f172a" }, // Dark slate premium theme
       handler: async (response: any) => {
         try {
           const verifyData: Record<string, any> = {
@@ -92,6 +92,7 @@ const statusIcon = (s: string) => {
 const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, onStatusChange?: () => void }) => {
   const { toast } = useToast();
   const [subscription, setSubscription] = useState<any>(null);
+  const [addons, setAddons]             = useState<any[]>([]);
   const [payments, setPayments]         = useState<any[]>([]);
   const [loading, setLoading]           = useState(true);
   const [payingSubscription, setPayingSubscription] = useState(false);
@@ -101,12 +102,10 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
     if (!candidate?.id) return;
     setLoading(true);
     try {
-      const [subRes, payRes] = await Promise.all([
-        billingApi.subscription(candidate.id),
-        billingApi.payments(candidate.id),
-      ]);
-      setSubscription(subRes.data?.id ? subRes.data : null);
-      setPayments(payRes.data || []);
+      const overviewRes = await billingApi.candidateOverview(candidate.id);
+      setSubscription(overviewRes.data?.subscription || null);
+      setAddons(overviewRes.data?.addons || []);
+      setPayments(overviewRes.data?.payments || []);
     } catch { /* ignore */ }
     setLoading(false);
   }, [candidate?.id]);
@@ -145,26 +144,41 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
     }
   };
 
-  const totalAmount = subscription
-    ? Number(subscription.amount) + Number(subscription.total_addons_amount || 0)
-    : 400;
-
   const subscriptionPending = subscription?.status
-    ? ["payment_pending", "pending_payment", "unpaid", "past_due"].some((s) => subscription.status.includes(s))
+    ? ["pending_payment", "unpaid", "past_due", "expired"].includes(subscription.status)
     : false;
 
-  const pendingPayments = payments.filter((p) => p.status === "pending");
+  // Filter completed and pending stand-alone addons
+  const pendingAddons = addons.filter((a) => a.status === "pending");
+
+  const getSubBadgeStyles = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20";
+      case "expiring_soon":
+        return "bg-orange-500/10 text-orange-600 border border-orange-500/20 animate-pulse";
+      case "pending_payment":
+        return "bg-amber-500/10 text-amber-600 border border-amber-500/20 animate-pulse";
+      case "expired":
+        return "bg-red-500/10 text-red-600 border border-red-500/20";
+      case "cancelled":
+        return "bg-slate-500/10 text-slate-600 border border-slate-500/20";
+      default:
+        return "bg-slate-500/10 text-slate-600 border border-slate-500/20";
+    }
+  };
+
   const completedPayments = payments.filter((p) => p.status !== "pending");
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16 animate-in fade-in duration-500">
       <div className="space-y-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
             Billing &amp; Payments
           </h1>
-          <p className="text-muted-foreground">
-            Manage your subscription and clear any pending charges below.
+          <p className="text-muted-foreground text-sm">
+            Review your recurring plan subscriptions, activate pending add-on services, and download payment receipts.
           </p>
         </div>
 
@@ -174,81 +188,68 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
             <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
           </Card>
         ) : (
-          <Card className="overflow-hidden border-none shadow-xl bg-card">
-            <div className="h-2 bg-gradient-to-r from-primary via-secondary to-primary/80" />
+          <Card className="overflow-hidden border border-slate-200/60 shadow-xl bg-card rounded-2xl">
+            <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600" />
             <CardHeader className="pb-4">
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <CreditCard className="h-6 w-6 text-primary" />
+                <div className="flex items-center gap-3.5">
+                  <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                    <CreditCard className="h-6 w-6 text-blue-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl font-bold tracking-tight">
-                      {subscription?.plan_name || "Hyrind Subscription"}
+                    <CardTitle className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                      {subscription?.plan_name || "Base Plan Subscription"}
                     </CardTitle>
-                    <CardDescription className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                    <CardDescription className="flex flex-wrap items-center gap-1.5 mt-1 text-slate-500 text-xs">
                       <Clock className="h-3.5 w-3.5" />
-                      <span>{subscription?.billing_cycle ? subscription.billing_cycle.replace(/_/g, " ") : "monthly"} billing</span>
+                      <span className="capitalize">{subscription?.billing_cycle ? subscription.billing_cycle.replace(/_/g, " ") : "monthly"} billing cycle</span>
                       {subscription?.next_billing_at && (
                         <>
-                          <span className="text-muted-foreground/30">•</span>
-                          <span className="font-semibold text-foreground/80">
-                            {subscription.status === "pending_payment" || subscription.status === "past_due" ? "Due" : "Next Billing"}: {formatDate(subscription.next_billing_at)}
+                          <span className="text-slate-300 dark:text-slate-700">•</span>
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {subscription.status === "pending_payment" || subscription.status === "past_due" ? "Due Date" : "Next Billing Date"}: {formatDate(subscription.next_billing_at)}
                           </span>
                         </>
                       )}
                     </CardDescription>
-
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <Badge variant="secondary" className={subscription?.status === "active" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"}>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Badge variant="secondary" className={`${getSubBadgeStyles(subscription?.status)} px-2.5 py-0.5`}>
                     <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px]">
-                      <span className={`h-2 w-2 rounded-full ${subscription?.status === "active" ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`} />
+                      <span className={`h-1.5 w-1.5 rounded-full ${subscription?.status === "active" ? "bg-emerald-500" : subscription?.status === "expiring_soon" ? "bg-orange-500" : "bg-amber-500"}`} />
                       {subscription?.status ? subscription.status.replace(/_/g, " ").toUpperCase() : "PENDING PAYMENT"}
                     </span>
                   </Badge>
-                  <Button variant="ghost" size="sm" className="h-8 text-xs font-bold" onClick={fetchData}>
-                    <RefreshCw className="mr-2 h-3 w-3" /> Sync
+                  <Button variant="ghost" size="sm" className="h-8 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100" onClick={fetchData}>
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Sync Status
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6 pt-2">
-              <div className="rounded-2xl bg-muted/40 p-6 space-y-4 border border-border/50">
+              <div className="rounded-2xl bg-slate-50/50 dark:bg-slate-900/30 p-6 space-y-4 border border-slate-100 dark:border-slate-800/40">
                 <div className="flex justify-between items-center text-sm font-medium">
-                  <span className="text-muted-foreground">Core Marketing Services</span>
-                  <span className="font-bold text-lg">${Number(subscription?.amount ?? 400).toLocaleString()}</span>
+                  <span className="text-slate-500">Standard Marketing Fee</span>
+                  <span className="font-bold text-lg text-slate-850 dark:text-slate-100">${Number(subscription?.amount ?? 400).toLocaleString()}</span>
                 </div>
-                {subscription?.addon_assignments?.length > 0 && (
-                  <div className="space-y-3 pt-3 border-t border-border/40">
-                    {subscription.addon_assignments.map((a: any) => (
-                      <div key={a.id} className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground flex items-center gap-2">
-                          <Package className="h-4 w-4 text-primary/60" /> {a.addon_detail?.name}
-                        </span>
-                        <span className="font-bold">${Number(a.amount || a.addon_detail?.amount || 0).toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="border-t border-primary/20 pt-4 flex justify-between items-end">
+                <div className="border-t border-slate-200/50 dark:border-slate-800/50 pt-4 flex justify-between items-end">
                   <div>
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-                      {subscriptionPending ? "Total Amount Due" : "Active Package Total"}
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                      {subscriptionPending ? "Total Amount Due" : "Core Subscription Fee"}
                     </p>
-                    <h2 className="text-3xl font-black tracking-tighter">
-                      ${totalAmount.toLocaleString()}
+                    <h2 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">
+                      ${Number(subscription?.amount ?? 400).toLocaleString()}
                       <span className="text-sm font-normal text-muted-foreground ml-1">{subscription?.currency || "USD"}</span>
                     </h2>
                   </div>
                   {subscriptionPending ? (
-                    <Button className="px-8 py-6 text-lg font-bold shadow-lg shadow-primary/20" variant="hero" onClick={handlePaySubscription} disabled={payingSubscription}>
-                      {payingSubscription ? "Processing..." : "Pay Now"}
+                    <Button className="px-8 py-6 text-md font-bold shadow-lg shadow-blue-500/10" variant="hero" onClick={handlePaySubscription} disabled={payingSubscription}>
+                      {payingSubscription ? "Processing..." : "Pay Plan Now"}
                     </Button>
                   ) : subscription?.status === "active" ? (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 text-emerald-600 rounded-lg font-bold text-sm border border-emerald-500/10">
-                      <ShieldCheck className="h-5 w-5" /> SECURE & ACTIVE
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/5 text-emerald-600 rounded-xl font-bold text-xs border border-emerald-500/10">
+                      <ShieldCheck className="h-4.5 w-4.5 text-emerald-500" /> SECURE & ACTIVE
                     </div>
                   ) : null}
                 </div>
@@ -257,56 +258,83 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
           </Card>
         )}
 
-        {/* Pending Charges */}
-        {pendingPayments.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold flex items-center gap-2 px-1">
-              <AlertTriangle className="h-5 w-5 text-amber-500" /> Pending Charges
+        {/* Standalone Addons Awaiting Payment */}
+        {pendingAddons.length > 0 && (
+          <div className="space-y-4 pt-2">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2 px-1">
+              <AlertTriangle className="h-5 w-5 text-amber-500" /> Stand-alone Services Awaiting Payment
             </h3>
-            <div className="grid gap-3">
-              {pendingPayments.map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-amber-500/10"><Clock className="h-5 w-5 text-amber-500" /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pendingAddons.map((addon) => {
+                const pendingPayment = payments.find(p => p.addon_assignment === addon.id && p.status === "pending");
+                return (
+                  <Card key={addon.id} className="overflow-hidden border border-amber-500/20 bg-amber-500/[0.02] shadow-sm rounded-xl p-5 hover:bg-amber-500/[0.04] transition-all flex flex-col justify-between">
                     <div>
-                      <p className="font-bold text-lg">${Number(p.amount).toLocaleString()} {p.currency}</p>
-                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{(p.payment_type || "").replace(/_/g, " ")}</p>
+                      <div className="flex justify-between items-start mb-2">
+                        <Badge className="bg-amber-500/10 text-amber-700 border border-amber-500/20 text-[9px] font-bold py-0.5 px-2 uppercase rounded-md">
+                          Awaiting Payment
+                        </Badge>
+                        <span className="text-lg font-bold text-slate-800 dark:text-slate-100">${Number(addon.amount).toLocaleString()}</span>
+                      </div>
+                      <h4 className="font-bold text-base text-slate-900 dark:text-white mt-1">{addon.addon_detail?.name}</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed mt-1">{addon.addon_detail?.description || "Decoupled standalone training module."}</p>
                     </div>
-                  </div>
-                  <Button variant="hero" size="sm" className="px-6 font-bold" onClick={() => handlePayIndividual(p.id)} disabled={payingId === p.id}>
-                    {payingId === p.id ? "Processing..." : "Pay Now"}
-                  </Button>
-                </div>
-              ))}
+
+                    <div className="pt-5 border-t border-amber-500/10 mt-4 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-semibold">Assigned {formatDate(addon.added_at)}</span>
+                      {pendingPayment && (
+                        <Button 
+                          variant="hero" 
+                          size="sm" 
+                          className="h-8 px-4 font-bold text-xs" 
+                          onClick={() => handlePayIndividual(pendingPayment.id)} 
+                          disabled={payingId === pendingPayment.id}
+                        >
+                          {payingId === pendingPayment.id ? "Processing..." : "Pay Now"}
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Transaction History (Restored) */}
+
+
+        {/* Transaction History */}
         {completedPayments.length > 0 && (
           <div className="space-y-4 pt-4">
-            <h3 className="text-lg font-bold flex items-center gap-2 px-1">
-              <FileText className="h-5 w-5 text-primary/60" /> Transaction History
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2 px-1">
+              <FileText className="h-5 w-5 text-slate-400" /> Transaction History
             </h3>
             <div className="grid gap-3">
               {completedPayments.map((p: any) => (
-                <div key={p.id} className="group flex items-center gap-4 rounded-2xl bg-card border border-border p-5 transition-all hover:border-primary/30 hover:bg-muted/5">
+                <div key={p.id} className="group flex items-center gap-4 rounded-2xl bg-card border border-slate-200/50 dark:border-slate-800/40 p-5 transition-all hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50/[0.3]">
                   <div className={`p-3 rounded-xl ${p.status === "completed" || p.status === "paid" ? "bg-emerald-500/5" : "bg-red-500/5"}`}>
                     {statusIcon(p.status)}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold tracking-tight">${Number(p.amount).toLocaleString()}</span>
-                      <Badge variant="outline" className="capitalize text-[10px] font-bold tracking-widest border-border/60">
+                      <span className="text-lg font-bold tracking-tight text-slate-850 dark:text-slate-100">${Number(p.amount).toLocaleString()}</span>
+                      <Badge variant="outline" className="capitalize text-[10px] font-bold tracking-widest border-slate-200/60 dark:border-slate-800">
                         {p.status}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        {p.payment_type === "addon" ? <Package className="h-3 w-3 inline text-slate-400" /> : <CreditCard className="h-3 w-3 inline text-slate-400" />}
                         {(p.payment_type || "").replace(/_/g, " ")}
                       </p>
-                      <span className="text-muted-foreground/30">•</span>
-                      <p className="text-xs text-muted-foreground">{formatDate(p.payment_date || p.created_at)}</p>
+                      <span className="text-slate-300 dark:text-slate-700">•</span>
+                      <p className="text-xs text-slate-400">{formatDate(p.payment_date || p.created_at)}</p>
+                      {p.notes && (
+                        <>
+                          <span className="text-slate-300 dark:text-slate-700">•</span>
+                          <p className="text-xs text-slate-500 truncate max-w-sm">{p.notes}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

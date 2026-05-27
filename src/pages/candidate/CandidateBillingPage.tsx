@@ -7,25 +7,26 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { DataTable } from "@/components/ui/DataTable";
 import {
-  FileText, Loader2, RefreshCw, Download, Info, CreditCard
+  FileText, Loader2, RefreshCw, Download, Info, CreditCard, Package, CheckCircle
 } from "lucide-react";
 
 const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [addons, setAddons]             = useState<any[]>([]);
+  const [purchaseHistory, setPurchaseHistory] = useState<any[]>([]);
+  const [invoices, setInvoices]         = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!candidate?.id) return;
     setLoading(true);
     try {
-      const [subRes, invRes] = await Promise.all([
-        billingApi.subscription(candidate.id),
-        billingApi.invoices(candidate.id)
-      ]);
-      setSubscription(subRes.data?.id ? subRes.data : null);
-      setInvoices(invRes.data || []);
+      const overviewRes = await billingApi.candidateOverview(candidate.id);
+      setSubscription(overviewRes.data?.subscription || null);
+      setAddons(overviewRes.data?.addons || []);
+      setPurchaseHistory(overviewRes.data?.purchase_history || []);
+      setInvoices(overviewRes.data?.invoices || []);
     } catch (err) {
       console.error("Failed to fetch billing data", err);
     }
@@ -50,6 +51,8 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
       toast({ title: "Download failed", variant: "destructive" });
     }
   };
+
+
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-16 animate-in fade-in duration-500">
@@ -85,7 +88,7 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Amount</p>
                 <p className="font-bold text-slate-800">
-                  ${Number(subscription.amount).toLocaleString()} <span className="text-slate-400 text-[10px] font-normal">/ monthly</span>
+                  ${Number(subscription.amount).toLocaleString()} <span className="text-slate-400 text-[10px] font-normal">/ {subscription.billing_cycle || "monthly"}</span>
                 </p>
               </div>
               <div className="space-y-1">
@@ -94,7 +97,6 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
                 </p>
                 <p className="font-bold text-slate-800">{formatDate(subscription.next_billing_at)}</p>
               </div>
-
             </div>
           )}
 
@@ -109,6 +111,66 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Stand-alone Purchased Addons (Purchase History Ledger) */}
+      {!loading && purchaseHistory.length > 0 && (
+        <Card className="border-none shadow-sm overflow-hidden bg-white">
+          <CardContent className="p-8">
+            <div className="flex items-center gap-2 mb-6">
+              <Package className="h-5 w-5 text-[#0d47a1]" />
+              <h2 className="text-lg font-bold text-slate-800">Purchase History (Add-ons & Services)</h2>
+            </div>
+            <DataTable
+              data={purchaseHistory}
+              isLoading={loading}
+              searchKey="service_name"
+              searchPlaceholder="Search purchased services..."
+              emptyMessage="No stand-alone purchases found."
+              columns={[
+                {
+                  header: "Item / Service",
+                  render: (ph: any) => (
+                    <div className="space-y-0.5">
+                      <p className="text-[11px] font-bold text-slate-700">{ph.service_name}</p>
+                      {ph.invoice_reference && (
+                        <p className="text-[9px] text-slate-400 font-mono">Ref: {ph.invoice_reference}</p>
+                      )}
+                    </div>
+                  )
+                },
+                {
+                  header: "Purchase Date",
+                  render: (ph: any) => <span className="text-[11px] text-slate-500 font-medium">{formatDate(ph.created_at)}</span>
+                },
+                {
+                  header: "Amount",
+                  render: (ph: any) => <span className="text-[11px] text-slate-700 font-bold">${Number(ph.amount).toLocaleString()}</span>
+                },
+                {
+                  header: "Purchased By",
+                  render: (ph: any) => (
+                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded font-semibold">
+                      {ph.purchased_by}
+                    </span>
+                  )
+                },
+                {
+                  header: "Transaction ID",
+                  render: (ph: any) => <span className="text-[10px] text-slate-400 font-mono font-semibold">{ph.transaction_id || "—"}</span>
+                },
+                {
+                  header: "Status",
+                  render: () => (
+                    <Badge className="bg-emerald-500 text-white border-none shadow-none text-[9px] font-bold h-4 px-1.5 rounded-sm uppercase flex items-center gap-1 w-fit">
+                      <CheckCircle className="h-2.5 w-2.5" /> Completed
+                    </Badge>
+                  )
+                }
+              ]}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Payments & Invoice History */}
       <Card className="border-none shadow-sm overflow-hidden bg-white">
@@ -145,14 +207,21 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
                 header: "Description / Period",
                 render: (inv: any) => (
                   <div className="space-y-0.5">
-                    <p className="text-[11px] font-bold text-slate-700">{inv.description || inv.subscription?.plan_name || "Service Fee"}</p>
+                    <p className="text-[11px] font-bold text-slate-700 font-sans">{inv.description || "Service Fee"}</p>
                     <p className="text-[10px] text-slate-400 font-medium">{formatDate(inv.period_start)} — {formatDate(inv.period_end)}</p>
                   </div>
                 )
               },
               {
                 header: "Amount",
-                render: (inv: any) => <span className="font-bold text-[11px] text-slate-700">${Number(inv.amount).toLocaleString()}</span>
+                render: (inv: any) => (
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-[11px] text-slate-700">${Number(inv.amount).toLocaleString()}</p>
+                    {inv.tax_amount > 0 && (
+                      <p className="text-[9px] text-slate-400 font-medium">Tax: ${Number(inv.tax_amount).toLocaleString()} ({inv.tax_rate}%)</p>
+                    )}
+                  </div>
+                )
               },
               {
                 header: "Status",

@@ -60,14 +60,11 @@ class SubscriptionAddon(models.Model):
 # ────────────────────────────────────────────────────────────────
 class Subscription(models.Model):
     STATUS_CHOICES = [
-        ('pending_payment', 'Pending Payment'),   # admin assigned plan, awaiting candidate payment
-        ('trialing', 'Trialing'),
         ('active', 'Active'),
-        ('past_due', 'Past Due'),
-        ('grace_period', 'Grace Period'),
-        ('paused', 'Paused'),
-        ('canceled', 'Canceled'),
-        ('unpaid', 'Unpaid'),
+        ('expiring_soon', 'Expiring Soon'),
+        ('pending_payment', 'Pending Payment'),
+        ('expired', 'Expired'),
+        ('cancelled', 'Cancelled'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -141,19 +138,26 @@ class Subscription(models.Model):
 
 class SubscriptionAddonAssignment(models.Model):
     """Addons added to a specific candidate's subscription."""
+    STATUS_CHOICES = [
+        ('pending', 'Pending Payment'),
+        ('completed', 'Completed'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='addon_assignments')
+    subscription = models.ForeignKey(Subscription, null=True, blank=True, on_delete=models.CASCADE, related_name='addon_assignments')
+    candidate = models.ForeignKey(Candidate, null=True, blank=True, on_delete=models.CASCADE, related_name='addon_assignments')
     addon = models.ForeignKey(SubscriptionAddon, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='Actual price for this assignment')
     added_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name='added_addons')
     added_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, default='pending', choices=STATUS_CHOICES)
 
     class Meta:
         db_table = 'subscription_addon_assignments'
-        unique_together = [('subscription', 'addon')]
 
     def __str__(self):
-        return f"{self.addon.name} for {self.subscription.candidate.user.email}"
+        email = self.candidate.user.email if self.candidate else (self.subscription.candidate.user.email if self.subscription else 'Unknown')
+        return f"{self.addon.name} for {email} ({self.status})"
 
 
 # ────────────────────────────────────────────────────────────────
@@ -201,12 +205,14 @@ class Payment(models.Model):
         ('mock_practice', 'Mock Practice Fee'),
         ('interview_support', 'Interview Support Fee'),
         ('operations_support', 'Operations Support Fee'),
+        ('addon', 'Add-on Fee'),
         ('manual', 'Manual / Other'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='billing_payments')
     subscription = models.ForeignKey(Subscription, null=True, blank=True, on_delete=models.SET_NULL, related_name='payments')
+    addon_assignment = models.ForeignKey('SubscriptionAddonAssignment', null=True, blank=True, on_delete=models.SET_NULL, related_name='payments')
     razorpay_order = models.OneToOneField(RazorpayOrder, null=True, blank=True, on_delete=models.SET_NULL, related_name='payment')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=10, default='USD')
@@ -242,6 +248,8 @@ class Invoice(models.Model):
     payment_reference = models.CharField(max_length=255, blank=True, null=True)
     failure_reason = models.TextField(blank=True, null=True)
     description = models.CharField(max_length=255, blank=True, null=True, help_text='Description of the invoice, especially useful if not tied to a subscription')
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -250,3 +258,30 @@ class Invoice(models.Model):
 
     def __str__(self):
         return f"Invoice {self.period_start} to {self.period_end} - {self.candidate.user.email}"
+
+
+# ────────────────────────────────────────────────────────────────
+#  Purchase History
+# ────────────────────────────────────────────────────────────────
+class PurchaseHistory(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='purchase_histories')
+    addon_assignment = models.ForeignKey('SubscriptionAddonAssignment', null=True, blank=True, on_delete=models.SET_NULL, related_name='purchase_histories')
+    payment = models.ForeignKey('Payment', null=True, blank=True, on_delete=models.SET_NULL, related_name='purchase_histories')
+    invoice = models.ForeignKey('Invoice', null=True, blank=True, on_delete=models.SET_NULL, related_name='purchase_histories')
+    service_name = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=10, default='USD')
+    payment_status = models.CharField(max_length=50, default='completed')
+    transaction_id = models.CharField(max_length=255, blank=True, null=True)
+    invoice_reference = models.CharField(max_length=255, blank=True, null=True)
+    purchased_by = models.CharField(max_length=255, default='Candidate') # "Candidate" or "Admin (Chaitu)"
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'purchase_history'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Purchase: {self.service_name} - {self.candidate.user.email} (${self.amount})"

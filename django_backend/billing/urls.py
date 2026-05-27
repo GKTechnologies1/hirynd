@@ -26,6 +26,7 @@ urlpatterns = [
     path('<uuid:candidate_id>/subscription/assign/', views.assign_plan, name='assign_plan'),
     path('<uuid:candidate_id>/subscription/update/', views.update_subscription, name='update_subscription'),
     path('<uuid:candidate_id>/subscription/addon/', views.add_addon_to_subscription, name='add_addon_to_subscription'),
+    path('<uuid:candidate_id>/addon/assign/', views.assign_addon, name='assign_addon'),
 
     # Razorpay
     path('<uuid:candidate_id>/payment/create-order/', views.create_razorpay_order, name='create_razorpay_order'),
