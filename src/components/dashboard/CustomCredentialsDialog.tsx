@@ -192,7 +192,7 @@ const CustomCredentialsDialog: React.FC<CustomCredentialsDialogProps> = ({
             </Button>
           )}
         </DialogFooter>
-      </Dialog>
+      </DialogContent>
     </Dialog>
   );
 };
