@@ -36,6 +36,11 @@ def assign_recruiter(request):
     data['assigned_by'] = request.user.id
     serializer = RecruiterAssignmentSerializer(data=data)
     serializer.is_valid(raise_exception=True)
+    
+    recruiter_user = serializer.validated_data.get('recruiter')
+    if recruiter_user and recruiter_user.approval_status == 'rejected':
+        return Response({'error': 'Rejected recruiters cannot be assigned to candidates.'}, status=status.HTTP_400_BAD_REQUEST)
+        
     serializer.save()
     log_action(request.user, 'recruiter_assigned', str(data.get('candidate')), 'assignment', data)
     return Response(serializer.data, status=status.HTTP_201_CREATED)

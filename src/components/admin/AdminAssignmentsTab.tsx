@@ -43,7 +43,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
       setAssignments(assignRes.data || []);
       // backend returns { results: [], total: 0 }
       const recruiterList = Array.isArray(recruiterRes.data) ? recruiterRes.data : recruiterRes.data?.results || [];
-      setRecruiters(recruiterList);
+      setRecruiters(recruiterList.filter((r: any) => r.approval_status !== "rejected"));
     } catch {
       setAssignments([]); setRecruiters([]);
     }
@@ -56,6 +56,16 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
     if (!selectedRecruiter || !selectedRole) return;
 
     const recruiterObj = recruiters.find(r => r.id === selectedRecruiter);
+    
+    if (recruiterObj?.approval_status === "rejected") {
+      toast({ 
+        title: "Assignment Failed", 
+        description: "Rejected recruiters cannot be assigned to candidates.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     const isAlreadyAssigned = assignments.some(a => a.recruiter_email === recruiterObj?.email);
 
     if (isAlreadyAssigned) {
