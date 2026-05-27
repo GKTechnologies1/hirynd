@@ -25,4 +25,7 @@ urlpatterns = [
     path('referrals/<uuid:referral_id>/update/', views.update_referral, name='update_referral'),
     path('admin/activity-report/', views.admin_activity_report, name='admin_activity_report'),
     path('<uuid:candidate_id>/roles/proposed/<uuid:role_id>/', views.delete_proposed_role, name='delete_proposed_role'),
+    path('<uuid:candidate_id>/roles/<uuid:role_id>/delete/', views.delete_role, name='delete_role'),
+    path('<uuid:candidate_id>/roles/<uuid:role_id>/update/', views.update_role, name='update_role'),
 ]
+

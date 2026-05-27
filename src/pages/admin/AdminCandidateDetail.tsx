@@ -68,6 +68,12 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   const [removeRoleModal, setRemoveRoleModal] = useState<any>(null);
   const [removingProposedRole, setRemovingProposedRole] = useState(false);
 
+  const [editingRole, setEditingRole] = useState<any>(null);
+  const [editRoleTitle, setEditRoleTitle] = useState("");
+  const [editRoleDescription, setEditRoleDescription] = useState("");
+  const [savingEditedRole, setSavingEditedRole] = useState(false);
+
+
   const [payAmount, setPayAmount] = useState("");
   const [payType, setPayType] = useState("subscription");
   const [payStatus, setPayStatus] = useState("pending");
@@ -167,7 +173,36 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
     setRemovingProposedRole(false);
   };
 
+  const handleUpdateSuggestedRole = async () => {
+    if (!editingRole || !editRoleTitle.trim()) return;
+    setSavingEditedRole(true);
+    try {
+      await candidatesApi.updateRole(candidateId, editingRole.id, {
+        role_title: editRoleTitle.trim(),
+        description: editRoleDescription.trim()
+      });
+      toast({ title: "Suggested role updated" });
+      setEditingRole(null);
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+    setSavingEditedRole(false);
+  };
+
+  const handleDeleteSuggestedRole = async (roleId: string) => {
+    if (!confirm("Are you sure you want to delete this suggested role?")) return;
+    try {
+      await candidatesApi.deleteRole(candidateId, roleId);
+      toast({ title: "Suggested role deleted" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+  };
+
   const handleSuggestRoles = async () => {
+
     if (roles.length === 0) { toast({ title: "Add at least one role first", variant: "destructive" }); return; }
     try {
       await candidatesApi.updateStatus(candidateId, "roles_published");
@@ -887,7 +922,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5" /> Role Suggestions</CardTitle>
-                {["roles_published", "roles_confirmed", "roles_candidate_responded"].includes(status) && (
+                {!["pending_approval", "lead", "approved", "intake_submitted"].includes(status) && (
                   <Button variant="outline" size="sm" onClick={handleReopenRoles} className="text-secondary border-secondary/30 hover:bg-secondary/5">
                     <History className="mr-1 h-3.5 w-3.5" /> Reopen & Reset
                   </Button>
@@ -921,6 +956,34 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                             Reason: {r.change_request_note}
                           </p>
                         )}
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Actions",
+                    className: "pr-6 text-right",
+                    render: (r: any) => (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            setEditingRole(r);
+                            setEditRoleTitle(r.role_title);
+                            setEditRoleDescription(r.description || "");
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteSuggestedRole(r.id)}
+                        >
+                          <Trash className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     )
                   }
@@ -1495,7 +1558,48 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editingRole} onOpenChange={(open) => !open && setEditingRole(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Suggested Role</DialogTitle>
+            <DialogDescription>
+              Modify the suggested role's title and description for this candidate.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-role-title">Role Title *</Label>
+              <Input
+                id="edit-role-title"
+                value={editRoleTitle}
+                onChange={(e) => setEditRoleTitle(e.target.value)}
+                placeholder="e.g. Data Analyst"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-role-desc">Description / Rationale</Label>
+              <Textarea
+                id="edit-role-desc"
+                value={editRoleDescription}
+                onChange={(e) => setEditRoleDescription(e.target.value)}
+                placeholder="Explain why this role fits the candidate..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingRole(null)}>Cancel</Button>
+            <Button
+              onClick={handleUpdateSuggestedRole}
+              disabled={savingEditedRole || !editRoleTitle.trim()}
+            >
+              {savingEditedRole ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 };
 

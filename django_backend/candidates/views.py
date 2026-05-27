@@ -571,6 +571,30 @@ def delete_proposed_role(request, candidate_id, role_id):
         return Response({'error': 'Proposed role not found'}, status=404)
 
 
+@api_view(['DELETE'])
+@permission_classes([IsRecruiter])
+def delete_role(request, candidate_id, role_id):
+    try:
+        RoleSuggestion.objects.get(id=role_id, candidate_id=candidate_id).delete()
+        return Response({'message': 'Suggested role deleted'})
+    except RoleSuggestion.DoesNotExist:
+        return Response({'error': 'Suggested role not found'}, status=404)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsRecruiter])
+def update_role(request, candidate_id, role_id):
+    try:
+        role = RoleSuggestion.objects.get(id=role_id, candidate_id=candidate_id)
+        role.role_title = request.data.get('role_title', role.role_title)
+        role.description = request.data.get('description', role.description)
+        role.save()
+        return Response(RoleSuggestionSerializer(role).data)
+    except RoleSuggestion.DoesNotExist:
+        return Response({'error': 'Suggested role not found'}, status=404)
+
+
+
 
 @api_view(['POST'])
 @permission_classes([IsAdmin])

@@ -447,7 +447,18 @@ const AdminSubscriptionPlansPage = () => {
                 <SelectTrigger><SelectValue placeholder="Select candidate..." /></SelectTrigger>
                 <SelectContent>
                   {candidates
-                    .filter(c => c.status !== "pending_approval" && c.status !== "lead")
+                    .filter(c => {
+                      const allowedStatuses = [
+                        "payment_completed",
+                        "credentials_submitted",
+                        "active_marketing",
+                        "paused",
+                        "on_hold",
+                        "past_due",
+                        "placed_closed"
+                      ];
+                      return allowedStatuses.includes(c.status);
+                    })
                     .map(c => {
                       const existingSub = subscriptions.find(s => s.candidate === c.id);
                       const isSubActive = existingSub?.status === "active";

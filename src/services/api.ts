@@ -158,6 +158,11 @@ export const candidatesApi = {
     api.post(`/candidates/${id}/roles/confirm/`, data),
   getProposedRoles: (id: string) => api.get(`/candidates/${id}/roles/proposed/`),
   deleteProposedRole: (id: string, roleId: string) => api.delete(`/candidates/${id}/roles/proposed/${roleId}/`),
+  updateRole: (id: string, roleId: string, data: { role_title: string; description?: string }) =>
+    api.put(`/candidates/${id}/roles/${roleId}/update/`, data),
+  deleteRole: (id: string, roleId: string) =>
+    api.delete(`/candidates/${id}/roles/${roleId}/delete/`),
+
   getCredentials: (id: string) => api.get(`/candidates/${id}/credentials/`),
   upsertCredential: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/credentials/upsert/`, { data }),
