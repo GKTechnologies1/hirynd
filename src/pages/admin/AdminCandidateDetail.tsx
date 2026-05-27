@@ -28,6 +28,8 @@ import AdminBillingTab from "@/components/admin/AdminBillingTab";
 import CandidateApplicationsPage from "@/pages/candidate/CandidateApplicationsPage";
 import CandidateInterviewsPage from "@/pages/candidate/CandidateInterviewsPage";
 import { DatePicker } from "@/components/ui/DatePicker";
+import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
+
 
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -1098,9 +1100,12 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                   <CardDescription>{credentials.length} version(s)</CardDescription>
                 </div>
                 {!isEditingCreds && (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditingCreds(true)} className="gap-2">
-                    <Pencil className="h-3.5 w-3.5" /> Edit Current Credentials
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <CustomCredentialsDialog candidateId={candidateId} onRefresh={fetchAll} />
+                    <Button variant="outline" size="sm" onClick={() => setIsEditingCreds(true)} className="gap-2">
+                      <Pencil className="h-3.5 w-3.5" /> Edit Current Credentials
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardHeader>

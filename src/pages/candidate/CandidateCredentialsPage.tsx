@@ -19,6 +19,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
+import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
+
 
 // --- Constants & Types ---
 
@@ -728,11 +730,22 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
 
               {/* Section 3: Account Credentials */}
               <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 space-y-6 overflow-hidden text-left">
-                <div className="flex items-center gap-3 border-b border-amber-200 pb-3">
-                  <div className="h-8 w-8 rounded-lg bg-amber-200 flex items-center justify-center">
-                    <KeyRound className="h-4 w-4 text-amber-900" />
+                <div className="flex items-center justify-between flex-wrap gap-2 border-b border-amber-200 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-amber-200 flex items-center justify-center">
+                      <KeyRound className="h-4 w-4 text-amber-900" />
+                    </div>
+                    <h3 className="font-bold text-xs uppercase tracking-widest text-amber-900">Account Credentials</h3>
                   </div>
-                  <h3 className="font-bold text-xs uppercase tracking-widest text-amber-900">Account Credentials</h3>
+                  {candidateId && (
+                    <CustomCredentialsDialog 
+                      candidateId={candidateId} 
+                      readOnly={isLocked} 
+                      onRefresh={async () => {
+                        await fetchVersions(candidateId);
+                      }} 
+                    />
+                  )}
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2">

@@ -22,6 +22,8 @@ import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTa
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
 import ChatTab from "@/components/recruiter/ChatTab";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
+import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
+
 
 const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
@@ -796,9 +798,12 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 </div>
 
                 <div className="bg-amber-50/30 border border-amber-100 rounded-xl p-4 space-y-4">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800 flex items-center gap-2">
-                    <KeyRound className="h-3.5 w-3.5" /> Account Credentials
-                  </h4>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800 flex items-center gap-2">
+                      <KeyRound className="h-3.5 w-3.5" /> Account Credentials
+                    </h4>
+                    <CustomCredentialsDialog candidateId={candidateId} readOnly={true} onRefresh={fetchAll} />
+                  </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2 space-y-1.5">
                       <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.shared_email && "text-destructive")}>Shared Email (All Platforms) *</Label>
