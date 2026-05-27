@@ -181,7 +181,13 @@ const CandidateDashboard = () => {
   }, [location.pathname]);
 
   const status = candidate?.status || "pending_approval";
-
+  const isRolesConfirmed = ![
+    "pending_approval",
+    "lead",
+    "approved",
+    "intake_submitted",
+    "roles_published"
+  ].includes(status);
 
   const allowedTabs = STATUS_TAB_ACCESS[status] || ["overview"];
   const tabKey = subPath === "" ? "overview" : subPath;
@@ -193,7 +199,7 @@ const CandidateDashboard = () => {
 
   const isLocked = tabKey !== "overview" &&
     (tabKey === "interviews" ? !canSeeInterviews : !allowedTabs.includes(tabKey)) &&
-    !(isBillingTab && hasPendingSub);
+    !(isBillingTab && hasPendingSub && isRolesConfirmed);
 
   const getNextAction = () => {
     switch (status) {
@@ -219,7 +225,7 @@ const CandidateDashboard = () => {
   };
 
   const getNextActionCTA = () => {
-    if (["payment_pending", "pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status)) {
+    if (isRolesConfirmed && ["payment_pending", "pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status)) {
       return { label: "Pay Now →", path: "/candidate-dashboard/payments" };
     }
     switch (status) {
