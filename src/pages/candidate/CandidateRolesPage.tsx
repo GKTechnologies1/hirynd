@@ -221,13 +221,13 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                 );
               })}
 
-              {/* Propose Custom Role */}
+              {/* Add Custom Role */}
               {(canConfirm || hasUndecided) && (
                 <div className="mt-6 space-y-4 rounded-xl border border-dashed border-secondary/30 p-5 bg-secondary/5">
                   <div className="flex items-center justify-between text-secondary">
                     <div className="flex items-center gap-2">
                       <Plus className="h-4 w-4" />
-                      <h4 className="font-semibold">Propose Custom Roles</h4>
+                      <h4 className="font-semibold">Add Custom Roles</h4>
                     </div>
                     <Button 
                       variant="outline" 
@@ -238,7 +238,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                       <Plus className="h-3 w-3 mr-1" /> Add Role
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Is there another role you'd like us to consider for your marketing? Propose it here.</p>
+                  <p className="text-xs text-muted-foreground">Is there another role you'd like us to consider for your marketing? Add it here.</p>
                   
                   {customRoles.map((role, index) => (
                     <div key={index} className="relative grid gap-4 sm:grid-cols-2 p-4 bg-white/50 rounded-lg border border-border/50">
@@ -273,7 +273,7 @@ const CandidateRolesPage = ({ candidate, onStatusChange }: CandidateRolesPagePro
                     <div className="text-center py-4 border-2 border-dashed border-border/50 rounded-lg">
                       <p className="text-xs text-muted-foreground mb-2">No custom roles added.</p>
                       <Button variant="outline" size="sm" onClick={addCustomRole}>
-                        <Plus className="h-3 w-3 mr-1" /> Propose a Role
+                        <Plus className="h-3 w-3 mr-1" /> Add a Role
                       </Button>
                     </div>
                   )}
