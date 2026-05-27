@@ -28,8 +28,9 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 
   const fileUrl = getFileUrl(url);
   const previewUrl = `/preview?url=${encodeURIComponent(url)}`;
-  const isOfficeDoc = fileUrl.toLowerCase().match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i);
-  const targetUrl = isOfficeDoc ? previewUrl : fileUrl;
+  const isPreviewable = fileUrl.toLowerCase().match(/\.(doc|docx|xls|xlsx|ppt|pptx|pdf|png|jpg|jpeg|gif|bmp|webp|txt|csv)$/i);
+  const targetUrl = isPreviewable ? previewUrl : fileUrl;
+
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();

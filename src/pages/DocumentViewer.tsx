@@ -15,9 +15,11 @@ const DocumentViewer = () => {
   }
 
   const fileUrl = getFileUrl(rawUrl);
-  const docs = [{ uri: fileUrl }];
+  const fileType = fileUrl.split('?')[0].split('.').pop()?.toLowerCase();
+  const docs = [{ uri: fileUrl, fileType: fileType }];
   const isDoc = fileUrl.toLowerCase().match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i);
   const isLocalHost = fileUrl.includes('localhost') || fileUrl.includes('127.0.0.1');
+
 
   return (
     <div className="flex flex-col h-screen w-full bg-background">
