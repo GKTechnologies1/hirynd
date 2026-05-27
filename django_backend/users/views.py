@@ -269,6 +269,7 @@ def manage_user(request, user_id):
 
     # PATCH — only update fields that actually exist on the User model
     user_fields = ['email', 'role', 'approval_status', 'is_active']
+    old_approval_status = user.approval_status
     for field in user_fields:
         if field in request.data:
             setattr(user, field, request.data[field])
@@ -279,6 +280,36 @@ def manage_user(request, user_id):
         user.set_password(new_password)
         
     user.save()
+
+    # Handle transitions to approved status
+    if old_approval_status != 'approved' and user.approval_status == 'approved':
+        if user.role == 'candidate':
+            candidate_obj, _ = Candidate.objects.get_or_create(
+                user=user,
+                defaults={'status': 'approved'},
+            )
+            if candidate_obj.status == 'pending_approval':
+                candidate_obj.status = 'approved'
+                candidate_obj.save(update_fields=['status'])
+                
+        name = user.profile.full_name if hasattr(user, 'profile') else user.email
+        send_email(
+            to=user.email,
+            subject='Your Hyrind Profile Has Been Approved',
+            html=get_styled_email_html(
+                name,
+                '<p>Great news! Your account has been approved. You can now log in to the portal and complete your intake form.</p>',
+                action_label="Login Now",
+                action_url=f"/{user.role}-login"
+            ),
+        )
+        log_action(
+            actor=request.user,
+            action='registration_approved',
+            target_id=str(user.id),
+            target_type='user',
+            details={'old_status': old_approval_status, 'new_status': 'approved'},
+        )
 
     # Profile fields (full_name, phone) live on the related Profile model
     profile_updates = {}
