@@ -89,6 +89,16 @@ const statusIcon = (s: string) => {
   return <Clock className="h-4 w-4 text-amber-500" />;
 };
 
+const cleanNotes = (notes: string) => {
+  if (!notes) return "";
+  let cleaned = notes
+    .replace(/(?:\s*\|\s*|\s*-\s*|\s*,\s*|^|\b)Razorpay\s*(?:payment|:)?\s*[a-zA-Z0-9_]+/gi, "")
+    .trim();
+  // Remove dangling separators
+  cleaned = cleaned.replace(/^[|,\-\s]+|[|,\-\s]+$/g, "").trim();
+  return cleaned;
+};
+
 const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, onStatusChange?: () => void }) => {
   const { toast } = useToast();
   const [subscription, setSubscription] = useState<any>(null);
@@ -329,10 +339,10 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
                       </p>
                       <span className="text-slate-300 dark:text-slate-700">•</span>
                       <p className="text-xs text-slate-400">{formatDate(p.payment_date || p.created_at)}</p>
-                      {p.notes && (
+                      {cleanNotes(p.notes) && (
                         <>
                           <span className="text-slate-300 dark:text-slate-700">•</span>
-                          <p className="text-xs text-slate-500 truncate max-w-sm">{p.notes}</p>
+                          <p className="text-xs text-slate-500 truncate max-w-sm">{cleanNotes(p.notes)}</p>
                         </>
                       )}
                     </div>

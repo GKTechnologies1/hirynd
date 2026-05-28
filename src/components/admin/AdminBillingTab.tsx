@@ -268,7 +268,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                       </SelectTrigger>
                       <SelectContent>
                         {addonsCatalog
-                          .filter(a => !subscription.addon_assignments?.some((curr: any) => curr.addon === a.id))
+                          .filter(a => !subscription.addon_assignments?.some((curr: any) => curr.addon === a.id && curr.status === "pending"))
                           .map(a => (
                             <SelectItem key={a.id} value={a.id}>
                               {a.name} (+${Number(a.amount).toLocaleString()})
@@ -400,7 +400,13 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                 header: "Period", 
                 sortable: true,
                 accessorKey: "period_start",
-                render: (inv: any) => <span className="text-sm pl-6">{formatDate(inv.period_start)} – {formatDate(inv.period_end)}</span>
+                render: (inv: any) => (
+                  <span className="text-sm pl-6">
+                    {inv.is_addon 
+                      ? `Paid On: ${formatDate(inv.paid_at || inv.created_at)}` 
+                      : `${formatDate(inv.period_start)} – ${formatDate(inv.period_end)}`}
+                  </span>
+                )
               },
               { 
                 header: "Amount", 

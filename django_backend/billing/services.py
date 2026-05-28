@@ -183,15 +183,15 @@ class AddonService:
         """Assigns an addon to a candidate independently."""
         amount = custom_amount if custom_amount is not None else addon.amount
 
-        # Check if already assigned active addon
+        # Check if already assigned pending addon (not yet paid)
         existing = SubscriptionAddonAssignment.objects.filter(
             candidate=candidate,
             addon=addon,
-            status='completed'
+            status='pending'
         ).exists()
 
         if existing and not activate_immediately:
-            raise ValueError(f"Addon '{addon.name}' is already actively assigned to this candidate.")
+            raise ValueError(f"Addon '{addon.name}' is already assigned and awaiting payment.")
 
         status_val = 'completed' if activate_immediately else 'pending'
 

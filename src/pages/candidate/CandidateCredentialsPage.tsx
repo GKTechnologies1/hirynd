@@ -524,7 +524,11 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                           className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1.5 transition-colors font-bold text-xs" 
                         />
                       ) : (
-                        <span className="leading-relaxed">{String(value)}</span>
+                        <span className="leading-relaxed">
+                          {key === "opt_offer_submitted" 
+                            ? (value === "yes" ? "Yes" : (value === "no" ? "No" : (value === "waiting" ? "Waiting for One" : String(value))))
+                            : String(value)}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -621,6 +625,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                       <SelectContent>
                         <SelectItem value="yes">Yes</SelectItem>
                         <SelectItem value="no">No</SelectItem>
+                        <SelectItem value="waiting">Waiting for One</SelectItem>
                       </SelectContent>
                     </Select>
                   </FormField>
@@ -866,7 +871,9 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                                   label="View Attached File"
                                   className="text-blue-600 underline font-semibold cursor-pointer"
                                 />
-                              ) : maskSensitive(key, String(value))}
+                              ) : (key === "opt_offer_submitted" 
+                                ? (value === "yes" ? "Yes" : (value === "no" ? "No" : (value === "waiting" ? "Waiting for One" : maskSensitive(key, String(value)))))
+                                : maskSensitive(key, String(value)))}
                             </div>
                           </div>
                         ) : null

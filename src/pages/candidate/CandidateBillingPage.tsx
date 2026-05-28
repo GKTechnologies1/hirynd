@@ -155,10 +155,6 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
                   )
                 },
                 {
-                  header: "Transaction ID",
-                  render: (ph: any) => <span className="text-[10px] text-slate-400 font-mono font-semibold">{ph.transaction_id || "—"}</span>
-                },
-                {
                   header: "Status",
                   render: () => (
                     <Badge className="bg-emerald-500 text-white border-none shadow-none text-[9px] font-bold h-4 px-1.5 rounded-sm uppercase flex items-center gap-1 w-fit">
@@ -208,7 +204,11 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
                 render: (inv: any) => (
                   <div className="space-y-0.5">
                     <p className="text-[11px] font-bold text-slate-700 font-sans">{inv.description || "Service Fee"}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">{formatDate(inv.period_start)} — {formatDate(inv.period_end)}</p>
+                    {inv.is_addon ? (
+                      <p className="text-[10px] text-slate-400 font-medium">Paid On: {formatDate(inv.paid_at || inv.created_at)}</p>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 font-medium">{formatDate(inv.period_start)} — {formatDate(inv.period_end)}</p>
+                    )}
                   </div>
                 )
               },

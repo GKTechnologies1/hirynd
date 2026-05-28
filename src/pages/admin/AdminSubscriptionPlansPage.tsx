@@ -447,7 +447,7 @@ const AdminSubscriptionPlansPage = () => {
 
       {/* ── Plan Create/Edit Dialog ── */}
       <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPlan ? "Edit Plan" : "Create New Plan"}</DialogTitle>
             <DialogDescription>Define a subscription plan candidates will be assigned to.</DialogDescription>
@@ -480,10 +480,10 @@ const AdminSubscriptionPlansPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+ 
       {/* ── Addon Create/Edit Dialog ── */}
       <Dialog open={addonDialogOpen} onOpenChange={setAddonDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingAddon ? "Edit Add-On" : "Create New Add-On"}</DialogTitle>
           </DialogHeader>
@@ -501,10 +501,10 @@ const AdminSubscriptionPlansPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+ 
       {/* ── Assign Base Subscription Dialog ── */}
       <Dialog open={assignSubDialogOpen} onOpenChange={setAssignSubDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Assign Base Subscription Plan</DialogTitle>
             <DialogDescription>
@@ -543,7 +543,7 @@ const AdminSubscriptionPlansPage = () => {
                             className="p-3 hover:bg-primary/5 cursor-pointer flex items-center justify-between transition-colors"
                           >
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-slate-800">{c.full_name || c.email}</p>
+                               <p className="text-sm font-semibold text-slate-800">{c.full_name || c.email}</p>
                               <p className="text-xs text-muted-foreground">{c.email}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -591,7 +591,7 @@ const AdminSubscriptionPlansPage = () => {
                 </div>
               )}
             </div>
-
+ 
             {assignSubCandidateId && subscriptions.find(s => s.candidate === assignSubCandidateId)?.status === "pending_payment" && (
               <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-1.5 animate-in fade-in duration-300">
                 <p className="text-sm font-bold text-blue-800 flex items-center gap-2">
@@ -603,7 +603,7 @@ const AdminSubscriptionPlansPage = () => {
                 </p>
               </div>
             )}
-
+ 
             {assignSubCandidateId && subscriptions.find(s => s.candidate === assignSubCandidateId)?.status === "active" && (
               <div className="rounded-xl border border-green-200 bg-green-50/50 p-4 space-y-1.5 animate-in fade-in duration-300">
                 <p className="text-sm font-bold text-green-800 flex items-center gap-2">
@@ -614,7 +614,8 @@ const AdminSubscriptionPlansPage = () => {
                 </p>
               </div>
             )}
-
+ 
+            {/* Base Plan */}
             <div>
               <Label>Base Plan</Label>
               <Select value={assignSubPlanId} onValueChange={handleSelectSubPlan}>
@@ -628,7 +629,7 @@ const AdminSubscriptionPlansPage = () => {
                 </SelectContent>
               </Select>
             </div>
-
+ 
             <div>
               <Label>Custom Price Override (USD)</Label>
               <Input
@@ -638,7 +639,7 @@ const AdminSubscriptionPlansPage = () => {
                 placeholder="Leave blank to use default plan price"
               />
             </div>
-
+ 
             <div>
               <Label>Admin Notes / Comments</Label>
               <Textarea
@@ -661,10 +662,10 @@ const AdminSubscriptionPlansPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+ 
       {/* ── Assign Standalone Addon Dialog ── */}
       <Dialog open={assignAddonDialogOpen} onOpenChange={setAssignAddonDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Assign Add-On Service</DialogTitle>
             <DialogDescription>

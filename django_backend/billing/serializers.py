@@ -67,7 +67,6 @@ class PaymentSerializer(serializers.ModelSerializer):
     candidate_name = serializers.SerializerMethodField()
     candidate_display_id = serializers.SerializerMethodField()
     display_id = serializers.SerializerMethodField()
-    razorpay_payment_id = serializers.CharField(source='razorpay_order.razorpay_payment_id', read_only=True)
 
     class Meta:
         model = Payment
@@ -86,10 +85,22 @@ class PaymentSerializer(serializers.ModelSerializer):
     def get_display_id(self, obj):
         return f"PAY{str(obj.id)[:8].upper()}"
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Sanitise notes to exclude any auto-generated Razorpay payment ID strings
+        if ret.get('notes'):
+            import re
+            cleaned = re.sub(r'(?:\s*\|\s*|\s*-\s*|\s*,\s*|^|\b)Razorpay\s*(?:payment|:)?\s*[a-zA-Z0-9_]+', '', ret['notes'], flags=re.IGNORECASE).strip()
+            # Clean dangling separators
+            cleaned = re.sub(r'^[|,\-\s]+|[|,\-\s]+$', '', cleaned).strip()
+            ret['notes'] = cleaned or None
+        return ret
+
 
 class InvoiceSerializer(serializers.ModelSerializer):
     candidate_display_id = serializers.SerializerMethodField()
     display_id = serializers.SerializerMethodField()
+    is_addon = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -101,6 +112,25 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     def get_display_id(self, obj):
         return f"INV{str(obj.id)[:8].upper()}"
+
+    def get_is_addon(self, obj):
+        if obj.purchase_histories.exists():
+            return True
+        desc = (obj.description or "").lower()
+        if any(x in desc for x in ["addon", "add-on", "mock practice", "interview support", "operations support"]):
+            return True
+        if not obj.subscription_id:
+            return True
+        return False
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Mask payment_reference if it's an automatically-linked Razorpay ID (starts with pay_ or doesn't start with ADMIN-)
+        if ret.get('payment_reference'):
+            ref = ret['payment_reference']
+            if ref.startswith('pay_') or ref.startswith('rzp_') or (not ref.startswith('ADMIN-')):
+                ret['payment_reference'] = None
+        return ret
 
 
 class PurchaseHistorySerializer(serializers.ModelSerializer):
@@ -120,3 +150,17 @@ class PurchaseHistorySerializer(serializers.ModelSerializer):
 
     def get_candidate_display_id(self, obj):
         return obj.candidate.display_id
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Hide transaction_id if it is a Razorpay ID
+        if ret.get('transaction_id'):
+            tid = ret['transaction_id']
+            if tid.startswith('pay_') or tid.startswith('rzp_') or (not tid.startswith('ADMIN-')):
+                ret['transaction_id'] = None
+        # Hide invoice_reference if it is a Razorpay ID
+        if ret.get('invoice_reference'):
+            ref = ret['invoice_reference']
+            if ref.startswith('pay_') or ref.startswith('rzp_') or (not ref.startswith('ADMIN-')):
+                ret['invoice_reference'] = None
+        return ret
