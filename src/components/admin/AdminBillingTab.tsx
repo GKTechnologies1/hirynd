@@ -243,45 +243,6 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                 )}
               </div>
 
-              {/* Active Add-Ons and Add Addon Form inside the Subscription Card */}
-              <div className="border-t border-border pt-4 mt-2">
-                <Label className="text-sm font-semibold mb-2 block">Active Add-Ons</Label>
-                {subscription.addon_assignments?.length > 0 ? (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {subscription.addon_assignments.map((a: any) => (
-                      <Badge key={a.id} variant="outline" className="px-2.5 py-1 text-xs bg-muted">
-                        {a.addon_detail?.name} — ${Number(a.amount).toLocaleString()}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground mb-4">No active add-ons assigned yet.</p>
-                )}
-
-                {/* Add Addon Inline Form */}
-                <div className="flex flex-col sm:flex-row gap-3 items-end max-w-md bg-muted/30 p-3 rounded-lg border border-border/50">
-                  <div className="flex-1 w-full">
-                    <Label className="text-xs">Add New Add-On</Label>
-                    <Select value={selectedAddonId} onValueChange={setSelectedAddonId}>
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="Select an add-on service..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {addonsCatalog
-                          .filter(a => !subscription.addon_assignments?.some((curr: any) => curr.addon === a.id && curr.status === "pending"))
-                          .map(a => (
-                            <SelectItem key={a.id} value={a.id}>
-                              {a.name} (+${Number(a.amount).toLocaleString()})
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button size="sm" variant="hero" onClick={handleAddAddon} disabled={addingAddon || !selectedAddonId} className="h-9 text-xs">
-                    {addingAddon ? "Adding..." : "Add Add-On"}
-                  </Button>
-                </div>
-              </div>
             </>
           )}
 
@@ -320,6 +281,60 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
                 <Ban className="mr-2 h-4 w-4" /> Cancel
               </Button>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Standalone Add-on Service Management Card */}
+      <Card className="relative z-30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5 text-primary" />
+            Add-on Services
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Active Add-Ons */}
+          <div>
+            <Label className="text-xs font-semibold mb-2 block">Assigned / Active Add-Ons</Label>
+            {subscription?.addon_assignments?.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {subscription.addon_assignments.map((a: any) => (
+                  <Badge key={a.id} variant="outline" className="px-2.5 py-1 text-xs bg-muted/80">
+                    {a.addon_detail?.name || 'Service Fee'} — ${Number(a.amount).toLocaleString()} ({a.status?.replace(/_/g, " ")})
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No active add-ons assigned yet.</p>
+            )}
+          </div>
+
+          {/* Add Addon Inline Form */}
+          <div className="flex flex-col sm:flex-row gap-3 items-end max-w-md bg-muted/20 p-4 rounded-xl border border-border/80 relative z-40">
+            <div className="flex-grow w-full relative z-50">
+              <Label className="text-xs font-medium mb-1 block">Assign New Add-On</Label>
+              <Select value={selectedAddonId} onValueChange={setSelectedAddonId}>
+                <SelectTrigger className="h-9 text-xs relative z-50">
+                  <SelectValue placeholder="Select an add-on service..." />
+                </SelectTrigger>
+                <SelectContent className="relative z-50">
+                  {addonsCatalog
+                    .filter(a => !subscription?.addon_assignments?.some((curr: any) => {
+                      const currAddonId = curr.addon && (typeof curr.addon === "object" ? curr.addon.id : curr.addon);
+                      return currAddonId === a.id && curr.status === "pending";
+                    }))
+                    .map(a => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name} (+${Number(a.amount).toLocaleString()})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button size="sm" variant="hero" onClick={handleAddAddon} disabled={addingAddon || !selectedAddonId} className="h-9 text-xs relative z-50 shrink-0">
+              {addingAddon ? "Adding..." : "Add Add-On"}
+            </Button>
           </div>
         </CardContent>
       </Card>
