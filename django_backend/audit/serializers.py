@@ -13,3 +13,18 @@ class AuditLogSerializer(serializers.ModelSerializer):
         if obj.actor and hasattr(obj.actor, 'profile'):
             return obj.actor.profile.full_name
         return ''
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        is_admin = request and request.user and request.user.role == 'admin'
+        if not is_admin and ret.get('details'):
+            import json
+            import re
+            details_str = json.dumps(ret['details'])
+            cleaned_str = re.sub(r'\b(?:pay|order|sign|rzp)_[a-zA-Z0-9_]+\b', 'TXN-HIDDEN', details_str, flags=re.IGNORECASE)
+            try:
+                ret['details'] = json.loads(cleaned_str)
+            except Exception:
+                pass
+        return ret

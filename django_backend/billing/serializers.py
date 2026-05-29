@@ -1,5 +1,29 @@
+import re
 from rest_framework import serializers
 from .models import SubscriptionPlan, SubscriptionAddon, Subscription, SubscriptionAddonAssignment, RazorpayOrder, Payment, Invoice, PurchaseHistory
+
+
+def clean_razorpay_ids(text):
+    if not text:
+        return text
+    # Mask/strip patterns like "| Razorpay payment pay_Sv1Ta4P6sPfata" or similar
+    cleaned = re.sub(r'(?:\s*\|\s*|\s*-\s*|\s*,\s*|^|\b)Razorpay\s*(?:payment|Signature|Order|:)?\s*[a-zA-Z0-9_]+', '', text, flags=re.IGNORECASE).strip()
+    # Strip any general pay_, order_, sign_, rzp_ patterns
+    cleaned = re.sub(r'\b(?:pay|order|sign|rzp)_[a-zA-Z0-9_]+\b', '', cleaned, flags=re.IGNORECASE).strip()
+    # Clean dangling separators
+    cleaned = re.sub(r'^[|,\-\s]+|[|,\-\s]+$', '', cleaned).strip()
+    return cleaned or None
+
+
+def is_razorpay_id(ref):
+    if not ref:
+        return False
+    ref = str(ref).strip()
+    if ref.startswith('pay_') or ref.startswith('rzp_') or ref.startswith('order_') or ref.startswith('sign_'):
+        return True
+    if not (ref.startswith('ADMIN-') or ref.startswith('INV') or ref.startswith('PAY') or ref.startswith('TXN-')):
+        return True
+    return False
 
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
@@ -27,7 +51,7 @@ class SubscriptionAddonAssignmentSerializer(serializers.ModelSerializer):
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     plan_detail = SubscriptionPlanSerializer(source='plan', read_only=True)
-    addon_assignments = SubscriptionAddonAssignmentSerializer(many=True, read_only=True)
+    addon_assignments = serializers.SerializerMethodField()
     candidate_name = serializers.SerializerMethodField()
     candidate_email = serializers.SerializerMethodField()
     total_addons_amount = serializers.SerializerMethodField()
@@ -46,8 +70,12 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     def get_candidate_email(self, obj):
         return obj.candidate.user.email
 
+    def get_addon_assignments(self, obj):
+        assignments = SubscriptionAddonAssignment.objects.filter(candidate=obj.candidate).order_by('-added_at')
+        return SubscriptionAddonAssignmentSerializer(assignments, many=True).data
+
     def get_total_addons_amount(self, obj):
-        total = sum(a.amount if a.amount > 0 else a.addon.amount for a in obj.addon_assignments.all())
+        total = sum(a.amount if a.amount > 0 else a.addon.amount for a in obj.candidate.addon_assignments.all())
         return float(total)
 
     def to_representation(self, instance):
@@ -61,6 +89,19 @@ class RazorpayOrderSerializer(serializers.ModelSerializer):
         model = RazorpayOrder
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'verified_at']
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        is_admin = request and request.user and request.user.role == 'admin'
+        if not is_admin:
+            if ret.get('razorpay_order_id'):
+                ret['razorpay_order_id'] = f"ORD-{str(instance.id)[:8].upper()}"
+            if ret.get('razorpay_payment_id'):
+                ret['razorpay_payment_id'] = f"TXN-{str(instance.id)[:8].upper()}"
+            if ret.get('razorpay_signature'):
+                ret['razorpay_signature'] = None
+        return ret
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -87,13 +128,8 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        # Sanitise notes to exclude any auto-generated Razorpay payment ID strings
         if ret.get('notes'):
-            import re
-            cleaned = re.sub(r'(?:\s*\|\s*|\s*-\s*|\s*,\s*|^|\b)Razorpay\s*(?:payment|:)?\s*[a-zA-Z0-9_]+', '', ret['notes'], flags=re.IGNORECASE).strip()
-            # Clean dangling separators
-            cleaned = re.sub(r'^[|,\-\s]+|[|,\-\s]+$', '', cleaned).strip()
-            ret['notes'] = cleaned or None
+            ret['notes'] = clean_razorpay_ids(ret['notes'])
         return ret
 
 
@@ -125,11 +161,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        # Mask payment_reference if it's an automatically-linked Razorpay ID (starts with pay_ or doesn't start with ADMIN-)
+        if ret.get('description'):
+            ret['description'] = clean_razorpay_ids(ret['description'])
         if ret.get('payment_reference'):
             ref = ret['payment_reference']
-            if ref.startswith('pay_') or ref.startswith('rzp_') or (not ref.startswith('ADMIN-')):
-                ret['payment_reference'] = None
+            if is_razorpay_id(ref):
+                ret['payment_reference'] = f"TXN-{str(instance.id)[:8].upper()}"
         return ret
 
 
@@ -153,14 +190,14 @@ class PurchaseHistorySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        # Hide transaction_id if it is a Razorpay ID
+        if ret.get('service_name'):
+            ret['service_name'] = clean_razorpay_ids(ret['service_name'])
         if ret.get('transaction_id'):
             tid = ret['transaction_id']
-            if tid.startswith('pay_') or tid.startswith('rzp_') or (not tid.startswith('ADMIN-')):
-                ret['transaction_id'] = None
-        # Hide invoice_reference if it is a Razorpay ID
+            if is_razorpay_id(tid):
+                ret['transaction_id'] = f"TXN-{str(instance.id)[:8].upper()}"
         if ret.get('invoice_reference'):
             ref = ret['invoice_reference']
-            if ref.startswith('pay_') or ref.startswith('rzp_') or (not ref.startswith('ADMIN-')):
-                ret['invoice_reference'] = None
+            if is_razorpay_id(ref):
+                ret['invoice_reference'] = f"TXN-{str(instance.id)[:8].upper()}"
         return ret

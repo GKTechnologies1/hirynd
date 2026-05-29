@@ -193,7 +193,12 @@ def generate_invoice_pdf(invoice):
     # 3. AMOUNT DUE
     # ═══════════════════════════════════════════════════════
     if getattr(invoice, 'description', None):
-        plan_name = invoice.description
+        import re
+        desc = invoice.description
+        cleaned = re.sub(r'(?:\s*\|\s*|\s*-\s*|\s*,\s*|^|\b)Razorpay\s*(?:payment|Signature|Order|:)?\s*[a-zA-Z0-9_]+', '', desc, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(r'\b(?:pay|order|sign|rzp)_[a-zA-Z0-9_]+\b', '', cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(r'^[|,\-\s]+|[|,\-\s]+$', '', cleaned).strip()
+        plan_name = cleaned or "Profile Marketing Services Fee"
     else:
         plan_name = (
             invoice.subscription.plan_name

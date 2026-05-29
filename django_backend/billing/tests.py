@@ -4,7 +4,9 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from unittest.mock import patch
 from candidates.models import Candidate
-from billing.models import SubscriptionPlan, SubscriptionAddon, Subscription, SubscriptionAddonAssignment, Payment, RazorpayOrder, Invoice
+from billing.models import SubscriptionPlan, SubscriptionAddon, Subscription, SubscriptionAddonAssignment, Payment, RazorpayOrder, Invoice, PurchaseHistory
+from billing.serializers import PaymentSerializer, InvoiceSerializer, PurchaseHistorySerializer
+from billing.utils import generate_invoice_pdf
 from billing.services import SubscriptionService, AddonService, PaymentService, SubscriptionLifecycleManager
 
 User = get_user_model()
@@ -287,4 +289,96 @@ class BillingDecoupledTests(TestCase):
 
         self.assertEqual(invoice.tax_amount, Decimal('18.00'))
         self.assertEqual(invoice.tax_rate, Decimal('4.50'))
+
+    def test_payment_serializer_sanitizes_razorpay_notes(self):
+        """Test that PaymentSerializer removes any auto-generated Razorpay payment ID strings from notes."""
+        payment = Payment.objects.create(
+            candidate=self.candidate,
+            amount=Decimal('400.00'),
+            currency='USD',
+            payment_type='monthly_service',
+            status='completed',
+            notes="Add-on Fee: work support | Razorpay: pay_Sv1Ta4P6sPfata"
+        )
+        data = PaymentSerializer(payment).data
+        self.assertNotIn("pay_Sv1Ta4P6sPfata", data['notes'])
+        self.assertNotIn("Razorpay", data['notes'])
+        self.assertEqual(data['notes'], "Add-on Fee: work support")
+
+    def test_invoice_serializer_masks_payment_reference(self):
+        """Test that InvoiceSerializer masks Razorpay payment references with friendly TXN reference."""
+        invoice = Invoice.objects.create(
+            candidate=self.candidate,
+            amount=Decimal('400.00'),
+            currency='USD',
+            period_start=timezone.now().date(),
+            period_end=timezone.now().date() + timezone.timedelta(days=30),
+            status='paid',
+            payment_reference="pay_Sv1Ta4P6sPfata",
+            description="Add-on Fee: work support | Razorpay: pay_Sv1Ta4P6sPfata"
+        )
+        data = InvoiceSerializer(invoice).data
+        self.assertNotIn("pay_Sv1Ta4P6sPfata", data['payment_reference'])
+        self.assertTrue(data['payment_reference'].startswith("TXN-"))
+        self.assertNotIn("pay_Sv1Ta4P6sPfata", data['description'])
+        self.assertEqual(data['description'], "Add-on Fee: work support")
+
+    def test_purchase_history_serializer_masks_gateway_ids(self):
+        """Test that PurchaseHistorySerializer hides gateway IDs and returns user-friendly TXN references."""
+        ph = PurchaseHistory.objects.create(
+            candidate=self.candidate,
+            service_name="Add-on Fee: work support | Razorpay: pay_Sv1Ta4P6sPfata",
+            amount=Decimal('400.00'),
+            currency='USD',
+            transaction_id="pay_Sv1Ta4P6sPfata",
+            invoice_reference="pay_Sv1Ta4P6sPfata"
+        )
+        data = PurchaseHistorySerializer(ph).data
+        self.assertNotIn("pay_Sv1Ta4P6sPfata", data['service_name'])
+        self.assertEqual(data['service_name'], "Add-on Fee: work support")
+        self.assertTrue(data['transaction_id'].startswith("TXN-"))
+        self.assertTrue(data['invoice_reference'].startswith("TXN-"))
+
+    def test_generate_invoice_pdf_sanitizes_description(self):
+        """Test that generate_invoice_pdf removes Razorpay IDs from invoice description in generated PDF."""
+        invoice = Invoice.objects.create(
+            candidate=self.candidate,
+            amount=Decimal('400.00'),
+            currency='USD',
+            period_start=timezone.now().date(),
+            period_end=timezone.now().date() + timezone.timedelta(days=30),
+            status='paid',
+            description="Add-on Fee: work support | Razorpay: pay_Sv1Ta4P6sPfata"
+        )
+        pdf_bytes = generate_invoice_pdf(invoice)
+        self.assertNotIn(b"pay_Sv1Ta4P6sPfata", pdf_bytes)
+        self.assertNotIn(b"Razorpay:", pdf_bytes)
+
+    def test_audit_log_serializer_masks_details_for_non_admin(self):
+        """Test that AuditLogSerializer masks Razorpay IDs in JSON details field for non-admin requests."""
+        from audit.models import AuditLog
+        from audit.serializers import AuditLogSerializer
+        
+        log = AuditLog.objects.create(
+            actor=self.candidate_user,
+            action="payment_completed",
+            target_id=str(self.candidate.id),
+            target_type="candidate",
+            details={'payment_id': "pay_Sv1Ta4P6sPfata", 'gateway': "razorpay"}
+        )
+        
+        # Test non-admin request
+        from unittest.mock import MagicMock
+        request = MagicMock()
+        request.user = self.candidate_user
+        
+        serializer = AuditLogSerializer(log, context={'request': request})
+        data = serializer.data
+        self.assertEqual(data['details']['payment_id'], "TXN-HIDDEN")
+        
+        # Test admin request
+        request.user = self.admin
+        serializer_admin = AuditLogSerializer(log, context={'request': request})
+        data_admin = serializer_admin.data
+        self.assertEqual(data_admin['details']['payment_id'], "pay_Sv1Ta4P6sPfata")
 

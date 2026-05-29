@@ -77,8 +77,8 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
         billingApi.payments(candidateId).catch(() => ({ data: [] })),
         billingApi.listAddons().catch(() => ({ data: [] })),
       ]);
-      const hasSub = subRes.data && Object.keys(subRes.data).length > 0;
-      setSubscription(hasSub ? subRes.data : null);
+      const hasSub = !!(subRes.data && subRes.data.id);
+      setSubscription(subRes.data && Object.keys(subRes.data).length > 0 ? subRes.data : null);
       setInvoices(invRes.data || []);
       setPayments(payRes.data || []);
       setAddonsCatalog(addRes.data || []);
@@ -117,7 +117,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
         status: formStatus,
         plan_name: formPlanName,
       };
-      if (subscription) {
+      if (subscription?.id) {
         await billingApi.updateSubscription(candidateId, payload);
       } else {
         await billingApi.createSubscription(candidateId, payload);
@@ -170,7 +170,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   };
 
   const handleAction = async (action: "pause" | "cancel" | "resume") => {
-    if (!subscription) return;
+    if (!subscription?.id) return;
     setActionLoading(action);
     try {
       const newStatus = action === "pause" ? "paused" : action === "cancel" ? "canceled" : "active";
@@ -205,12 +205,12 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            {subscription ? <CreditCard className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            {subscription ? "Subscription" : "Create Subscription"}
+            {subscription?.id ? <CreditCard className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+            {subscription?.id ? "Subscription" : "Create Subscription"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {subscription && (
+          {subscription?.id && (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4 pb-4 border-b border-border">
                 <div>
@@ -264,19 +264,19 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="hero" onClick={handleCreateOrUpdate} disabled={saving}>
-              {saving ? "Saving..." : subscription ? "Update Subscription" : "Create Subscription"}
+              {saving ? "Saving..." : subscription?.id ? "Update Subscription" : "Create Subscription"}
             </Button>
-            {subscription && subscription.status === "active" && (
+            {subscription?.id && subscription.status === "active" && (
               <Button variant="outline" onClick={() => handleAction("pause")} disabled={!!actionLoading}>
                 <Pause className="mr-2 h-4 w-4" /> Pause
               </Button>
             )}
-            {subscription && ["paused","past_due","grace_period"].includes(subscription.status) && (
+            {subscription?.id && ["paused","past_due","grace_period"].includes(subscription.status) && (
               <Button variant="outline" onClick={() => handleAction("resume")} disabled={!!actionLoading}>
                 <Play className="mr-2 h-4 w-4" /> Resume
               </Button>
             )}
-            {subscription && subscription.status !== "canceled" && (
+            {subscription?.id && subscription.status !== "canceled" && (
               <Button variant="destructive" onClick={() => handleAction("cancel")} disabled={!!actionLoading}>
                 <Ban className="mr-2 h-4 w-4" /> Cancel
               </Button>
@@ -340,7 +340,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
       </Card>
 
       {/* Record Invoice Payment */}
-      {subscription && pendingInvoices.length > 0 && (
+      {subscription?.id && pendingInvoices.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Record Invoice Payment</CardTitle>
@@ -371,7 +371,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
       )}
 
       {/* Mark Invoice Failed */}
-      {subscription && pendingInvoices.length > 0 && (
+      {subscription?.id && pendingInvoices.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><XCircle className="h-5 w-5" /> Mark Invoice Failed</CardTitle>

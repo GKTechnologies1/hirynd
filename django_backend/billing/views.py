@@ -201,7 +201,15 @@ def subscription_detail(request, candidate_id):
                     return Response(SubscriptionSerializer(sub).data)
         except Candidate.DoesNotExist:
             pass
-        return Response({})
+        assignments = SubscriptionAddonAssignment.objects.filter(candidate_id=candidate_id).order_by('-added_at')
+        return Response({
+            'id': None,
+            'status': None,
+            'amount': 0.00,
+            'currency': 'USD',
+            'plan_name': None,
+            'addon_assignments': SubscriptionAddonAssignmentSerializer(assignments, many=True).data
+        })
 
 
 @api_view(['POST'])
@@ -521,6 +529,27 @@ def record_payment(request, candidate_id):
             status='pending',
             payment_type=pay.payment_type
         ).exclude(id=pay.id).delete()
+    
+    # Auto-link manual addon payment and complete assignment if status is paid
+    ADDON_TYPES = ('addon', 'mock_practice', 'interview_support', 'operations_support', 'manual')
+    if pay.status in ('completed', 'complete', 'paid') and pay.payment_type in ADDON_TYPES:
+        if not getattr(pay, 'addon_assignment', None):
+            pending_assignment = SubscriptionAddonAssignment.objects.filter(
+                candidate=pay.candidate,
+                status='pending'
+            ).order_by('added_at').first()
+            if pending_assignment:
+                pay.addon_assignment = pending_assignment
+                pay.save(update_fields=['addon_assignment'])
+        
+        if pay.addon_assignment:
+            # Clean up the original pending payment associated with this assignment to avoid duplicates
+            Payment.objects.filter(
+                addon_assignment=pay.addon_assignment,
+                status='pending'
+            ).exclude(id=pay.id).delete()
+            AddonService.complete_addon_payment(pay.addon_assignment, payment_reference=f"ADMIN-{pay.id}")
+
     log_action(request.user, 'payment_recorded', str(candidate_id), 'payment', data)
 
     # ── Create Invoice + send email with PDF receipt (if success) ──────────────
@@ -547,7 +576,8 @@ def record_payment(request, candidate_id):
             )
 
             # Record in Purchase History if manual addon payment recorded successfully
-            if pay.payment_type == 'addon':
+            ADDON_TYPES = ('addon', 'mock_practice', 'interview_support', 'operations_support', 'manual')
+            if pay.payment_type in ADDON_TYPES:
                 purchased_by_val = f"Admin ({_user_name(request.user)})"
                 PurchaseHistoryService.record_purchase(
                     candidate=pay.candidate,
@@ -604,6 +634,36 @@ def update_invoice(request, invoice_id):
         inv.status = inv_status
         if inv_status == 'paid':
             inv.paid_at = timezone.now()
+            
+            # Sync corresponding payments and addon assignments on manual offline paid status
+            try:
+                for ph in inv.purchase_histories.all():
+                    if ph.payment and ph.payment.status != 'completed':
+                        ph.payment.status = 'completed'
+                        ph.payment.payment_date = timezone.now().date()
+                        ph.payment.save(update_fields=['status', 'payment_date'])
+                    
+                    if ph.addon_assignment and ph.addon_assignment.status != 'completed':
+                        AddonService.complete_addon_payment(ph.addon_assignment, payment_reference=inv.payment_reference or f"ADMIN-{inv.id}")
+                
+                # Also search for any general pending Payment records of type addon for this candidate
+                ADDON_TYPES = ['addon', 'mock_practice', 'interview_support', 'operations_support', 'manual']
+                pending_pays = Payment.objects.filter(
+                    candidate=inv.candidate,
+                    status='pending',
+                    amount=inv.amount,
+                    payment_type__in=ADDON_TYPES
+                )
+                for p in pending_pays:
+                    p.status = 'completed'
+                    p.payment_date = timezone.now().date()
+                    p.save(update_fields=['status', 'payment_date'])
+                    
+                    if p.addon_assignment and p.addon_assignment.status != 'completed':
+                        AddonService.complete_addon_payment(p.addon_assignment, payment_reference=inv.payment_reference or f"ADMIN-{inv.id}")
+            except Exception as e:
+                logger.error("Failed to sync manual invoice payment: %s", str(e))
+
         if inv_status == 'failed':
             inv.failure_reason = request.data.get('failure_reason', '')
     if request.data.get('payment_reference'):
