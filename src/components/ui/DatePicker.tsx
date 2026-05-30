@@ -65,7 +65,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
     setDate(newDate);
     if (onChange) {
       if (newDate) {
-        onChange(format(newDate, "MM-dd-yyyy"));
+        onChange(format(newDate, "MM/dd/yyyy"));
         setOpen(false); // Close the calendar after selection
       } else {
         onChange("");

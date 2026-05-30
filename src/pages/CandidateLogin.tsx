@@ -83,12 +83,12 @@ const CandidateLogin = () => {
     if (!reg.university_name) errors.university_name = "University is required";
     if (!reg.degree_major) errors.degree_major = "Degree & Major is required";
 
-    const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
+    const dateRegex = /^(0[1-9]|1[0-2])[-/](0[1-9]|[12][0-9]|3[01])[-/]\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
-    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-DD-YYYY format";
+    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM/DD/YYYY format";
 
     if (reg.visa_status === "OPT" && reg.opt_end_date && !dateRegex.test(reg.opt_end_date)) {
-      errors.opt_end_date = "Use MM-DD-YYYY format";
+      errors.opt_end_date = "Use MM/DD/YYYY format";
     }
 
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
@@ -165,7 +165,7 @@ const CandidateLogin = () => {
     data.append("university_name", reg.university_name);
     data.append("degree", (degree || "").trim());
     data.append("major", major);
-    const formattedGradDate = reg.graduation_date ? format(parse(reg.graduation_date, "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "";
+    const formattedGradDate = reg.graduation_date ? format(parse(reg.graduation_date.replace(/\//g, "-"), "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "";
     data.append("graduation_date", formattedGradDate);
     data.append("how_did_you_hear", reg.how_did_you_hear);
     data.append("friend_name", reg.friend_name);
@@ -174,7 +174,7 @@ const CandidateLogin = () => {
     data.append("github_url", reg.github_url);
     data.append("visa_status", reg.visa_status === "Other" ? reg.visa_other : reg.visa_status);
     if (reg.opt_end_date) {
-      const formattedOptDate = format(parse(reg.opt_end_date, "MM-dd-yyyy", new Date()), "yyyy-MM-dd");
+      const formattedOptDate = format(parse(reg.opt_end_date.replace(/\//g, "-"), "MM-dd-yyyy", new Date()), "yyyy-MM-dd");
       data.append("opt_end_date", formattedOptDate);
     }
     data.append("current_location", reg.current_location);
@@ -512,7 +512,7 @@ const CandidateLogin = () => {
                       id="reg-graduation_date"
                       value={reg.graduation_date}
                       onChange={val => updateReg("graduation_date", val)}
-                      placeholder="MM-DD-YYYY"
+                      placeholder="MM/DD/YYYY"
                     />
                     {regErrors.graduation_date && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.graduation_date}</p>}
                   </div>
@@ -580,7 +580,7 @@ const CandidateLogin = () => {
                           id="reg-opt_end_date"
                           value={reg.opt_end_date}
                           onChange={val => updateReg("opt_end_date", val)}
-                          placeholder="MM-DD-YYYY"
+                          placeholder="MM/DD/YYYY"
                         />
                         {regErrors.opt_end_date && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.opt_end_date}</p>}
                       </div>

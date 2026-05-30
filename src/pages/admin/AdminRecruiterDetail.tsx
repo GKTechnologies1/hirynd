@@ -176,24 +176,17 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
       const cleanData = { ...formData };
 
       // Convert MM-dd-yyyy back to yyyy-MM-dd for backend
-      if (cleanData.graduation_date && cleanData.graduation_date.includes("-")) {
+      if (cleanData.graduation_date && (cleanData.graduation_date.includes("-") || cleanData.graduation_date.includes("/"))) {
         try {
-          // DatePicker gives MM-dd-yyyy
-          const parts = cleanData.graduation_date.split("-");
-          if (parts[0].length === 2 && parts[2].length === 4) {
-            const parsed = parse(cleanData.graduation_date, "MM-dd-yyyy", new Date());
-            if (!isNaN(parsed.getTime())) cleanData.graduation_date = format(parsed, "yyyy-MM-dd");
-          }
+          const parsed = parse(cleanData.graduation_date.replace(/\//g, "-"), "MM-dd-yyyy", new Date());
+          if (!isNaN(parsed.getTime())) cleanData.graduation_date = format(parsed, "yyyy-MM-dd");
         } catch (e) { }
       }
 
-      if (cleanData.date_of_joining && cleanData.date_of_joining.includes("-")) {
+      if (cleanData.date_of_joining && (cleanData.date_of_joining.includes("-") || cleanData.date_of_joining.includes("/"))) {
         try {
-          const parts = cleanData.date_of_joining.split("-");
-          if (parts[0].length === 2 && parts[2].length === 4) {
-            const parsed = parse(cleanData.date_of_joining, "MM-dd-yyyy", new Date());
-            if (!isNaN(parsed.getTime())) cleanData.date_of_joining = format(parsed, "yyyy-MM-dd");
-          }
+          const parsed = parse(cleanData.date_of_joining.replace(/\//g, "-"), "MM-dd-yyyy", new Date());
+          if (!isNaN(parsed.getTime())) cleanData.date_of_joining = format(parsed, "yyyy-MM-dd");
         } catch (e) { }
       }
 

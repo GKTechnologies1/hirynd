@@ -585,7 +585,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     <DatePicker 
                       value={formData.bachelors_grad_date} 
                       onChange={v => handleChange("bachelors_grad_date", v)} 
-                      placeholder="Select Date"
+                      placeholder="MM/DD/YYYY"
                       className={cn("h-10 rounded-lg", errors.bachelors_grad_date && "border-destructive ring-1 ring-destructive/20")}
                     />
                   </FormField>
@@ -594,7 +594,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     <DatePicker 
                       value={formData.first_entry_us} 
                       onChange={v => handleChange("first_entry_us", v)} 
-                      placeholder="Select Date"
+                      placeholder="MM/DD/YYYY"
                       className={cn("h-10 rounded-lg", errors.first_entry_us && "border-destructive ring-1 ring-destructive/20")}
                     />
                   </FormField>
@@ -603,7 +603,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     <DatePicker 
                       value={formData.masters_grad_date} 
                       onChange={v => handleChange("masters_grad_date", v)} 
-                      placeholder="Select Date"
+                      placeholder="MM/DD/YYYY"
                       className={cn("h-10 rounded-lg", errors.masters_grad_date && "border-destructive ring-1 ring-destructive/20")}
                     />
                   </FormField>
@@ -612,7 +612,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     <DatePicker 
                       value={formData.opt_start_date} 
                       onChange={v => handleChange("opt_start_date", v)} 
-                      placeholder="Select Date"
+                      placeholder="MM/DD/YYYY"
                       className={cn("h-10 rounded-lg", errors.opt_start_date && "border-destructive ring-1 ring-destructive/20")}
                     />
                   </FormField>

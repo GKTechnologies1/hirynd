@@ -115,6 +115,7 @@ def daily_logs(request, candidate_id):
         notes=request.data.get('notes', ''),
         is_manual=True
     )
+    candidate_obj.save() # Touch candidate to trigger updated_at refresh
     return Response(DailyJournalSerializer(log).data, status=status.HTTP_201_CREATED)
 
 
@@ -165,6 +166,7 @@ def job_applications(request, candidate_id):
     # We no longer increment applications_count here to keep it strictly for manual journal entries
     # as requested by the user.
     log.save()
+    candidate_obj.save() # Touch candidate to trigger updated_at refresh
 
     return Response(JobLinkEntrySerializer(created_entries, many=True).data, status=status.HTTP_201_CREATED)
 

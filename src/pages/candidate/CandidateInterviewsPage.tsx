@@ -180,7 +180,7 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                   </div>
                   <div>
                     <Label>Date *</Label>
-                    <DatePicker value={interviewDate} onChange={setInterviewDate} placeholder="MM-DD-YYYY" />
+                    <DatePicker value={interviewDate} onChange={setInterviewDate} placeholder="MM/DD/YYYY" />
                   </div>
                   <div>
                     <Label>Round</Label>

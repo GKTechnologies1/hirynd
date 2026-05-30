@@ -86,9 +86,9 @@ const RecruiterLogin = () => {
     if (!reg.university_name.trim()) errors.university_name = "University / College is required";
     if (!reg.degree_major.trim()) errors.degree_major = "Degree & Major is required";
 
-    const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-\d{4}$/;
+    const dateRegex = /^(0[1-9]|1[0-2])[-/](0[1-9]|[12][0-9]|3[01])[-/]\d{4}$/;
     if (!reg.graduation_date) errors.graduation_date = "Graduation date is required";
-    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM-DD-YYYY format";
+    else if (!dateRegex.test(reg.graduation_date)) errors.graduation_date = "Use MM/DD/YYYY format";
 
     if (!reg.linkedin_url.trim())
       errors.linkedin_url = "LinkedIn URL is required";
@@ -156,7 +156,7 @@ const RecruiterLogin = () => {
       phone: `${reg.countryCode}${reg.phone.replace(/\D/g, "")}`,
       role: "recruiter",
       consent_to_terms: reg.consent_to_terms,
-      graduation_date: reg.graduation_date ? format(parse(reg.graduation_date, "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "",
+      graduation_date: reg.graduation_date ? format(parse(reg.graduation_date.replace(/\//g, "-"), "MM-dd-yyyy", new Date()), "yyyy-MM-dd") : "",
     };
 
     const data = new FormData();
@@ -468,7 +468,7 @@ const RecruiterLogin = () => {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Graduation Date *</Label>
-                    <DatePicker id="reg-graduation_date" value={reg.graduation_date} onChange={val => updateReg("graduation_date", val)} placeholder="MM-DD-YYYY" />
+                    <DatePicker id="reg-graduation_date" value={reg.graduation_date} onChange={val => updateReg("graduation_date", val)} placeholder="MM/DD/YYYY" />
                     {regErrors.graduation_date && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.graduation_date}</p>}
                   </div>
 

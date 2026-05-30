@@ -55,13 +55,16 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
     setSubmitting(true);
     try {
       let startDate = form.start_date;
-      if (startDate && startDate.includes("-")) {
-        const parts = startDate.split("-");
-        if (parts[0].length === 2 && parts[2].length === 4) {
-          try {
-            const parsed = parse(startDate, "MM-dd-yyyy", new Date());
-            if (!isNaN(parsed.getTime())) startDate = format(parsed, "yyyy-MM-dd");
-          } catch(e) {}
+      if (startDate) {
+        const cleanDate = startDate.replace(/\//g, "-");
+        if (cleanDate.includes("-")) {
+          const parts = cleanDate.split("-");
+          if (parts[0].length === 2 && parts[2].length === 4) {
+            try {
+              const parsed = parse(cleanDate, "MM-dd-yyyy", new Date());
+              if (!isNaN(parsed.getTime())) startDate = format(parsed, "yyyy-MM-dd");
+            } catch(e) {}
+          }
         }
       }
 

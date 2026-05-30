@@ -38,7 +38,7 @@ const AdminGlobalAuditTab = () => {
         let filtered = allLogs || [];
         
         if (dateFrom) {
-          let dFrom = dateFrom;
+          let dFrom = dateFrom.replace(/\//g, "-");
           if (dFrom.includes("-") && dFrom.split("-")[0].length === 2) {
             try {
               const parsed = parse(dFrom, "MM-dd-yyyy", new Date());
@@ -49,7 +49,7 @@ const AdminGlobalAuditTab = () => {
         }
         
         if (dateTo) {
-          let dTo = dateTo;
+          let dTo = dateTo.replace(/\//g, "-");
           if (dTo.includes("-") && dTo.split("-")[0].length === 2) {
             try {
               const parsed = parse(dTo, "MM-dd-yyyy", new Date());

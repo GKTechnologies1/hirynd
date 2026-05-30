@@ -103,11 +103,14 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
     setSaving(true);
     try {
       let nextBilling = formNextDate;
-      if (nextBilling && nextBilling.includes("-") && nextBilling.split("-")[0].length === 2) {
-        try {
-          const parsed = parse(nextBilling, "MM-dd-yyyy", new Date());
-          if (!isNaN(parsed.getTime())) nextBilling = format(parsed, "yyyy-MM-dd");
-        } catch(e) {}
+      if (nextBilling) {
+        const cleanDate = nextBilling.replace(/\//g, "-");
+        if (cleanDate.includes("-") && cleanDate.split("-")[0].length === 2) {
+          try {
+            const parsed = parse(cleanDate, "MM-dd-yyyy", new Date());
+            if (!isNaN(parsed.getTime())) nextBilling = format(parsed, "yyyy-MM-dd");
+          } catch(e) {}
+        }
       }
 
       const payload = {

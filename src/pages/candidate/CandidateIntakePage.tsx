@@ -931,7 +931,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="dob" className="space-y-2">
                     <Label className="text-sm font-medium">Date of Birth *</Label>
-                    <DatePicker value={formData.dob} onChange={val => handleChange("dob", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.dob && "border-destructive ring-1 ring-destructive/20")} />
+                    <DatePicker value={formData.dob} onChange={val => handleChange("dob", val)} placeholder="MM/DD/YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.dob && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.dob && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.dob}</p>}
                   </div>
                   <div className="space-y-2">
@@ -998,7 +998,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   )}
                   <div id="firstEntryUS" className="space-y-2">
                     <Label className="text-sm font-medium">First Entry into the U.S. *</Label>
-                    <DatePicker value={formData.firstEntryUS} onChange={val => handleChange("firstEntryUS", val)} placeholder="MM-DD-YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.firstEntryUS && "border-destructive ring-1 ring-destructive/20")} />
+                    <DatePicker value={formData.firstEntryUS} onChange={val => handleChange("firstEntryUS", val)} placeholder="MM/DD/YYYY" className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.firstEntryUS && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.firstEntryUS && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.firstEntryUS}</p>}
                   </div>
                   <div id="totalYearsUS" className="space-y-2">
@@ -1127,11 +1127,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs font-medium">Start Date</Label>
-                            <DatePicker value={formData.job1_start} onChange={val => handleChange("job1_start", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                            <DatePicker value={formData.job1_start} onChange={val => handleChange("job1_start", val)} placeholder="MM/DD/YYYY" className="h-9" />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs font-medium">End Date</Label>
-                            <DatePicker value={formData.job1_end} onChange={val => handleChange("job1_end", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                            <DatePicker value={formData.job1_end} onChange={val => handleChange("job1_end", val)} placeholder="MM/DD/YYYY" className="h-9" />
                           </div>
                           <div className="sm:col-span-2 lg:col-span-3 space-y-1">
                             <Label className="text-xs font-medium">Company Address</Label>
@@ -1183,11 +1183,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs font-medium">Start Date</Label>
-                              <DatePicker value={formData.job2_start} onChange={val => handleChange("job2_start", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                              <DatePicker value={formData.job2_start} onChange={val => handleChange("job2_start", val)} placeholder="MM/DD/YYYY" className="h-9" />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs font-medium">End Date</Label>
-                              <DatePicker value={formData.job2_end} onChange={val => handleChange("job2_end", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                              <DatePicker value={formData.job2_end} onChange={val => handleChange("job2_end", val)} placeholder="MM/DD/YYYY" className="h-9" />
                             </div>
                             <div className="sm:col-span-2 lg:col-span-3 space-y-1">
                               <Label className="text-xs font-medium">Company Address</Label>
@@ -1240,11 +1240,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs font-medium">Start Date</Label>
-                              <DatePicker value={formData.job3_start} onChange={val => handleChange("job3_start", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                              <DatePicker value={formData.job3_start} onChange={val => handleChange("job3_start", val)} placeholder="MM/DD/YYYY" className="h-9" />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs font-medium">End Date</Label>
-                              <DatePicker value={formData.job3_end} onChange={val => handleChange("job3_end", val)} placeholder="MM-DD-YYYY" className="h-9" />
+                              <DatePicker value={formData.job3_end} onChange={val => handleChange("job3_end", val)} placeholder="MM/DD/YYYY" className="h-9" />
                             </div>
                             <div className="sm:col-span-2 lg:col-span-3 space-y-1">
                               <Label className="text-xs font-medium">Company Address</Label>
@@ -1315,7 +1315,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     <DatePicker
                       value={formData.mastersGradDate}
                       onChange={val => handleChange("mastersGradDate", val)}
-                      placeholder="MM-DD-YYYY"
+                      placeholder="MM/DD/YYYY"
                       className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.mastersGradDate && "border-destructive ring-1 ring-destructive/20")}
                     />
                     {errors.mastersGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.mastersGradDate}</p>}
@@ -1355,7 +1355,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     <DatePicker
                       value={formData.bachelorsGradDate}
                       onChange={val => handleChange("bachelorsGradDate", val)}
-                      placeholder="MM-DD-YYYY"
+                      placeholder="MM/DD/YYYY"
                       className={cn("h-10", isLocked && "opacity-50 pointer-events-none", errors.bachelorsGradDate && "border-destructive ring-1 ring-destructive/20")}
                     />
                     {errors.bachelorsGradDate && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsGradDate}</p>}

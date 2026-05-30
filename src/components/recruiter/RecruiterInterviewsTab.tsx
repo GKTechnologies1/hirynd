@@ -126,7 +126,7 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
                   <SelectContent>{LOG_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
               <div><Label>Company *</Label><Input value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>
               <div><Label>Role *</Label><Input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} /></div>
-              <div><Label>Date *</Label><DatePicker value={interviewDate} onChange={setInterviewDate} placeholder="MM-DD-YYYY" /></div>
+              <div><Label>Date *</Label><DatePicker value={interviewDate} onChange={setInterviewDate} placeholder="MM/DD/YYYY" /></div>
               <div><Label>Round</Label><Select value={round} onValueChange={setRound}><SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
                 <SelectContent>{ROUNDS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select></div>
               <div><Label>Outcome</Label><Select value={outcome} onValueChange={setOutcome}><SelectTrigger><SelectValue /></SelectTrigger>
