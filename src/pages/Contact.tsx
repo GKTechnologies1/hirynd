@@ -97,7 +97,7 @@ const Contact = () => {
     if (wantsMarketing === "yes") {
       if (!formData.get("degree_major")) newErrors.degree_major = "Degree & Major is required";
       if (!formData.get("university")) newErrors.university = "University / College is required";
-      if (!formData.get("graduation_year")) newErrors.graduation_year = "Graduation year is required";
+      if (!formData.get("graduation_year")) newErrors.graduation_year = "Graduation date is required";
       if (!visaStatus) newErrors.visa_status = "Please select your visa status";
       if (visaStatus === "other" && !(formData.get("visa_other") as string || "").trim()) {
         newErrors.visa_other = "Please specify your visa status";
@@ -477,7 +477,7 @@ const Contact = () => {
                       {errors.university && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.university}</p>}
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Year *</Label>
+                      <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Date *</Label>
                       <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.graduation_year ? 'border-destructive' : 'border-neutral-200'}`}>
                         <CalendarIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                         <Input
