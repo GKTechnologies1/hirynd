@@ -722,15 +722,6 @@ def validate_credential_data(data):
         'preferred_locations': 'Preferred Locations',
         'linkedin_id': 'LinkedIn Login ID',
         'linkedin_pass': 'LinkedIn Password',
-        'indeed_id': 'Indeed Login ID',
-        'indeed_pass': 'Indeed Password',
-        'dice_id': 'Dice Login ID',
-        'dice_pass': 'Dice Password',
-        'monster_id': 'Monster Login ID',
-        'monster_pass': 'Monster Password',
-        'ziprecruiter_id': 'ZipRecruiter Login ID',
-        'ziprecruiter_pass': 'ZipRecruiter Password',
-        'other_platforms': 'Other Platforms',
     }
     for field, label in required_fields.items():
         val = data.get(field)

@@ -241,9 +241,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
       "email", "bachelors_grad_date", "first_entry_us", "masters_grad_date",
       "opt_start_date", "opt_offer_submitted", "preferred_roles",
       "preferred_locations", "full_name", "personal_email", "phone_number",
-      "location", "linkedin_id", "linkedin_pass", "indeed_id", "indeed_pass",
-      "dice_id", "dice_pass", "monster_id", "monster_pass", "ziprecruiter_id",
-      "ziprecruiter_pass", "other_platforms"
+      "location", "linkedin_id", "linkedin_pass"
     ];
 
     mandatoryFields.forEach(field => {
@@ -764,39 +762,39 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
  
                   {/* Indeed */}
                   <div id="indeed_id" className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Login ID *</Label>
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Login ID (Optional)</Label>
                     <Input value={formData.indeed_id} onChange={e => handleChange("indeed_id", e.target.value)} placeholder="Indeed Email ID" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.indeed_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.indeed_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.indeed_id}</p>}
                   </div>
-                  <PasswordField id="indeed_pass" label="Indeed Password" mandatory value={formData.indeed_pass} onChange={(v: string) => handleChange("indeed_pass", v)} error={errors.indeed_pass} placeholder="Password" />
+                  <PasswordField id="indeed_pass" label="Indeed Password" value={formData.indeed_pass} onChange={(v: string) => handleChange("indeed_pass", v)} error={errors.indeed_pass} placeholder="Password" />
  
                   {/* Dice */}
                   <div id="dice_id" className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Login ID *</Label>
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Login ID (Optional)</Label>
                     <Input value={formData.dice_id} onChange={e => handleChange("dice_id", e.target.value)} placeholder="Dice username/email" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.dice_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.dice_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.dice_id}</p>}
                   </div>
-                  <PasswordField id="dice_pass" label="Dice Password" mandatory value={formData.dice_pass} onChange={(v: string) => handleChange("dice_pass", v)} error={errors.dice_pass} placeholder="Password" />
+                  <PasswordField id="dice_pass" label="Dice Password" value={formData.dice_pass} onChange={(v: string) => handleChange("dice_pass", v)} error={errors.dice_pass} placeholder="Password" />
  
                   {/* Monster */}
                   <div id="monster_id" className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Login ID *</Label>
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Login ID (Optional)</Label>
                     <Input value={formData.monster_id} onChange={e => handleChange("monster_id", e.target.value)} placeholder="Monster email" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.monster_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.monster_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.monster_id}</p>}
                   </div>
-                  <PasswordField id="monster_pass" label="Monster Password" mandatory value={formData.monster_pass} onChange={(v: string) => handleChange("monster_pass", v)} error={errors.monster_pass} placeholder="Password" />
+                  <PasswordField id="monster_pass" label="Monster Password" value={formData.monster_pass} onChange={(v: string) => handleChange("monster_pass", v)} error={errors.monster_pass} placeholder="Password" />
  
                   {/* ZipRecruiter */}
                   <div id="ziprecruiter_id" className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Login ID *</Label>
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Login ID (Optional)</Label>
                     <Input value={formData.ziprecruiter_id} onChange={e => handleChange("ziprecruiter_id", e.target.value)} placeholder="ZipRecruiter email" className={cn("h-11 rounded-xl bg-white border-amber-200", errors.ziprecruiter_id && "border-destructive ring-1 ring-destructive/20")} />
                     {errors.ziprecruiter_id && <p className="text-xs text-destructive mt-1.5 ml-1 font-semibold">{errors.ziprecruiter_id}</p>}
                   </div>
-                  <PasswordField id="ziprecruiter_pass" label="ZipRecruiter Password" mandatory value={formData.ziprecruiter_pass} onChange={(v: string) => handleChange("ziprecruiter_pass", v)} error={errors.ziprecruiter_pass} placeholder="Password" />
+                  <PasswordField id="ziprecruiter_pass" label="ZipRecruiter Password" value={formData.ziprecruiter_pass} onChange={(v: string) => handleChange("ziprecruiter_pass", v)} error={errors.ziprecruiter_pass} placeholder="Password" />
  
                   {/* Other Platforms */}
                   <div id="other_platforms" className="sm:col-span-2 space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Mention other Platform accounts *</Label>
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Mention other Platform accounts (Optional)</Label>
                     <Textarea 
                       value={formData.other_platforms} 
                       onChange={e => handleChange("other_platforms", e.target.value)}
