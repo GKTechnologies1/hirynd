@@ -92,7 +92,18 @@ const AdminUsersPage = () => {
       const { data } = await authApi.allUsers();
       // all_users now returns {total, results}
       const list = data?.results ?? data ?? [];
-      setUsers(list);
+      const ROLE_PREFIX: Record<string, string> = {
+        candidate: 'HYRCDT', recruiter: 'HYRREC',
+        team_lead: 'HYRTLD', team_manager: 'HYRTMG',
+        admin: 'HYRADM', finance_admin: 'HYRFIN',
+      };
+      const formattedList = list.map((u: any) => ({
+        ...u,
+        full_name: u.full_name || u.profile?.full_name || "",
+        display_id: u.display_id || `${ROLE_PREFIX[u.role] || 'HYRUSR'}${u.id.toString().slice(-6).toUpperCase()}`,
+        date_joined: u.date_joined || u.created_at
+      }));
+      setUsers(formattedList);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
@@ -259,21 +270,13 @@ const AdminUsersPage = () => {
             columns={[
               {
                 header: "ID",
-                render: (u: any) => {
-                  const ROLE_PREFIX: Record<string, string> = {
-                    candidate: 'HYRCDT', recruiter: 'HYRREC',
-                    team_lead: 'HYRTLD', team_manager: 'HYRTMG',
-                    admin: 'HYRADM', finance_admin: 'HYRFIN',
-                  };
-                  const fallback = `${ROLE_PREFIX[u.role] || 'HYRUSR'}${u.id.toString().slice(-6).toUpperCase()}`;
-                  return (
-                    <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono">
-                      {u.display_id || fallback}
-                    </span>
-                  );
-                },
+                render: (u: any) => (
+                  <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono">
+                    {u.display_id}
+                  </span>
+                ),
                 sortable: true,
-                accessorKey: "id",
+                accessorKey: "display_id",
                 className: "text-xs pl-4"
               },
               { 
@@ -282,7 +285,7 @@ const AdminUsersPage = () => {
                 accessorKey: "full_name",
                 render: (u: any) => (
                   <div>
-                    <p className="font-bold text-sm text-foreground">{u.full_name || u.profile?.full_name || "(name not set)"}</p>
+                    <p className="font-bold text-sm text-foreground">{u.full_name || "(name not set)"}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Mail className="h-3 w-3" />{u.email}
                     </p>

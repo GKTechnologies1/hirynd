@@ -29,7 +29,20 @@ const AdminRecruitersPage = () => {
     try {
       const { data } = await authApi.allUsers();
       const list = data?.results ?? data ?? [];
-      setRecruiters(list.filter((u: any) => u.role === "recruiter" || u.role === "team_lead" || u.role === "team_manager"));
+      const ROLE_PREFIX: Record<string, string> = {
+        candidate: 'HYRCDT', recruiter: 'HYRREC',
+        team_lead: 'HYRTLD', team_manager: 'HYRTMG',
+        admin: 'HYRADM', finance_admin: 'HYRFIN',
+      };
+      const formattedList = list
+        .filter((u: any) => u.role === "recruiter" || u.role === "team_lead" || u.role === "team_manager")
+        .map((u: any) => ({
+          ...u,
+          full_name: u.full_name || u.profile?.full_name || "",
+          display_id: u.display_id || `${ROLE_PREFIX[u.role] || 'HYRREC'}${u.id.toString().slice(-6).toUpperCase()}`,
+          date_joined: u.date_joined || u.created_at
+        }));
+      setRecruiters(formattedList);
     } catch (err: any) {
       toast({ title: "Error fetch recruiters", description: err.message, variant: "destructive" });
     }
@@ -97,9 +110,11 @@ const AdminRecruitersPage = () => {
               { 
                 header: "ID", 
                 className: "pl-6 py-4",
+                sortable: true,
+                accessorKey: "display_id",
                 render: (r: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
-                    {r.display_id || `HYRREC${String(r.seq_number || 0).padStart(6, '0')}`}
+                    {r.display_id}
                   </span>
                 )
               },
@@ -109,7 +124,7 @@ const AdminRecruitersPage = () => {
                 accessorKey: "full_name",
                 className: "py-4 font-bold text-xs uppercase tracking-widest",
                 render: (r: any) => {
-                  const name = r.full_name || r.profile?.full_name || "Unset Name";
+                  const name = r.full_name || "Unset Name";
                   const email = r.email;
                   return (
                     <div className="flex items-center gap-3 py-1 pl-4">
