@@ -77,6 +77,63 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+let refreshTimer: any = null;
+
+export const setupProactiveRefresh = (token: string | null) => {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+  if (!token) return;
+
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const decoded = JSON.parse(jsonPayload);
+    if (!decoded || !decoded.exp) return;
+
+    const expiryTime = decoded.exp * 1000;
+    const currentTime = Date.now();
+
+    // Refresh 5 minutes before expiry
+    const refreshLeadTime = 5 * 60 * 1000;
+    const delay = expiryTime - currentTime - refreshLeadTime;
+
+    if (delay > 0) {
+      refreshTimer = setTimeout(async () => {
+        const refresh = localStorage.getItem('refresh_token');
+        if (refresh) {
+          try {
+            const { data } = await axios.post(`${API_BASE_URL}/auth/refresh/`, { refresh });
+            localStorage.setItem('access_token', data.access);
+            if (data.refresh) {
+              localStorage.setItem('refresh_token', data.refresh);
+            }
+            setupProactiveRefresh(data.access);
+          } catch {
+            // Let the standard refresh logic or next request handle dynamic logout
+          }
+        }
+      }, delay);
+    }
+  } catch (e) {
+    console.error("Failed to parse token for proactive refresh", e);
+  }
+};
+
+// Start proactive refresh on application load if token exists
+const initialToken = localStorage.getItem('access_token');
+if (initialToken) {
+  setupProactiveRefresh(initialToken);
+}
+
 // Response interceptor for global error handling
 api.interceptors.response.use(
   (response) => response,
@@ -87,6 +144,14 @@ api.interceptors.response.use(
     // ── 401: Unauthorized (Token Refresh) ──
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+
+      // Check if another tab or request already refreshed the token
+      const currentToken = localStorage.getItem('access_token');
+      const requestToken = originalRequest.headers.Authorization?.replace('Bearer ', '');
+      if (currentToken && currentToken !== requestToken) {
+        originalRequest.headers.Authorization = `Bearer ${currentToken}`;
+        return api(originalRequest);
+      }
 
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -110,6 +175,7 @@ api.interceptors.response.use(
           if (data.refresh) {
             localStorage.setItem('refresh_token', data.refresh);
           }
+          setupProactiveRefresh(data.access);
           originalRequest.headers.Authorization = `Bearer ${data.access}`;
           processQueue(null, data.access);
           isRefreshing = false;

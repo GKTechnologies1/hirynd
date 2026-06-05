@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { authApi } from "@/services/api";
+import { authApi, setupProactiveRefresh } from "@/services/api";
 
 type AppRole = "candidate" | "recruiter" | "team_lead" | "team_manager" | "admin" | "finance_admin";
 
@@ -48,6 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
+      setupProactiveRefresh(null);
       setUser(null);
     }
     setLoading(false);
@@ -71,6 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data } = await authApi.login(email, password);
       localStorage.setItem("access_token", data.access);
       localStorage.setItem("refresh_token", data.refresh);
+      setupProactiveRefresh(data.access);
       setUser(data.user);
       return { error: null, user: data.user };
     } catch (err: any) {
@@ -88,6 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch { /* ignore */ }
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    setupProactiveRefresh(null);
     setUser(null);
   };
 
