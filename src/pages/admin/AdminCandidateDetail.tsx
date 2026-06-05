@@ -1288,7 +1288,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                                     <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
                                     <div className="space-y-1">
                                       <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cData[portal.id] || cData.shared_email || "N/A"}</span></p>
-                                      <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => alert(`${portal.label} Password: ${cData[portal.pw] || 'N/A'}`)}>{cData[portal.pw] ? "••••••••" : "N/A"}</span></p>
+                                      <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_${portal.pw}`)}>{cData[portal.pw] ? (showCredPasswords[`${v.id}_${portal.pw}`] ? cData[portal.pw] : "••••••••") : "N/A"}</span></p>
                                     </div>
                                   </div>
                                 ))}
@@ -1304,7 +1304,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                                       <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3">
                                         <p className="font-bold text-[10px] text-amber-700 mb-2">{cp.platform_name || "Platform"}</p>
                                         <div className="space-y-1">
-                                          <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded">{cp.password ? "••••••••" : "N/A"}</span></p>
+                                          <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_cp_${idx}`)}>{cp.password ? (showCredPasswords[`${v.id}_cp_${idx}`] ? cp.password : "••••••••") : "N/A"}</span></p>
                                         </div>
                                       </div>
                                     ))}

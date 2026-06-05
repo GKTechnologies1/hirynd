@@ -74,8 +74,8 @@ def admin_training_clicks(request):
     from datetime import timedelta
     thirty_days_ago = timezone.now() - timedelta(days=30)
     clicks = TrainingScheduleClick.objects.filter(
-        created_at__gte=thirty_days_ago
-    ).select_related('candidate__user__profile').order_by('-created_at')[:50]
+        clicked_at__gte=thirty_days_ago
+    ).select_related('candidate__user__profile').order_by('-clicked_at')[:50]
 
     data = []
     for c in clicks:
@@ -87,8 +87,8 @@ def admin_training_clicks(request):
         data.append({
             'id': str(c.id),
             'candidate_name': name,
-            'training_type': c.training_type,
-            'created_at': c.created_at.isoformat(),
+            'training_type': c.schedule_type,
+            'created_at': c.clicked_at.isoformat(),
         })
     return Response(data)
 

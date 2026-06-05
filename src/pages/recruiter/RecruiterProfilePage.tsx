@@ -185,6 +185,7 @@ const RecruiterProfilePage = () => {
         [`${docType}_file`]: {
           id: data.id,
           name: file.name,
+          url: data.url,
           uploaded_at: new Date().toISOString()
         }
       }));
@@ -420,7 +421,7 @@ const RecruiterProfilePage = () => {
                         </>
                       )}
                     </Button>
-                    <DocumentPreview url={documents.highest_degree_certificate_file} label="View" variant="button" />
+                    <DocumentPreview url={documents.highest_degree_certificate_file?.url} label="View" variant="button" />
                   </div>
                 </div>
               ) : (
@@ -481,7 +482,7 @@ const RecruiterProfilePage = () => {
                         </>
                       )}
                     </Button>
-                    <DocumentPreview url={documents.government_id_card_file} label="View" variant="button" />
+                    <DocumentPreview url={documents.government_id_card_file?.url} label="View" variant="button" />
                   </div>
                 </div>
               ) : (
@@ -542,7 +543,7 @@ const RecruiterProfilePage = () => {
                         </>
                       )}
                     </Button>
-                    <DocumentPreview url={documents.pan_card_file} label="View" variant="button" />
+                    <DocumentPreview url={documents.pan_card_file?.url} label="View" variant="button" />
                   </div>
                 </div>
               ) : (
@@ -603,7 +604,7 @@ const RecruiterProfilePage = () => {
                         </>
                       )}
                     </Button>
-                    <DocumentPreview url={documents.bank_passbook_file} label="View" variant="button" />
+                    <DocumentPreview url={documents.bank_passbook_file?.url} label="View" variant="button" />
                   </div>
                 </div>
               ) : (

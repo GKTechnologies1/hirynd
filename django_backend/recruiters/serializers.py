@@ -86,6 +86,7 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
     government_id_card_file = serializers.SerializerMethodField()
     pan_card_file = serializers.SerializerMethodField()
     bank_passbook_file = serializers.SerializerMethodField()
+    bank_details = serializers.SerializerMethodField()
     
     class Meta:
         model = RecruiterProfile
@@ -101,7 +102,7 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
             'highest_degree_certificate_id', 'government_id_card_id', 
             'pan_card_id', 'bank_passbook_id',
             'highest_degree_certificate_file', 'government_id_card_file',
-            'pan_card_file', 'bank_passbook_file'
+            'pan_card_file', 'bank_passbook_file', 'bank_details'
         ]
 
     def get_resume_file(self, obj):
@@ -171,6 +172,17 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
                 return None
         return None
 
+    def get_bank_details(self, obj):
+        try:
+            bank = obj.user.bank_details
+            return {
+                'bank_name': bank.bank_name or "",
+                'account_number_last4': bank.account_number_last4 or "",
+                'routing_number_last4': bank.routing_number_last4 or "",
+            }
+        except Exception:
+            return None
+
     def update(self, instance, validated_data):
         # Handle Profile updates (full_name, phone)
         user_data = validated_data.pop('user', {})
@@ -181,6 +193,27 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
             profile.full_name = profile_data.get('full_name', profile.full_name)
             profile.phone = profile_data.get('phone', profile.phone)
             profile.save()
+            
+        # Handle Bank Details updates from initial_data
+        bank_data = self.initial_data.get('bank_details')
+        if bank_data:
+            from .models import RecruiterBankDetails
+            bank, _ = RecruiterBankDetails.objects.get_or_create(recruiter=instance.user)
+            
+            bank_name = bank_data.get('bank_name')
+            if bank_name is not None:
+                bank.bank_name = bank_name
+                
+            acc = bank_data.get('account_number', '')
+            rtn = bank_data.get('routing_number', '')
+            
+            if acc and not acc.startswith('****'):
+                bank.account_number_last4 = acc[-4:]
+                bank.account_number_encrypted = acc
+            if rtn and not rtn.startswith('****'):
+                bank.routing_number_last4 = rtn[-4:]
+                bank.routing_number_encrypted = rtn
+            bank.save()
             
         # Handle RecruiterProfile updates
         for attr, value in validated_data.items():
