@@ -23,6 +23,43 @@ import AdminAuditTab from "@/components/admin/AdminAuditTab";
 import ChatTab from "@/components/recruiter/ChatTab";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const JobDescriptionCell = ({ 
+  company, 
+  role, 
+  description, 
+  onReadMore 
+}: { 
+  company: string; 
+  role: string; 
+  description?: string; 
+  onReadMore: (company: string, role: string, desc: string) => void; 
+}) => {
+  if (!description) return <span className="text-muted-foreground">—</span>;
+  
+  const isLengthy = description.length > 100;
+  if (!isLengthy) {
+    return <span className="text-xs whitespace-pre-wrap">{description}</span>;
+  }
+  
+  const preview = description.slice(0, 100) + "...";
+  return (
+    <div className="text-xs">
+      <span>{preview}</span>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onReadMore(company, role, description);
+        }}
+        className="text-primary hover:underline font-semibold ml-1 cursor-pointer"
+      >
+        Read More
+      </button>
+    </div>
+  );
+};
 
 
 const navItems = [
@@ -49,6 +86,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [jobPostings, setJobPostings] = useState<any[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
+
+  const handleOpenDescription = (company: string, role: string, description: string) => {
+    setActiveJobDesc({ company, role, description });
+  };
 
   // Credential form
   const [credForm, setCredForm] = useState<Record<string, any>>({});
@@ -1192,21 +1234,42 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     )
                   },
                   {
-                    header: "Company & Role",
+                    header: "Company Name",
                     className: "px-6 py-4",
                     render: (j: any) => (
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <p className="font-bold text-sm tracking-tight">{j.company_name || "—"}</p>
-                          <p className="text-[11px] text-muted-foreground">{j.role_title || "—"}</p>
-                          {j.job_description && (
-                            <p className="text-[10px] text-muted-foreground/60 line-clamp-1 italic mt-0.5 max-w-[200px]">{j.job_description}</p>
-                          )}
-                        </div>
-                        {j.job_url && (
-                          <DocumentPreview url={j.job_url} label={<span className="flex items-center gap-1">Job Application Link <ExternalLink className="h-4 w-4" /></span>} className="text-secondary hover:underline cursor-pointer" />
-                        )}
-                      </div>
+                      <span className="font-bold text-sm tracking-tight">{j.company_name || "—"}</span>
+                    )
+                  },
+                  {
+                    header: "Role Title",
+                    className: "px-6 py-4",
+                    render: (j: any) => (
+                      <span className="text-sm font-medium">{j.role_title || "—"}</span>
+                    )
+                  },
+                  {
+                    header: "Job Description",
+                    className: "px-6 py-4",
+                    render: (j: any) => (
+                      <JobDescriptionCell 
+                        company={j.company_name} 
+                        role={j.role_title} 
+                        description={j.job_description} 
+                        onReadMore={handleOpenDescription} 
+                      />
+                    )
+                  },
+                  {
+                    header: "Job Link",
+                    className: "px-6 py-4",
+                    render: (j: any) => (
+                      j.job_url ? (
+                        <DocumentPreview 
+                          url={j.job_url} 
+                          label="View Job" 
+                          className="inline-flex items-center gap-1 text-xs text-secondary hover:underline cursor-pointer font-semibold" 
+                        />
+                      ) : "—"
                     )
                   },
                   {
@@ -1265,6 +1328,21 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           <AdminAuditTab targetId={candidateId} />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!activeJobDesc} onOpenChange={(open) => !open && setActiveJobDesc(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-card rounded-2xl p-6 shadow-2xl border border-border/50">
+          <DialogHeader className="border-b border-border/10 pb-4">
+            <DialogTitle className="text-lg font-bold flex flex-col gap-1 text-left">
+              <span className="text-muted-foreground text-xs uppercase tracking-wider">Job Description</span>
+              <span className="text-card-foreground">{activeJobDesc?.role}</span>
+              <span className="text-primary text-sm font-medium">{activeJobDesc?.company}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground max-h-[55vh] overflow-y-auto pr-2">
+            {activeJobDesc?.description}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -12,6 +12,43 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown } from "lucide-react";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const JobDescriptionCell = ({ 
+  company, 
+  role, 
+  description, 
+  onReadMore 
+}: { 
+  company: string; 
+  role: string; 
+  description?: string; 
+  onReadMore: (company: string, role: string, desc: string) => void; 
+}) => {
+  if (!description) return <span className="text-muted-foreground">—</span>;
+  
+  const isLengthy = description.length > 100;
+  if (!isLengthy) {
+    return <span className="text-xs whitespace-pre-wrap">{description}</span>;
+  }
+  
+  const preview = description.slice(0, 100) + "...";
+  return (
+    <div className="text-xs">
+      <span>{preview}</span>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onReadMore(company, role, description);
+        }}
+        className="text-primary hover:underline font-semibold ml-1 cursor-pointer"
+      >
+        Read More
+      </button>
+    </div>
+  );
+};
 
 
 const navItems = [
@@ -43,6 +80,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   const [loading, setLoading] = useState(true);
   const [updatingJob, setUpdatingJob] = useState<string | null>(null);
   const [statusNotes, setStatusNotes] = useState<Record<string, string>>({});
+  const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
+
+  const handleOpenDescription = (company: string, role: string, description: string) => {
+    setActiveJobDesc({ company, role, description });
+  };
 
   useEffect(() => {
     if (!candidate?.id) return;
@@ -170,32 +212,59 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     className: "pl-6"
                   },
                   { 
-                    header: "Company", 
+                    header: "Company Name", 
                     accessorKey: "company_name",
                     sortable: true,
                     className: "font-medium text-sm"
                   },
                   { 
-                    header: "Role", 
+                    header: "Role Title", 
                     accessorKey: "role_title",
                     sortable: true,
                     className: "text-sm"
                   },
                   { 
-                    header: "Recruiter Status", 
-                    render: (j: any) => <StatusBadge status={j.candidate_response_status || j.status || j.application_status} />
+                    header: "Job Description", 
+                    render: (j: any) => (
+                      <JobDescriptionCell 
+                        company={j.company_name} 
+                        role={j.role_title} 
+                        description={j.job_description} 
+                        onReadMore={handleOpenDescription} 
+                      />
+                    )
                   },
                   { 
-                    header: "Link", 
+                    header: "Job Link", 
                     render: (j: any) => (
                       j.job_url ? (
                         <DocumentPreview 
                           url={j.job_url} 
-                          label="View" 
+                          label="View Job" 
                           className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                         />
                       ) : "—"
                     )
+                  },
+                  { 
+                    header: "Resume Link", 
+                    render: (j: any) => (
+                      j.resume_used ? (
+                        j.resume_used.startsWith('http') ? (
+                          <DocumentPreview 
+                            url={j.resume_used} 
+                            label="View Resume" 
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          />
+                        ) : (
+                          <span className="text-xs font-mono opacity-80">{j.resume_used}</span>
+                        )
+                      ) : "—"
+                    )
+                  },
+                  { 
+                    header: "Recruiter Status", 
+                    render: (j: any) => <StatusBadge status={j.candidate_response_status || j.status || j.application_status} />
                   },
                   { 
                     header: "Logged Date", 
@@ -275,6 +344,21 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           )}
         </div>
       )}
+
+      <Dialog open={!!activeJobDesc} onOpenChange={(open) => !open && setActiveJobDesc(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-card rounded-2xl p-6 shadow-2xl border border-border/50">
+          <DialogHeader className="border-b border-border/10 pb-4">
+            <DialogTitle className="text-lg font-bold flex flex-col gap-1 text-left">
+              <span className="text-muted-foreground text-xs uppercase tracking-wider">Job Description</span>
+              <span className="text-card-foreground">{activeJobDesc?.role}</span>
+              <span className="text-primary text-sm font-medium">{activeJobDesc?.company}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground max-h-[55vh] overflow-y-auto pr-2">
+            {activeJobDesc?.description}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
