@@ -14,6 +14,7 @@ import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Phone, Plus } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const LOG_TYPES = [
   { value: "screening_call", label: "Screening Call" },
@@ -32,12 +33,51 @@ interface RecruiterInterviewsTabProps {
   candidateUserId: string;
 }
 
+const LongTextCell = ({ 
+  title, 
+  content, 
+  companyName, 
+  roleTitle, 
+  onReadMore 
+}: { 
+  title: string; 
+  content?: string; 
+  companyName: string; 
+  roleTitle: string; 
+  onReadMore: (title: string, content: string, companyName: string, roleTitle: string) => void; 
+}) => {
+  if (!content) return <span className="text-muted-foreground">—</span>;
+  
+  const isLengthy = content.length > 100;
+  if (!isLengthy) {
+    return <span className="text-xs whitespace-pre-wrap text-left w-full block">{content}</span>;
+  }
+  
+  const preview = content.slice(0, 100) + "...";
+  return (
+    <div className="text-xs text-left w-full">
+      <span>{preview}</span>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onReadMore(title, content, companyName, roleTitle);
+        }}
+        className="text-primary hover:underline font-semibold ml-1 cursor-pointer"
+      >
+        Read More
+      </button>
+    </div>
+  );
+};
+
 const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInterviewsTabProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [activeLongText, setActiveLongText] = useState<{ title: string; content: string; companyName: string; roleTitle: string } | null>(null);
 
   const [logType, setLogType] = useState("screening_call");
   const [companyName, setCompanyName] = useState("");
@@ -89,6 +129,7 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
         stage_round: round,
         outcome,
         feedback_notes: notes.trim(),
+        notes: notes.trim(),
         difficult_questions: difficultQuestions.trim(),
         support_needed: supportNeeded ? (supportNotes.trim() || "Yes") : "",
       });
@@ -186,6 +227,44 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
                 accessorKey: "stage_round",
                 render: (l: any) => <span className="text-xs">{l.stage_round || "—"}</span>
               },
+              {
+                header: "Notes",
+                render: (l: any) => (
+                  <LongTextCell
+                    title="Notes"
+                    content={l.notes || l.feedback_notes}
+                    companyName={l.company_name}
+                    roleTitle={l.role_title}
+                    onReadMore={(t, c, co, r) => setActiveLongText({ title: t, content: c, companyName: co, roleTitle: r })}
+                  />
+                )
+              },
+              {
+                header: "Difficult Questions",
+                render: (l: any) => (
+                  <LongTextCell
+                    title="Difficult Questions"
+                    content={l.difficult_questions}
+                    companyName={l.company_name}
+                    roleTitle={l.role_title}
+                    onReadMore={(t, c, co, r) => setActiveLongText({ title: t, content: c, companyName: co, roleTitle: r })}
+                  />
+                )
+              },
+              {
+                header: "Support Needed",
+                render: (l: any) => l.support_needed ? (
+                  <LongTextCell
+                    title="Support Needed"
+                    content={l.support_needed}
+                    companyName={l.company_name}
+                    roleTitle={l.role_title}
+                    onReadMore={(t, c, co, r) => setActiveLongText({ title: t, content: c, companyName: co, roleTitle: r })}
+                  />
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )
+              },
               { 
                 header: "Outcome", 
                 sortable: true,
@@ -198,6 +277,20 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
         </CardContent>
       </Card>
 
+      <Dialog open={!!activeLongText} onOpenChange={(open) => !open && setActiveLongText(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-card rounded-2xl p-6 shadow-2xl border border-border/50">
+          <DialogHeader className="border-b border-border/10 pb-4">
+            <DialogTitle className="text-lg font-bold flex flex-col gap-1 text-left">
+              <span className="text-muted-foreground text-xs uppercase tracking-wider">{activeLongText?.title}</span>
+              <span className="text-card-foreground">{activeLongText?.roleTitle}</span>
+              <span className="text-primary text-sm font-medium">{activeLongText?.companyName}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground max-h-[55vh] overflow-y-auto pr-2">
+            {activeLongText?.content}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
