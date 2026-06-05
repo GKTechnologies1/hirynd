@@ -9,11 +9,11 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, Mail, UserX, LayoutDashboard, Users, Award, CreditCard, Briefcase, Loader2, FileText, MapPin, ExternalLink, Globe } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetHeader, 
-  SheetTitle, 
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -119,8 +119,8 @@ const AdminApprovalsPage = () => {
       <Card className="border-secondary/10 shadow-sm overflow-hidden">
         <CardHeader className="bg-muted/30 pb-4">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ShieldCheck className="h-5 w-5 text-secondary" /> 
-            Pending Queue 
+            <ShieldCheck className="h-5 w-5 text-secondary" />
+            Pending Queue
             <Badge variant="secondary" className="ml-2 bg-secondary/10 text-secondary border-secondary/20 font-bold">
               {pending.length}
             </Badge>
@@ -134,8 +134,8 @@ const AdminApprovalsPage = () => {
             searchKey="email"
             emptyMessage="No pending registrations in queue."
             columns={[
-              { 
-                header: "ID", 
+              {
+                header: "ID",
                 render: (u: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
                     {u.display_id || (u.role === 'candidate' ? `HYRCDT${u.id.toString().slice(-6).toUpperCase()}` : `HYRREC${u.id.toString().slice(-6).toUpperCase()}`)}
@@ -143,8 +143,8 @@ const AdminApprovalsPage = () => {
                 ),
                 className: "pl-6"
               },
-              { 
-                header: "Candidate / Recruiter", 
+              {
+                header: "Candidate / Recruiter",
                 sortable: true,
                 accessorKey: "full_name",
                 render: (u: any) => (
@@ -154,24 +154,23 @@ const AdminApprovalsPage = () => {
                   </div>
                 )
               },
-              { 
-                header: "Phone", 
+              {
+                header: "Phone",
                 render: (u: any) => <span className="text-xs font-medium">{u.profile?.phone || "—"}</span>
               },
-              { 
-                header: "Role", 
+              {
+                header: "Role",
                 sortable: true,
                 accessorKey: "role",
                 render: (u: any) => (
-                  <Badge variant="outline" className={`text-[10px] font-bold uppercase tracking-wider ${
-                    u.role === 'candidate' ? 'border-blue-200 text-blue-700 bg-blue-50' : 'border-teal-200 text-teal-700 bg-teal-50'
-                  }`}>
+                  <Badge variant="outline" className={`text-[10px] font-bold uppercase tracking-wider ${u.role === 'candidate' ? 'border-blue-200 text-blue-700 bg-blue-50' : 'border-teal-200 text-teal-700 bg-teal-50'
+                    }`}>
                     {u.role}
                   </Badge>
                 )
               },
-              { 
-                header: "Submission Date", 
+              {
+                header: "Submission Date",
                 sortable: true,
                 accessorKey: "created_at",
                 render: (u: any) => (
@@ -181,14 +180,14 @@ const AdminApprovalsPage = () => {
                   </div>
                 )
               },
-              { 
-                header: "Quick Options", 
+              {
+                header: "Quick Options",
                 className: "pr-6 text-right",
                 render: (u: PendingUser) => (
                   <div className="flex gap-1.5 justify-end">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="h-8 px-3 text-xs border-primary/20 hover:bg-primary/5 text-primary"
                       onClick={() => setSelectedUser(u)}
                     >
@@ -223,22 +222,22 @@ const AdminApprovalsPage = () => {
                   </Badge>
                 </SheetTitle>
                 <SheetDescription className="flex items-center gap-1.5 mt-0.5">
-                   Submitted on {formatDate(selectedUser?.created_at)}
+                  Submitted on {formatDate(selectedUser?.created_at)}
                 </SheetDescription>
               </div>
             </div>
-            
+
             <div className="flex gap-3 pt-5">
-              <Button 
-                className="flex-1 bg-green-600 hover:bg-green-700 h-11 shadow-sm transition-all font-bold" 
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700 h-11 shadow-sm transition-all font-bold"
                 onClick={() => selectedUser && handleAction(selectedUser.id, "approved")}
                 disabled={!!processing}
               >
                 {processing === selectedUser?.id ? <RefreshCw className="animate-spin h-4 w-4 mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                 Approve Registration
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="flex-1 h-11 border-destructive/20 text-destructive hover:bg-destructive/10 transition-all font-medium"
                 onClick={() => selectedUser && handleAction(selectedUser.id, "rejected")}
                 disabled={!!processing}
@@ -248,7 +247,7 @@ const AdminApprovalsPage = () => {
               </Button>
             </div>
           </SheetHeader>
-          
+
           <ScrollArea className="flex-1 bg-muted/20">
             <div className="p-6 space-y-6">
               {/* Profile Card */}
@@ -291,7 +290,7 @@ const AdminApprovalsPage = () => {
                 </CardHeader>
                 <CardContent className="pt-5 grid grid-cols-2 gap-y-4 text-sm">
                   <div className="col-span-2">
-                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">University / Institute</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">University/college</p>
                     <p className="font-semibold text-foreground">{selectedUser?.university || "—"}</p>
                   </div>
                   <div className="col-span-2">
@@ -391,9 +390,9 @@ const AdminApprovalsPage = () => {
                     <div>
                       <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight block mb-1.5">Uploaded Resume</p>
                       {selectedUser?.resume_file ? (
-                        <a 
-                          href={selectedUser.resume_file} 
-                          target="_blank" 
+                        <a
+                          href={selectedUser.resume_file}
+                          target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 text-xs font-bold bg-white text-blue-700 px-4 py-2.5 rounded-lg border border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm"
                         >
@@ -418,74 +417,60 @@ const AdminApprovalsPage = () => {
                 <Card className="border-teal-100 bg-teal-50/20 shadow-sm overflow-hidden">
                   <CardHeader className="bg-teal-600/5 pb-3 py-4 border-b border-teal-100">
                     <CardTitle className="text-xs font-bold uppercase tracking-widest text-teal-700 flex items-center gap-2">
-                      <Award className="h-4 w-4" /> Professional & Academic
+                      <Award className="h-4 w-4" /> Professional
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-5 space-y-4 text-sm">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">University</p>
-                        <p className="font-semibold text-teal-900">{selectedUser?.university || "—"}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Degree & Major</p>
-                        <p className="font-medium text-teal-900">
-                          {selectedUser?.degree || "—"} {selectedUser?.major ? ` & ${selectedUser.major}` : ""}
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight mb-1">Professional Links</p>
-                        <div className="flex flex-wrap gap-2">
-                           {selectedUser?.linkedin_url && (
-                             <a href={selectedUser.linkedin_url} target="_blank" rel="noreferrer" className="text-xs font-bold bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg border border-teal-200 hover:bg-teal-200 transition-colors">
-                               LinkedIn Profile
-                             </a>
-                           )}
-                           {selectedUser?.social_profile_url && (
-                             <a href={selectedUser.social_profile_url} target="_blank" rel="noreferrer" className="text-xs font-bold bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg border border-teal-200 hover:bg-teal-200 transition-colors">
-                               Social Profile
-                             </a>
-                           )}
-                           {!selectedUser?.linkedin_url && !selectedUser?.social_profile_url && <p className="text-xs italic text-teal-600">No links provided</p>}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Internal Company</p>
-                        <p className="font-semibold text-teal-900">{selectedUser?.company_name || "—"}</p>
-                      </div>
-                      <div>
                         <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Experience</p>
                         <p className="font-medium text-teal-900 line-clamp-2">{selectedUser?.prior_recruitment_experience || "None specified"}</p>
                       </div>
-                      <div className="col-span-2 grid grid-cols-3 gap-2 pt-2 border-t border-teal-100">
-                        <div>
-                          <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Emp ID</p>
-                          <p className="font-medium text-teal-900 text-xs">{selectedUser?.employee_id || "—"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Department</p>
-                          <p className="font-medium text-teal-900 text-xs">{selectedUser?.department || "—"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Specialization</p>
-                          <p className="font-medium text-teal-900 text-xs">{selectedUser?.specialization || "—"}</p>
-                        </div>
+                      <div>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Discovery Source</p>
+                        <p className="font-medium text-teal-900">{selectedUser?.referral_source || "—"}</p>
                       </div>
+                      {selectedUser?.referral_friend_name && (
+                        <div>
+                          <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">
+                            {selectedUser?.referral_source === "Friend" ? "Friend's Name" : "Specified Other"}
+                          </p>
+                          <p className="font-medium text-teal-900">{selectedUser.referral_friend_name}</p>
+                        </div>
+                      )}
+                    </div>
+                    <Separator className="bg-teal-100 my-4" />
+                    <div>
+                      <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight block mb-1.5">Uploaded Resume</p>
+                      {selectedUser?.resume_file ? (
+                        <a
+                          href={selectedUser.resume_file}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 text-xs font-bold bg-white text-teal-700 px-4 py-2.5 rounded-lg border border-teal-200 hover:bg-teal-50 hover:border-teal-300 transition-all shadow-sm"
+                        >
+                          <FileText className="h-4 w-4" />
+                          View / Download Resume
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      ) : (
+                        <p className="text-slate-400 italic text-xs">No resume uploaded</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
               )}
             </div>
           </ScrollArea>
-          
+
           <div className="p-6 border-t bg-card flex justify-center">
-            <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-muted-foreground text-[10px] uppercase tracking-tighter"
-                onClick={() => selectedUser && handleBlock(selectedUser.id)}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground text-[10px] uppercase tracking-tighter"
+              onClick={() => selectedUser && handleBlock(selectedUser.id)}
             >
-                <UserX className="h-3 w-3 mr-1" /> Block User ID Permanently
+              <UserX className="h-3 w-3 mr-1" /> Block User ID Permanently
             </Button>
           </div>
         </SheetContent>

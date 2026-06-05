@@ -54,8 +54,20 @@ const RecruiterLogin = () => {
   const [regErrors, setRegErrors] = useState<Record<string, string>>({});
 
   const updateReg = (field: string, value: any) => {
-    setReg(prev => ({ ...prev, [field]: value }));
-    setRegErrors(prev => ({ ...prev, [field]: "" }));
+    setReg(prev => {
+      const updated = { ...prev, [field]: value };
+      if (field === "how_did_you_hear" && value !== "Friend" && value !== "Other") {
+        updated.friend_name = "";
+      }
+      return updated;
+    });
+    setRegErrors(prev => {
+      const updatedErrors = { ...prev, [field]: "" };
+      if (field === "how_did_you_hear" && value !== "Friend" && value !== "Other") {
+        updatedErrors.friend_name = "";
+      }
+      return updatedErrors;
+    });
   };
 
   const validateRegistration = (): boolean => {
@@ -94,7 +106,11 @@ const RecruiterLogin = () => {
       errors.linkedin_url = "LinkedIn URL is required";
 
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
-    if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) errors.friend_name = "Friend name is required";
+    if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) {
+      errors.friend_name = "Friend name is required";
+    } else if (reg.how_did_you_hear === "Other" && !reg.friend_name.trim()) {
+      errors.friend_name = "Please specify other option";
+    }
 
     if (!reg.resume_file) {
       errors.resume_file = "Resume file is required";
@@ -313,6 +329,7 @@ const RecruiterLogin = () => {
     reg.linkedin_url.trim() !== "" &&
     reg.how_did_you_hear !== "" &&
     (reg.how_did_you_hear !== "Friend" || reg.friend_name.trim() !== "") &&
+    (reg.how_did_you_hear !== "Other" || reg.friend_name.trim() !== "") &&
     reg.city.trim() !== "" &&
     reg.state.trim() !== "" &&
     reg.country.trim() !== "" &&
@@ -497,6 +514,13 @@ const RecruiterLogin = () => {
                       {regErrors.friend_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.friend_name}</p>}
                     </div>
                   )}
+                  {reg.how_did_you_hear === "Other" && (
+                    <div className="space-y-2 animate-in slide-in-from-top-1">
+                      <Label className="text-sm font-medium ml-1">Please Specify Other *</Label>
+                      <Input id="reg-friend_name" value={reg.friend_name} onChange={e => updateReg("friend_name", e.target.value)} className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" placeholder="Please specify" />
+                      {regErrors.friend_name && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{regErrors.friend_name}</p>}
+                    </div>
+                  )}
 
                   {/* Location Section */}
                   <div className="grid grid-cols-2 gap-4">
@@ -519,7 +543,7 @@ const RecruiterLogin = () => {
 
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Prior Recruitment Experience</Label>
-                    <Textarea value={reg.prior_recruitment_experience} onChange={e => updateReg("prior_recruitment_experience", e.target.value)} maxLength={500} placeholder="Briefly describe your experience" className="rounded-lg bg-neutral-50 min-h-[100px]" />
+                    <Textarea value={reg.prior_recruitment_experience} onChange={e => updateReg("prior_recruitment_experience", e.target.value)} maxLength={500} placeholder="specify years of experience" className="rounded-lg bg-neutral-50 min-h-[100px]" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Work Type Preference</Label>

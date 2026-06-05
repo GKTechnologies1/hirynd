@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   User, Mail, Phone, MapPin, Briefcase, Award, Calendar,
@@ -418,7 +419,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
               </CardHeader>
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">University / Institute</Label>
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">University/college</Label>
                   <Input
                     value={formData.university}
                     onChange={e => setFormData({ ...formData, university: e.target.value })}
@@ -470,17 +471,35 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     placeholder="e.g. LinkedIn, Google, Friend, etc."
                   />
                 </div>
-                {formData.referral_source?.toLowerCase() === "friend" && (
+                {(formData.referral_source?.toLowerCase() === "friend" || formData.referral_source?.toLowerCase() === "other") && (
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Friend's Name</Label>
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">
+                      {formData.referral_source?.toLowerCase() === "friend" ? "Friend's Name" : "Specified Other"}
+                    </Label>
                     <Input
                       value={formData.referral_friend_name}
                       onChange={e => setFormData({ ...formData, referral_friend_name: e.target.value })}
                       className="h-11 rounded-xl bg-muted/20"
-                      placeholder="Name of the referring friend"
+                      placeholder={formData.referral_source?.toLowerCase() === "friend" ? "Name of the referring friend" : "Specified other source"}
                     />
                   </div>
                 )}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Work Type Preference</Label>
+                  <Select
+                    value={formData.work_type_preference}
+                    onValueChange={v => setFormData({ ...formData, work_type_preference: v })}
+                  >
+                    <SelectTrigger className="h-11 rounded-xl bg-muted/20">
+                      <SelectValue placeholder="Select Preference" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Full-time", "Part-time", "Contract", "Remote"].map(o => (
+                        <SelectItem key={o} value={o}>{o}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="pt-2 border-t mt-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 block mb-2">Registration Resume</Label>
                   {formData.resume_file ? (
@@ -629,13 +648,19 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Other Social Profile (GitHub/Portfolio)</Label>
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">GitHub Profile</Label>
                   <Input
                     type="url"
                     value={formData.social_profile_url}
                     onChange={e => setFormData({ ...formData, social_profile_url: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
+                    placeholder="https://github.com/..."
                   />
+                  {formData.social_profile_url && (
+                    <a href={formData.social_profile_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 ml-1">
+                      Open GitHub Link
+                    </a>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -649,12 +674,19 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Work Type Preference</Label>
-                  <Input
+                  <Select
                     value={formData.work_type_preference}
-                    onChange={e => setFormData({ ...formData, work_type_preference: e.target.value })}
-                    placeholder="e.g. Full-time, Remote"
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
+                    onValueChange={v => setFormData({ ...formData, work_type_preference: v })}
+                  >
+                    <SelectTrigger className="h-11 rounded-xl bg-muted/20">
+                      <SelectValue placeholder="Select Preference" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Full-time", "Part-time", "Contract", "Remote"].map(o => (
+                        <SelectItem key={o} value={o}>{o}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Prior Recruitment Experience</Label>
@@ -683,22 +715,6 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
             <CardContent className="pt-6 grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Company Name</Label>
-                  <Input
-                    value={formData.company_name}
-                    onChange={e => setFormData({ ...formData, company_name: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Employee ID</Label>
-                  <Input
-                    value={formData.employee_id}
-                    onChange={e => setFormData({ ...formData, employee_id: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Date of Joining</Label>
                   <DatePicker
                     value={formData.date_of_joining}
@@ -708,22 +724,6 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
-                  <Input
-                    value={formData.department}
-                    onChange={e => setFormData({ ...formData, department: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Specialization</Label>
-                  <Input
-                    value={formData.specialization}
-                    onChange={e => setFormData({ ...formData, specialization: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">System Limit (Max Clients)</Label>
                   <Input
