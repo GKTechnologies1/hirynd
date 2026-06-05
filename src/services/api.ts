@@ -63,6 +63,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // Response interceptor for global error handling
 api.interceptors.response.use(
   (response) => response,
@@ -73,17 +87,48 @@ api.interceptors.response.use(
     // ── 401: Unauthorized (Token Refresh) ──
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
       const refresh = localStorage.getItem('refresh_token');
       if (refresh) {
+        isRefreshing = true;
         try {
           const { data } = await axios.post(`${API_BASE_URL}/auth/refresh/`, { refresh });
           localStorage.setItem('access_token', data.access);
+          if (data.refresh) {
+            localStorage.setItem('refresh_token', data.refresh);
+          }
           originalRequest.headers.Authorization = `Bearer ${data.access}`;
+          processQueue(null, data.access);
+          isRefreshing = false;
           return api(originalRequest);
-        } catch {
+        } catch (refreshError: any) {
+          processQueue(refreshError, null);
+          isRefreshing = false;
+
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          window.location.href = '/candidate-login';
+
+          const currentPath = window.location.pathname;
+          if (currentPath.startsWith('/recruiter-dashboard') || currentPath.startsWith('/recruiter')) {
+            window.location.href = '/recruiter-login';
+          } else if (currentPath.startsWith('/admin-dashboard') || currentPath.startsWith('/admin')) {
+            window.location.href = '/admin-login';
+          } else {
+            window.location.href = '/candidate-login';
+          }
         }
       }
     }
