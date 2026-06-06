@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { candidatesApi } from "@/services/api";
 import StatusBadge from "@/components/dashboard/StatusBadge";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Phone, Plus, ChevronDown } from "lucide-react";
+import { Phone, Plus, ChevronDown, Briefcase, X } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -129,6 +129,17 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [activeLongText, setActiveLongText] = useState<{ title: string; content: string; companyName: string; roleTitle: string } | null>(null);
+
+  const [searchRole, setSearchRole] = useState("");
+  const [searchDate, setSearchDate] = useState("");
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter(l => {
+      const matchRole = !searchRole || l.role_title?.toLowerCase().includes(searchRole.toLowerCase());
+      const matchDate = !searchDate || formatDate(l.interview_date) === searchDate;
+      return matchRole && matchDate;
+    });
+  }, [logs, searchRole, searchDate]);
 
   const [logType, setLogType] = useState("screening_call");
   const [companyName, setCompanyName] = useState("");
@@ -248,8 +259,35 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Interview History</CardTitle></CardHeader>
         <CardContent className="p-0">
+          <div className="px-6 pt-4 pb-2 flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+              <Input
+                placeholder="Search by role..."
+                value={searchRole}
+                onChange={(e) => setSearchRole(e.target.value)}
+                className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+              />
+              {searchRole && (
+                <button
+                  onClick={() => setSearchRole("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="w-full sm:w-48">
+              <DatePicker
+                value={searchDate}
+                onChange={setSearchDate}
+                placeholder="Filter by date"
+                className="h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors font-normal w-full"
+              />
+            </div>
+          </div>
           <DataTable
-            data={logs}
+            data={filteredLogs}
             isLoading={loading}
             searchPlaceholder="Search company..."
             searchKey="company_name"

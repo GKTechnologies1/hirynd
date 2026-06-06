@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck } from "lucide-react";
+import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
@@ -87,6 +87,17 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
+
+  const [appSearchRole, setAppSearchRole] = useState("");
+  const [appSearchDate, setAppSearchDate] = useState("");
+
+  const filteredJobPostings = useMemo(() => {
+    return jobPostings.filter(j => {
+      const matchRole = !appSearchRole || j.role_title?.toLowerCase().includes(appSearchRole.toLowerCase());
+      const matchDate = !appSearchDate || formatDate(j.log_date || j.created_at) === appSearchDate;
+      return matchRole && matchDate;
+    });
+  }, [jobPostings, appSearchRole, appSearchDate]);
 
   const handleOpenDescription = (company: string, role: string, description: string) => {
     setActiveJobDesc({ company, role, description });
@@ -1235,8 +1246,35 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           <Card className="border-none shadow-sm bg-card/60 mt-6">
             <CardHeader><CardTitle className="text-base font-bold">Submission Pipeline</CardTitle></CardHeader>
             <CardContent className="p-0">
+              <div className="px-6 pt-4 pb-2 flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                  <Input
+                    placeholder="Search by role..."
+                    value={appSearchRole}
+                    onChange={(e) => setAppSearchRole(e.target.value)}
+                    className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+                  />
+                  {appSearchRole && (
+                    <button
+                      onClick={() => setAppSearchRole("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="w-full sm:w-48">
+                  <DatePicker
+                    value={appSearchDate}
+                    onChange={setAppSearchDate}
+                    placeholder="Filter by date"
+                    className="h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors font-normal w-full"
+                  />
+                </div>
+              </div>
               <DataTable
-                data={jobPostings}
+                data={filteredJobPostings}
                 isLoading={loading}
                 searchPlaceholder="Search company..."
                 searchKey="company_name"
@@ -1324,7 +1362,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   }
                 ]}
               />
-              {jobPostings.length > 5 && (
+              {filteredJobPostings.length > 5 && (
                 <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
                   <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
                 </div>

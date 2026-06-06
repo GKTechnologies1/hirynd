@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { candidatesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -16,7 +16,7 @@ import { formatDate } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar, ChevronDown } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar, ChevronDown, X } from "lucide-react";
 
 const navItems = [
   { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -142,6 +142,17 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [activeLongText, setActiveLongText] = useState<{ title: string; content: string; companyName: string; roleTitle: string } | null>(null);
+
+  const [searchRole, setSearchRole] = useState("");
+  const [searchDate, setSearchDate] = useState("");
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter(l => {
+      const matchRole = !searchRole || l.role_title?.toLowerCase().includes(searchRole.toLowerCase());
+      const matchDate = !searchDate || formatDate(l.interview_date) === searchDate;
+      return matchRole && matchDate;
+    });
+  }, [logs, searchRole, searchDate]);
 
   // Form state
   const [logType, setLogType] = useState("screening_call");
@@ -337,8 +348,35 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
           <Card>
             <CardHeader><CardTitle>Interview History</CardTitle></CardHeader>
             <CardContent>
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <div className="relative flex-1">
+                  <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                  <Input
+                    placeholder="Search by role..."
+                    value={searchRole}
+                    onChange={(e) => setSearchRole(e.target.value)}
+                    className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+                  />
+                  {searchRole && (
+                    <button
+                      onClick={() => setSearchRole("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="w-full sm:w-48">
+                  <DatePicker
+                    value={searchDate}
+                    onChange={setSearchDate}
+                    placeholder="Filter by date"
+                    className="h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors font-normal w-full"
+                  />
+                </div>
+              </div>
               <DataTable
-                data={logs}
+                data={filteredLogs}
                 isLoading={loading}
                 searchPlaceholder="Search by company..."
                 searchKey="company_name"
@@ -426,7 +464,7 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                   }
                 ]}
               />
-              {logs.length > 5 && (
+              {filteredLogs.length > 5 && (
                 <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
                   <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
                 </div>

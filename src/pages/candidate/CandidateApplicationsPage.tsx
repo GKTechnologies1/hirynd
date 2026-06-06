@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { recruitersApi } from "@/services/api";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X } from "lucide-react";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 const JobDescriptionCell = ({ 
   company, 
@@ -84,6 +85,17 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   const [updatingJob, setUpdatingJob] = useState<string | null>(null);
   const [statusNotes, setStatusNotes] = useState<Record<string, string>>({});
   const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
+
+  const [searchRole, setSearchRole] = useState("");
+  const [searchDate, setSearchDate] = useState("");
+
+  const filteredJobPostings = useMemo(() => {
+    return jobPostings.filter(j => {
+      const matchRole = !searchRole || j.role_title?.toLowerCase().includes(searchRole.toLowerCase());
+      const matchDate = !searchDate || formatDate(j.log_date || j.created_at) === searchDate;
+      return matchRole && matchDate;
+    });
+  }, [jobPostings, searchRole, searchDate]);
 
   const handleOpenDescription = (company: string, role: string, description: string) => {
     setActiveJobDesc({ company, role, description });
@@ -210,10 +222,37 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="px-6 pt-4 pb-2 flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                  <Input
+                    placeholder="Search by role..."
+                    value={searchRole}
+                    onChange={(e) => setSearchRole(e.target.value)}
+                    className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+                  />
+                  {searchRole && (
+                    <button
+                      onClick={() => setSearchRole("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="w-full sm:w-48">
+                  <DatePicker
+                    value={searchDate}
+                    onChange={setSearchDate}
+                    placeholder="Filter by date"
+                    className="h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors font-normal w-full"
+                  />
+                </div>
+              </div>
               <DataTable
-                data={jobPostings}
+                data={filteredJobPostings}
                 isLoading={loading}
-                searchPlaceholder="Search company or role..."
+                searchPlaceholder="Search company..."
                 searchKey="company_name"
                 emptyMessage="No applications submitted yet."
                 columns={[
@@ -309,7 +348,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   }
                 ]}
               />
-              {jobPostings.length > 5 && (
+              {filteredJobPostings.length > 5 && (
                 <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
                   <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
                 </div>
