@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, memo, useRef } from "react";
 import Header from "@/components/layout/Header";
 import SEO from "@/components/SEO";
 import Footer from "@/components/layout/Footer";
@@ -40,6 +40,7 @@ const Contact = () => {
   const { toast } = useToast();
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formValues, setFormValues] = useState({
     first_name: "", last_name: "", email: "", phone: "",
     university: "", graduation_year: "", degree_major: "",
@@ -52,11 +53,46 @@ const Contact = () => {
     setErrors(prev => ({ ...prev, [name]: "" }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setErrors(prev => ({ ...prev, resume: "Resume file is required" }));
+      return;
+    }
+
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const allowedExtensions = ["pdf", "doc", "docx"];
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      setErrors(prev => ({ ...prev, resume: "Resume file must be a PDF, DOC, or DOCX" }));
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(prev => ({ ...prev, resume: "File size must be less than 5MB" }));
+      return;
+    }
+
+    setErrors(prev => {
+      const { resume, ...rest } = prev;
+      return rest;
+    });
+  };
 
   const toggleService = useCallback((service: string) => {
-    setSelectedServices(prev =>
-      prev.includes(service) ? prev.filter(s => s !== service) : [...prev, service]
-    );
+    setSelectedServices(prev => {
+      const next = prev.includes(service) ? prev.filter(s => s !== service) : [...prev, service];
+      setTimeout(() => {
+        setErrors(errs => {
+          if (next.length > 0) {
+            const { services, ...rest } = errs;
+            return rest;
+          } else {
+            return { ...errs, services: "Please select at least one service" };
+          }
+        });
+      }, 0);
+      return next;
+    });
   }, []);
 
   const typeParam = searchParams.get("type");
@@ -114,8 +150,14 @@ const Contact = () => {
       const resume = formData.get("resume") as File;
       if (!resume || !resume.name) {
         newErrors.resume = "Resume file is required";
-      } else if (resume.size > 5 * 1024 * 1024) {
-        newErrors.resume = "File size must be less than 5MB";
+      } else {
+        const fileExtension = resume.name.split('.').pop()?.toLowerCase();
+        const allowedExtensions = ["pdf", "doc", "docx"];
+        if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+          newErrors.resume = "Resume file must be a PDF, DOC, or DOCX";
+        } else if (resume.size > 5 * 1024 * 1024) {
+          newErrors.resume = "File size must be less than 5MB";
+        }
       }
 
       if (!termsAccepted) newErrors.terms = "You must agree to the Terms and Conditions";
@@ -221,6 +263,9 @@ const Contact = () => {
       setSelectedServices([]);
       setTermsAccepted(false);
       setErrors({});
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -434,7 +479,7 @@ const Contact = () => {
                   </div>
 
                   <div className="space-y-4">
-                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest text-[#0d47a1]">Select Services of Interest *</Label>
+                    <Label className={`text-xs font-bold uppercase tracking-widest transition-colors ${errors.services ? 'text-destructive' : 'text-[#0d47a1]'}`}>Select Services of Interest *</Label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {SERVICES.map((s) => {
                         const isSelected = selectedServices.includes(s);
@@ -442,10 +487,22 @@ const Contact = () => {
                           <div
                             key={s}
                             onClick={() => toggleService(s)}
-                            className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-[#0d47a1] bg-blue-50/50 shadow-sm' : 'border-neutral-200 hover:border-neutral-300 bg-neutral-50/10'}`}
+                            className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                              isSelected 
+                                ? 'border-[#0d47a1] bg-blue-50/50 shadow-sm' 
+                                : errors.services 
+                                  ? 'border-destructive bg-destructive/10' 
+                                  : 'border-neutral-200 hover:border-neutral-300 bg-neutral-50/10'
+                            }`}
                           >
                             <div
-                              className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${isSelected ? 'bg-[#0d47a1] border-[#0d47a1]' : 'border-neutral-300 bg-white'}`}
+                              className={`w-4 h-4 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${
+                                isSelected 
+                                  ? 'bg-[#0d47a1] border-[#0d47a1]' 
+                                  : errors.services 
+                                    ? 'border-destructive bg-white' 
+                                    : 'border-neutral-300 bg-white'
+                              }`}
                             >
                               {isSelected && (
                                 <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
@@ -453,7 +510,7 @@ const Contact = () => {
                                 </svg>
                               )}
                             </div>
-                            <span className={`text-[11px] font-bold ${isSelected ? 'text-[#0d47a1]' : 'text-neutral-600'}`}>{s}</span>
+                            <span className={`text-[11px] font-bold ${isSelected ? 'text-[#0d47a1]' : errors.services ? 'text-destructive' : 'text-neutral-600'}`}>{s}</span>
                           </div>
                         );
                       })}
@@ -550,8 +607,15 @@ const Contact = () => {
                     {errors.current_location && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.current_location}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Resume Upload *</Label>
-                    <Input name="resume" type="file" accept=".pdf,.doc,.docx" className={`file:rounded-lg file:border-0 file:bg-neutral-100 file:text-neutral-700 cursor-pointer pt-2 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 file:mr-4 file:px-4 file:text-xs file:font-semibold ${errors.resume ? 'border-destructive' : ''}`} />
+                    <Label className={`text-xs font-bold uppercase tracking-widest transition-colors ${errors.resume ? 'text-destructive' : 'text-neutral-700'}`}>Resume Upload *</Label>
+                    <Input 
+                      ref={fileInputRef}
+                      name="resume" 
+                      type="file" 
+                      accept=".pdf,.doc,.docx" 
+                      onChange={handleFileChange}
+                      className={`file:rounded-lg file:border-0 file:bg-neutral-100 file:text-neutral-700 cursor-pointer pt-2 bg-neutral-50/50 border-neutral-200 rounded-xl h-11 file:mr-4 file:px-4 file:text-xs file:font-semibold ${errors.resume ? 'border-destructive' : ''}`} 
+                    />
                     {errors.resume && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.resume}</p>}
                     <p className="mt-1 text-[10px] text-neutral-400 font-medium">PDF or Word document required</p>
                   </div>
