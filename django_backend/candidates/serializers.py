@@ -77,11 +77,9 @@ class CandidateSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_total_applications(self, obj):
-        from recruiters.models import DailySubmissionLog, JobLinkEntry
+        from recruiters.models import DailySubmissionLog
         from django.db.models import Sum
-        manual_sum = DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
-        job_entries_count = JobLinkEntry.objects.filter(candidate=obj).count()
-        return manual_sum + job_entries_count
+        return DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
 
     def get_total_interviews(self, obj):
         from .models import InterviewLog
@@ -120,11 +118,9 @@ class CandidateListSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_total_applications(self, obj):
-        from recruiters.models import DailySubmissionLog, JobLinkEntry
+        from recruiters.models import DailySubmissionLog
         from django.db.models import Sum
-        manual_sum = DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
-        job_entries_count = JobLinkEntry.objects.filter(candidate=obj).count()
-        return manual_sum + job_entries_count
+        return DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
 
     def get_total_interviews(self, obj):
         from .models import InterviewLog
