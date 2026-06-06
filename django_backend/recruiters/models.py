@@ -131,6 +131,7 @@ class JobLinkEntry(models.Model):
         ('interview_scheduled', 'Interview Scheduled'),
         ('rejected', 'Rejected'),
         ('offer', 'Offer'),
+        ('no_response', 'No Response'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

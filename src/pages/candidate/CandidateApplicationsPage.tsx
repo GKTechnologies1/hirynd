@@ -62,10 +62,13 @@ const navItems = [
 ];
 
 const CANDIDATE_STATUSES = [
+  { value: "applied", label: "Applied" },
   { value: "screening", label: "Screening" },
+  { value: "screening_scheduled", label: "Screening Scheduled" },
   { value: "interview", label: "Interview" },
-  { value: "rejected", label: "Rejected" },
+  { value: "interview_scheduled", label: "Interview Scheduled" },
   { value: "offer", label: "Offer" },
+  { value: "rejected", label: "Rejected" },
   { value: "no_response", label: "No Response" },
 ];
 
@@ -88,8 +91,9 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
 
   useEffect(() => {
     if (!candidate?.id) return;
+    let isFirstLoad = true;
     const fetchData = async () => {
-      setLoading(true);
+      if (isFirstLoad) setLoading(true);
       try {
         const [logsRes, jobsRes] = await Promise.all([
           recruitersApi.getDailyLogs(candidate.id).catch(() => ({ data: [] })),
@@ -122,18 +126,26 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
         setJobPostings(merged);
       } catch (err: any) {
         console.error("Error fetching applications:", err);
-        toast({ 
-          title: "Failed to load applications", 
-          description: "There was an error fetching your application history. Please try again later.",
-          variant: "destructive" 
-        });
+        if (isFirstLoad) {
+          toast({ 
+            title: "Failed to load applications", 
+            description: "There was an error fetching your application history. Please try again later.",
+            variant: "destructive" 
+          });
+        }
         setDailyLogs([]);
         setJobPostings([]);
       } finally {
-        setLoading(false);
+        if (isFirstLoad) {
+          setLoading(false);
+          isFirstLoad = false;
+        }
       }
     };
     fetchData();
+
+    const interval = setInterval(fetchData, 8000);
+    return () => clearInterval(interval);
   }, [candidate?.id, candidate?.updated_at]); // Depend on updated_at to refresh when parent refreshes
 
   const handleStatusUpdate = async (jobId: string, newStatus: string) => {
@@ -141,7 +153,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     try {
       await recruitersApi.updateJobStatus(jobId, newStatus);
       toast({ title: "Status updated" });
-      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, candidate_response_status: newStatus } : j));
+      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, candidate_response_status: newStatus, application_status: newStatus } : j));
       setStatusNotes(prev => ({ ...prev, [jobId]: "" }));
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -156,15 +168,18 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   // Robust count logic using date slicing and created_at fallback
   const todayCount = dailyLogs
     .filter(l => (l.log_date || l.created_at)?.split("T")[0] === today)
-    .reduce((s, l) => s + (l.applications_count || 0), 0);
+    .reduce((s, l) => s + (l.applications_count || 0), 0) +
+    jobPostings.filter(j => (j.log_date || j.created_at)?.split("T")[0] === today).length;
     
   const weekCount = dailyLogs
     .filter(l => (l.log_date || l.created_at)?.split("T")[0] >= weekAgo)
-    .reduce((s, l) => s + (l.applications_count || 0), 0);
+    .reduce((s, l) => s + (l.applications_count || 0), 0) +
+    jobPostings.filter(j => (j.log_date || j.created_at)?.split("T")[0] >= weekAgo).length;
     
   const monthCount = dailyLogs
     .filter(l => (l.log_date || l.created_at)?.split("T")[0] >= monthAgo)
-    .reduce((s, l) => s + (l.applications_count || 0), 0);
+    .reduce((s, l) => s + (l.applications_count || 0), 0) +
+    jobPostings.filter(j => (j.log_date || j.created_at)?.split("T")[0] >= monthAgo).length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -276,7 +291,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     render: (j: any) => (
                       <div className="flex items-center justify-end gap-2">
                         <Select
-                          value={j.candidate_response_status || ""}
+                          value={j.candidate_response_status || j.application_status || ""}
                           onValueChange={(val) => handleStatusUpdate(j.id, val)}
                           disabled={updatingJob === j.id}
                         >

@@ -119,9 +119,9 @@ const CandidateDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [fetchingInterviews, setFetchingInterviews] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = true) => {
     if (!user) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const { data: cand } = await candidatesApi.me();
       setCandidate(cand);
@@ -159,22 +159,32 @@ const CandidateDashboard = () => {
     } catch (err) {
       console.error("CandidateDashboard: Core data fetch failed", err);
     }
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
     // Auto-refresh when returns to tab
     const onFocus = () => {
       // Don't auto-refresh when on form-heavy sheets to avoid clearing unsaved data
       const isFormSheet = location.pathname.includes('/intake') || location.pathname.includes('/credentials');
       if (!isFormSheet) {
-        fetchData();
+        fetchData(false);
       }
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [user, navigate, location.pathname]);
+
+  useEffect(() => {
+    const isFormSheet = location.pathname.includes('/intake') || location.pathname.includes('/credentials');
+    if (isFormSheet || !user) return;
+
+    const interval = setInterval(() => {
+      fetchData(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [user, location.pathname]);
 
   const subPath = useMemo(() => {
     return location.pathname.replace("/candidate-dashboard", "").replace(/^\//, "") || "overview";

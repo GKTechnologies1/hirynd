@@ -91,17 +91,24 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
   const [supportNotes, setSupportNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const { data } = await candidatesApi.getInterviews(candidateId);
       setLogs(data || []);
     } catch {
       setLogs([]);
     }
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
-  useEffect(() => { fetchLogs(); }, [candidateId]);
+  useEffect(() => {
+    fetchLogs(true);
+    const interval = setInterval(() => {
+      fetchLogs(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [candidateId]);
 
   const handleSubmit = async () => {
     if (!companyName.trim() || !roleTitle.trim() || !interviewDate) {

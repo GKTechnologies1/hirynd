@@ -182,7 +182,9 @@ def update_job_status(request, job_id):
     new_status = request.data.get('status')
     if new_status:
         job.application_status = new_status
+        job.candidate_response_status = new_status
         job.save()
+        job.candidate.save()
     return Response(JobLinkEntrySerializer(job).data)
 
 

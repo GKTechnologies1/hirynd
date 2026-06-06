@@ -105,18 +105,25 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
   const [supportNotes, setSupportNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (showLoading = true) => {
     if (!candidate?.id) return;
+    if (showLoading) setLoading(true);
     try {
       const { data } = await candidatesApi.getInterviews(candidate.id);
       setLogs(data || []);
     } catch {
       setLogs([]);
     }
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
-  useEffect(() => { fetchLogs(); }, [candidate?.id]);
+  useEffect(() => {
+    fetchLogs(true);
+    const interval = setInterval(() => {
+      fetchLogs(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [candidate?.id, candidate?.updated_at]);
 
   const handleSubmit = async () => {
     if (!companyName.trim() || !roleTitle.trim() || !interviewDate) {

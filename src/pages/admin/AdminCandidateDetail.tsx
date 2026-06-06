@@ -88,7 +88,8 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   const [showCredPasswords, setShowCredPasswords] = useState<Record<string, boolean>>({});
   const toggleCredPw = (k: string) => setShowCredPasswords(p => ({ ...p, [k]: !p[k] }));
 
-  const fetchAll = async () => {
+  const fetchAll = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const { data: cand } = await candidatesApi.detail(candidateId);
       setCandidate(cand);
@@ -118,10 +119,16 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
         setInterviewLogs(interviewRes.data || []);
       }
     } catch { }
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
-  useEffect(() => { fetchAll(); }, [candidateId]);
+  useEffect(() => {
+    fetchAll(true);
+    const interval = setInterval(() => {
+      fetchAll(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [candidateId]);
 
   const handleAddRole = async () => {
     if (!newRoleTitle.trim()) return;

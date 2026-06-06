@@ -73,7 +73,7 @@ interface RecruiterCandidateDetailProps {
   candidateId: string;
 }
 
-const JOB_STATUSES = ["Applied", "Screening Scheduled", "Interview Scheduled", "Offer", "Rejected"];
+const JOB_STATUSES = ["Applied", "Screening", "Screening Scheduled", "Interview", "Interview Scheduled", "Offer", "Rejected", "No Response"];
 
 const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps) => {
   const { user } = useAuth();
@@ -107,8 +107,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
 
-  const fetchAll = async () => {
+  const fetchAll = async (showLoading = true) => {
     if (!user) return;
+    if (showLoading) setLoading(true);
     try {
       const { data: cand } = await candidatesApi.detail(candidateId);
       setCandidate(cand);
@@ -160,7 +161,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         setSubscription(subRes?.data?.id ? subRes.data : null);
       }
     } catch { }
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
   const resumes = useMemo(() => {
@@ -176,7 +177,13 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     return list;
   }, [credentials]);
 
-  useEffect(() => { fetchAll(); }, [candidateId, user]);
+  useEffect(() => {
+    fetchAll(true);
+    const interval = setInterval(() => {
+      fetchAll(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [candidateId, user]);
 
   const handleCredChange = (field: string, value: any) => {
     setCredForm(prev => ({ ...prev, [field]: value }));
