@@ -110,11 +110,14 @@ const CandidateLogin = () => {
 
     if (Object.keys(errors).length > 0) {
       const firstError = Object.keys(errors)[0];
-      const element = document.getElementById(`reg-${firstError}`) || document.getElementById(firstError) || document.getElementsByName(firstError)[0];
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        (element as HTMLElement).focus();
-      }
+      setTimeout(() => {
+        const element = document.getElementById(`reg-${firstError}`) || document.getElementById(firstError) || document.getElementsByName(firstError)[0];
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const focusElement = element.querySelector('input, select, textarea') || element;
+          (focusElement as HTMLElement).focus();
+        }
+      }, 100);
       return false;
     }
     return true;
@@ -623,19 +626,19 @@ const CandidateLogin = () => {
                     </div>
                   </div>
 
-                  <div className="pt-2 px-1">
-                    <div className={`flex items-start space-x-2 p-3 bg-neutral-50 rounded-xl border border-neutral-200 shadow-sm transition-all ${areRequiredFieldsFilled ? 'hover:bg-white' : 'opacity-60'}`}>
+                  <div id="reg-consent_to_terms" className="pt-2 px-1 pb-4">
+                    <div className={`flex items-start space-x-2 p-3 rounded-xl border transition-all shadow-sm ${regErrors.consent_to_terms ? 'border-destructive bg-destructive/5' : 'bg-neutral-50 border-neutral-200'} ${areRequiredFieldsFilled ? 'hover:bg-white' : 'opacity-60'}`}>
                       <div className="pt-0.5">
                         <input
                           type="checkbox"
-                          id="consent_to_terms"
+                          id="consent_to_terms_input"
                           checked={reg.consent_to_terms}
                           onChange={e => updateReg("consent_to_terms", e.target.checked)}
                           disabled={!areRequiredFieldsFilled}
                           className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary/20 accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
-                      <Label htmlFor={areRequiredFieldsFilled ? "consent_to_terms" : undefined} className={`text-xs text-muted-foreground leading-normal select-none ${areRequiredFieldsFilled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                      <Label htmlFor={areRequiredFieldsFilled ? "consent_to_terms_input" : undefined} className={`text-xs text-muted-foreground leading-normal select-none ${areRequiredFieldsFilled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                         I hereby confirm that all information provided is accurate and I agree to HYRIND's{" "}
                         <Link to="/terms" target="_blank" className="font-bold text-[#0d47a1] hover:underline underline-offset-4">Terms & Conditions</Link>
                         {" "}and{" "}
