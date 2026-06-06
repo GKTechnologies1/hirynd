@@ -1180,37 +1180,46 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                         <Button variant="outline" size="sm" className="h-7 text-xs bg-white text-amber-900 border-amber-200" onClick={() => {
                           setCredForm(p => ({
                             ...p,
-                            custom_platforms: [...(p.custom_platforms || []), { platform_name: "", password: "" }]
+                            custom_platforms: [...(p.custom_platforms || []), { platform_name: "", username_email: "", password: "" }]
                           }));
                         }}>
                           <Plus className="h-3 w-3 mr-1" /> Add Platform
                         </Button>
                       </div>
                       {credForm.custom_platforms?.map((cp: any, idx: number) => (
-                        <div key={idx} className="flex gap-3 p-3 bg-white/60 rounded-xl border border-amber-100 relative group">
+                        <div key={idx} className="p-3 bg-white/60 rounded-xl border border-amber-100 relative group">
                           <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
                             const n = [...credForm.custom_platforms]; n.splice(idx, 1);
                             setCredForm({ ...credForm, custom_platforms: n });
                           }}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
-                          <div className="flex-1 space-y-1">
-                            <Label className="text-[9px] font-bold uppercase text-amber-700">Platform Name</Label>
-                            <Input className="h-8 text-xs bg-white" placeholder="e.g. Monster, ZipRecruiter" value={cp.platform_name} onChange={e => {
-                              const n = [...credForm.custom_platforms]; n[idx].platform_name = e.target.value;
-                              setCredForm({ ...credForm, custom_platforms: n });
-                            }} />
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
-                            <div className="relative">
-                              <Input className="h-8 text-xs bg-white pr-8" type={showCredPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
-                                const n = [...credForm.custom_platforms]; n[idx].password = e.target.value;
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-[9px] font-bold uppercase text-amber-700">Platform Name</Label>
+                              <Input className="h-8 text-xs bg-white" placeholder="e.g. Monster, ZipRecruiter" value={cp.platform_name} onChange={e => {
+                                const n = [...credForm.custom_platforms]; n[idx].platform_name = e.target.value;
                                 setCredForm({ ...credForm, custom_platforms: n });
                               }} />
-                              <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent" onClick={() => toggleCredPw(`cp_${idx}`)}>
-                                {showCredPasswords[`cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                              </Button>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[9px] font-bold uppercase text-amber-700">Username / Email</Label>
+                              <Input className="h-8 text-xs bg-white" placeholder="Username or email" value={cp.username_email || ""} onChange={e => {
+                                const n = [...credForm.custom_platforms]; n[idx].username_email = e.target.value;
+                                setCredForm({ ...credForm, custom_platforms: n });
+                              }} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
+                              <div className="relative">
+                                <Input className="h-8 text-xs bg-white pr-8" type={showCredPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
+                                  const n = [...credForm.custom_platforms]; n[idx].password = e.target.value;
+                                  setCredForm({ ...credForm, custom_platforms: n });
+                                }} />
+                                <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent" onClick={() => toggleCredPw(`cp_${idx}`)}>
+                                  {showCredPasswords[`cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1304,6 +1313,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                                       <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3">
                                         <p className="font-bold text-[10px] text-amber-700 mb-2">{cp.platform_name || "Platform"}</p>
                                         <div className="space-y-1">
+                                          <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
                                           <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_cp_${idx}`)}>{cp.password ? (showCredPasswords[`${v.id}_cp_${idx}`] ? cp.password : "••••••••") : "N/A"}</span></p>
                                         </div>
                                       </div>

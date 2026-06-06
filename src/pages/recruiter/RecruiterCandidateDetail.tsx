@@ -940,35 +940,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       <Button variant="outline" size="sm" className="h-7 text-xs bg-white text-amber-900 border-amber-200" onClick={() => {
                         setCredForm(p => ({
                           ...p,
-                          custom_platforms: [...(p.custom_platforms || []), { platform_name: "", password: "" }]
+                          custom_platforms: [...(p.custom_platforms || []), { platform_name: "", username_email: "", password: "" }]
                         }));
                       }}>
                         <Plus className="h-3 w-3 mr-1" /> Add
                       </Button>
                     </div>
                     {credForm.custom_platforms?.map((cp: any, idx: number) => (
-                      <div key={idx} className="flex gap-2 p-2 bg-white/50 rounded-lg relative group">
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-[9px] font-bold uppercase text-amber-700">Platform</Label>
-                          <Input className="h-8 text-xs bg-white" placeholder="e.g. Glassdoor" value={cp.platform_name} onChange={e => {
-                            const n = [...credForm.custom_platforms];
-                            n[idx].platform_name = e.target.value;
-                            setCredForm({ ...credForm, custom_platforms: n });
-                          }} />
-                        </div>
-                        <div className="flex-1 space-y-1 relative">
-                          <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
-                          <div className="relative">
-                            <Input className="h-8 text-xs bg-white pr-8" type={showPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
-                              const n = [...credForm.custom_platforms];
-                              n[idx].password = e.target.value;
-                              setCredForm({ ...credForm, custom_platforms: n });
-                            }} />
-                            <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword(`cp_${idx}`)}>
-                              {showPasswords[`cp_${idx}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                            </Button>
-                          </div>
-                        </div>
+                      <div key={idx} className="p-2 bg-white/50 rounded-lg relative group">
                         <Button variant="ghost" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-destructive/10 text-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
                           const n = [...credForm.custom_platforms];
                           n.splice(idx, 1);
@@ -976,6 +955,37 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         }}>
                           <Trash2 className="h-2.5 w-2.5" />
                         </Button>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[9px] font-bold uppercase text-amber-700">Platform</Label>
+                            <Input className="h-8 text-xs bg-white" placeholder="e.g. Glassdoor" value={cp.platform_name} onChange={e => {
+                              const n = [...credForm.custom_platforms];
+                              n[idx].platform_name = e.target.value;
+                              setCredForm({ ...credForm, custom_platforms: n });
+                            }} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[9px] font-bold uppercase text-amber-700">Username / Email</Label>
+                            <Input className="h-8 text-xs bg-white" placeholder="Username or email" value={cp.username_email || ""} onChange={e => {
+                              const n = [...credForm.custom_platforms];
+                              n[idx].username_email = e.target.value;
+                              setCredForm({ ...credForm, custom_platforms: n });
+                            }} />
+                          </div>
+                          <div className="space-y-1 relative">
+                            <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
+                            <div className="relative">
+                              <Input className="h-8 text-xs bg-white pr-8" type={showPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
+                                const n = [...credForm.custom_platforms];
+                                n[idx].password = e.target.value;
+                                setCredForm({ ...credForm, custom_platforms: n });
+                              }} />
+                              <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword(`cp_${idx}`)}>
+                                {showPasswords[`cp_${idx}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1049,11 +1059,12 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {v.data.custom_platforms.map((cp: any, idx: number) => (
                                   <div key={idx} className="bg-amber-50/50 p-2 rounded-lg border border-amber-100 flex items-center justify-between gap-2">
-                                    <div className="flex-1 overflow-hidden">
+                                    <div className="flex-1 overflow-hidden space-y-0.5">
                                       <p className="text-[10px] font-bold text-amber-900 truncate">{cp.platform_name}</p>
-                                      <p className="text-[11px] font-mono text-amber-700 truncate">{showPasswords[`v_${v.id}_cp_${idx}`] ? cp.password : "••••••••"}</p>
+                                      <p className="text-[11px] text-amber-800 truncate">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
+                                      <p className="text-[11px] font-mono text-amber-700 truncate">PW: {showPasswords[`v_${v.id}_cp_${idx}`] ? cp.password : "••••••••"}</p>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-amber-800/60 hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_cp_${idx}`)}>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-amber-800/60 hover:bg-transparent align-middle self-center" onClick={() => togglePassword(`v_${v.id}_cp_${idx}`)}>
                                       {showPasswords[`v_${v.id}_cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                                     </Button>
                                   </div>

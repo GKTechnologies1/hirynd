@@ -58,7 +58,7 @@ const CustomCredentialsDialog: React.FC<CustomCredentialsDialogProps> = ({
   };
 
   const handleAddPlatform = () => {
-    setCustomPlatforms(prev => [...prev, { platform_name: "", password: "" }]);
+    setCustomPlatforms(prev => [...prev, { platform_name: "", username_email: "", password: "" }]);
   };
 
   const handleRemovePlatform = (idx: number) => {
@@ -74,7 +74,7 @@ const CustomCredentialsDialog: React.FC<CustomCredentialsDialogProps> = ({
   };
 
   const handleSave = async () => {
-    const invalid = customPlatforms.some(cp => !cp.platform_name?.trim() || !cp.password?.trim());
+    const invalid = customPlatforms.some(cp => !cp.platform_name?.trim() || !cp.username_email?.trim() || !cp.password?.trim());
     if (invalid) {
       toast({ title: "Validation Error", description: "All fields are required.", variant: "destructive" });
       return;
@@ -125,8 +125,8 @@ const CustomCredentialsDialog: React.FC<CustomCredentialsDialogProps> = ({
             ) : (
               customPlatforms.map((cp, idx) => (
                 <div key={idx} className="flex flex-col gap-2 p-3 rounded-xl border bg-amber-50/10 border-amber-200/50 relative group text-left">
-                  <div className="flex gap-3">
-                    <div className="flex-1 space-y-1.5">
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Platform Name</Label>
                       <Input
                         className="h-9 bg-white text-sm"
@@ -136,26 +136,38 @@ const CustomCredentialsDialog: React.FC<CustomCredentialsDialogProps> = ({
                         onChange={e => handleFieldChange(idx, "platform_name", e.target.value)}
                       />
                     </div>
-                    <div className="flex-1 space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Password</Label>
-                      <div className="relative">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Username / Email</Label>
                         <Input
-                          className="h-9 bg-white pr-9 text-sm"
-                          type={showPassword[`cp_${idx}`] ? "text" : "password"}
-                          placeholder="Password"
+                          className="h-9 bg-white text-sm"
+                          placeholder="Username or email"
                           disabled={readOnly}
-                          value={cp.password || ""}
-                          onChange={e => handleFieldChange(idx, "password", e.target.value)}
+                          value={cp.username_email || ""}
+                          onChange={e => handleFieldChange(idx, "username_email", e.target.value)}
                         />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          type="button"
-                          className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent text-muted-foreground"
-                          onClick={() => togglePassword(`cp_${idx}`)}
-                        >
-                          {showPassword[`cp_${idx}`] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Password</Label>
+                        <div className="relative">
+                          <Input
+                            className="h-9 bg-white pr-9 text-sm"
+                            type={showPassword[`cp_${idx}`] ? "text" : "password"}
+                            placeholder="Password"
+                            disabled={readOnly}
+                            value={cp.password || ""}
+                            onChange={e => handleFieldChange(idx, "password", e.target.value)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent text-muted-foreground"
+                            onClick={() => togglePassword(`cp_${idx}`)}
+                          >
+                            {showPassword[`cp_${idx}`] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>

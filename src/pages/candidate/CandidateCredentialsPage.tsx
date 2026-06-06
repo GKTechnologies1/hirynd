@@ -59,6 +59,7 @@ interface FormData {
   ziprecruiter_id: string;
   ziprecruiter_pass: string;
   other_platforms: string;
+  custom_platforms?: any[];
 }
 
 const INITIAL_STATE: FormData = {
@@ -88,6 +89,7 @@ const INITIAL_STATE: FormData = {
   ziprecruiter_id: "",
   ziprecruiter_pass: "",
   other_platforms: "",
+  custom_platforms: [],
 };
 
 const SENSITIVE_FIELDS = [
@@ -171,6 +173,11 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   const [candidateId, setCandidateId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCustomPw, setShowCustomPw] = useState<Record<string, boolean>>({});
+  
+  const toggleCustomPw = (key: string) => {
+    setShowCustomPw(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const populateFormFromVersion = (version: any) => {
     const data = version.data;
@@ -369,6 +376,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
         ziprecruiter_id: formData.ziprecruiter_id,
         ziprecruiter_pass: formData.ziprecruiter_pass,
         other_platforms: formData.other_platforms,
+        custom_platforms: formData.custom_platforms || [],
         // Metadata
         submitted_timestamp: new Date().toLocaleString(),
       };
@@ -533,6 +541,36 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                 );
               })}
             </div>
+
+            {latestVersion.data.custom_platforms && Array.isArray(latestVersion.data.custom_platforms) && latestVersion.data.custom_platforms.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-neutral-100 text-left">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800 flex items-center gap-2 mb-4">
+                  <Shield className="h-4 w-4 text-amber-600" /> Custom Job Platforms
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {latestVersion.data.custom_platforms.map((cp: any, idx: number) => (
+                    <div key={idx} className="bg-amber-50/10 border border-amber-200/50 rounded-2xl p-4 shadow-sm relative group flex justify-between items-center">
+                      <div className="flex-1 overflow-hidden space-y-1">
+                        <p className="font-bold text-xs text-amber-900 truncate">{cp.platform_name || "Platform"}</p>
+                        <p className="text-xs text-amber-800 truncate">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
+                        <p className="text-xs text-amber-800 font-mono truncate">
+                          PW: {showCustomPw[`latest_${idx}`] ? cp.password : "••••••••"}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        className="h-8 w-8 hover:bg-transparent text-amber-800/60"
+                        onClick={() => toggleCustomPw(`latest_${idx}`)}
+                      >
+                        {showCustomPw[`latest_${idx}`] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -745,7 +783,11 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                       candidateId={candidateId} 
                       readOnly={isLocked} 
                       onRefresh={async () => {
-                        await fetchVersions(candidateId);
+                        const updatedVersions = await fetchVersions(candidateId);
+                        if (updatedVersions.length > 0) {
+                          const sorted = [...updatedVersions].sort((a, b) => b.version - a.version);
+                          populateFormFromVersion(sorted[0]);
+                        }
                       }} 
                     />
                   )}
@@ -856,8 +898,9 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 pb-6">
                     <div className="grid gap-3 text-sm">
-                      {v.data && Object.entries(v.data as Record<string, any>).map(([key, value]) => (
-                        value ? (
+                      {v.data && Object.entries(v.data as Record<string, any>).map(([key, value]) => {
+                        if (key === "custom_platforms") return null;
+                        return value ? (
                           <div key={key} className="col-span-full border-b border-neutral-50 pb-3 last:border-0 text-left">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1 opacity-60">
                               {key.replace(/_/g, " ")}:
@@ -874,8 +917,38 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                                 : maskSensitive(key, String(value)))}
                             </div>
                           </div>
-                        ) : null
-                      ))}
+                        ) : null;
+                      })}
+
+                      {v.data?.custom_platforms && Array.isArray(v.data.custom_platforms) && v.data.custom_platforms.length > 0 && (
+                        <div className="col-span-full border-t border-neutral-100 pt-4 mt-2 text-left">
+                          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-2">
+                            Custom Job Platforms:
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            {v.data.custom_platforms.map((cp: any, idx: number) => (
+                              <div key={idx} className="bg-amber-50/10 border border-amber-200/50 rounded-xl p-3 flex justify-between items-center gap-2">
+                                <div className="flex-1 overflow-hidden space-y-0.5">
+                                  <p className="text-[10px] font-bold text-amber-900 truncate">{cp.platform_name}</p>
+                                  <p className="text-[11px] text-amber-800 truncate">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
+                                  <p className="text-[11px] font-mono text-amber-700 truncate">
+                                    PW: {showCustomPw[`v_${v.id}_${idx}`] ? cp.password : "••••••••"}
+                                  </p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  type="button"
+                                  className="h-7 w-7 hover:bg-transparent text-amber-800/60 align-middle self-center"
+                                  onClick={() => toggleCustomPw(`v_${v.id}_${idx}`)}
+                                >
+                                  {showCustomPw[`v_${v.id}_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
