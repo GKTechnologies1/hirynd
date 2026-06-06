@@ -427,6 +427,10 @@ const AdminApprovalsPage = () => {
                         <p className="font-medium text-teal-900 line-clamp-2">{selectedUser?.prior_recruitment_experience || "None specified"}</p>
                       </div>
                       <div>
+                        <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Work Type Preference</p>
+                        <p className="font-medium text-teal-900">{selectedUser?.work_type_preference || "—"}</p>
+                      </div>
+                      <div>
                         <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight">Discovery Source</p>
                         <p className="font-medium text-teal-900">{selectedUser?.referral_source || "—"}</p>
                       </div>
