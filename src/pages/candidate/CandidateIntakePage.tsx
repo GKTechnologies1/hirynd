@@ -126,6 +126,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [reopenedAt, setReopenedAt] = useState<string | null>(null);
+  const [reopenReason, setReopenReason] = useState<string | null>(null);
   const [sendCopy, setSendCopy] = useState(false);
   const [candidateId, setCandidateId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
@@ -172,12 +174,14 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
         try {
           const intakeRes = await candidatesApi.getIntake(cid);
           const intake = intakeRes.data;
-          if (intake?.is_locked) {
-            setIsLocked(true);
+          if (intake) {
+            setIsLocked(intake.is_locked);
             setIsSubmitted(false);
+            setReopenedAt(intake.reopened_at || null);
+            setReopenReason(intake.reopen_reason || null);
             if (intake.data) {
               // Parse phone number
-              let rawPhone = intake.data.phone_number || "";
+              let rawPhone = intake.data.phone_number || intake.data.phone || "";
               let loadedCountryCode = "+1";
               let loadedPhoneNumber = rawPhone;
               const codes = ["+91", "+44", "+1"];
@@ -192,8 +196,8 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
 
               setFormData(prev => ({
                 ...prev,
-                firstName: intake.data.first_name || "",
-                lastName: intake.data.last_name || "",
+                firstName: intake.data.first_name || (intake.data.full_name ? intake.data.full_name.split(" ")[0] : ""),
+                lastName: intake.data.last_name || (intake.data.full_name ? intake.data.full_name.split(" ").slice(1).join(" ") : ""),
                 dob: intake.data.dob || "",
                 phoneNumber: loadedPhoneNumber,
                 email: intake.data.email || prev.email,
@@ -214,12 +218,12 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 experiencedWith: intake.data.experienced_with || "",
                 learningNow: intake.data.learning_now || "",
                 otherNonTech: intake.data.other_non_tech || "",
-                highestDegree: intake.data.highest_degree || "",
-                mastersField: intake.data.masters_field || "",
-                mastersUni: intake.data.masters_uni || "",
+                highestDegree: intake.data.highest_degree || intake.data.degree || "",
+                mastersField: intake.data.masters_field || intake.data.major || "",
+                mastersUni: intake.data.masters_uni || intake.data.university || "",
                 mastersCountry: intake.data.masters_country || "",
-                mastersGradDate: intake.data.masters_grad_date || "",
-                linkedinLink: intake.data.linkedin_link || "",
+                mastersGradDate: intake.data.masters_grad_date || intake.data.graduation_year || "",
+                linkedinLink: intake.data.linkedin_link || intake.data.linkedin_url || "",
                 bachelorsDegree: intake.data.bachelors_degree || "",
                 bachelorsField: intake.data.bachelors_field || "",
                 bachelorsUni: intake.data.bachelors_uni || "",
@@ -906,6 +910,22 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
           </div>
         </CardHeader>
         <CardContent className="pt-8">
+          {reopenedAt && !isLocked && (
+            <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm flex items-start gap-3 text-left">
+              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-900">Intake Sheet Reopened</p>
+                <p className="text-xs text-amber-700/95 mt-1">
+                  Your intake has been reopened by admin for updates. Please review your previous details, make any necessary changes, and submit again to lock the sheet.
+                </p>
+                {reopenReason && (
+                  <p className="text-xs text-amber-700/80 mt-2 italic bg-amber-100/50 p-2 rounded border border-amber-200/50">
+                    Reason: {reopenReason}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           <form className="space-y-12" onSubmit={handleSubmit}>
             <fieldset disabled={isLocked} className="space-y-12">
 
