@@ -703,7 +703,15 @@ def reopen_roles(request, candidate_id):
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def credentials(request, candidate_id):
-    versions = CredentialVersion.objects.filter(candidate_id=candidate_id).select_related('edited_by__profile')
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    versions = list(CredentialVersion.objects.filter(candidate_id=candidate_id).select_related('edited_by__profile'))
+    for v in versions:
+        if isinstance(v.data, dict):
+            sync_credential_keys(v.data, candidate=candidate)
     return Response(CredentialVersionSerializer(versions, many=True).data)
 
 
@@ -737,6 +745,68 @@ def validate_credential_data(data):
     return errors
 
 
+def sync_credential_keys(data, payload=None, candidate=None):
+    mappings = [
+        ('full_name', 'full_legal_name'),
+        ('phone_number', 'phone'),
+        ('location', 'location_city_state'),
+        ('preferred_roles', 'preferred_job_roles'),
+        ('linkedin_id', 'linkedin_login_id'),
+        ('linkedin_pass', 'linkedin_password'),
+        ('indeed_id', 'indeed_login_id'),
+        ('indeed_pass', 'indeed_password'),
+        ('dice_id', 'dice_login_id'),
+        ('dice_pass', 'dice_password'),
+        ('monster_id', 'monster_login_id'),
+        ('monster_pass', 'monster_password'),
+        ('ziprecruiter_id', 'ziprecruiter_login_id'),
+        ('ziprecruiter_pass', 'ziprecruiter_password'),
+        ('bachelors_grad_date', 'bachelors_graduation_date'),
+        ('masters_grad_date', 'masters_graduation_date'),
+        ('email', 'shared_email'),
+        ('opt_offer_submitted', 'opt_offer_letter_submitted'),
+    ]
+    payload = payload or {}
+    
+    # First, apply fallback from candidate model if available
+    if candidate:
+        if not data.get('full_name') and not data.get('full_legal_name'):
+            cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else ''
+            if cand_name:
+                data['full_name'] = cand_name
+                data['full_legal_name'] = cand_name
+        
+        if not data.get('phone_number') and not data.get('phone'):
+            cand_phone = candidate.user.profile.phone if hasattr(candidate.user, 'profile') else ''
+            if cand_phone:
+                data['phone_number'] = cand_phone
+                data['phone'] = cand_phone
+                
+        if not data.get('email') and not data.get('shared_email'):
+            cand_email = candidate.user.email
+            data['email'] = cand_email
+            data['shared_email'] = cand_email
+            
+        if not data.get('linkedin_url'):
+            data['linkedin_url'] = candidate.linkedin_url or (candidate.user.profile.linkedin_profile if hasattr(candidate.user, 'profile') else '')
+            
+    for key1, key2 in mappings:
+        in_payload1 = key1 in payload
+        in_payload2 = key2 in payload
+        
+        if in_payload1 and not in_payload2:
+            data[key2] = data.get(key1)
+        elif in_payload2 and not in_payload1:
+            data[key1] = data.get(key2)
+        else:
+            val1 = data.get(key1)
+            val2 = data.get(key2)
+            if val1 and (val2 is None or val2 == ''):
+                data[key2] = val1
+            elif val2 and (val1 is None or val1 == ''):
+                data[key1] = val2
+
+
 @api_view(['POST'])
 @permission_classes([IsApproved])
 def upsert_credential(request, candidate_id):
@@ -748,31 +818,45 @@ def upsert_credential(request, candidate_id):
     # Accept both { data: {...} } and flat submission
     payload = request.data.get('data') if 'data' in request.data else request.data
 
-    # Validate credential data
-    validation_errors = validate_credential_data(payload)
+    last_version = CredentialVersion.objects.filter(candidate=candidate).order_by('-version').first()
+
+    # 1. Fetch previous version and merge
+    merged_payload = {}
+    if last_version and isinstance(last_version.data, dict):
+        merged_payload.update(last_version.data)
+    if isinstance(payload, dict):
+        merged_payload.update(payload)
+    else:
+        merged_payload = payload
+
+    # 2. Synchronize key mapping bidirectionally
+    if isinstance(merged_payload, dict):
+        sync_credential_keys(merged_payload, payload if isinstance(payload, dict) else None, candidate)
+
+    # 3. Validate the merged and normalized credential data
+    validation_errors = validate_credential_data(merged_payload)
     if validation_errors:
         return Response({
             'error': 'Validation failed',
             'validation_errors': validation_errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    last_version = CredentialVersion.objects.filter(candidate=candidate).order_by('-version').first()
     new_version = (last_version.version + 1) if last_version else 1
     cred = CredentialVersion.objects.create(
         candidate=candidate,
-        data=payload,
+        data=merged_payload,
         edited_by=request.user,
         version=new_version,
     )
 
     # ── Sync key fields from credential data to top-level Candidate model ──
-    if payload.get('personal_email'):
-        candidate.personal_email = payload['personal_email']
-    if payload.get('preferred_locations'):
-        candidate.current_location = payload['preferred_locations']
-    if payload.get('linkedin_id'):
+    if merged_payload.get('personal_email'):
+        candidate.personal_email = merged_payload['personal_email']
+    if merged_payload.get('preferred_locations'):
+        candidate.current_location = merged_payload['preferred_locations']
+    if merged_payload.get('linkedin_id'):
         # Store LinkedIn ID as the linkedin_url field (best match in current model)
-        candidate.linkedin_url = payload['linkedin_id']
+        candidate.linkedin_url = merged_payload['linkedin_id']
 
     # Date field sync — frontend uses bachelors_grad_date / masters_grad_date
     date_map = {
@@ -782,10 +866,10 @@ def upsert_credential(request, candidate_id):
         'first_entry_us': 'first_entry_us',
     }
     for payload_key, model_attr in date_map.items():
-        if payload.get(payload_key):
+        if merged_payload.get(payload_key):
             for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y'):
                 try:
-                    setattr(candidate, model_attr, datetime.strptime(str(payload[payload_key]), fmt).date())
+                    setattr(candidate, model_attr, datetime.strptime(str(merged_payload[payload_key]), fmt).date())
                     break
                 except Exception:
                     continue

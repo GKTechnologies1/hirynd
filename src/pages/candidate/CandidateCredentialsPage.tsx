@@ -223,15 +223,40 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
         const cid = meRes.data.id;
         setCandidateId(cid);
         
-        if (user?.email) {
-          setFormData(prev => ({ ...prev, email: user.email }));
-        }
-
         const versionsList = await fetchVersions(cid);
         if (versionsList.length > 0) {
           // Sort by version descending to get the latest first
           const sorted = [...versionsList].sort((a, b) => b.version - a.version);
           populateFormFromVersion(sorted[0]);
+        } else {
+          // Prefill with candidate profile details if no credential versions exist
+          const cand = meRes.data;
+          let country_code = "+1";
+          let phone = cand.profile?.phone || "";
+          if (phone.startsWith("+")) {
+            const parts = phone.split(" ");
+            if (parts.length > 1) {
+              country_code = parts[0];
+              phone = parts.slice(1).join(" ");
+            }
+          }
+          setFormData(prev => ({
+            ...prev,
+            full_name: cand.profile?.full_name || cand.full_name || "",
+            email: cand.email || cand.profile?.email || user?.email || "",
+            phone_number: phone,
+            country_code: country_code,
+            personal_email: cand.personal_email || "",
+            location: cand.current_location || "",
+            linkedin_id: cand.linkedin_url || cand.profile?.linkedin_profile || "",
+            preferred_roles: cand.preferred_roles || "",
+            preferred_locations: cand.preferred_locations || "",
+            bachelors_grad_date: cand.bachelors_graduation_date || "",
+            masters_grad_date: cand.masters_graduation_date || "",
+            first_entry_us: cand.first_entry_us || "",
+            opt_start_date: cand.opt_start_date || "",
+            opt_offer_submitted: "no",
+          }));
         }
       } catch (err) {
         console.error("Initialization failed", err);

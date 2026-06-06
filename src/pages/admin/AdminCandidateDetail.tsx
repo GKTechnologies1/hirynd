@@ -113,6 +113,27 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
         setCredentials(credRes.data || []);
         if (credRes.data && credRes.data.length > 0 && credRes.data[0].data) {
           setCredForm(credRes.data[0].data as Record<string, any>);
+        } else {
+          setCredForm({
+            full_legal_name: cand?.full_name || cand?.profile?.full_name || "",
+            email: cand?.email || cand?.profile?.email || "",
+            phone: cand?.profile?.phone || "",
+            linkedin_url: cand?.linkedin_url || cand?.profile?.linkedin_profile || "",
+            current_title: "",
+            years_experience: "",
+            certifications: "",
+            shared_email: cand?.email || cand?.profile?.email || "",
+            skills_summary: "",
+            personal_email: cand?.personal_email || "",
+            location_city_state: cand?.current_location || "",
+            bachelors_graduation_date: cand?.bachelors_graduation_date || "",
+            masters_graduation_date: cand?.masters_graduation_date || "",
+            first_entry_us: cand?.first_entry_us || "",
+            opt_start_date: cand?.opt_start_date || "",
+            opt_offer_letter_submitted: "No",
+            preferred_job_roles: cand?.preferred_roles || "",
+            preferred_locations: cand?.preferred_locations || ""
+          });
         }
         setPayments(payRes.data || []);
         setSubscription(subRes.data?.id ? subRes.data : null);

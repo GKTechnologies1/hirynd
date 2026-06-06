@@ -137,21 +137,21 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
             full_legal_name: cand?.profile?.full_name || cand?.full_name || "",
             email: cand?.profile?.email || cand?.email || "",
             phone: cand?.profile?.phone || "",
-            linkedin_url: cand?.profile?.linkedin_profile || "",
+            linkedin_url: cand?.linkedin_url || cand?.profile?.linkedin_profile || "",
             current_title: "",
             years_experience: "",
             certifications: "",
             shared_email: cand?.profile?.email || cand?.email || "",
             skills_summary: "",
-            personal_email: "",
-            location_city_state: "",
-            bachelors_graduation_date: "",
-            masters_graduation_date: "",
-            first_entry_us: "",
-            opt_start_date: "",
+            personal_email: cand?.personal_email || "",
+            location_city_state: cand?.current_location || "",
+            bachelors_graduation_date: cand?.bachelors_graduation_date || "",
+            masters_graduation_date: cand?.masters_graduation_date || "",
+            first_entry_us: cand?.first_entry_us || "",
+            opt_start_date: cand?.opt_start_date || "",
             opt_offer_letter_submitted: "No",
-            preferred_job_roles: "",
-            preferred_locations: ""
+            preferred_job_roles: cand?.preferred_roles || "",
+            preferred_locations: cand?.preferred_locations || ""
           });
         }
 
