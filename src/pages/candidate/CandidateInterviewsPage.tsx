@@ -84,6 +84,57 @@ const LongTextCell = ({
   );
 };
 
+const OutcomeDropdown = ({ 
+  candidateId, 
+  log, 
+  onUpdateSuccess 
+}: { 
+  candidateId: string; 
+  log: any; 
+  onUpdateSuccess: () => void; 
+}) => {
+  const { toast } = useToast();
+  const [updating, setUpdating] = useState(false);
+
+  const handleOutcomeChange = async (newOutcome: string) => {
+    setUpdating(true);
+    try {
+      await candidatesApi.updateInterview(candidateId, log.id, { outcome: newOutcome });
+      toast({ title: "Outcome updated successfully" });
+      onUpdateSuccess();
+    } catch (err: any) {
+      toast({
+        title: "Failed to update outcome",
+        description: err.response?.data?.error || err.message,
+        variant: "destructive"
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <div className="inline-block relative">
+      <Select value={log.outcome} onValueChange={handleOutcomeChange} disabled={updating}>
+        <SelectTrigger className="border-none shadow-none bg-transparent hover:bg-muted/50 p-0 h-auto cursor-pointer focus:ring-0">
+          <div className="flex items-center gap-1.5 cursor-pointer">
+            <StatusBadge status={log.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} />
+            <ChevronDown className="h-3 w-3 text-muted-foreground opacity-60 shrink-0" />
+          </div>
+        </SelectTrigger>
+        <SelectContent>
+          {OUTCOMES.map(o => (
+            <SelectItem key={o} value={o} className="capitalize">
+              {o.replace(/_/g, " ")}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
+
 const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -365,7 +416,13 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                     header: "Outcome", 
                     sortable: true,
                     accessorKey: "outcome",
-                    render: (l: any) => <StatusBadge status={l.outcome?.toLowerCase().replace(/ /g, "_") || "pending"} />
+                    render: (l: any) => (
+                      <OutcomeDropdown
+                        candidateId={candidate.id}
+                        log={l}
+                        onUpdateSuccess={() => fetchLogs(false)}
+                      />
+                    )
                   }
                 ]}
               />

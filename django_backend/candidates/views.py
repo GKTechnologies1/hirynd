@@ -933,12 +933,29 @@ def referrals(request, candidate_id):
 
 # ─── Interviews ───
 
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'POST', 'PATCH'])
 @permission_classes([IsApproved])
 def interviews(request, candidate_id):
     if request.method == 'GET':
         logs = InterviewLog.objects.filter(candidate_id=candidate_id)
         return Response(InterviewLogSerializer(logs, many=True).data)
+
+    if request.method == 'PATCH':
+        log_id = request.data.get('id')
+        if not log_id:
+            return Response({'error': 'Interview log ID is required for update'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            log = InterviewLog.objects.get(id=log_id, candidate_id=candidate_id)
+        except InterviewLog.DoesNotExist:
+            return Response({'error': 'Interview log not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        log.updated_by = request.user
+        serializer = InterviewLogSerializer(log, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        log_action(request.user, 'interview_outcome_update', str(candidate_id), 'interview', {'log_id': str(log.id), 'outcome': log.outcome})
+        return Response(serializer.data)
 
     data = request.data.copy()
     data['candidate'] = candidate_id

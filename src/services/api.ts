@@ -283,6 +283,8 @@ export const candidatesApi = {
   getInterviews: (id: string) => api.get(`/candidates/${id}/interviews/`),
   submitInterview: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/interviews/`, data),
+  updateInterview: (id: string, logId: string, data: Record<string, any>) =>
+    api.patch(`/candidates/${id}/interviews/`, { id: logId, ...data }),
   getPlacement: (id: string) => api.get(`/candidates/${id}/placement/`),
   closePlacement: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/placement/`, data),
