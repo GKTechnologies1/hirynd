@@ -179,14 +179,28 @@ const AdminInterestedCandidatesPage = () => {
               { 
                 header: "Academic", 
                 className: "text-xs",
-                render: (c: any) => (
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium truncate max-w-[150px]">{c.university || "—"}</span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {c.degree || "—"} {c.major ? ` / ${c.major}` : ""}
-                    </span>
-                  </div>
-                )
+                render: (c: any) => {
+                  let academicInfo = c.degree_major || "";
+                  if (!academicInfo) {
+                    if (c.degree && c.major) {
+                      if (c.degree.trim().toLowerCase() === c.major.trim().toLowerCase()) {
+                        academicInfo = c.degree;
+                      } else {
+                        academicInfo = `${c.degree} & ${c.major}`;
+                      }
+                    } else {
+                      academicInfo = c.degree || c.major || "—";
+                    }
+                  }
+                  return (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium truncate max-w-[150px]">{c.university || "—"}</span>
+                      <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                        {academicInfo}
+                      </span>
+                    </div>
+                  );
+                }
               },
               { 
                 header: "Visa", 

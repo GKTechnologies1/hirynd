@@ -12,6 +12,30 @@ import { formatDate } from "@/lib/utils";
 import { BACKEND_URL } from "@/services/api";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 
+const formatToMMDDYYYY = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return "";
+  if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) return dateStr;
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    return `${match[2]}-${match[3]}-${match[1]}`;
+  }
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${month}-${day}-${year}`;
+};
+
+const parseFromMMDDYYYY = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return "";
+  const match = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (match) {
+    return `${match[3]}-${match[1]}-${match[2]}`;
+  }
+  return dateStr;
+};
+
 interface AdminInterestedCandidateDetailProps {
   leadId: string;
   onLoaded?: (name: string) => void;
@@ -26,6 +50,7 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
     university: "",
     degree: "",
     major: "",
+    degree_major: "",
     graduation_year: "",
     visa_status: "",
     referral_source: "",
@@ -46,6 +71,20 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
       if (onLoaded) {
         onLoaded(data.name || data.email || "Lead");
       }
+      
+      let initialDegreeMajor = data.degree_major || "";
+      if (!initialDegreeMajor) {
+        if (data.degree && data.major) {
+          if (data.degree.trim().toLowerCase() === data.major.trim().toLowerCase()) {
+            initialDegreeMajor = data.degree;
+          } else {
+            initialDegreeMajor = `${data.degree} & ${data.major}`;
+          }
+        } else {
+          initialDegreeMajor = data.degree || data.major || "";
+        }
+      }
+
       setForm({
         name: data.name || "",
         email: data.email || "",
@@ -53,7 +92,8 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
         university: data.university || "",
         degree: data.degree || "",
         major: data.major || "",
-        graduation_year: data.graduation_year || "",
+        degree_major: initialDegreeMajor,
+        graduation_year: formatToMMDDYYYY(data.graduation_year),
         visa_status: data.visa_status || "",
         referral_source: data.referral_source || "",
         referral_friend_name: data.referral_friend_name || "",
@@ -78,8 +118,45 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
     event.preventDefault();
     setSaving(true);
     try {
-      const { data } = await candidatesApi.updateInterested(leadId, form);
+      const [d, ...m] = (form.degree_major || "").split("&");
+      const payload = {
+        ...form,
+        degree: (d || "").trim(),
+        major: m.join("&").trim(),
+        graduation_year: parseFromMMDDYYYY(form.graduation_year)
+      };
+      const { data } = await candidatesApi.updateInterested(leadId, payload);
       setLead(data);
+
+      let initialDegreeMajor = data.degree_major || "";
+      if (!initialDegreeMajor) {
+        if (data.degree && data.major) {
+          if (data.degree.trim().toLowerCase() === data.major.trim().toLowerCase()) {
+            initialDegreeMajor = data.degree;
+          } else {
+            initialDegreeMajor = `${data.degree} & ${data.major}`;
+          }
+        } else {
+          initialDegreeMajor = data.degree || data.major || "";
+        }
+      }
+
+      setForm({
+        name: data.name || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        university: data.university || "",
+        degree: data.degree || "",
+        major: data.major || "",
+        degree_major: initialDegreeMajor,
+        graduation_year: formatToMMDDYYYY(data.graduation_year),
+        visa_status: data.visa_status || "",
+        referral_source: data.referral_source || "",
+        referral_friend_name: data.referral_friend_name || "",
+        current_location: data.current_location || "",
+        notes: data.notes || "",
+      });
+
       toast({ title: "Lead updated", description: "Interest details have been saved." });
     } catch (err: any) {
       toast({ title: "Update failed", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -151,18 +228,23 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
               <div className="space-y-1.5 sm:col-span-1">
                 <Label className="text-xs font-bold uppercase tracking-widest">Degree & Major</Label>
                 <Input 
-                  value={`${form.degree}${form.degree && form.major ? " & " : ""}${form.major}`} 
+                  value={form.degree_major} 
                   onChange={(event) => {
                     const val = event.target.value;
                     const [d, ...m] = val.split("&");
-                    setForm(prev => ({ ...prev, degree: (d || "").trim(), major: m.join("&").trim() }));
+                    setForm(prev => ({ 
+                      ...prev, 
+                      degree_major: val,
+                      degree: (d || "").trim(), 
+                      major: m.join("&").trim() 
+                    }));
                   }} 
                   className="h-11 rounded-xl" 
                   placeholder="e.g., Master's in Computer Science"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-widest">Graduation Year</Label>
+                <Label className="text-xs font-bold uppercase tracking-widest">Graduation Date</Label>
                 <Input value={form.graduation_year} onChange={(event) => handleChange('graduation_year', event.target.value)} className="h-11 rounded-xl" />
               </div>
             </div>

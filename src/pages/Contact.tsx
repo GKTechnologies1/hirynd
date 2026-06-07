@@ -133,7 +133,14 @@ const Contact = () => {
     if (wantsMarketing === "yes") {
       if (!formData.get("degree_major")) newErrors.degree_major = "Degree & Major is required";
       if (!formData.get("university")) newErrors.university = "University / College is required";
-      if (!formData.get("graduation_year")) newErrors.graduation_year = "Graduation date is required";
+      
+      const gradYear = (formData.get("graduation_year") as string || "").trim();
+      if (!gradYear) {
+        newErrors.graduation_year = "Graduation date is required";
+      } else if (!/^\d{2}-\d{2}-\d{4}$/.test(gradYear)) {
+        newErrors.graduation_year = "Graduation date must be in MM-DD-YYYY format (e.g. 06-02-2026)";
+      }
+
       if (!visaStatus) newErrors.visa_status = "Please select your visa status";
       if (visaStatus === "other" && !(formData.get("visa_other") as string || "").trim()) {
         newErrors.visa_other = "Please specify your visa status";
@@ -228,8 +235,11 @@ const Contact = () => {
       finalData.append("university", formValues.university);
       const [degree, ...majorParts] = formValues.degree_major.split("&");
       finalData.append("degree", (degree || "").trim());
-      finalData.append("major", majorParts.join("&").trim() || formValues.degree_major.trim());
-      finalData.append("graduation_year", formValues.graduation_year);
+      finalData.append("major", majorParts.join("&").trim());
+      finalData.append("degree_major", formValues.degree_major.trim());
+      const match = formValues.graduation_year.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+      const formattedGradDate = match ? `${match[3]}-${match[1]}-${match[2]}` : formValues.graduation_year;
+      finalData.append("graduation_year", formattedGradDate);
       finalData.append("visa_status", visaStatus === "other" ? formValues.visa_other : visaStatus);
       finalData.append("current_location", formValues.current_location);
       finalData.append("referral_source", referralSource);
@@ -539,10 +549,20 @@ const Contact = () => {
                         <CalendarIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" />
                         <Input
                           name="graduation_year"
-                          type="date"
+                          type="text"
                           value={formValues.graduation_year}
-                          onChange={handleInputChange}
-                          placeholder="e.g., 2025"
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/\D/g, "");
+                            if (val.length > 8) val = val.substring(0, 8);
+                            if (val.length > 4) {
+                              val = `${val.substring(0, 2)}-${val.substring(2, 4)}-${val.substring(4)}`;
+                            } else if (val.length > 2) {
+                              val = `${val.substring(0, 2)}-${val.substring(2)}`;
+                            }
+                            setFormValues(prev => ({ ...prev, graduation_year: val }));
+                            setErrors(prev => ({ ...prev, graduation_year: "" }));
+                          }}
+                          placeholder="MM-DD-YYYY"
                           className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
                         />
                       </div>

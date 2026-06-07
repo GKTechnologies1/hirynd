@@ -354,6 +354,7 @@ def submit_contact(request):
             university=data.get('university', ''),
             degree=data.get('degree', ''),
             major=data.get('major', ''),
+            degree_major=data.get('degree_major', ''),
             graduation_year=data.get('graduation_year', ''),
             visa_status=data.get('visa_status', ''),
             current_location=data.get('current_location', ''),

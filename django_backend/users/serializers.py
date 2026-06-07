@@ -427,6 +427,7 @@ class ContactSerializer(serializers.Serializer):
     university = serializers.CharField(max_length=120, required=False, allow_blank=True)
     degree = serializers.CharField(max_length=120, required=False, allow_blank=True)
     major = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    degree_major = serializers.CharField(max_length=255, required=False, allow_blank=True)
     graduation_year = serializers.CharField(max_length=10, required=False, allow_blank=True)
     visa_status = serializers.CharField(max_length=50, required=False, allow_blank=True)
     referral_source = serializers.CharField(max_length=100, required=False, allow_blank=True)
