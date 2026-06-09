@@ -25,6 +25,13 @@ import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+const formatToMMDDYYYY = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return "—";
+  if (dateStr.toLowerCase() === "present") return "Present";
+  const formatted = formatDate(dateStr);
+  return formatted === "—" ? dateStr : formatted;
+};
+
 const JobDescriptionCell = ({ 
   company, 
   role, 
@@ -679,7 +686,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         { label: "Resume / CV", url: intakeData.resume_url, required: true },
                         { label: "Passport (First & Last Page)", url: intakeData.passport_url, required: true },
                         { label: "Government Issued ID", url: intakeData.gov_id_url, required: true },
-                        { label: "Visa / I-797 / I-20", url: intakeData.visa_url, required: true },
+                        { label: "VISA", url: intakeData.visa_url, required: true },
                         { label: "Work Authorization Document", url: intakeData.work_auth_url, required: true },
                         { label: "Other Verification Document", url: intakeData.doc_url, required: false },
                       ].map((doc, idx) => (
@@ -714,21 +721,37 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <div className="grid gap-6 sm:grid-cols-2">
                           {intakeData.experiences.map((exp: any, idx: number) => (
                             <div key={idx} className="p-4 rounded-xl bg-neutral-50 border space-y-3 text-xs">
-                              <div className="flex items-center justify-between border-b pb-2">
+                              <div>
+                                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Job Title</Label>
                                 <p className="font-bold text-neutral-900 text-sm">{exp.job_title || "—"}</p>
-                                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] uppercase font-bold">{exp.job_type || "—"}</span>
                               </div>
-                              <div className="space-y-1">
-                                <p className="font-bold text-neutral-800">{exp.company_name || "—"}</p>
-                                <p className="text-[11px] text-muted-foreground">{exp.company_address || "—"}</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Company Name</Label>
+                                  <p className="font-semibold text-neutral-800">{exp.company_name || "—"}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Job Type</Label>
+                                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] uppercase font-bold inline-block mt-0.5">{exp.job_type || "—"}</span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[10px]">
-                                <CalendarIcon className="h-3.5 w-3.5" />
-                                <span>{exp.start_date || "—"} to {exp.end_date || "Present"}</span>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Start Date (MM/DD/YYYY)</Label>
+                                  <p className="font-medium text-neutral-700">{formatToMMDDYYYY(exp.start_date)}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">End Date (MM/DD/YYYY)</Label>
+                                  <p className="font-medium text-neutral-700">{formatToMMDDYYYY(exp.end_date)}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Company Address</Label>
+                                <p className="text-neutral-700">{exp.company_address || "—"}</p>
                               </div>
                               {exp.responsibilities && (
-                                <div className="pt-2 border-t mt-2">
-                                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Responsibilities</p>
+                                <div className="pt-2 border-t mt-1">
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Key Responsibilities / Projects</Label>
                                   <p className="text-[11px] text-neutral-700 leading-relaxed bg-white p-2.5 rounded border italic whitespace-pre-wrap">{exp.responsibilities}</p>
                                 </div>
                               )}
@@ -749,12 +772,42 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         </h4>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           {intakeData.certifications.map((cert: any, idx: number) => (
-                            <div key={idx} className="p-4 rounded-xl bg-neutral-50 border space-y-2 text-xs">
-                              <p className="font-bold text-neutral-900 text-sm leading-tight">{cert.name || "—"}</p>
-                              <p className="font-semibold text-muted-foreground">{cert.organization || "—"}</p>
-                              <div className="flex items-center justify-between mt-2 pt-2 border-t text-[10px] text-muted-foreground font-semibold">
-                                <span>Issued: {cert.issued_date || "—"}</span>
+                            <div key={idx} className="p-4 rounded-xl bg-neutral-50 border space-y-3 text-xs flex flex-col justify-between">
+                              <div className="space-y-2">
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Certification Name</Label>
+                                  <p className="font-bold text-neutral-900 text-sm leading-tight">{cert.name || "—"}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Issuing Organization</Label>
+                                  <p className="font-semibold text-neutral-800">{cert.organization || "—"}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Certification ID</Label>
+                                  <p className="text-neutral-700 font-medium">{cert.credential_id || cert.credentialId || "—"}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Issued Date</Label>
+                                    <p className="text-neutral-700 font-medium">{formatToMMDDYYYY(cert.issued_date || cert.issuedDate)}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Expiry Date</Label>
+                                    <p className="text-neutral-700 font-medium">{formatToMMDDYYYY(cert.expires_date || cert.expiresDate)}</p>
+                                  </div>
+                                </div>
                               </div>
+                              {(cert.credential_url || cert.file) && (
+                                <div className="pt-2 border-t mt-2">
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Certification Preview</Label>
+                                  <DocumentPreview
+                                    url={cert.credential_url || cert.file}
+                                    label="Preview Certification"
+                                    variant="button"
+                                    className="w-full text-xs font-bold h-9 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                                  />
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
