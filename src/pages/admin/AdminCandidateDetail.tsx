@@ -94,6 +94,27 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   const [showCredPasswords, setShowCredPasswords] = useState<Record<string, boolean>>({});
   const toggleCredPw = (k: string) => setShowCredPasswords(p => ({ ...p, [k]: !p[k] }));
 
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem(`admin_candidate_active_tab_${candidateId}`) || "overview";
+  });
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(`admin_candidate_active_tab_${candidateId}`) || "overview";
+    if (candidate && candidate.status === 'lead') {
+      const validLeadTabs = ["overview", "assignments", "audit"];
+      if (!validLeadTabs.includes(stored)) {
+        setActiveTab("overview");
+        return;
+      }
+    }
+    setActiveTab(stored);
+  }, [candidateId, candidate?.status]);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    sessionStorage.setItem(`admin_candidate_active_tab_${candidateId}`, val);
+  };
+
   const fetchAll = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
@@ -428,7 +449,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
         </Card>
       )}
 
-      <Tabs defaultValue="overview">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {status !== 'lead' && (
