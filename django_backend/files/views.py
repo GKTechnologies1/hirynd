@@ -46,6 +46,9 @@ def upload_file(request):
     if not file:
         return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
 
+    if file_type == 'offer_letter' and file.size > 5 * 1024 * 1024:
+        return Response({'error': 'File size must not exceed 5 MB'}, status=status.HTTP_400_BAD_REQUEST)
+
     ext = file.name.split('.')[-1] if '.' in file.name else 'bin'
     bucket_path = f'{request.user.id}/{file_type}/{uuid.uuid4()}.{ext}'
 

@@ -284,8 +284,14 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
       }
     });
 
-    if (formData.opt_offer_submitted === "yes" && !formData.offer_letter_file) {
-      newErrors.offer_letter_file = "Offer letter required";
+    if (formData.opt_offer_submitted === "yes") {
+      if (!formData.offer_letter_file) {
+        newErrors.offer_letter_file = "Offer letter required";
+      } else if (formData.offer_letter_file instanceof File) {
+        if (formData.offer_letter_file.size > 5 * 1024 * 1024) {
+          newErrors.offer_letter_file = "File size must not exceed 5 MB";
+        }
+      }
     }
 
     // Email validation
@@ -339,6 +345,12 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
 
   const handleChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === "offer_letter_file" && value instanceof File) {
+      if (value.size > 5 * 1024 * 1024) {
+        setErrors(prev => ({ ...prev, offer_letter_file: "File size must not exceed 5 MB" }));
+        return;
+      }
+    }
     if (errors[field]) {
       setErrors(prev => {
         const next = { ...prev };
