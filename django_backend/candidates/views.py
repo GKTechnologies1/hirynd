@@ -841,13 +841,26 @@ def upsert_credential(request, candidate_id):
             'validation_errors': validation_errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    new_version = (last_version.version + 1) if last_version else 1
-    cred = CredentialVersion.objects.create(
-        candidate=candidate,
-        data=merged_payload,
-        edited_by=request.user,
-        version=new_version,
+    # If the candidate status is not submitted/finalized yet, we are still on the initial version (v1).
+    # Reuse/overwrite the existing last_version if one exists, to keep it as version 1.
+    post_credentials_statuses = (
+        'credentials_submitted', 'active_marketing', 'paused', 
+        'on_hold', 'past_due', 'cancelled', 'placed_closed'
     )
+    if last_version and candidate.status not in post_credentials_statuses:
+        last_version.data = merged_payload
+        last_version.edited_by = request.user
+        last_version.created_at = timezone.now()
+        last_version.save()
+        cred = last_version
+    else:
+        new_version = (last_version.version + 1) if last_version else 1
+        cred = CredentialVersion.objects.create(
+            candidate=candidate,
+            data=merged_payload,
+            edited_by=request.user,
+            version=new_version,
+        )
 
     # ── Sync key fields from credential data to top-level Candidate model ──
     if merged_payload.get('personal_email'):

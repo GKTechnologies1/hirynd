@@ -12,13 +12,17 @@ interface CustomCredentialsDialogProps {
   readOnly?: boolean;
   onRefresh?: () => void;
   trigger?: React.ReactNode;
+  value?: any[];
+  onChange?: (value: any[]) => void;
 }
 
 const CustomCredentialsDialog: React.FC<CustomCredentialsDialogProps> = ({
   candidateId,
   readOnly = false,
   onRefresh,
-  trigger
+  trigger,
+  value,
+  onChange
 }) => {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -49,9 +53,14 @@ const CustomCredentialsDialog: React.FC<CustomCredentialsDialogProps> = ({
 
   useEffect(() => {
     if (open) {
-      fetchCredentials();
+      if (value !== undefined) {
+        setCustomPlatforms(value || []);
+        setLatestData({});
+      } else {
+        fetchCredentials();
+      }
     }
-  }, [open, candidateId]);
+  }, [open, candidateId, value]);
 
   const togglePassword = (key: string) => {
     setShowPassword(prev => ({ ...prev, [key]: !prev[key] }));
@@ -77,6 +86,12 @@ const CustomCredentialsDialog: React.FC<CustomCredentialsDialogProps> = ({
     const invalid = customPlatforms.some(cp => !cp.platform_name?.trim() || !cp.username_email?.trim() || !cp.password?.trim());
     if (invalid) {
       toast({ title: "Validation Error", description: "All fields are required.", variant: "destructive" });
+      return;
+    }
+
+    if (onChange) {
+      onChange(customPlatforms);
+      setOpen(false);
       return;
     }
 

@@ -172,6 +172,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   const [versions, setVersions] = useState<any[]>([]);
   const [candidateId, setCandidateId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
+  const [candidateStatus, setCandidateStatus] = useState<string | null>(candidate?.status || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCustomPw, setShowCustomPw] = useState<Record<string, boolean>>({});
   
@@ -222,6 +223,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
         const meRes = await candidatesApi.me();
         const cid = meRes.data.id;
         setCandidateId(cid);
+        setCandidateStatus(meRes.data.status);
         
         const versionsList = await fetchVersions(cid);
         if (versionsList.length > 0) {
@@ -408,6 +410,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
 
       // Step 3: Submit to backend
       await candidatesApi.upsertCredential(candidateId, payload);
+      setCandidateStatus('credentials_submitted');
       const updatedVersions = await fetchVersions(candidateId);
       
       setIsEditing(false);
@@ -437,7 +440,15 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   };
 
   const latestVersion = versions[0];
-  const hasSubmission = versions.length > 0;
+  const hasSubmission = !!candidateStatus && [
+    'credentials_submitted',
+    'active_marketing',
+    'paused',
+    'on_hold',
+    'past_due',
+    'placed_closed',
+    'cancelled'
+  ].includes(candidateStatus);
   const isLocked = hasSubmission && !isEditing;
 
   if (isLoading) {
@@ -807,6 +818,8 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     <CustomCredentialsDialog 
                       candidateId={candidateId} 
                       readOnly={isLocked} 
+                      value={formData.custom_platforms || []}
+                      onChange={!isLocked ? (val) => handleChange("custom_platforms", val) : undefined}
                       onRefresh={async () => {
                         const updatedVersions = await fetchVersions(candidateId);
                         if (updatedVersions.length > 0) {
@@ -884,7 +897,7 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                     <span className="flex items-center gap-2"><Lock className="h-5 w-5 animate-pulse" /> Saving New Version...</span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      {versions.length === 0 ? "Submit Marketing Credentials" : "Update Credentials (v" + (versions.length + 1) + ")"}
+                      {!hasSubmission ? "Submit Marketing Credentials" : "Update Credentials (v" + (versions.length + 1) + ")"}
                       <CheckCircle className="h-5 w-5" />
                     </span>
                   )}
