@@ -331,6 +331,16 @@ const AdminApprovalsPage = () => {
                       </a>
                     ) : <p className="text-muted-foreground italic text-xs">Not provided</p>}
                   </div>
+                  {selectedUser?.role === 'candidate' && (
+                    <div>
+                      <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">GitHub URL</p>
+                      {selectedUser?.github_url ? (
+                        <a href={selectedUser.github_url} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1 break-all">
+                          View Codebase <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                      ) : <p className="text-muted-foreground italic text-xs">Not provided</p>}
+                    </div>
+                  )}
                   <div>
                     <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-tight">Portfolio / Website</p>
                     {(selectedUser?.portfolio_url || selectedUser?.social_profile_url) ? (
@@ -359,14 +369,6 @@ const AdminApprovalsPage = () => {
                       <div>
                         <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">OPT End Date</p>
                         <p className="font-medium text-blue-900">{formatDate(selectedUser?.opt_end_date)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">GitHub Profile</p>
-                        {selectedUser?.github_url ? (
-                          <a href={selectedUser.github_url} target="_blank" rel="noreferrer" className="text-blue-700 font-medium hover:underline flex items-center gap-1 break-all">
-                            {selectedUser.github_url} <ExternalLink className="h-3 w-3 shrink-0" />
-                          </a>
-                        ) : <p className="text-slate-400 italic text-xs">Not provided</p>}
                       </div>
                       <div>
                         <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">How Did You Hear About Us?</p>

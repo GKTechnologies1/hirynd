@@ -19,7 +19,7 @@ import { formatDate, cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, User, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown, Calendar as CalendarIcon, FileCheck, Sparkles, Upload } from "lucide-react";
+import { LayoutDashboard, User, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown, Calendar as CalendarIcon, FileCheck, Sparkles, Upload, MapPin } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -779,11 +779,11 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
               </CardContent>
             </Card>
 
-            {/* Professional Presence */}
+            {/* Location & Professional Links */}
             <Card className="border-none shadow-sm flex flex-col">
               <CardHeader className="bg-muted/30 pb-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-primary" /> Presence & Socials
+                  <MapPin className="h-4 w-4 text-primary" /> Location & Professional Links
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
