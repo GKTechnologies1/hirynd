@@ -99,6 +99,11 @@ def login(request):
     # Track login in audit log
     log_action(user, 'user_login', str(user.id), 'user', {'role': user.role})
 
+    # Update last_activity on successful login
+    from django.utils import timezone
+    user.last_activity = timezone.now()
+    user.save(update_fields=['last_activity'])
+
     refresh = RefreshToken.for_user(user)
     return Response({
         'access': str(refresh.access_token),
@@ -117,6 +122,47 @@ def logout(request):
     except Exception:
         pass
     return Response({'message': 'Logged out'})
+
+
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+class CustomTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0])
+
+        try:
+            refresh_token_str = request.data.get('refresh')
+            if refresh_token_str:
+                from rest_framework_simplejwt.tokens import RefreshToken
+                from django.utils import timezone
+                from datetime import timedelta
+                
+                token = RefreshToken(refresh_token_str)
+                user_id = token.payload.get('user_id')
+                if user_id:
+                    user = User.objects.get(id=user_id)
+                    if user.last_activity:
+                        now = timezone.now()
+                        # Reject refresh if user has been inactive for more than 60 minutes
+                        if now - user.last_activity > timedelta(minutes=60):
+                            return Response({
+                                'error': 'Session expired due to inactivity'
+                            }, status=status.HTTP_401_UNAUTHORIZED)
+                    
+                    # Update activity since they refreshed token
+                    user.last_activity = timezone.now()
+                    user.save(update_fields=['last_activity'])
+        except Exception:
+            # Let the standard error handling or response proceed if user lookup fails
+            pass
+
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
