@@ -10,7 +10,7 @@ import { DataTable } from "@/components/ui/DataTable";
 
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban } from "lucide-react";
+import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban, Download } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
 
@@ -188,6 +188,21 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const handleBillingCheck = async () => {
     toast({ title: "Feature not available", description: "Automated billing checks are not supported in this environment.", variant: "destructive" });
     setActionLoading("");
+  };
+
+  const downloadInvoice = async (invoiceId: string) => {
+    try {
+      const response = await billingApi.downloadInvoice(invoiceId);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `invoice_${invoiceId.slice(0, 8)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      toast({ title: "Download failed", variant: "destructive" });
+    }
   };
 
   if (loading) return <p className="text-muted-foreground">Loading billing...</p>;
@@ -416,43 +431,75 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
             searchKey="status"
             emptyMessage="No invoices yet."
             columns={[
-              { 
-                header: "Period", 
-                sortable: true,
-                accessorKey: "period_start",
+              {
+                header: "Candidate ID",
                 render: (inv: any) => (
-                  <span className="text-sm pl-6">
-                    {inv.is_addon 
-                      ? `Paid On: ${formatDate(inv.paid_at || inv.created_at)}` 
-                      : `${formatDate(inv.period_start)} – ${formatDate(inv.period_end)}`}
+                  <Badge variant="outline" className="font-mono text-[10px] text-[#0d47a1] bg-blue-50/50 border-blue-200 px-2 py-0.5 font-bold shadow-none">
+                    {inv.candidate_display_id || "—"}
+                  </Badge>
+                )
+              },
+              {
+                header: "Invoice ID",
+                render: (inv: any) => (
+                  <span className="font-mono font-bold text-blue-600 text-[10px] uppercase hover:underline cursor-pointer">
+                    {inv.display_id || `INV-${inv.id.slice(0, 8).toUpperCase()}`}
                   </span>
                 )
               },
-              { 
-                header: "Amount", 
+              {
+                header: "Description / Period",
+                render: (inv: any) => (
+                  <div className="space-y-0.5 text-center">
+                    <p className="text-[11px] font-bold text-slate-700 font-sans">{inv.description || "Service Fee"}</p>
+                    {inv.is_addon ? (
+                      <p className="text-[10px] text-slate-400 font-medium">Paid On: {formatDate(inv.paid_at || inv.created_at)}</p>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 font-medium">{formatDate(inv.period_start)} — {formatDate(inv.period_end)}</p>
+                    )}
+                  </div>
+                )
+              },
+              {
+                header: "Amount",
                 sortable: true,
                 accessorKey: "amount",
                 render: (inv: any) => (
-                  <span className="font-medium flex items-center gap-0.5 text-sm">
-                    <DollarSign className="h-3.5 w-3.5" />{Number(inv.amount).toLocaleString()}
-                  </span>
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-[11px] text-slate-700">${Number(inv.amount).toLocaleString()}</p>
+                    {inv.tax_amount > 0 && (
+                      <p className="text-[9px] text-slate-400 font-medium">Tax: ${Number(inv.tax_amount).toLocaleString()} ({inv.tax_rate}%)</p>
+                    )}
+                  </div>
                 )
               },
-              { 
-                header: "Status", 
+              {
+                header: "Status",
                 sortable: true,
                 accessorKey: "status",
-                render: (inv: any) => <Badge className={invoiceStatusBadge[inv.status] || ""}>{inv.status.toUpperCase()}</Badge>
+                render: (inv: any) => (
+                  <Badge className={`text-[9px] font-bold h-4 px-1.5 rounded-sm uppercase ${invoiceStatusBadge[inv.status] || "bg-muted text-muted-foreground"}`}>
+                    {inv.status}
+                  </Badge>
+                )
               },
-              { 
-                header: "Paid At", 
+              {
+                header: "Paid On",
                 sortable: true,
                 accessorKey: "paid_at",
-                render: (inv: any) => <span className="text-sm">{formatDate(inv.paid_at)}</span>
+                render: (inv: any) => <span className="text-[11px] font-medium text-slate-400">{formatDate(inv.paid_at || inv.created_at)}</span>
               },
-              { 
-                header: "Reference", 
-                render: (inv: any) => <span className="text-sm text-muted-foreground pr-6">{inv.payment_reference || "—"}</span>
+              {
+                header: "Receipt",
+                render: (inv: any) => (
+                  <Button variant="outline" size="sm" className="h-7 gap-2 text-[10px] font-bold border-slate-200 hover:bg-slate-50 transition-all px-3" onClick={() => downloadInvoice(inv.id)}>
+                    <Download className="h-3 w-3" /> PDF
+                  </Button>
+                )
+              },
+              {
+                header: "Reference",
+                render: (inv: any) => <span className="text-sm text-muted-foreground">{inv.payment_reference || "—"}</span>
               }
             ]}
           />
