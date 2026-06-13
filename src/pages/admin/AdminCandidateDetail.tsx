@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi, billingApi, authApi, BACKEND_URL, getFileUrl } from "@/services/api";
+import { candidatesApi, billingApi, authApi, BACKEND_URL, getFileUrl, filesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
@@ -15,11 +15,11 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, User, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown, Calendar as CalendarIcon, FileCheck, Sparkles } from "lucide-react";
+import { LayoutDashboard, User, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown, Calendar as CalendarIcon, FileCheck, Sparkles, Upload } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -79,6 +79,71 @@ const navItems = [
   { label: "Configuration", path: "/admin-dashboard/config", icon: <Settings className="h-4 w-4" /> },
 ];
 
+const COUNTRY_CODES = [
+  { code: "+1", country: "USA/Canada" },
+  { code: "+91", country: "India" },
+  { code: "+44", country: "UK" },
+  { code: "+61", country: "Australia" },
+  { code: "+86", country: "China" },
+];
+
+const SENSITIVE_FIELDS = [
+  "gmail_password", 
+  "linkedin_password", 
+  "indeed_password", 
+  "dice_password", 
+  "monster_password", 
+  "ziprecruiter_password",
+  "linkedin_pass",
+  "indeed_pass",
+  "dice_pass",
+  "monster_pass",
+  "ziprecruiter_pass"
+];
+
+const FormField = ({ id, label, mandatory, children, error, icon: Icon, description }: any) => (
+  <div id={id} className="space-y-2 group text-left">
+    <div className="flex items-center gap-2 ml-1">
+      {Icon && <Icon className="h-4 w-4 text-secondary/80" />}
+      <Label className="text-sm font-semibold text-card-foreground/90 flex items-center">
+        {label} {mandatory && <span className="text-destructive ml-1 font-bold">*</span>}
+      </Label>
+    </div>
+    {description && <p className="text-[10px] text-muted-foreground font-medium ml-1">{description}</p>}
+    <div className="relative">
+      {children}
+    </div>
+    {error && <p className="text-[11px] font-bold text-destructive mt-1 ml-1 animate-in fade-in duration-150">{error}</p>}
+  </div>
+);
+
+const PasswordField = ({ value, onChange, placeholder, error, mandatory, label, icon: Icon, id }: any) => {
+  const [show, setShow] = useState(false);
+  return (
+    <FormField id={id} label={label} mandatory={mandatory} error={error} icon={Icon}>
+      <div className="relative">
+        <Input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn(
+            "h-11 rounded-xl bg-white border-amber-200 pr-10",
+            error && "border-destructive ring-1 ring-destructive/20"
+          )}
+        />
+        <button
+          type="button"
+          onClick={() => setShow(!show)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-secondary transition-colors p-2"
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+    </FormField>
+  );
+};
+
 interface AdminCandidateDetailProps {
   candidateId: string;
   onLoaded?: (name: string) => void;
@@ -124,6 +189,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   const [savingCred, setSavingCred] = useState(false);
   const [showCredPasswords, setShowCredPasswords] = useState<Record<string, boolean>>({});
   const toggleCredPw = (k: string) => setShowCredPasswords(p => ({ ...p, [k]: !p[k] }));
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem(`admin_candidate_active_tab_${candidateId}`) || "overview";
@@ -170,27 +236,59 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
         setProposedRoles(proposedRoleRes.data || []);
         setCredentials(credRes.data || []);
         if (credRes.data && credRes.data.length > 0 && credRes.data[0].data) {
-          setCredForm(credRes.data[0].data as Record<string, any>);
-        } else {
+          const data = credRes.data[0].data;
+          let country_code = "+1";
+          let phone = data.phone_number || "";
+          if (phone.startsWith("+")) {
+            const parts = phone.split(" ");
+            if (parts.length > 1) {
+              country_code = parts[0];
+              phone = parts.slice(1).join(" ");
+            }
+          }
           setCredForm({
-            full_legal_name: cand?.full_name || cand?.profile?.full_name || "",
+            ...data,
+            country_code,
+            phone_number: phone,
+            offer_letter_file: data.offer_letter_url || null,
+          });
+        } else {
+          let country_code = "+1";
+          let phone = cand?.profile?.phone || "";
+          if (phone.startsWith("+")) {
+            const parts = phone.split(" ");
+            if (parts.length > 1) {
+              country_code = parts[0];
+              phone = parts.slice(1).join(" ");
+            }
+          }
+          setCredForm({
             email: cand?.email || cand?.profile?.email || "",
-            phone: cand?.profile?.phone || "",
-            linkedin_url: cand?.linkedin_url || cand?.profile?.linkedin_profile || "",
-            current_title: "",
-            years_experience: "",
-            certifications: "",
-            shared_email: cand?.email || cand?.profile?.email || "",
-            skills_summary: "",
-            personal_email: cand?.personal_email || "",
-            location_city_state: cand?.current_location || "",
-            bachelors_graduation_date: cand?.bachelors_graduation_date || "",
-            masters_graduation_date: cand?.masters_graduation_date || "",
+            bachelors_grad_date: cand?.bachelors_graduation_date || "",
             first_entry_us: cand?.first_entry_us || "",
+            masters_grad_date: cand?.masters_graduation_date || "",
             opt_start_date: cand?.opt_start_date || "",
-            opt_offer_letter_submitted: "No",
-            preferred_job_roles: cand?.preferred_roles || "",
-            preferred_locations: cand?.preferred_locations || ""
+            opt_offer_submitted: "no",
+            offer_letter_file: null,
+            preferred_roles: cand?.preferred_roles || "",
+            preferred_locations: cand?.preferred_locations || "",
+            full_name: cand?.full_name || cand?.profile?.full_name || "",
+            personal_email: cand?.personal_email || "",
+            country_code: country_code,
+            phone_number: phone,
+            location: cand?.current_location || "",
+            linkedin_id: cand?.linkedin_url || cand?.profile?.linkedin_profile || "",
+            linkedin_pass: "",
+            indeed_id: "",
+            indeed_pass: "",
+            dice_id: "",
+            dice_pass: "",
+            monster_id: "",
+            monster_pass: "",
+            ziprecruiter_id: "",
+            ziprecruiter_pass: "",
+            other_platforms: "",
+            custom_platforms: [],
           });
         }
         setPayments(payRes.data || []);
@@ -367,12 +465,99 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   };
 
   const handleSaveCredential = async () => {
-    if (!credForm.full_legal_name?.trim()) {
-      toast({ title: "Full legal name is required", variant: "destructive" }); return;
+    // Validation
+    const required = [
+      "email", "bachelors_grad_date", "first_entry_us", "masters_grad_date",
+      "opt_start_date", "opt_offer_submitted", "preferred_roles",
+      "preferred_locations", "full_name", "personal_email", "phone_number",
+      "location", "linkedin_id", "linkedin_pass"
+    ];
+    for (const f of required) {
+      if (!credForm[f] && f !== "offer_letter_file") {
+        toast({
+          title: "Validation Error",
+          description: `${f.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} is required.`,
+          variant: "destructive"
+        });
+        return;
+      }
     }
+
+    if (credForm.opt_offer_submitted === "yes" && !credForm.offer_letter_file) {
+      toast({
+        title: "Validation Error",
+        description: "Offer letter is required.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (credForm.email && !emailRegex.test(credForm.email)) {
+      toast({ title: "Validation Error", description: "Invalid email address format.", variant: "destructive" });
+      return;
+    }
+    if (credForm.personal_email && !emailRegex.test(credForm.personal_email)) {
+      toast({ title: "Validation Error", description: "Invalid personal email address format.", variant: "destructive" });
+      return;
+    }
+
+    // Password validation (min 8)
+    const passFields = ["linkedin_pass", "indeed_pass", "dice_pass", "monster_pass", "ziprecruiter_pass"];
+    for (const field of passFields) {
+      if (credForm[field] && credForm[field].toString().length < 8) {
+        toast({ title: "Validation Error", description: `${field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} must be at least 8 characters.`, variant: "destructive" });
+        return;
+      }
+    }
+
+    // Phone validation
+    if (credForm.phone_number && !/^\d+$/.test(credForm.phone_number)) {
+      toast({ title: "Validation Error", description: "Phone number must be numeric.", variant: "destructive" });
+      return;
+    }
+
     setSavingCred(true);
     try {
-      await candidatesApi.upsertCredential(candidateId, credForm);
+      // Step 1: Upload file if selected
+      let offerLetterUrl = typeof credForm.offer_letter_file === "string" ? credForm.offer_letter_file : "";
+      if (credForm.opt_offer_submitted === "yes" && credForm.offer_letter_file instanceof File) {
+        const res = await filesApi.upload(credForm.offer_letter_file, "offer_letter");
+        offerLetterUrl = res.data.url;
+      }
+
+      // Step 2: Build payload
+      const payload = {
+        email: credForm.email,
+        bachelors_grad_date: credForm.bachelors_grad_date,
+        first_entry_us: credForm.first_entry_us,
+        masters_grad_date: credForm.masters_grad_date,
+        opt_start_date: credForm.opt_start_date,
+        opt_offer_submitted: credForm.opt_offer_submitted,
+        offer_letter_url: offerLetterUrl || undefined,
+        full_name: credForm.full_name,
+        personal_email: credForm.personal_email,
+        phone_number: `${credForm.country_code} ${credForm.phone_number}`.trim(),
+        location: credForm.location,
+        preferred_roles: credForm.preferred_roles,
+        preferred_locations: credForm.preferred_locations,
+        linkedin_id: credForm.linkedin_id,
+        linkedin_pass: credForm.linkedin_pass,
+        indeed_id: credForm.indeed_id,
+        indeed_pass: credForm.indeed_pass,
+        dice_id: credForm.dice_id,
+        dice_pass: credForm.dice_pass,
+        monster_id: credForm.monster_id,
+        monster_pass: credForm.monster_pass,
+        ziprecruiter_id: credForm.ziprecruiter_id,
+        ziprecruiter_pass: credForm.ziprecruiter_pass,
+        other_platforms: credForm.other_platforms,
+        custom_platforms: credForm.custom_platforms || [],
+        submitted_timestamp: new Date().toLocaleString(),
+      };
+
+      await candidatesApi.upsertCredential(candidateId, payload);
       toast({ title: "Credentials updated by Admin" });
       setIsEditingCreds(false);
       fetchAll();
@@ -1276,66 +1461,217 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
             </CardHeader>
             <CardContent>
               {isEditingCreds ? (
-                <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {["full_legal_name", "email", "phone", "linkedin_url", "current_title", "years_experience", "certifications"].map((field) => (
-                      <div key={field} className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
-                        <Input className="bg-muted/30 text-sm h-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
+                <div className="space-y-8 animate-in fade-in slide-in-from-top-2 duration-300">
+                  {/* Section 1: Timeline & Education */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 border-b border-neutral-200 pb-4">
+                      <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                        <CalendarIcon className="h-4 w-4 text-blue-600" />
                       </div>
-                    ))}
-                    {["personal_email", "location_city_state", "preferred_job_roles", "preferred_locations"].map((field) => (
-                      <div key={field} className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
-                        <Input className="bg-muted/30 text-sm h-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
-                      </div>
-                    ))}
-                  </div>
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-blue-600">Timeline & Education</h3>
+                    </div>
 
-                  <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-blue-800 flex items-center gap-2">
-                      <Shield className="h-3.5 w-3.5" /> Education & OPT Dates
-                    </h4>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Grad Date</Label>
-                        <DatePicker id="admin-cred-bach" value={credForm.bachelors_graduation_date} onChange={val => setCredForm(p => ({ ...p, bachelors_graduation_date: val }))} />
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Email Address *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.email || ""} onChange={e => setCredForm(prev => ({ ...prev, email: e.target.value }))} />
                       </div>
+
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Grad Date</Label>
-                        <DatePicker id="admin-cred-mast" value={credForm.masters_graduation_date} onChange={val => setCredForm(p => ({ ...p, masters_graduation_date: val }))} />
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Graduation Date *</Label>
+                        <DatePicker id="admin-cred-bach" value={credForm.bachelors_grad_date} onChange={val => setCredForm(p => ({ ...p, bachelors_grad_date: val }))} />
                       </div>
+
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US</Label>
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US *</Label>
                         <DatePicker id="admin-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({ ...p, first_entry_us: val }))} />
                       </div>
+
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date</Label>
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Graduation Date *</Label>
+                        <DatePicker id="admin-cred-mast" value={credForm.masters_grad_date} onChange={val => setCredForm(p => ({ ...p, masters_grad_date: val }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date *</Label>
                         <DatePicker id="admin-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({ ...p, opt_start_date: val }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Is OPT Offer Submitted? *</Label>
+                        <Select value={credForm.opt_offer_submitted || "no"} onValueChange={val => setCredForm(p => ({ ...p, opt_offer_submitted: val }))}>
+                          <SelectTrigger className="h-10 rounded-lg bg-neutral-50">
+                            <SelectValue placeholder="Select Response" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="yes">Yes</SelectItem>
+                            <SelectItem value="no">No</SelectItem>
+                            <SelectItem value="waiting">Waiting for One</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {credForm.opt_offer_submitted === "yes" && (
+                        <div className="sm:col-span-2 p-5 border-2 border-dashed rounded-lg bg-neutral-50 border-neutral-300 hover:border-primary/40 transition-all text-center">
+                          <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            onChange={e => setCredForm(p => ({ ...p, offer_letter_file: e.target.files?.[0] || null }))}
+                            accept=".pdf,.doc,.docx"
+                          />
+                          <div className="space-y-2 group text-left">
+                            <div className="flex items-center gap-2 ml-1">
+                              <Label className="text-sm font-semibold text-card-foreground/90 flex items-center">
+                                Upload OPT Offer Letter <span className="text-destructive ml-1 font-bold">*</span>
+                              </Label>
+                            </div>
+                            <div className="flex flex-col items-center gap-2 mt-2">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => fileInputRef.current?.click()} 
+                                className="bg-white border-neutral-300"
+                              >
+                                <Upload className="h-4 w-4 mr-2" /> Choose Document File
+                              </Button>
+                              {credForm.offer_letter_file ? (
+                                <div className="flex items-center gap-1.5 mt-2">
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <span className="text-xs font-bold text-green-700">
+                                    {typeof credForm.offer_letter_file === "string" 
+                                      ? "Previously uploaded offer letter" 
+                                      : (credForm.offer_letter_file as File).name}
+                                  </span>
+                                  {typeof credForm.offer_letter_file === "string" && (
+                                    <DocumentPreview 
+                                      url={credForm.offer_letter_file} 
+                                      label="Preview" 
+                                      className="text-xs font-semibold text-green-700 hover:underline ml-1" 
+                                    />
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-muted-foreground mt-1">PDF, DOC, DOCX up to 5MB</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section 2: Personal Information */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 border-b border-neutral-200 pb-4">
+                      <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                        <User className="h-4 w-4 text-green-600" />
+                      </div>
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-green-600">Personal Information</h3>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Full Name *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.full_name || ""} onChange={e => setCredForm(prev => ({ ...prev, full_name: e.target.value }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Personal Email Address *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.personal_email || ""} onChange={e => setCredForm(prev => ({ ...prev, personal_email: e.target.value }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Mobile Phone Number *</Label>
+                        <div className="flex gap-2">
+                          <Select value={credForm.country_code || "+1"} onValueChange={v => setCredForm(p => ({ ...p, country_code: v }))}>
+                            <SelectTrigger className="w-[100px] h-10 bg-neutral-50">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {COUNTRY_CODES.map(c => (
+                                <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input 
+                            value={credForm.phone_number || ""} 
+                            onChange={e => setCredForm(p => ({ ...p, phone_number: e.target.value }))} 
+                            placeholder="1234567890" 
+                            className="flex-1 h-10 bg-muted/30 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Location (City, State) *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.location || ""} onChange={e => setCredForm(prev => ({ ...prev, location: e.target.value }))} />
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Preferred Job Roles *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.preferred_roles || ""} onChange={e => setCredForm(prev => ({ ...prev, preferred_roles: e.target.value }))} />
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Preferred Location(s) *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.preferred_locations || ""} onChange={e => setCredForm(prev => ({ ...prev, preferred_locations: e.target.value }))} />
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800 flex items-center gap-2">
-                      <KeyRound className="h-3.5 w-3.5" /> Account Credentials
-                    </h4>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="sm:col-span-2 space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Shared Email (All Platforms) *</Label>
-                        <Input type="email" className="bg-white text-sm h-10 border-border/50" value={credForm["shared_email"] || ""} onChange={e => setCredForm(prev => ({ ...prev, "shared_email": e.target.value }))} />
-                      </div>
-                      {["gmail_password", "linkedin_login_id", "linkedin_password", "indeed_login_id", "indeed_password", "dice_login_id", "dice_password", "monster_login_id", "monster_password", "ziprecruiter_login_id", "ziprecruiter_password", "foundit_password"].map((field) => (
-                        <div key={field} className="space-y-1.5">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">{field.replace(/_/g, " ")}</Label>
-                          <div className="relative">
-                            <Input type={showCredPasswords[field] ? "text" : "password"} placeholder="••••••••" className="bg-white text-sm h-10 border-border/50 pr-10" value={credForm[field] || ""} onChange={e => setCredForm(prev => ({ ...prev, [field]: e.target.value }))} />
-                            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:bg-transparent" onClick={() => toggleCredPw(field)}>
-                              {showCredPasswords[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
-                          </div>
+                  {/* Section 3: Account Credentials */}
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 space-y-6 overflow-hidden">
+                    <div className="flex items-center justify-between flex-wrap gap-2 border-b border-amber-200 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-amber-200 flex items-center justify-center">
+                          <KeyRound className="h-4 w-4 text-amber-900" />
                         </div>
-                      ))}
+                        <h3 className="font-bold text-xs uppercase tracking-widest text-amber-900">Account Credentials</h3>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">LinkedIn Login ID *</Label>
+                        <Input value={credForm.linkedin_id || ""} onChange={e => setCredForm(p => ({ ...p, linkedin_id: e.target.value }))} placeholder="LinkedIn username or email" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="linkedin_pass" label="LinkedIn Password" mandatory value={credForm.linkedin_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, linkedin_pass: v }))} placeholder="Password" />
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Login ID (Optional)</Label>
+                        <Input value={credForm.indeed_id || ""} onChange={e => setCredForm(p => ({ ...p, indeed_id: e.target.value }))} placeholder="Indeed Email ID" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="indeed_pass" label="Indeed Password" value={credForm.indeed_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, indeed_pass: v }))} placeholder="Password" />
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Login ID (Optional)</Label>
+                        <Input value={credForm.dice_id || ""} onChange={e => setCredForm(p => ({ ...p, dice_id: e.target.value }))} placeholder="Dice username/email" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="dice_pass" label="Dice Password" value={credForm.dice_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, dice_pass: v }))} placeholder="Password" />
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Login ID (Optional)</Label>
+                        <Input value={credForm.monster_id || ""} onChange={e => setCredForm(p => ({ ...p, monster_id: e.target.value }))} placeholder="Monster email" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="monster_pass" label="Monster Password" value={credForm.monster_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, monster_pass: v }))} placeholder="Password" />
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Login ID (Optional)</Label>
+                        <Input value={credForm.ziprecruiter_id || ""} onChange={e => setCredForm(p => ({ ...p, ziprecruiter_id: e.target.value }))} placeholder="ZipRecruiter email" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="ziprecruiter_pass" label="ZipRecruiter Password" value={credForm.ziprecruiter_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, ziprecruiter_pass: v }))} placeholder="Password" />
+
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Mention other Platform accounts (Optional)</Label>
+                        <Textarea 
+                          value={credForm.other_platforms || ""} 
+                          onChange={e => setCredForm(p => ({ ...p, other_platforms: e.target.value }))}
+                          placeholder="Mention N/A if none."
+                          className="bg-white border-amber-200 min-h-[100px]"
+                        />
+                      </div>
                     </div>
 
                     {/* Custom Job Platforms */}
@@ -1392,15 +1728,10 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Skills Summary & Keywords</Label>
-                    <Textarea rows={5} className="bg-muted/30 text-sm border-border/50 italic" value={credForm["skills_summary"] || ""} onChange={e => setCredForm(prev => ({ ...prev, ["skills_summary"]: e.target.value }))} />
-                  </div>
-
                   <div className="flex items-center gap-3">
                     <Button
                       variant="hero"
-                      className={`flex-1 h-11 font-bold transition-all ${credForm.full_legal_name?.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                      className={`flex-1 h-11 font-bold transition-all ${credForm.full_name?.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
                       onClick={handleSaveCredential}
                       disabled={savingCred}
                     >
@@ -1415,7 +1746,9 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
               ) : (
                 <Accordion type="single" collapsible defaultValue={credentials[0]?.id}>
                   {credentials.map((v: any) => {
-                    const cData = v.data as Record<string, string>;
+                    const cData = v.data as Record<string, any>;
+                    const optOfferVal = cData.opt_offer_submitted || cData.opt_offer_letter_submitted || cData.optOfferLetterSubmitted || "";
+                    const optOfferDisplay = optOfferVal === "yes" ? "Yes" : optOfferVal === "no" ? "No" : optOfferVal === "waiting" ? "Waiting for One" : optOfferVal || "—";
                     return (
                       <AccordionItem key={v.id} value={v.id} className="border-none shadow-sm mb-4 bg-muted/20 rounded-xl overflow-hidden px-4">
                         <AccordionTrigger className="hover:no-underline">
@@ -1431,16 +1764,30 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                           <div className="space-y-8 pt-4">
                             {/* Top Identity Grid */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Full Name</p><p className="font-medium">{cData.full_name || cData.full_legal_name || "—"}</p></div>
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Personal Email</p><p className="font-medium">{cData.personal_email || cData.personalEmail || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Phone</p><p className="font-medium">{cData.phone_number || cData.phoneNumber || "—"}</p></div>
-                              <div className="col-span-2"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Marketing Email</p><p className="font-medium">{cData.email || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Phone</p><p className="font-medium">{cData.phone_number || cData.phone || cData.phoneNumber || "—"}</p></div>
+                              <div className="col-span-2"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || cData.location_city_state || "—"}</p></div>
                             </div>
 
                             {/* OPT & Entry */}
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-white p-4 rounded-lg shadow-sm border border-muted">
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Bachelor's Graduation Date</p><p className="font-semibold">{cData.bachelors_grad_date || cData.bachelors_graduation_date || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Master's Graduation Date</p><p className="font-semibold">{cData.masters_grad_date || cData.masters_graduation_date || "—"}</p></div>
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{cData.first_entry_us || cData.firstEntryUS || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{cData.opt_offer_letter_submitted || cData.optOfferLetterSubmitted || "No"}</Badge></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{optOfferDisplay}</Badge></div>
+                              {(cData.offer_letter_url || cData.opt_offer_letter_url) && (
+                                <div>
+                                  <p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Letter</p>
+                                  <DocumentPreview
+                                    url={cData.offer_letter_url || cData.opt_offer_letter_url}
+                                    label="View attached letter"
+                                    className="text-blue-600 underline font-semibold cursor-pointer mt-1 block"
+                                  />
+                                </div>
+                              )}
                             </div>
 
                             {/* Job Portals - CRITICAL DATA */}
@@ -1450,23 +1797,33 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                               </h4>
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {[
-                                  { label: 'LinkedIn', id: 'linkedin_login_id', pw: 'linkedin_password' },
-                                  { label: 'Gmail', id: 'shared_email', pw: 'gmail_password' },
-                                  { label: 'Indeed', id: 'indeed_login_id', pw: 'indeed_password' },
-                                  { label: 'Dice', id: 'dice_login_id', pw: 'dice_password' },
-                                  { label: 'Monster', id: 'monster_login_id', pw: 'monster_password' },
-                                  { label: 'ZipRecruiter', id: 'ziprecruiter_login_id', pw: 'ziprecruiter_password' },
-                                  { label: 'Foundit', id: 'shared_email', pw: 'foundit_password' }
-                                ].map(portal => (
-                                  <div key={portal.label} className="bg-white border rounded-lg p-3">
-                                    <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
-                                    <div className="space-y-1">
-                                      <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cData[portal.id] || cData.shared_email || "N/A"}</span></p>
-                                      <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_${portal.pw}`)}>{cData[portal.pw] ? (showCredPasswords[`${v.id}_${portal.pw}`] ? cData[portal.pw] : "••••••••") : "N/A"}</span></p>
+                                  { label: 'LinkedIn', id: 'linkedin_id', altId: 'linkedin_login_id', pw: 'linkedin_pass', altPw: 'linkedin_password' },
+                                  { label: 'Indeed', id: 'indeed_id', altId: 'indeed_login_id', pw: 'indeed_pass', altPw: 'indeed_password' },
+                                  { label: 'Dice', id: 'dice_id', altId: 'dice_login_id', pw: 'dice_pass', altPw: 'dice_password' },
+                                  { label: 'Monster', id: 'monster_id', altId: 'monster_login_id', pw: 'monster_pass', altPw: 'monster_password' },
+                                  { label: 'ZipRecruiter', id: 'ziprecruiter_id', altId: 'ziprecruiter_login_id', pw: 'ziprecruiter_pass', altPw: 'ziprecruiter_password' }
+                                ].map(portal => {
+                                  const username = cData[portal.id] || cData[portal.altId];
+                                  const password = cData[portal.pw] || cData[portal.altPw];
+                                  if (!username && !password) return null;
+                                  return (
+                                    <div key={portal.label} className="bg-white border rounded-lg p-3">
+                                      <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
+                                      <div className="space-y-1">
+                                        <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{username || "N/A"}</span></p>
+                                        <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_${portal.pw}`)}>{password ? (showCredPasswords[`${v.id}_${portal.pw}`] ? password : "••••••••") : "N/A"}</span></p>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
+
+                              {cData.other_platforms && (
+                                <div className="mt-4 bg-white border rounded-lg p-3 text-xs">
+                                  <p className="font-bold text-[10px] text-muted-foreground mb-2">Other Platform Accounts</p>
+                                  <p className="whitespace-pre-wrap leading-relaxed">{cData.other_platforms}</p>
+                                </div>
+                              )}
 
                               {cData.custom_platforms && Array.isArray(cData.custom_platforms) && cData.custom_platforms.length > 0 && (
                                 <div className="mt-4">
@@ -1493,7 +1850,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                             <div className="grid gap-4 md:grid-cols-2">
                               <div className="bg-primary/5 p-3 rounded-lg">
                                 <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Roles</p>
-                                <p className="text-xs font-medium">{cData.preferred_job_roles || cData.preferredRoles || "—"}</p>
+                                <p className="text-xs font-medium">{cData.preferred_roles || cData.preferred_job_roles || cData.preferredRoles || "—"}</p>
                               </div>
                               <div className="bg-primary/5 p-3 rounded-lg">
                                 <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Locations</p>
@@ -1545,7 +1902,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                         Revert to Pending
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={fetchAll} disabled={loading}>
+                    <Button variant="ghost" size="sm" onClick={() => fetchAll()} disabled={loading}>
                       <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                     </Button>
                   </div>
