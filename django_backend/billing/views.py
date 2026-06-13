@@ -808,10 +808,25 @@ def billing_analytics(request):
     # Total collected
     total_revenue = Payment.objects.filter(status='completed').aggregate(t=Sum('amount'))['t'] or 0
 
+    # Calculate current month's revenue
+    now = timezone.now()
+    monthly_revenue = Payment.objects.filter(
+        status='completed',
+        created_at__year=now.year,
+        created_at__month=now.month
+    ).aggregate(t=Sum('amount'))['t'] or 0
+
+    # Calculate active and past due subscription counts
+    active_subscriptions = Subscription.objects.filter(status__in=['active', 'expiring_soon']).count()
+    past_due_subscriptions = Subscription.objects.filter(status__in=['past_due', 'grace_period', 'pending_payment', 'expired']).count()
+
     return Response({
         'revenue_by_month': revenue_by_month,
         'subscription_status': sub_status,
         'total_revenue': float(total_revenue),
+        'monthly_revenue': float(monthly_revenue),
+        'active_subscriptions': active_subscriptions,
+        'past_due_subscriptions': past_due_subscriptions,
         'total_payments': Payment.objects.filter(status='completed').count(),
     })
 
