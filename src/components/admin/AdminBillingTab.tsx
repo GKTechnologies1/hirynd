@@ -10,7 +10,7 @@ import { DataTable } from "@/components/ui/DataTable";
 
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { CreditCard, DollarSign, Plus, RefreshCw, Clock, CheckCircle, XCircle, Pause, Play, Ban, Download } from "lucide-react";
+import { CreditCard, DollarSign, Plus, RefreshCw, XCircle, Pause, Play, Ban, Download } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
 
@@ -40,7 +40,6 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const { toast } = useToast();
   const [subscription, setSubscription] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Addon list and states
@@ -71,16 +70,14 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
 
   const fetchBilling = async () => {
     try {
-      const [subRes, invRes, payRes, addRes] = await Promise.all([
+      const [subRes, invRes, addRes] = await Promise.all([
         billingApi.subscription(candidateId).catch(() => ({ data: null })),
         billingApi.invoices(candidateId).catch(() => ({ data: [] })),
-        billingApi.payments(candidateId).catch(() => ({ data: [] })),
         billingApi.listAddons().catch(() => ({ data: [] })),
       ]);
       const hasSub = !!(subRes.data && subRes.data.id);
       setSubscription(subRes.data && Object.keys(subRes.data).length > 0 ? subRes.data : null);
       setInvoices(invRes.data || []);
-      setPayments(payRes.data || []);
       setAddonsCatalog(addRes.data || []);
       if (hasSub) {
         setFormAmount(String(subRes.data.amount));
@@ -505,59 +502,6 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
           />
         </CardContent>
       </Card>
-
-      {/* Payment History (legacy) */}
-      {payments.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle>Payment Records</CardTitle></CardHeader>
-          <CardContent className="p-0">
-            <DataTable
-              data={payments}
-              isLoading={loading}
-              searchPlaceholder="Search payments..."
-              searchKey="payment_status"
-              emptyMessage="No records yet."
-              columns={[
-                { 
-                  header: "Date", 
-                  sortable: true,
-                  accessorKey: "created_at",
-                  render: (p: any) => <span className="text-sm pl-6">{formatDate(p.created_at)}</span>
-                },
-                { 
-                  header: "Amount", 
-                  sortable: true,
-                  accessorKey: "amount",
-                  render: (p: any) => (
-                    <span className="font-medium flex items-center gap-0.5 text-sm">
-                      <DollarSign className="h-3.5 w-3.5" />{Number(p.amount).toLocaleString()}
-                    </span>
-                  )
-                },
-                { 
-                  header: "Status", 
-                  sortable: true,
-                  accessorKey: "payment_status",
-                  render: (p: any) => (
-                    <div className="flex items-center gap-1.5">
-                      {p.payment_status === "success" ? <CheckCircle className="h-3.5 w-3.5 text-secondary" /> :
-                       p.payment_status === "failed" ? <XCircle className="h-3.5 w-3.5 text-destructive" /> :
-                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
-                      <span className="capitalize text-sm">{p.payment_status}</span>
-                    </div>
-                  )
-                },
-                { 
-                  header: "Method", 
-                  sortable: true,
-                  accessorKey: "payment_method",
-                  render: (p: any) => <span className="capitalize text-sm text-muted-foreground pr-6">{p.payment_method}</span>
-                }
-              ]}
-            />
-          </CardContent>
-        </Card>
-      )}
 
     </div>
   );
