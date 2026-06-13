@@ -178,8 +178,6 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
     }
   };
 
-  const completedPayments = payments.filter((p) => p.status !== "pending");
-
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16 animate-in fade-in duration-500">
       <div className="space-y-6">
@@ -313,45 +311,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
 
 
 
-        {/* Transaction History */}
-        {completedPayments.length > 0 && (
-          <div className="space-y-4 pt-4">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2 px-1">
-              <FileText className="h-5 w-5 text-slate-400" /> Transaction History
-            </h3>
-            <div className="grid gap-3">
-              {completedPayments.map((p: any) => (
-                <div key={p.id} className="group flex items-center gap-4 rounded-2xl bg-card border border-slate-200/50 dark:border-slate-800/40 p-5 transition-all hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50/[0.3]">
-                  <div className={`p-3 rounded-xl ${p.status === "completed" || p.status === "paid" ? "bg-emerald-500/5" : "bg-red-500/5"}`}>
-                    {statusIcon(p.status)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold tracking-tight text-slate-850 dark:text-slate-100">${Number(p.amount).toLocaleString()}</span>
-                      <Badge variant="outline" className="capitalize text-[10px] font-bold tracking-widest border-slate-200/60 dark:border-slate-800">
-                        {p.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                        {p.payment_type === "addon" ? <Package className="h-3 w-3 inline text-slate-400" /> : <CreditCard className="h-3 w-3 inline text-slate-400" />}
-                        {(p.payment_type || "").replace(/_/g, " ")}
-                      </p>
-                      <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <p className="text-xs text-slate-400">{formatDate(p.payment_date || p.created_at)}</p>
-                      {cleanNotes(p.notes) && (
-                        <>
-                          <span className="text-slate-300 dark:text-slate-700">•</span>
-                          <p className="text-xs text-slate-500 truncate max-w-sm">{cleanNotes(p.notes)}</p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   );
