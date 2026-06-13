@@ -112,61 +112,6 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
         </CardContent>
       </Card>
 
-      {/* Stand-alone Purchased Addons (Purchase History Ledger) */}
-      {!loading && purchaseHistory.length > 0 && (
-        <Card className="border-none shadow-sm overflow-hidden bg-white">
-          <CardContent className="p-8">
-            <div className="flex items-center gap-2 mb-6">
-              <Package className="h-5 w-5 text-[#0d47a1]" />
-              <h2 className="text-lg font-bold text-slate-800">Purchase History (Add-ons & Services)</h2>
-            </div>
-            <DataTable
-              data={purchaseHistory}
-              isLoading={loading}
-              searchKey="service_name"
-              searchPlaceholder="Search purchased services..."
-              emptyMessage="No stand-alone purchases found."
-              columns={[
-                {
-                  header: "Item / Service",
-                  render: (ph: any) => (
-                    <div className="space-y-0.5">
-                      <p className="text-[11px] font-bold text-slate-700">{ph.service_name}</p>
-                      {ph.invoice_reference && (
-                        <p className="text-[9px] text-slate-400 font-mono">Ref: {ph.invoice_reference}</p>
-                      )}
-                    </div>
-                  )
-                },
-                {
-                  header: "Purchase Date",
-                  render: (ph: any) => <span className="text-[11px] text-slate-500 font-medium">{formatDate(ph.created_at)}</span>
-                },
-                {
-                  header: "Amount",
-                  render: (ph: any) => <span className="text-[11px] text-slate-700 font-bold">${Number(ph.amount).toLocaleString()}</span>
-                },
-                {
-                  header: "Purchased By",
-                  render: (ph: any) => (
-                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded font-semibold">
-                      {ph.purchased_by}
-                    </span>
-                  )
-                },
-                {
-                  header: "Status",
-                  render: () => (
-                    <Badge className="bg-emerald-500 text-white border-none shadow-none text-[9px] font-bold h-4 px-1.5 rounded-sm uppercase flex items-center gap-1 w-fit">
-                      <CheckCircle className="h-2.5 w-2.5" /> Completed
-                    </Badge>
-                  )
-                }
-              ]}
-            />
-          </CardContent>
-        </Card>
-      )}
 
       {/* Payments & Invoice History */}
       <Card className="border-none shadow-sm overflow-hidden bg-white">
