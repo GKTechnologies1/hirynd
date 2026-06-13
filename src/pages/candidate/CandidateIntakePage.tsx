@@ -1371,7 +1371,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                     {errors.bachelorsCountry && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.bachelorsCountry}</p>}
                   </div>
                   <div id="bachelorsGradDate" className="space-y-2">
-                    <Label className="text-sm font-medium">Graduation Month & Year *</Label>
+                    <Label className="text-sm font-medium">Graduation Date *</Label>
                     <DatePicker
                       value={formData.bachelorsGradDate}
                       onChange={val => handleChange("bachelorsGradDate", val)}
