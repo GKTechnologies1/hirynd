@@ -55,8 +55,20 @@ const CandidateLogin = () => {
   const [regErrors, setRegErrors] = useState<Record<string, string>>({});
 
   const updateReg = (field: string, value: any) => {
-    setReg(prev => ({ ...prev, [field]: value }));
-    setRegErrors(prev => ({ ...prev, [field]: "" }));
+    setReg(prev => {
+      const updated = { ...prev, [field]: value };
+      if (field === "how_did_you_hear" && value !== "Friend" && value !== "Other") {
+        updated.friend_name = "";
+      }
+      return updated;
+    });
+    setRegErrors(prev => {
+      const updatedErrors = { ...prev, [field]: "" };
+      if (field === "how_did_you_hear" && value !== "Friend" && value !== "Other") {
+        updatedErrors.friend_name = "";
+      }
+      return updatedErrors;
+    });
   };
 
   const validateRegistration = (): boolean => {
@@ -92,7 +104,11 @@ const CandidateLogin = () => {
     }
 
     if (!reg.how_did_you_hear) errors.how_did_you_hear = "This field is required";
-    if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) errors.friend_name = "Friend name is required when source is Friend";
+    if (reg.how_did_you_hear === "Friend" && !reg.friend_name.trim()) {
+      errors.friend_name = "Friend name is required when source is Friend";
+    } else if (reg.how_did_you_hear === "Other" && !reg.friend_name.trim()) {
+      errors.friend_name = "Please specify other option";
+    }
 
     if (!reg.visa_status) errors.visa_status = "Visa status is required";
     if (reg.visa_status === "Other" && !reg.visa_other.trim()) errors.visa_other = "Please specify your visa type";
@@ -327,6 +343,7 @@ const CandidateLogin = () => {
     reg.graduation_date !== "" &&
     reg.how_did_you_hear !== "" &&
     (reg.how_did_you_hear !== "Friend" || reg.friend_name.trim() !== "") &&
+    (reg.how_did_you_hear !== "Other" || reg.friend_name.trim() !== "") &&
     reg.visa_status !== "" &&
     (reg.visa_status !== "Other" || reg.visa_other.trim() !== "") &&
     reg.current_location.trim() !== "" &&
@@ -538,6 +555,21 @@ const CandidateLogin = () => {
                           value={reg.friend_name}
                           onChange={e => updateReg("friend_name", e.target.value)}
                           maxLength={120}
+                          className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
+                        />
+                        {regErrors.friend_name && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.friend_name}</p>}
+                      </div>
+                    )}
+
+                    {reg.how_did_you_hear === "Other" && (
+                      <div className="space-y-2 animate-in slide-in-from-top-1">
+                        <Label className="text-sm font-medium ml-1">Please Specify Other *</Label>
+                        <Input
+                          id="reg-friend_name"
+                          value={reg.friend_name}
+                          onChange={e => updateReg("friend_name", e.target.value)}
+                          maxLength={120}
+                          placeholder="Please specify"
                           className="h-10 rounded-lg bg-neutral-50 border-neutral-200 focus:bg-white transition-all shadow-sm"
                         />
                         {regErrors.friend_name && <p className="text-xs text-destructive mt-1 font-medium ml-1 animate-in fade-in slide-in-from-top-1">{regErrors.friend_name}</p>}
