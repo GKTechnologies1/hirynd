@@ -300,13 +300,15 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
           {/* Active Add-Ons */}
           <div>
             <Label className="text-xs font-semibold mb-2 block">Assigned / Active Add-Ons</Label>
-            {subscription?.addon_assignments?.length > 0 ? (
+            {subscription?.addon_assignments?.filter((a: any) => a.status === "pending")?.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {subscription.addon_assignments.map((a: any) => (
-                  <Badge key={a.id} variant="outline" className="px-2.5 py-1 text-xs bg-muted/80">
-                    {a.addon_detail?.name || 'Service Fee'} — ${Number(a.amount).toLocaleString()} ({a.status?.replace(/_/g, " ")})
-                  </Badge>
-                ))}
+                {subscription.addon_assignments
+                  .filter((a: any) => a.status === "pending")
+                  .map((a: any) => (
+                    <Badge key={a.id} variant="outline" className="px-2.5 py-1 text-xs bg-muted/80">
+                      {a.addon_detail?.name || 'Service Fee'} — ${Number(a.amount).toLocaleString()} ({a.status?.replace(/_/g, " ")})
+                    </Badge>
+                  ))}
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">No active add-ons assigned yet.</p>
