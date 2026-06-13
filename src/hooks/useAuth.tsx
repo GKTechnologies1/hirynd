@@ -90,6 +90,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch { /* ignore */ }
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    localStorage.removeItem("last_activity_timestamp");
+    
+    // Selectively clean up any Supabase storage tokens for thorough cleanup
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("sb-") || key.includes("supabase"))) {
+        localStorage.removeItem(key);
+      }
+    }
+
     setupProactiveRefresh(null);
     setUser(null);
   };

@@ -67,6 +67,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         null=True, blank=True, editable=False,
         help_text="Auto-assigned per-role sequential number for display ID"
     )
+    last_activity = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = UserManager()

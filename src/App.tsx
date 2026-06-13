@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { SessionTimeoutHandler } from "@/components/auth/SessionTimeoutHandler";
 import ScrollToTop from "@/components/layout/ScrollToTop";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
@@ -40,6 +41,7 @@ const App = () => (
       <BrowserRouter>
         <ScrollToTop />
         <AuthProvider>
+          <SessionTimeoutHandler />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/about" element={<About />} />
