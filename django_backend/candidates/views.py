@@ -788,7 +788,7 @@ def sync_credential_keys(data, payload=None, candidate=None):
             data['shared_email'] = cand_email
             
         if not data.get('linkedin_url'):
-            data['linkedin_url'] = candidate.linkedin_url or (candidate.user.profile.linkedin_profile if hasattr(candidate.user, 'profile') else '')
+            data['linkedin_url'] = candidate.linkedin_url or (candidate.user.profile.linkedin_url if hasattr(candidate.user, 'profile') else '')
             
     for key1, key2 in mappings:
         in_payload1 = key1 in payload
@@ -853,6 +853,7 @@ def upsert_credential(request, candidate_id):
         last_version.created_at = timezone.now()
         last_version.save()
         cred = last_version
+        new_version = cred.version
     else:
         new_version = (last_version.version + 1) if last_version else 1
         cred = CredentialVersion.objects.create(
