@@ -434,14 +434,27 @@ class PaymentService:
             payment_type='monthly_service'
         )
 
-        for payment in pending_payments:
-            payment.razorpay_order = rp_order
-            payment.amount = rp_order.amount
-            payment.currency = rp_order.currency
-            payment.status = 'completed'
-            payment.payment_date = timezone.now().date()
-            payment.notes = (payment.notes or '') + f' | Razorpay payment {razorpay_payment_id}'
-            payment.save()
+        if not pending_payments.exists():
+            Payment.objects.create(
+                candidate=candidate,
+                subscription=sub,
+                razorpay_order=rp_order,
+                amount=rp_order.amount,
+                currency=rp_order.currency,
+                payment_type='monthly_service',
+                status='completed',
+                payment_date=timezone.now().date(),
+                notes=f"Base Subscription Fee: {sub.plan_name if sub else 'Standard'} | Razorpay payment {razorpay_payment_id}"
+            )
+        else:
+            for payment in pending_payments:
+                payment.razorpay_order = rp_order
+                payment.amount = rp_order.amount
+                payment.currency = rp_order.currency
+                payment.status = 'completed'
+                payment.payment_date = timezone.now().date()
+                payment.notes = (payment.notes or '') + f' | Razorpay payment {razorpay_payment_id}'
+                payment.save()
 
         # Fulfil Invoice Generation
         try:

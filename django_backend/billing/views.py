@@ -698,11 +698,65 @@ def all_subscriptions(request):
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def all_payments(request):
+    # 1. Fetch all Payment records
     pays = Payment.objects.select_related('candidate__user', 'subscription').all()
     s = request.query_params.get('status')
     if s:
         pays = pays.filter(status=s)
-    return Response(PaymentSerializer(pays, many=True).data)
+    
+    serialized_pays = PaymentSerializer(pays, many=True).data
+    
+    # 2. Fetch all RazorpayOrder records that are NOT linked to any Payment
+    linked_order_ids = Payment.objects.filter(razorpay_order__isnull=False).values_list('razorpay_order_id', flat=True)
+    orders = RazorpayOrder.objects.select_related('candidate__user', 'subscription').exclude(id__in=linked_order_ids)
+    
+    serialized_orders = []
+    for order in orders:
+        # Map RazorpayOrder status to human-readable Payment status
+        order_status = 'completed' if order.status == 'paid' else ('failed' if order.status == 'failed' else 'pending')
+        
+        # Filter by status if requested
+        if s and order_status != s:
+            continue
+            
+        candidate_name = order.candidate.user.profile.full_name if hasattr(order.candidate.user, 'profile') and order.candidate.user.profile.full_name else order.candidate.user.email
+        
+        # Try to resolve addon assignment if it exists in notes
+        addon_assignment_id = None
+        if isinstance(order.notes, dict):
+            billing_payment_id = order.notes.get('billing_payment_id')
+            if billing_payment_id:
+                try:
+                    approx_pay = Payment.objects.get(id=billing_payment_id)
+                    if approx_pay.addon_assignment:
+                        addon_assignment_id = str(approx_pay.addon_assignment.id)
+                except Exception:
+                    pass
+        
+        serialized_orders.append({
+            'id': str(order.id),
+            'candidate': str(order.candidate.id),
+            'candidate_name': candidate_name,
+            'candidate_display_id': order.candidate.display_id,
+            'display_id': f"PAY{str(order.id)[:8].upper()}",
+            'subscription': str(order.subscription.id) if order.subscription else None,
+            'addon_assignment': addon_assignment_id,
+            'razorpay_order': str(order.id),
+            'amount': str(order.amount),
+            'currency': order.currency,
+            'payment_type': 'monthly_service' if order.payment_type == 'subscription' else order.payment_type,
+            'status': order_status,
+            'payment_date': order.verified_at.date().isoformat() if order.verified_at else order.created_at.date().isoformat(),
+            'notes': f"Razorpay Order {order.razorpay_order_id} | Status: {order.status}",
+            'recorded_by': None,
+            'created_at': order.created_at.isoformat()
+        })
+        
+    # 3. Combine both transaction lists and sort by created_at descending
+    combined = serialized_pays + serialized_orders
+    combined.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    return Response(combined)
 
 
 # ─── Manual subscription create (legacy admin billing tab) ────────
