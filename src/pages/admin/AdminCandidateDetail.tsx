@@ -19,7 +19,7 @@ import { formatDate } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown, Calendar as CalendarIcon, FileCheck, Sparkles } from "lucide-react";
+import { LayoutDashboard, User, Users, UserPlus, DollarSign, Shield, FileText, Plus, Briefcase, CheckCircle, XCircle, Clock, History, Award, Settings, BarChart, CreditCard, Pencil, Trash, Trash2, RefreshCw, Activity, Eye, EyeOff, AlertTriangle, ClipboardList, KeyRound, Save, Download, ChevronDown, Calendar as CalendarIcon, FileCheck, Sparkles } from "lucide-react";
 import AdminAssignmentsTab from "@/components/admin/AdminAssignmentsTab";
 import AdminPlacementTab from "@/components/admin/AdminPlacementTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -30,11 +30,42 @@ import CandidateInterviewsPage from "@/pages/candidate/CandidateInterviewsPage";
 import { DatePicker } from "@/components/ui/DatePicker";
 import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
 
-const formatToMMDDYYYY = (dateStr: string | null | undefined): string => {
-  if (!dateStr) return "—";
-  if (dateStr.toLowerCase() === "present") return "Present";
-  const formatted = formatDate(dateStr);
-  return formatted === "—" ? dateStr : formatted;
+const formatToMMDDYYYY = (date: string | Date | null | undefined): string => {
+  if (!date) return "—";
+  if (typeof date === "string") {
+    if (date.toLowerCase() === "present") return "Present";
+    const clean = date.trim();
+    const slashMatch = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+      const m = slashMatch[1].padStart(2, '0');
+      const d = slashMatch[2].padStart(2, '0');
+      const y = slashMatch[3];
+      return `${m}-${d}-${y}`;
+    }
+    const dashMatch = clean.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (dashMatch) {
+      const m = dashMatch[1].padStart(2, '0');
+      const d = dashMatch[2].padStart(2, '0');
+      const y = dashMatch[3];
+      return `${m}-${d}-${y}`;
+    }
+    const isoDashMatch = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoDashMatch) {
+      const y = isoDashMatch[1];
+      const m = isoDashMatch[2].padStart(2, '0');
+      const d = isoDashMatch[3].padStart(2, '0');
+      return `${m}-${d}-${y}`;
+    }
+  }
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return typeof date === "string" ? date : "—";
+  
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  
+  return `${month}-${day}-${year}`;
 };
 
 const navItems = [
@@ -682,46 +713,58 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     </div>
                   )}
 
-                  {/* Personal & Contact Details */}
+                  {/* Personal Details */}
                   <div className="space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                      <Users className="h-4 w-4" /> Personal & Contact Details
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-blue-600 flex items-center gap-2">
+                      <User className="h-4 w-4" /> Personal Details
                     </h4>
                     <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">First Name</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">First Name *</p>
                         <p className="font-bold text-neutral-900">{intakeData.first_name || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Last Name</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Last Name *</p>
                         <p className="font-bold text-neutral-900">{intakeData.last_name || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Date of Birth</p>
-                        <p className="font-bold text-neutral-900">{intakeData.dob || "—"}</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Date of Birth *</p>
+                        <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.dob)}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Phone Number</p>
-                        <p className="font-bold text-neutral-900">{intakeData.phone_number || "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Email Address</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Email Address *</p>
                         <p className="font-bold text-neutral-900 break-all">{intakeData.email || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Marketing Email</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Phone Number *</p>
+                        <p className="font-bold text-neutral-900">{intakeData.phone_number || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">New E-mail for Marketing</p>
                         <p className="font-bold text-neutral-900 break-all">{intakeData.marketing_email || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Marketing Phone</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Contact number for Marketing</p>
                         <p className="font-bold text-neutral-900">{intakeData.marketing_phone || "—"}</p>
                       </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Current Visa Status *</p>
+                        <p className="font-bold text-neutral-900">{intakeData.visa_status || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">First Entry into the U.S. *</p>
+                        <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.first_entry_us)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Total Years in the U.S. *</p>
+                        <p className="font-bold text-neutral-900">{intakeData.total_years_us || "—"}</p>
+                      </div>
                       <div className="sm:col-span-2">
-                        <p className="text-muted-foreground font-semibold mb-0.5">Current Address</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Current Address *</p>
                         <p className="font-bold text-neutral-900 leading-relaxed">{intakeData.current_address || "—"}</p>
                       </div>
                       <div className="sm:col-span-2">
-                        <p className="text-muted-foreground font-semibold mb-0.5">Mailing Address</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Mailing Address *</p>
                         <p className="font-bold text-neutral-900 leading-relaxed">{intakeData.mailing_address || "—"}</p>
                       </div>
                     </div>
@@ -729,118 +772,30 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
                   <Separator />
 
-                  {/* Education Background */}
+                  {/* Skills */}
                   <div className="space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                      <Award className="h-4 w-4" /> Educational Background
-                    </h4>
-
-                    <div className="grid gap-6 md:grid-cols-2">
-                      {/* Highest / Master's */}
-                      <div className="bg-neutral-50/50 p-4 rounded-xl border space-y-3 text-xs">
-                        <p className="font-bold text-primary/80 uppercase tracking-wider text-[10px]">Highest Degree Details</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="col-span-2">
-                            <p className="text-muted-foreground font-semibold mb-0.5">University / College</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_uni || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground font-semibold mb-0.5">Degree Type</p>
-                            <p className="font-bold text-neutral-900">{intakeData.highest_degree || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground font-semibold mb-0.5">Major / Field</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_field || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground font-semibold mb-0.5">Country</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_country || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_grad_date || "—"}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bachelor's */}
-                      <div className="bg-neutral-50/50 p-4 rounded-xl border space-y-3 text-xs">
-                        <p className="font-bold text-primary/80 uppercase tracking-wider text-[10px]">Bachelor's Degree Details</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="col-span-2">
-                            <p className="text-muted-foreground font-semibold mb-0.5">University / College</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_uni || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground font-semibold mb-0.5">Degree Type</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_degree || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground font-semibold mb-0.5">Major / Field</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_field || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground font-semibold mb-0.5">Country</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_country || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_grad_date || "—"}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Immigration & U.S. Status */}
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                      <Shield className="h-4 w-4" /> Immigration & Eligibility
-                    </h4>
-                    <div className="grid gap-6 sm:grid-cols-3 bg-neutral-50/50 p-4 rounded-xl border text-xs">
-                      <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Current Visa Status</p>
-                        <p className="font-bold text-neutral-900">{intakeData.visa_status || "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">First Entry into the U.S.</p>
-                        <p className="font-bold text-neutral-900">{intakeData.first_entry_us || "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Total Years in the U.S.</p>
-                        <p className="font-bold text-neutral-900">{intakeData.total_years_us || "—"}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Skills Summary */}
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-green-500" /> Technical & Non-Technical Skills
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-green-600 flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" /> Skills
                     </h4>
                     <div className="space-y-3 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
-                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Strongly Skilled In</p>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Skilled In (Skills you can confidently work with, e.g., Python, React, Java) *</p>
                         <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.skilled_in || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Recently Learned</p>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Currently Learning / Recently Learned *</p>
                         <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.recently_learned || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Experience / Familiarity With</p>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Experienced With Tools *</p>
                         <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.experienced_with || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Learning Now</p>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Learning Now / Self-Taught Tools *</p>
                         <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.learning_now || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Other Non-Technical Skills</p>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Other Non-Technical Skills / Courses *</p>
                         <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.other_non_tech || "—"}</p>
                       </div>
                     </div>
@@ -848,38 +803,218 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
                   <Separator />
 
-                  {/* Job Preferences */}
+                  {/* Work Experience */}
                   <div className="space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                      <LayoutDashboard className="h-4 w-4" /> Job Preferences
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-orange-600 flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" /> Work Experience
                     </h4>
-                    <div className="grid gap-6 sm:grid-cols-2 bg-neutral-50/50 p-4 rounded-xl border text-xs">
+                    <div className="space-y-4 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Desired Role</p>
-                        <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_role || "—"}</p>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Do you have any work experience (U.S. and/or International)? *</p>
+                        <p className="font-bold text-neutral-900 uppercase">{intakeData.has_work_exp || "—"}</p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground font-semibold mb-0.5">Desired Years of Experience</p>
-                        <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_exp_years || "—"}</p>
+
+                      {intakeData.has_work_exp === "yes" && intakeData.experiences && Array.isArray(intakeData.experiences) && intakeData.experiences.length > 0 && (
+                        <div className="grid gap-6 sm:grid-cols-2 pt-2 border-t">
+                          {intakeData.experiences.map((exp: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-xl bg-white border space-y-3">
+                              <h5 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Work Experience Section {idx + 1}</h5>
+                              <div>
+                                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Job Title</Label>
+                                <p className="font-bold text-neutral-900 text-sm">{exp.job_title || "—"}</p>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Company Name</Label>
+                                  <p className="font-semibold text-neutral-800">{exp.company_name || "—"}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Job Type</Label>
+                                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] uppercase font-bold inline-block mt-0.5">
+                                    {exp.job_type === "full_time" ? "Full Time" : exp.job_type === "part_time" ? "Part Time" : exp.job_type === "internship" ? "Internship" : exp.job_type || "—"}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Start Date</Label>
+                                  <p className="font-medium text-neutral-700">{formatToMMDDYYYY(exp.start_date)}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">End Date</Label>
+                                  <p className="font-medium text-neutral-700">{formatToMMDDYYYY(exp.end_date)}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Company Address</Label>
+                                <p className="text-neutral-700">{exp.company_address || "—"}</p>
+                              </div>
+                              {exp.responsibilities && (
+                                <div className="pt-2 border-t mt-1">
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Key Responsibilities / Projects</Label>
+                                  <p className="text-[11px] text-neutral-700 leading-relaxed bg-neutral-50 p-2.5 rounded border italic whitespace-pre-wrap">{exp.responsibilities}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Education */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-purple-600 flex items-center gap-2">
+                      <Award className="h-4 w-4" /> Education
+                    </h4>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      {/* Highest Degree */}
+                      <div className="bg-neutral-50/50 p-4 rounded-xl border space-y-3 text-xs">
+                        <p className="font-bold text-purple-600 uppercase tracking-wider text-[10px]">Highest Degree Details</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground font-semibold mb-0.5">University / Institution Name (Highest) *</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_uni || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Highest Degree *</p>
+                            <p className="font-bold text-neutral-900">{intakeData.highest_degree || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Field of Study (Highest Degree) *</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_field || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Country (Highest) *</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_country || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date (Highest)*</p>
+                            <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.masters_grad_date)}</p>
+                          </div>
+                          <div className="col-span-2 pt-2 border-t">
+                            <p className="text-muted-foreground font-semibold mb-0.5">LinkedIn Profile Link *</p>
+                            {intakeData.linkedin_link ? (
+                              <a href={intakeData.linkedin_link.startsWith('http') ? intakeData.linkedin_link : `https://${intakeData.linkedin_link}`} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline flex items-center gap-1">
+                                {intakeData.linkedin_link} <Eye className="h-3.5 w-3.5" />
+                              </a>
+                            ) : <p className="font-bold text-neutral-900">—</p>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bachelor's */}
+                      <div className="bg-neutral-50/50 p-4 rounded-xl border space-y-3 text-xs">
+                        <p className="font-bold text-purple-600 uppercase tracking-wider text-[10px]">Additional Education Detail (Bachelors)</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground font-semibold mb-0.5">University / Institution Name *</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_uni || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Bachelors Degree *</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_degree || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Field of Study *</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_field || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Country *</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_country || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date *</p>
+                            <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.bachelors_grad_date)}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <Separator />
 
-                  {/* Uploaded Documents */}
+                  {/* Certifications & Credentials */}
                   <div className="space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                      <FileCheck className="h-4 w-4" /> Uploaded Verification Documents
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-red-600 flex items-center gap-2">
+                      <Award className="h-4 w-4" /> Certifications & Credentials
+                    </h4>
+                    <div className="space-y-4 bg-neutral-50/50 p-4 rounded-xl border text-xs">
+                      <div>
+                        <p className="text-muted-foreground font-semibold mb-0.5">Have you completed any professional certifications? *</p>
+                        <p className="font-bold text-neutral-900 uppercase">{intakeData.has_certs || "—"}</p>
+                      </div>
+
+                      {intakeData.has_certs === "yes" && intakeData.certifications && Array.isArray(intakeData.certifications) && intakeData.certifications.length > 0 && (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-2 border-t">
+                          {intakeData.certifications.map((cert: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-xl bg-white border space-y-3 flex flex-col justify-between">
+                              <div className="space-y-2">
+                                <h5 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Certification #{idx + 1}</h5>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Certification Name *</Label>
+                                  <p className="font-bold text-neutral-900 text-sm leading-tight">{cert.name || "—"}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Issuing Organization *</Label>
+                                  <p className="font-semibold text-neutral-800">{cert.organization || "—"}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Credential ID / Certification ID (Optional)</Label>
+                                  <p className="text-neutral-700 font-medium">{cert.credential_id || cert.credentialId || "—"}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Issued Date *</Label>
+                                    <p className="text-neutral-700 font-medium">{formatToMMDDYYYY(cert.issued_date || cert.issuedDate)}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Expiry Date (Optional)</Label>
+                                    <p className="text-neutral-700 font-medium">{formatToMMDDYYYY(cert.expires_date || cert.expiresDate)}</p>
+                                  </div>
+                                </div>
+                                {cert.notes && (
+                                  <div>
+                                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Description / Notes (Optional)</Label>
+                                    <p className="text-neutral-700">{cert.notes}</p>
+                                  </div>
+                                )}
+                              </div>
+                              {(cert.credential_url || cert.file) && (
+                                <div className="pt-2 border-t mt-2">
+                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Upload Certification Document *</Label>
+                                  <DocumentPreview
+                                    url={cert.credential_url || cert.file}
+                                    label="Preview Certification"
+                                    variant="button"
+                                    className="w-full text-xs font-bold h-9 bg-neutral-50 border border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Identity & Legal Documents */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-teal-600 flex items-center gap-2">
+                      <FileCheck className="h-4 w-4" /> Identity & Legal Documents
                     </h4>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {[
-                        { label: "Resume / CV", url: intakeData.resume_url, required: true },
-                        { label: "Passport (First & Last Page)", url: intakeData.passport_url, required: true },
-                        { label: "Government Issued ID", url: intakeData.gov_id_url, required: true },
-                        { label: "VISA", url: intakeData.visa_url, required: true },
-                        { label: "Work Authorization Document", url: intakeData.work_auth_url, required: true },
-                        { label: "Other Verification Document", url: intakeData.doc_url, required: false },
+                        { label: "Please Upload Passport", url: intakeData.passport_url, required: true },
+                        { label: "Please Upload Government ID", url: intakeData.gov_id_url, required: true },
+                        { label: "Please Upload Visa", url: intakeData.visa_url, required: true },
+                        { label: "Work Authorization Proof", url: intakeData.work_auth_url, required: true },
+                        { label: "Upload Any Additional Documents (Optional)", url: intakeData.doc_url, required: false },
                       ].map((doc, idx) => (
                         <div key={idx} className="bg-neutral-50 p-4 rounded-xl border flex flex-col justify-between gap-3 text-xs">
                           <div>
@@ -901,110 +1036,39 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     </div>
                   </div>
 
-                  {/* Work Experience dynamic mapping */}
-                  {intakeData.experiences && Array.isArray(intakeData.experiences) && intakeData.experiences.length > 0 && (
-                    <>
-                      <Separator />
-                      <div className="space-y-4">
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                          <Briefcase className="h-4 w-4" /> Professional Work History
-                        </h4>
-                        <div className="grid gap-6 sm:grid-cols-2">
-                          {intakeData.experiences.map((exp: any, idx: number) => (
-                            <div key={idx} className="p-4 rounded-xl bg-neutral-50 border space-y-3 text-xs">
-                              <div>
-                                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Job Title</Label>
-                                <p className="font-bold text-neutral-900 text-sm">{exp.job_title || "—"}</p>
-                              </div>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Company Name</Label>
-                                  <p className="font-semibold text-neutral-800">{exp.company_name || "—"}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Job Type</Label>
-                                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] uppercase font-bold inline-block mt-0.5">{exp.job_type || "—"}</span>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Start Date (MM/DD/YYYY)</Label>
-                                  <p className="font-medium text-neutral-700">{formatToMMDDYYYY(exp.start_date)}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">End Date (MM/DD/YYYY)</Label>
-                                  <p className="font-medium text-neutral-700">{formatToMMDDYYYY(exp.end_date)}</p>
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Company Address</Label>
-                                <p className="text-neutral-700">{exp.company_address || "—"}</p>
-                              </div>
-                              {exp.responsibilities && (
-                                <div className="pt-2 border-t mt-1">
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Key Responsibilities / Projects</Label>
-                                  <p className="text-[11px] text-neutral-700 leading-relaxed bg-white p-2.5 rounded border italic whitespace-pre-wrap">{exp.responsibilities}</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  <Separator />
 
-                  {/* Certifications dynamic mapping */}
-                  {intakeData.certifications && Array.isArray(intakeData.certifications) && intakeData.certifications.length > 0 && (
-                    <>
-                      <Separator />
-                      <div className="space-y-4">
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                          <Award className="h-4 w-4" /> Professional Certifications
-                        </h4>
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                          {intakeData.certifications.map((cert: any, idx: number) => (
-                            <div key={idx} className="p-4 rounded-xl bg-neutral-50 border space-y-3 text-xs flex flex-col justify-between">
-                              <div className="space-y-2">
-                                <div>
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Certification Name</Label>
-                                  <p className="font-bold text-neutral-900 text-sm leading-tight">{cert.name || "—"}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Issuing Organization</Label>
-                                  <p className="font-semibold text-neutral-800">{cert.organization || "—"}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Certification ID</Label>
-                                  <p className="text-neutral-700 font-medium">{cert.credential_id || cert.credentialId || "—"}</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Issued Date</Label>
-                                    <p className="text-neutral-700 font-medium">{formatToMMDDYYYY(cert.issued_date || cert.issuedDate)}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-0.5">Expiry Date</Label>
-                                    <p className="text-neutral-700 font-medium">{formatToMMDDYYYY(cert.expires_date || cert.expiresDate)}</p>
-                                  </div>
-                                </div>
-                              </div>
-                              {(cert.credential_url || cert.file) && (
-                                <div className="pt-2 border-t mt-2">
-                                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Certification Preview</Label>
-                                  <DocumentPreview
-                                    url={cert.credential_url || cert.file}
-                                    label="Preview Certification"
-                                    variant="button"
-                                    className="w-full text-xs font-bold h-9 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                  {/* Job Preferences */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-600 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" /> Job Preferences
+                    </h4>
+                    <div className="space-y-4 bg-neutral-50/50 p-4 rounded-xl border text-xs">
+                      <div className="grid gap-6 sm:grid-cols-2">
+                        <div>
+                          <p className="text-muted-foreground font-semibold mb-0.5">Desired Job Role / Roles *</p>
+                          <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_role || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground font-semibold mb-0.5">Desired Years of Experience *</p>
+                          <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_exp_years || "—"}</p>
                         </div>
                       </div>
-                    </>
-                  )}
+                      <div className="pt-4 border-t">
+                        <p className="font-semibold text-neutral-800 mb-2">Please Upload Original Resume</p>
+                        {intakeData.resume_url ? (
+                          <DocumentPreview
+                            url={intakeData.resume_url}
+                            label="View Resume"
+                            variant="button"
+                            className="w-full sm:w-auto text-xs font-bold h-9 px-4 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                          />
+                        ) : (
+                          <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 p-2 rounded text-center border border-amber-100 inline-block">Not Uploaded</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-12 w-full border-2 border-dashed rounded-2xl bg-muted/5">
