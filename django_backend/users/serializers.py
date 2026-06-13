@@ -45,8 +45,8 @@ class RegisterSerializer(serializers.Serializer):
     social_profile = serializers.URLField(required=False, allow_blank=True)
     portfolio_url = serializers.URLField(required=False, allow_blank=True)
     github_url = serializers.URLField(required=False, allow_blank=True)
-    visa_status = serializers.ChoiceField(
-        choices=['H1B', 'OPT', 'CPT', 'Green Card', 'US Citizen', 'EAD', 'TN', 'Other', 'Other (Visa Status)'],
+    visa_status = serializers.CharField(
+        max_length=50,
         required=False,
         allow_blank=True,
     )

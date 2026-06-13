@@ -363,8 +363,8 @@ const AdminApprovalsPage = () => {
                       <div>
                         <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">GitHub Profile</p>
                         {selectedUser?.github_url ? (
-                          <a href={selectedUser.github_url} target="_blank" rel="noreferrer" className="text-blue-700 font-medium hover:underline flex items-center gap-1">
-                            View GitHub <ExternalLink className="h-3 w-3" />
+                          <a href={selectedUser.github_url} target="_blank" rel="noreferrer" className="text-blue-700 font-medium hover:underline flex items-center gap-1 break-all">
+                            {selectedUser.github_url} <ExternalLink className="h-3 w-3 shrink-0" />
                           </a>
                         ) : <p className="text-slate-400 italic text-xs">Not provided</p>}
                       </div>
@@ -372,9 +372,15 @@ const AdminApprovalsPage = () => {
                         <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">How Did You Hear About Us?</p>
                         <p className="font-medium text-blue-900">{selectedUser?.referral_source || "—"}</p>
                       </div>
-                      {selectedUser?.referral_friend_name && (
+                      {selectedUser?.referral_source?.toLowerCase() === "friend" && selectedUser?.referral_friend_name && (
                         <div>
                           <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">Friend's Name (Referred By)</p>
+                          <p className="font-medium text-blue-900">{selectedUser.referral_friend_name}</p>
+                        </div>
+                      )}
+                      {(selectedUser?.referral_source?.toLowerCase() === "other" || selectedUser?.referral_source?.toLowerCase() === "others") && selectedUser?.referral_friend_name && (
+                        <div>
+                          <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight">Please Specify Other</p>
                           <p className="font-medium text-blue-900">{selectedUser.referral_friend_name}</p>
                         </div>
                       )}
