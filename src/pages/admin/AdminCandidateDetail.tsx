@@ -1763,12 +1763,11 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                         <AccordionContent className="pb-6">
                           <div className="space-y-8 pt-4">
                             {/* Top Identity Grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Full Name</p><p className="font-medium">{cData.full_name || cData.full_legal_name || "—"}</p></div>
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Personal Email</p><p className="font-medium">{cData.personal_email || cData.personalEmail || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Marketing Email</p><p className="font-medium">{cData.email || "—"}</p></div>
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Phone</p><p className="font-medium">{cData.phone_number || cData.phone || cData.phoneNumber || "—"}</p></div>
-                              <div className="col-span-2"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || cData.location_city_state || "—"}</p></div>
+                              <div className="col-span-2 md:col-span-3"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || cData.location_city_state || "—"}</p></div>
                             </div>
 
                             {/* OPT & Entry */}

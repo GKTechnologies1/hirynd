@@ -32,6 +32,86 @@ const formatToMMDDYYYY = (dateStr: string | null | undefined): string => {
   return formatted === "—" ? dateStr : formatted;
 };
 
+const CREDENTIAL_FIELD_LABELS: Record<string, string> = {
+  email: "Email Address",
+  bachelors_grad_date: "Bachelors Graduation Date",
+  first_entry_us: "First Entry into the U.S.",
+  masters_grad_date: "Masters Graduation Date",
+  opt_start_date: "OPT Start Date",
+  opt_offer_submitted: "Is OPT Offer Submitted?",
+  offer_letter_url: "OPT Offer Letter",
+  offer_letter_file: "OPT Offer Letter",
+  full_name: "Full Name",
+  personal_email: "Personal Email Address",
+  phone_number: "Mobile Phone Number",
+  location: "Location (City, State)",
+  preferred_roles: "Preferred Job Roles",
+  preferred_locations: "Preferred Location(s)",
+  linkedin_id: "LinkedIn Login ID",
+  linkedin_pass: "LinkedIn Password",
+  indeed_id: "Indeed Login ID",
+  indeed_pass: "Indeed Password",
+  dice_id: "Dice Login ID",
+  dice_pass: "Dice Password",
+  monster_id: "Monster Login ID",
+  monster_pass: "Monster Password",
+  ziprecruiter_id: "ZipRecruiter Login ID",
+  ziprecruiter_pass: "ZipRecruiter Password",
+  other_platforms: "Other Platform accounts",
+
+  // Recruiter/Admin Form Fields
+  full_legal_name: "Full Legal Name",
+  phone: "Phone Number",
+  location_city_state: "Location (City, State)",
+  preferred_job_roles: "Preferred Job Roles",
+  linkedin_login_id: "LinkedIn Login ID",
+  linkedin_password: "LinkedIn Password",
+  indeed_login_id: "Indeed Login ID",
+  indeed_password: "Indeed Password",
+  dice_login_id: "Dice Login ID",
+  dice_password: "Dice Password",
+  monster_login_id: "Monster Login ID",
+  monster_password: "Monster Password",
+  ziprecruiter_login_id: "ZipRecruiter Login ID",
+  ziprecruiter_password: "ZipRecruiter Password",
+  bachelors_graduation_date: "Bachelors Graduation Date",
+  masters_graduation_date: "Masters Graduation Date",
+  shared_email: "Shared Email Address",
+  opt_offer_letter_submitted: "Is OPT Offer Submitted?",
+  opt_offer_letter_url: "OPT Offer Letter",
+  gmail_password: "Gmail Password",
+  current_title: "Current Title",
+  years_experience: "Years of Experience",
+  visa_details: "Visa Details",
+  certifications: "Certifications",
+  references_if_needed: "References If Needed",
+  work_history_summary: "Work History Summary",
+  skills_summary: "Skills Summary",
+  tools_and_technologies: "Tools & Technologies",
+};
+
+const DUPLICATE_PAIRS: [string, string][] = [
+  ["full_legal_name", "full_name"],
+  ["phone", "phone_number"],
+  ["location_city_state", "location"],
+  ["preferred_job_roles", "preferred_roles"],
+  ["linkedin_login_id", "linkedin_id"],
+  ["linkedin_password", "linkedin_pass"],
+  ["indeed_login_id", "indeed_id"],
+  ["indeed_password", "indeed_pass"],
+  ["dice_login_id", "dice_id"],
+  ["dice_password", "dice_pass"],
+  ["monster_login_id", "monster_id"],
+  ["monster_password", "monster_pass"],
+  ["ziprecruiter_login_id", "ziprecruiter_id"],
+  ["ziprecruiter_password", "ziprecruiter_pass"],
+  ["bachelors_graduation_date", "bachelors_grad_date"],
+  ["masters_graduation_date", "masters_grad_date"],
+  ["shared_email", "email"],
+  ["opt_offer_letter_submitted", "opt_offer_submitted"],
+  ["opt_offer_letter_url", "offer_letter_url"],
+];
+
 const JobDescriptionCell = ({ 
   company, 
   role, 
@@ -1101,27 +1181,49 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       <AccordionContent className="pb-4">
                         <div className="space-y-4 pt-4">
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {Object.entries(v.data as Record<string, any>).map(([key, val]) => {
-                              if (!val || key === "custom_platforms") return null;
-                              const isPassword = ["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password"].includes(key);
-                              return (
-                                <div key={key} className="bg-muted/30 p-2 rounded-lg border border-border/20 relative group">
-                                  <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter mb-1">{key.replace(/_/g, " ")}</p>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <p className="text-[11px] font-medium truncate flex-1">
-                                      {isPassword ? (showPasswords[`v_${v.id}_${key}`] ? val : "••••••••") : (key.includes('resume') || key.includes('url')) ? (
-                                        <DocumentPreview url={val} label="View File" />
-                                      ) : val}
+                            {Object.entries(v.data as Record<string, any>)
+                              .filter(([key]) => {
+                                if (
+                                  key === "custom_platforms" ||
+                                  key === "submitted_timestamp" ||
+                                  key === "email" ||
+                                  key === "shared_email" ||
+                                  key === "linkedin_url"
+                                )
+                                  return false;
+                                // Skip secondary keys if their primary counterparts exist in v.data
+                                const pair = DUPLICATE_PAIRS.find(p => p[1] === key);
+                                if (pair) {
+                                  const primaryKey = pair[0];
+                                  if (v.data[primaryKey] !== undefined && v.data[primaryKey] !== null && v.data[primaryKey] !== "") {
+                                    return false;
+                                  }
+                                }
+                                return true;
+                              })
+                              .map(([key, val]) => {
+                                if (!val) return null;
+                                const isPassword = ["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password", "linkedin_pass", "indeed_pass", "dice_pass", "monster_pass", "ziprecruiter_pass"].includes(key);
+                                return (
+                                  <div key={key} className="bg-muted/30 p-2 rounded-lg border border-border/20 relative group">
+                                    <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter mb-1">
+                                      {CREDENTIAL_FIELD_LABELS[key] || key.replace(/_/g, " ")}
                                     </p>
-                                    {isPassword && (
-                                      <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_${key}`)}>
-                                        {showPasswords[`v_${v.id}_${key}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                      </Button>
-                                    )}
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-[11px] font-medium truncate flex-1">
+                                        {isPassword ? (showPasswords[`v_${v.id}_${key}`] ? val : "••••••••") : (key.includes('resume') || key.includes('url') || key.includes('file')) ? (
+                                          <DocumentPreview url={val} label="View File" />
+                                        ) : val}
+                                      </p>
+                                      {isPassword && (
+                                        <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_${key}`)}>
+                                          {showPasswords[`v_${v.id}_${key}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
                           </div>
 
                           {v.data?.custom_platforms && Array.isArray(v.data.custom_platforms) && v.data.custom_platforms.length > 0 && (

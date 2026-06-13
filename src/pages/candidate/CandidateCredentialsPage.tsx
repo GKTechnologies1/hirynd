@@ -111,6 +111,65 @@ const maskSensitive = (key: string, value: string) => {
   return value;
 };
 
+const CREDENTIAL_FIELD_LABELS: Record<string, string> = {
+  email: "Email Address",
+  bachelors_grad_date: "Bachelors Graduation Date",
+  first_entry_us: "First Entry into the U.S.",
+  masters_grad_date: "Masters Graduation Date",
+  opt_start_date: "OPT Start Date",
+  opt_offer_submitted: "Is OPT Offer Submitted?",
+  offer_letter_url: "OPT Offer Letter",
+  offer_letter_file: "OPT Offer Letter",
+  full_name: "Full Name",
+  personal_email: "Personal Email Address",
+  phone_number: "Mobile Phone Number",
+  location: "Location (City, State)",
+  preferred_roles: "Preferred Job Roles",
+  preferred_locations: "Preferred Location(s)",
+  linkedin_id: "LinkedIn Login ID",
+  linkedin_pass: "LinkedIn Password",
+  indeed_id: "Indeed Login ID",
+  indeed_pass: "Indeed Password",
+  dice_id: "Dice Login ID",
+  dice_pass: "Dice Password",
+  monster_id: "Monster Login ID",
+  monster_pass: "Monster Password",
+  ziprecruiter_id: "ZipRecruiter Login ID",
+  ziprecruiter_pass: "ZipRecruiter Password",
+  other_platforms: "Other Platform accounts",
+  gmail_password: "Gmail Password",
+  current_title: "Current Title",
+  years_experience: "Years of Experience",
+  visa_details: "Visa Details",
+  certifications: "Certifications",
+  references_if_needed: "References If Needed",
+  work_history_summary: "Work History Summary",
+  skills_summary: "Skills Summary",
+  tools_and_technologies: "Tools & Technologies",
+};
+
+const DUPLICATE_PAIRS: [string, string][] = [
+  ["full_name", "full_legal_name"],
+  ["phone_number", "phone"],
+  ["location", "location_city_state"],
+  ["preferred_roles", "preferred_job_roles"],
+  ["linkedin_id", "linkedin_login_id"],
+  ["linkedin_pass", "linkedin_password"],
+  ["indeed_id", "indeed_login_id"],
+  ["indeed_pass", "indeed_password"],
+  ["dice_id", "dice_login_id"],
+  ["dice_pass", "dice_password"],
+  ["monster_id", "monster_login_id"],
+  ["monster_pass", "monster_password"],
+  ["ziprecruiter_id", "ziprecruiter_login_id"],
+  ["ziprecruiter_pass", "ziprecruiter_password"],
+  ["bachelors_grad_date", "bachelors_graduation_date"],
+  ["masters_grad_date", "masters_graduation_date"],
+  ["email", "shared_email"],
+  ["opt_offer_submitted", "opt_offer_letter_submitted"],
+  ["offer_letter_url", "opt_offer_letter_url"],
+];
+
 // --- Sub-components ---
 
 const FormField = ({ id, label, mandatory, children, error, icon: Icon, description }: any) => (
@@ -948,27 +1007,46 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 pb-6">
                     <div className="grid gap-3 text-sm">
-                      {v.data && Object.entries(v.data as Record<string, any>).map(([key, value]) => {
-                        if (key === "custom_platforms") return null;
-                        return value ? (
-                          <div key={key} className="col-span-full border-b border-neutral-50 pb-3 last:border-0 text-left">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1 opacity-60">
-                              {key.replace(/_/g, " ")}:
-                            </span>
-                            <div className="text-foreground text-sm font-medium whitespace-pre-wrap leading-relaxed">
-                              {(key.includes('url') || key.includes('file')) ? (
-                                <DocumentPreview
-                                  url={String(value)}
-                                  label="View Attached File"
-                                  className="text-blue-600 underline font-semibold cursor-pointer"
-                                />
-                              ) : (key === "opt_offer_submitted" 
-                                ? (value === "yes" ? "Yes" : (value === "no" ? "No" : (value === "waiting" ? "Waiting for One" : maskSensitive(key, String(value)))))
-                                : maskSensitive(key, String(value)))}
+                      {v.data && Object.entries(v.data as Record<string, any>)
+                        .filter(([key]) => {
+                          if (
+                            key === "custom_platforms" ||
+                            key === "submitted_timestamp" ||
+                            key === "email" ||
+                            key === "shared_email" ||
+                            key === "linkedin_url"
+                          )
+                            return false;
+                          // Skip secondary keys if their primary counterparts exist in v.data
+                          const pair = DUPLICATE_PAIRS.find(p => p[1] === key);
+                          if (pair) {
+                            const primaryKey = pair[0];
+                            if (v.data[primaryKey] !== undefined && v.data[primaryKey] !== null && v.data[primaryKey] !== "") {
+                              return false;
+                            }
+                          }
+                          return true;
+                        })
+                        .map(([key, value]) => {
+                          return value ? (
+                            <div key={key} className="col-span-full border-b border-neutral-50 pb-3 last:border-0 text-left">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1 opacity-60">
+                                {CREDENTIAL_FIELD_LABELS[key] || key.replace(/_/g, " ")}:
+                              </span>
+                              <div className="text-foreground text-sm font-medium whitespace-pre-wrap leading-relaxed">
+                                {(key.includes('url') || key.includes('file')) ? (
+                                  <DocumentPreview
+                                    url={String(value)}
+                                    label="View Attached File"
+                                    className="text-blue-600 underline font-semibold cursor-pointer"
+                                  />
+                                ) : (key === "opt_offer_submitted" 
+                                  ? (value === "yes" ? "Yes" : (value === "no" ? "No" : (value === "waiting" ? "Waiting for One" : maskSensitive(key, String(value)))))
+                                  : maskSensitive(key, String(value)))}
+                              </div>
                             </div>
-                          </div>
-                        ) : null;
-                      })}
+                          ) : null;
+                        })}
 
                       {v.data?.custom_platforms && Array.isArray(v.data.custom_platforms) && v.data.custom_platforms.length > 0 && (
                         <div className="col-span-full border-t border-neutral-100 pt-4 mt-2 text-left">
