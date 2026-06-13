@@ -17,17 +17,26 @@ def _user_name(user):
 
 class NotificationService:
     @staticmethod
-    def send_subscription_reminder(user, days_left, plan_name):
+    def send_subscription_reminder(user, days_left, plan_name, email_type=None):
         """Send warning/reminder before subscription expiry."""
         try:
             name = _user_name(user)
-            subject = f"Your Hyrind Subscription is Expiring Soon: {plan_name}"
-            content = f"<p>This is a reminder that your subscription plan <strong>{plan_name}</strong> will renew or expire in <strong>{days_left} days</strong>.</p>" \
-                      f"<p>Please ensure your payment method is up to date or log in to make a payment to avoid interruption.</p>"
-            html = get_styled_email_html(name, content, action_label="Go to Dashboard", action_url="/candidate-dashboard/payments")
-            send_email(user.email, subject, html)
-            create_notification(user, "Subscription Renewal Reminder", f"Your subscription for {plan_name} expires in {days_left} days. Please complete payment.", link="/candidate-dashboard/payments")
-            logger.info(f"Renewal reminder sent to {user.email}")
+            if days_left == 0:
+                subject = f"Payment Due Today: Hyrind Subscription Renewal - {plan_name}"
+                content = f"<p>This is a reminder that payment for your subscription plan <strong>{plan_name}</strong> is due today.</p>" \
+                          f"<p>Please log in and complete the payment to avoid any interruption to your marketing services.</p>"
+                notif_msg = f"Your subscription for {plan_name} is due today. Please make a payment."
+            else:
+                subject = f"Your Hyrind Subscription is Expiring Soon: {plan_name}"
+                content = f"<p>This is a reminder that your subscription plan <strong>{plan_name}</strong> will renew or expire in <strong>{days_left} days</strong>.</p>" \
+                          f"<p>Please ensure your payment method is up to date or log in to make a payment to avoid interruption.</p>"
+                notif_msg = f"Your subscription for {plan_name} expires in {days_left} days. Please complete payment."
+            
+            html = get_styled_email_html(name, content, action_label="Pay Now", action_url="/candidate-dashboard/payments")
+            resolved_email_type = email_type or f"sub_rem_{days_left}"
+            send_email(user.email, subject, html, email_type=resolved_email_type)
+            create_notification(user, "Subscription Renewal Reminder", notif_msg, link="/candidate-dashboard/payments")
+            logger.info(f"Renewal reminder ({days_left} days) sent to {user.email}")
         except Exception as e:
             logger.error(f"Failed to send renewal reminder to {user.email}: {e}")
 
@@ -610,8 +619,9 @@ class PaymentService:
 class SubscriptionLifecycleManager:
     @staticmethod
     def get_days_before_expiry_config():
-        """Retrieve number of days for upcoming warnings from settings."""
-        return getattr(settings, 'SUBSCRIPTION_REMINDER_DAYS', 5)
+        """Retrieve list of days for upcoming warnings from settings."""
+        # Defaults to [5, 3, 0] to support configurable intervals
+        return getattr(settings, 'SUBSCRIPTION_REMINDER_DAYS', [5, 3, 0])
 
     @staticmethod
     def check_and_update_all_subscriptions():
@@ -622,7 +632,9 @@ class SubscriptionLifecycleManager:
         - transition 'pending_payment' to 'expired' if grace period ends without payment
         """
         today = timezone.now().date()
-        reminder_days = SubscriptionLifecycleManager.get_days_before_expiry_config()
+        reminder_config = SubscriptionLifecycleManager.get_days_before_expiry_config()
+        reminder_days_list = reminder_config if isinstance(reminder_config, list) else [reminder_config]
+        max_reminder_days = max(reminder_days_list) if reminder_days_list else 5
         
         # 1. Update active subscriptions
         active_subs = Subscription.objects.filter(status__in=['active', 'expiring_soon'])
@@ -642,20 +654,40 @@ class SubscriptionLifecycleManager:
                 if candidate.status in ('payment_completed', 'credentials_submitted', 'active_marketing'):
                     candidate.status = 'past_due'
                     candidate.save(update_fields=['status'])
-                    
-                # Notify candidate
-                NotificationService.send_subscription_expired_notification(candidate.user, sub.plan_name)
-                logger.info(f"Subscription for candidate {candidate.user.email} marked pending_payment due to expiry.")
                 
-            elif 0 < days_until_expiry <= reminder_days:
+                if days_until_expiry == 0:
+                    # On the due date: send the "Payment Due Today" reminder (0 days left)
+                    unique_email_type = f"sub_rem_0_{sub.id}_{sub.next_billing_at}"
+                    from notifications.models import EmailLog
+                    if not EmailLog.objects.filter(recipient_email=candidate.user.email, email_type=unique_email_type, status__in=['sent', 'skipped']).exists():
+                        NotificationService.send_subscription_reminder(
+                            candidate.user,
+                            0,
+                            sub.plan_name,
+                            email_type=unique_email_type
+                        )
+                else:
+                    # Past the due date: send standard expired notification
+                    NotificationService.send_subscription_expired_notification(candidate.user, sub.plan_name)
+                    logger.info(f"Subscription for candidate {candidate.user.email} marked pending_payment due to expiry.")
+                
+            elif 0 < days_until_expiry <= max_reminder_days:
                 # Transition to expiring_soon
                 if sub.status != 'expiring_soon':
                     sub.status = 'expiring_soon'
                     sub.save(update_fields=['status'])
                     
-                # We can also check if reminder was already sent, or send it at exactly reminder_days
-                if days_until_expiry == reminder_days:
-                    NotificationService.send_subscription_reminder(sub.candidate.user, days_until_expiry, sub.plan_name)
+                # Check if this day is in our configured list
+                if days_until_expiry in reminder_days_list:
+                    unique_email_type = f"sub_rem_{days_until_expiry}_{sub.id}_{sub.next_billing_at}"
+                    from notifications.models import EmailLog
+                    if not EmailLog.objects.filter(recipient_email=sub.candidate.user.email, email_type=unique_email_type, status__in=['sent', 'skipped']).exists():
+                        NotificationService.send_subscription_reminder(
+                            sub.candidate.user,
+                            days_until_expiry,
+                            sub.plan_name,
+                            email_type=unique_email_type
+                        )
                     
         # 2. Check pending_payment subscriptions for grace period expiry
         pending_subs = Subscription.objects.filter(status='pending_payment')
@@ -698,19 +730,27 @@ class SubscriptionLifecycleManager:
 
     @staticmethod
     def send_upcoming_expiry_reminders():
-        """Identify subscriptions expiring in exactly N days and trigger reminders."""
-        days_warning = SubscriptionLifecycleManager.get_days_before_expiry_config()
-        target_date = timezone.now().date() + relativedelta(days=days_warning)
-
-        expiring_subs = Subscription.objects.filter(
-            status='active',
-            next_billing_at=target_date
-        )
-
-        for sub in expiring_subs:
-            NotificationService.send_subscription_reminder(
-                sub.candidate.user,
-                days_warning,
-                sub.plan_name
+        """Identify subscriptions expiring in configured days and trigger reminders."""
+        today = timezone.now().date()
+        reminder_config = SubscriptionLifecycleManager.get_days_before_expiry_config()
+        reminder_days_list = reminder_config if isinstance(reminder_config, list) else [reminder_config]
+        
+        for days in reminder_days_list:
+            if days <= 0:
+                # Due date is handled during transition in check_and_update_all_subscriptions
+                continue
+            target_date = today + relativedelta(days=days)
+            expiring_subs = Subscription.objects.filter(
+                status__in=['active', 'expiring_soon'],
+                next_billing_at=target_date
             )
-            logger.info(f"Expiry reminder sent for candidate {sub.candidate.user.email} (expires in {days_warning} days).")
+            for sub in expiring_subs:
+                unique_email_type = f"sub_rem_{days}_{sub.id}_{sub.next_billing_at}"
+                from notifications.models import EmailLog
+                if not EmailLog.objects.filter(recipient_email=sub.candidate.user.email, email_type=unique_email_type, status__in=['sent', 'skipped']).exists():
+                    NotificationService.send_subscription_reminder(
+                        sub.candidate.user,
+                        days,
+                        sub.plan_name,
+                        email_type=unique_email_type
+                    )

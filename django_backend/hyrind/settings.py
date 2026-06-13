@@ -220,6 +220,11 @@ RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'Hyrind <noreply@hyrind.com>'
 ADMIN_NOTIFICATION_EMAIL = os.getenv('ADMIN_EMAIL', 'hyrind.operations@gmail.com')
 SITE_URL = os.getenv('SITE_URL', 'https://hyrnd.netlify.app')
 
+# Comma-separated list of days before subscription renewal to send reminder emails (0 means on the due date itself)
+SUBSCRIPTION_REMINDER_DAYS = [
+    int(x.strip()) for x in os.getenv('SUBSCRIPTION_REMINDER_DAYS', '5,3,0').split(',') if x.strip().isdigit()
+]
+
 # Django email backend kept for admin password-reset views only
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
