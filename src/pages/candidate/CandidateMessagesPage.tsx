@@ -53,7 +53,7 @@ const CandidateMessagesPage = () => {
     if (!activeRoom) return;
     chatApi.roomMessages(activeRoom).then(({ data }) => setMessages(data));
     const interval = setInterval(() => {
-      chatApi.roomMessages(activeRoom).then(({ data }) => setMessages(data));
+      chatApi.roomMessages(activeRoom, { headers: { 'X-Background-Request': 'true' } }).then(({ data }) => setMessages(data));
     }, 5000);
     return () => clearInterval(interval);
   }, [activeRoom]);

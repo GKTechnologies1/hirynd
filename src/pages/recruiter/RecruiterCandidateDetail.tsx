@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X } from "lucide-react";
+import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
@@ -205,21 +205,22 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
 
-  const fetchAll = async (showLoading = true) => {
+  const fetchAll = async (showLoading = true, isPolling = false) => {
     if (!user) return;
     if (showLoading) setLoading(true);
+    const backgroundConfig = isPolling ? { headers: { 'X-Background-Request': 'true' } } : undefined;
     try {
-      const { data: cand } = await candidatesApi.detail(candidateId);
+      const { data: cand } = await candidatesApi.detail(candidateId, backgroundConfig);
       setCandidate(cand);
 
       if (cand) {
         const [intakeRes, roleRes, credRes, logsRes, jobsRes, subRes] = await Promise.all([
-          candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
-          candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
-          candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
-          recruitersApi.getDailyLogs(candidateId).catch(() => ({ data: [] })),
-          recruitersApi.getJobApplications(candidateId).catch(() => ({ data: [] })),
-          billingApi.subscription(candidateId).catch(() => ({ data: null })),
+          candidatesApi.getIntake(candidateId, backgroundConfig).catch(() => ({ data: null })),
+          candidatesApi.getRoles(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          candidatesApi.getCredentials(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          recruitersApi.getDailyLogs(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          recruitersApi.getJobApplications(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          billingApi.subscription(candidateId, backgroundConfig).catch(() => ({ data: null })),
         ]);
         setIntake(intakeRes.data || null);
         setRoles(roleRes.data || []);
@@ -276,9 +277,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   }, [credentials]);
 
   useEffect(() => {
-    fetchAll(true);
+    fetchAll(true, false);
     const interval = setInterval(() => {
-      fetchAll(false);
+      fetchAll(false, true);
     }, 8000);
     return () => clearInterval(interval);
   }, [candidateId, user]);

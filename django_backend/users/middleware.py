@@ -8,6 +8,11 @@ class UpdateLastActivityMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         
+        # Skip updating activity for background/polling requests
+        if (request.headers.get('X-Background-Request') == 'true' or 
+                request.META.get('HTTP_X_BACKGROUND_REQUEST') == 'true'):
+            return response
+            
         # After view execution, check if request.user is authenticated
         user = getattr(request, 'user', None)
         if user and user.is_authenticated:

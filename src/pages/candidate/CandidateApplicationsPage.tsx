@@ -106,10 +106,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     let isFirstLoad = true;
     const fetchData = async () => {
       if (isFirstLoad) setLoading(true);
+      const backgroundConfig = !isFirstLoad ? { headers: { 'X-Background-Request': 'true' } } : undefined;
       try {
         const [logsRes, jobsRes] = await Promise.all([
-          recruitersApi.getDailyLogs(candidate.id).catch(() => ({ data: [] })),
-          recruitersApi.getJobApplications(candidate.id).catch(() => ({ data: [] })),
+          recruitersApi.getDailyLogs(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
+          recruitersApi.getJobApplications(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
         ]);
         const logs = logsRes.data || [];
         setDailyLogs(logs);

@@ -153,10 +153,11 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
   const [supportNotes, setSupportNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const fetchLogs = async (showLoading = true) => {
+  const fetchLogs = async (showLoading = true, isPolling = false) => {
     if (showLoading) setLoading(true);
+    const backgroundConfig = isPolling ? { headers: { 'X-Background-Request': 'true' } } : undefined;
     try {
-      const { data } = await candidatesApi.getInterviews(candidateId);
+      const { data } = await candidatesApi.getInterviews(candidateId, backgroundConfig);
       setLogs(data || []);
     } catch {
       setLogs([]);
@@ -165,9 +166,9 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
   };
 
   useEffect(() => {
-    fetchLogs(true);
+    fetchLogs(true, false);
     const interval = setInterval(() => {
-      fetchLogs(false);
+      fetchLogs(false, true);
     }, 8000);
     return () => clearInterval(interval);
   }, [candidateId]);

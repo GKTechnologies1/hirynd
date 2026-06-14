@@ -119,15 +119,16 @@ const CandidateDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [fetchingInterviews, setFetchingInterviews] = useState(false);
 
-  const fetchData = async (showLoading = true) => {
+  const fetchData = async (showLoading = true, isPolling = false) => {
     if (!user) return;
     if (showLoading) setLoading(true);
+    const backgroundConfig = isPolling ? { headers: { 'X-Background-Request': 'true' } } : undefined;
     try {
-      const { data: cand } = await candidatesApi.me();
+      const { data: cand } = await candidatesApi.me(backgroundConfig);
       setCandidate(cand);
 
       try {
-        const { data: assignments } = await recruitersApi.assignments(cand.id);
+        const { data: assignments } = await recruitersApi.assignments(cand.id, backgroundConfig);
         const teamData = assignments
           .filter((a: any) => a.is_active)
           .map((a: any) => ({
@@ -141,7 +142,7 @@ const CandidateDashboard = () => {
       }
 
       try {
-        const { data: notifs } = await notificationsApi.list(true);
+        const { data: notifs } = await notificationsApi.list(true, backgroundConfig);
         setNotifications(notifs?.slice(0, 10) || []);
       } catch (err) {
         console.warn("CandidateDashboard: Failed to fetch notifications", err);
@@ -149,7 +150,7 @@ const CandidateDashboard = () => {
 
       try {
         setFetchingInterviews(true);
-        const { data: interviewData } = await candidatesApi.getInterviews(cand.id);
+        const { data: interviewData } = await candidatesApi.getInterviews(cand.id, backgroundConfig);
         setInterviews(interviewData || []);
       } catch (err) {
         console.warn("CandidateDashboard: Failed to fetch interviews", err);
@@ -163,13 +164,13 @@ const CandidateDashboard = () => {
   };
 
   useEffect(() => {
-    fetchData(true);
+    fetchData(true, false);
     // Auto-refresh when returns to tab
     const onFocus = () => {
       // Don't auto-refresh when on form-heavy sheets to avoid clearing unsaved data
       const isFormSheet = location.pathname.includes('/intake') || location.pathname.includes('/credentials');
       if (!isFormSheet) {
-        fetchData(false);
+        fetchData(false, false);
       }
     };
     window.addEventListener('focus', onFocus);
@@ -181,7 +182,7 @@ const CandidateDashboard = () => {
     if (isFormSheet || !user) return;
 
     const interval = setInterval(() => {
-      fetchData(false);
+      fetchData(false, true);
     }, 8000);
     return () => clearInterval(interval);
   }, [user, location.pathname]);
