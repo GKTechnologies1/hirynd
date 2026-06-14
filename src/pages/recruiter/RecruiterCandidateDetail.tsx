@@ -439,6 +439,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
   const intakeData = intake?.data as Record<string, any> | null;
 
+  const nameParts = (candidate?.profile?.full_name || candidate?.full_name || "").trim().split(/\s+/);
+  const firstName = nameParts[0] || "—";
+  const lastName = nameParts.slice(1).join(" ") || "—";
+
   return (
     <div className="space-y-6">
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -526,24 +530,127 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
             <CardHeader><CardTitle className="text-base font-bold">Registration Data</CardTitle></CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 text-sm">
               <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Full Name</p>
-                <p className="font-medium">{candidate?.profile?.full_name || candidate?.full_name || "—"}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">First Name *</p>
+                <p className="font-medium">{firstName}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Email Address</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Last Name *</p>
+                <p className="font-medium">{lastName}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Email *</p>
                 <p className="font-medium">{candidate?.profile?.email || candidate?.email || "—"}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Phone Number</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Phone Number *</p>
                 <p className="font-medium">{candidate?.profile?.phone || "—"}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Visa Status</p>
-                <p className="font-medium bg-secondary/10 text-secondary w-fit px-2 py-0.5 rounded text-xs">{candidate?.profile?.visa_status || candidate.visa_status || "N/A"}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">University / College *</p>
+                <p className="font-medium">{candidate?.university || "—"}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Current Location</p>
-                <p className="font-medium">{candidate?.profile?.current_location || "—"}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Degree & Major *</p>
+                <p className="font-medium">
+                  {candidate?.degree && candidate?.major
+                    ? `${candidate.degree} / ${candidate.major}`
+                    : (candidate?.degree || candidate?.major || "—")}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Graduation Date *</p>
+                <p className="font-medium">{formatToMMDDYYYY(candidate?.graduation_date)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">How did you hear about us? *</p>
+                <p className="font-medium">{candidate?.referral_source || "—"}</p>
+              </div>
+
+              {candidate?.referral_source === "Friend" && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Friend's Name *</p>
+                  <p className="font-medium">{candidate?.referral_friend_name || "—"}</p>
+                </div>
+              )}
+
+              {candidate?.referral_source === "Other" && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Please Specify Other *</p>
+                  <p className="font-medium">{candidate?.referral_friend_name || "—"}</p>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">LinkedIn URL</p>
+                <p className="font-medium">
+                  {candidate?.linkedin_url ? (
+                    <a href={candidate.linkedin_url.startsWith('http') ? candidate.linkedin_url : `https://${candidate.linkedin_url}`} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1">
+                      View Profile <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : "—"}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">GitHub URL</p>
+                <p className="font-medium">
+                  {candidate?.github_url ? (
+                    <a href={candidate.github_url.startsWith('http') ? candidate.github_url : `https://${candidate.github_url}`} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1">
+                      View Codebase <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : "—"}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Portfolio / Website</p>
+                <p className="font-medium">
+                  {candidate?.portfolio_url ? (
+                    <a href={candidate.portfolio_url.startsWith('http') ? candidate.portfolio_url : `https://${candidate.portfolio_url}`} target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline flex items-center gap-1">
+                      Open Website <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : "—"}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Visa Status *</p>
+                <p className="font-medium bg-secondary/10 text-secondary w-fit px-2 py-0.5 rounded text-xs">
+                  {candidate?.visa_status || "—"}
+                </p>
+              </div>
+
+              {candidate?.visa_status === "OPT" && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">OPT End Date</p>
+                  <p className="font-medium">{formatToMMDDYYYY(candidate?.opt_end_date)}</p>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Current Location *</p>
+                <p className="font-medium">{candidate?.current_location || "—"}</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Resume File (PDF/DOCX) *</p>
+                <div className="font-medium mt-1">
+                  {candidate?.resume_file || candidate?.resume_url ? (
+                    <DocumentPreview
+                      url={candidate.resume_file || candidate.resume_url}
+                      label="View Resume"
+                      variant="button"
+                      className="h-8 text-xs font-semibold bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 px-3 py-1 rounded-lg"
+                    />
+                  ) : (
+                    "—"
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1 sm:col-span-2 lg:col-span-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Additional Notes</p>
+                <p className="font-medium text-foreground whitespace-pre-wrap">{candidate?.notes || "—"}</p>
               </div>
             </CardContent>
           </Card>
