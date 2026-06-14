@@ -536,7 +536,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
         masters_grad_date: credForm.masters_grad_date,
         opt_start_date: credForm.opt_start_date,
         opt_offer_submitted: credForm.opt_offer_submitted,
-        offer_letter_url: offerLetterUrl || undefined,
+        offer_letter_url: credForm.opt_offer_submitted === "yes" ? (offerLetterUrl || undefined) : undefined,
         full_name: credForm.full_name,
         personal_email: credForm.personal_email,
         phone_number: `${credForm.country_code} ${credForm.phone_number}`.trim(),
@@ -1500,7 +1500,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Is OPT Offer Submitted? *</Label>
-                        <Select value={credForm.opt_offer_submitted || "no"} onValueChange={val => setCredForm(p => ({ ...p, opt_offer_submitted: val }))}>
+                        <Select value={credForm.opt_offer_submitted || "no"} onValueChange={val => setCredForm(p => ({ ...p, opt_offer_submitted: val, offer_letter_file: val === "no" ? null : p.offer_letter_file }))}>
                           <SelectTrigger className="h-10 rounded-lg bg-neutral-50">
                             <SelectValue placeholder="Select Response" />
                           </SelectTrigger>

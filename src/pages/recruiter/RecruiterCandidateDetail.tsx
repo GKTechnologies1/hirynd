@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi, recruitersApi, billingApi } from "@/services/api";
+import { candidatesApi, recruitersApi, billingApi, filesApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X } from "lucide-react";
+import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
@@ -30,6 +30,71 @@ const formatToMMDDYYYY = (dateStr: string | null | undefined): string => {
   if (dateStr.toLowerCase() === "present") return "Present";
   const formatted = formatDate(dateStr);
   return formatted === "—" ? dateStr : formatted;
+};
+
+const COUNTRY_CODES = [
+  { code: "+1", country: "USA/Canada" },
+  { code: "+91", country: "India" },
+  { code: "+44", country: "UK" },
+  { code: "+61", country: "Australia" },
+  { code: "+86", country: "China" },
+];
+
+const SENSITIVE_FIELDS = [
+  "gmail_password", 
+  "linkedin_password", 
+  "indeed_password", 
+  "dice_password", 
+  "monster_password", 
+  "ziprecruiter_password",
+  "linkedin_pass",
+  "indeed_pass",
+  "dice_pass",
+  "monster_pass",
+  "ziprecruiter_pass"
+];
+
+const FormField = ({ id, label, mandatory, children, error, icon: Icon, description }: any) => (
+  <div id={id} className="space-y-2 group text-left">
+    <div className="flex items-center gap-2 ml-1">
+      {Icon && <Icon className="h-4 w-4 text-secondary/80" />}
+      <Label className="text-sm font-semibold text-card-foreground/90 flex items-center">
+        {label} {mandatory && <span className="text-destructive ml-1 font-bold">*</span>}
+      </Label>
+    </div>
+    {description && <p className="text-[10px] text-muted-foreground font-medium ml-1">{description}</p>}
+    <div className="relative">
+      {children}
+    </div>
+    {error && <p className="text-[11px] font-bold text-destructive mt-1 ml-1 animate-in fade-in duration-150">{error}</p>}
+  </div>
+);
+
+const PasswordField = ({ value, onChange, placeholder, error, mandatory, label, icon: Icon, id }: any) => {
+  const [show, setShow] = useState(false);
+  return (
+    <FormField id={id} label={label} mandatory={mandatory} error={error} icon={Icon}>
+      <div className="relative">
+        <Input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn(
+            "h-11 rounded-xl bg-white border-amber-200 pr-10",
+            error && "border-destructive ring-1 ring-destructive/20"
+          )}
+        />
+        <button
+          type="button"
+          onClick={() => setShow(!show)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-secondary transition-colors p-2"
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+    </FormField>
+  );
 };
 
 const CREDENTIAL_FIELD_LABELS: Record<string, string> = {
@@ -191,12 +256,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   };
 
   // Credential form
+  const [isEditingCreds, setIsEditingCreds] = useState(false);
   const [credForm, setCredForm] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savingCred, setSavingCred] = useState(false);
-  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [showCredPasswords, setShowCredPasswords] = useState<Record<string, boolean>>({});
 
-  const togglePassword = (k: string) => setShowPasswords(p => ({ ...p, [k]: !p[k] }));
+  const toggleCredPw = (k: string) => setShowCredPasswords(p => ({ ...p, [k]: !p[k] }));
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Daily log form
   const [logCount, setLogCount] = useState("");
@@ -227,30 +294,60 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         const creds = credRes.data || [];
         setCredentials(creds);
 
-        // Pre-fill form with existing credentials OR candidate data
-        if (creds.length > 0 && creds[0].data) {
-          setCredForm(creds[0].data as Record<string, any>);
-        } else {
-          // Pre-fill with candidate information if no credentials exist
+        if (creds && creds.length > 0 && creds[0].data) {
+          const data = creds[0].data;
+          let country_code = "+1";
+          let phone = data.phone_number || "";
+          if (phone.startsWith("+")) {
+            const parts = phone.split(" ");
+            if (parts.length > 1) {
+              country_code = parts[0];
+              phone = parts.slice(1).join(" ");
+            }
+          }
           setCredForm({
-            full_legal_name: cand?.profile?.full_name || cand?.full_name || "",
-            email: cand?.profile?.email || cand?.email || "",
-            phone: cand?.profile?.phone || "",
-            linkedin_url: cand?.linkedin_url || cand?.profile?.linkedin_profile || "",
-            current_title: "",
-            years_experience: "",
-            certifications: "",
-            shared_email: cand?.profile?.email || cand?.email || "",
-            skills_summary: "",
-            personal_email: cand?.personal_email || "",
-            location_city_state: cand?.current_location || "",
-            bachelors_graduation_date: cand?.bachelors_graduation_date || "",
-            masters_graduation_date: cand?.masters_graduation_date || "",
+            ...data,
+            country_code,
+            phone_number: phone,
+            offer_letter_file: data.offer_letter_url || null,
+          });
+        } else {
+          let country_code = "+1";
+          let phone = cand?.profile?.phone || "";
+          if (phone.startsWith("+")) {
+            const parts = phone.split(" ");
+            if (parts.length > 1) {
+              country_code = parts[0];
+              phone = parts.slice(1).join(" ");
+            }
+          }
+          setCredForm({
+            email: cand?.email || cand?.profile?.email || "",
+            bachelors_grad_date: cand?.bachelors_graduation_date || "",
             first_entry_us: cand?.first_entry_us || "",
+            masters_grad_date: cand?.masters_graduation_date || "",
             opt_start_date: cand?.opt_start_date || "",
-            opt_offer_letter_submitted: "No",
-            preferred_job_roles: cand?.preferred_roles || "",
-            preferred_locations: cand?.preferred_locations || ""
+            opt_offer_submitted: "no",
+            offer_letter_file: null,
+            preferred_roles: cand?.preferred_roles || "",
+            preferred_locations: cand?.preferred_locations || "",
+            full_name: cand?.full_name || cand?.profile?.full_name || "",
+            personal_email: cand?.personal_email || "",
+            country_code: country_code,
+            phone_number: phone,
+            location: cand?.current_location || "",
+            linkedin_id: cand?.linkedin_url || cand?.profile?.linkedin_profile || "",
+            linkedin_pass: "",
+            indeed_id: "",
+            indeed_pass: "",
+            dice_id: "",
+            dice_pass: "",
+            monster_id: "",
+            monster_pass: "",
+            ziprecruiter_id: "",
+            ziprecruiter_pass: "",
+            other_platforms: "",
+            custom_platforms: [],
           });
         }
 
@@ -286,57 +383,107 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
   const handleCredChange = (field: string, value: any) => {
     setCredForm(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: "" }));
-  };
-
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    if (!credForm.full_legal_name?.trim()) newErrors.full_legal_name = "Full legal name is required";
-    if (!credForm.personal_email?.trim()) newErrors.personal_email = "Personal email address is required";
-    if (!credForm.location_city_state?.trim()) newErrors.location_city_state = "Location (City, State) is required";
-    const cleanPhone = credForm.phone?.replace(/\D/g, "");
-    if (!cleanPhone || cleanPhone.length < 10) newErrors.phone = "A valid 10-digit phone number is required";
-    if (!credForm.bachelors_graduation_date) newErrors.bachelors_graduation_date = "Bachelor's graduation date is required";
-    if (!credForm.first_entry_us) newErrors.first_entry_us = "First entry into the U.S. is required";
-    if (!credForm.opt_start_date) newErrors.opt_start_date = "OPT start date is required";
-    if (!credForm.preferred_job_roles?.trim()) newErrors.preferred_job_roles = "Preferred job roles are required";
-    if (!credForm.preferred_locations?.trim()) newErrors.preferred_locations = "Preferred locations are required";
-    if (!credForm.linkedin_url?.trim()) newErrors.linkedin_url = "LinkedIn URL is required";
-    if (!credForm.work_history_summary?.trim()) newErrors.work_history_summary = "Professional history summary is required";
-    if (!credForm.skills_summary?.trim()) newErrors.skills_summary = "Skills summary is required";
-    if (!credForm.tools_and_technologies?.trim()) newErrors.tools_and_technologies = "Tools & technologies summary is required";
-    if (!credForm.shared_email?.trim()) newErrors.shared_email = "Shared platform email is required";
-    if (!credForm.gmail_password?.trim()) newErrors.gmail_password = "Gmail password is required";
-    if (!credForm.linkedin_login_id?.trim()) newErrors.linkedin_login_id = "LinkedIn login ID is required";
-    if (!credForm.linkedin_password?.trim()) newErrors.linkedin_password = "LinkedIn password is required";
-    if (!credForm.visa_details?.trim()) newErrors.visa_details = "Visa details are required";
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      const firstError = Object.keys(newErrors)[0];
-      const el = document.getElementById(`rc-${firstError}`) || document.getElementsByName(firstError)[0];
-      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.focus(); }
-      toast({ title: "Missing Information", description: "Please fill in all required fields marked with *", variant: "destructive" });
-      return false;
-    }
-    return true;
   };
 
   const handleSaveCredential = async () => {
-    if (!validateForm()) return;
+    // Validation
+    const required = [
+      "email", "bachelors_grad_date", "first_entry_us", "masters_grad_date",
+      "opt_start_date", "opt_offer_submitted", "preferred_roles",
+      "preferred_locations", "full_name", "personal_email", "phone_number",
+      "location", "linkedin_id", "linkedin_pass"
+    ];
+    for (const f of required) {
+      if (!credForm[f] && f !== "offer_letter_file") {
+        toast({
+          title: "Validation Error",
+          description: `${f.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} is required.`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    if (credForm.opt_offer_submitted === "yes" && !credForm.offer_letter_file) {
+      toast({
+        title: "Validation Error",
+        description: "Offer letter is required.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (credForm.email && !emailRegex.test(credForm.email)) {
+      toast({ title: "Validation Error", description: "Invalid email address format.", variant: "destructive" });
+      return;
+    }
+    if (credForm.personal_email && !emailRegex.test(credForm.personal_email)) {
+      toast({ title: "Validation Error", description: "Invalid personal email address format.", variant: "destructive" });
+      return;
+    }
+
+    // Password validation (min 8)
+    const passFields = ["linkedin_pass", "indeed_pass", "dice_pass", "monster_pass", "ziprecruiter_pass"];
+    for (const field of passFields) {
+      if (credForm[field] && credForm[field].toString().length < 8) {
+        toast({ title: "Validation Error", description: `${field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} must be at least 8 characters.`, variant: "destructive" });
+        return;
+      }
+    }
+
+    // Phone validation
+    if (credForm.phone_number && !/^\d+$/.test(credForm.phone_number)) {
+      toast({ title: "Validation Error", description: "Phone number must be numeric.", variant: "destructive" });
+      return;
+    }
+
     setSavingCred(true);
     try {
-      await candidatesApi.upsertCredential(candidateId, credForm);
-      toast({ title: "Credentials saved" });
-      setErrors({});
+      // Step 1: Upload file if selected
+      let offerLetterUrl = typeof credForm.offer_letter_file === "string" ? credForm.offer_letter_file : "";
+      if (credForm.opt_offer_submitted === "yes" && credForm.offer_letter_file instanceof File) {
+        const res = await filesApi.upload(credForm.offer_letter_file, "offer_letter");
+        offerLetterUrl = res.data.url;
+      }
+
+      // Step 2: Build payload
+      const payload = {
+        email: credForm.email,
+        bachelors_grad_date: credForm.bachelors_grad_date,
+        first_entry_us: credForm.first_entry_us,
+        masters_grad_date: credForm.masters_grad_date,
+        opt_start_date: credForm.opt_start_date,
+        opt_offer_submitted: credForm.opt_offer_submitted,
+        offer_letter_url: credForm.opt_offer_submitted === "yes" ? (offerLetterUrl || undefined) : undefined,
+        full_name: credForm.full_name,
+        personal_email: credForm.personal_email,
+        phone_number: `${credForm.country_code} ${credForm.phone_number}`.trim(),
+        location: credForm.location,
+        preferred_roles: credForm.preferred_roles,
+        preferred_locations: credForm.preferred_locations,
+        linkedin_id: credForm.linkedin_id,
+        linkedin_pass: credForm.linkedin_pass,
+        indeed_id: credForm.indeed_id,
+        indeed_pass: credForm.indeed_pass,
+        dice_id: credForm.dice_id,
+        dice_pass: credForm.dice_pass,
+        monster_id: credForm.monster_id,
+        monster_pass: credForm.monster_pass,
+        ziprecruiter_id: credForm.ziprecruiter_id,
+        ziprecruiter_pass: credForm.ziprecruiter_pass,
+        other_platforms: credForm.other_platforms,
+        custom_platforms: credForm.custom_platforms || [],
+        submitted_timestamp: new Date().toLocaleString(),
+      };
+
+      await candidatesApi.upsertCredential(candidateId, payload);
+      toast({ title: "Credentials saved by Recruiter" });
+      setIsEditingCreds(false);
       fetchAll();
     } catch (err: any) {
-      const validationErrors = err.response?.data?.validation_errors;
-      if (validationErrors) {
-        setErrors(validationErrors);
-        toast({ title: "Validation Error", description: "Please fix the highlighted fields.", variant: "destructive" });
-      } else {
-        toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
-      }
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
     setSavingCred(false);
   };
@@ -1039,341 +1186,430 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           </Card>
         </TabsContent>
 
-        <TabsContent value="credentials" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2 border-none shadow-sm bg-card/60">
-              <CardHeader>
-                <CardTitle className="text-base font-bold flex items-center gap-2"><KeyRound className="h-5 w-5 text-amber-500" /> Professional Credentials</CardTitle>
-                <CardDescription>Update candidate details. Every save is versioned for transparency.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {[
-                    { key: "full_legal_name", colSpan: 2, required: true },
-                    { key: "phone", required: true }, { key: "personal_email", required: true },
-                    { key: "linkedin_url", required: true }, { key: "location_city_state", required: true },
-                    { key: "current_title" }, { key: "years_experience" },
-                    { key: "preferred_job_roles", colSpan: 2, required: true },
-                    { key: "preferred_locations", colSpan: 2, required: true },
-                    { key: "visa_details", colSpan: 2, required: true },
-                    { key: "certifications" }, { key: "references_if_needed" }
-                  ].map((item) => (
-                    <div key={item.key} className={cn("space-y-1.5", item.colSpan === 2 && "sm:col-span-2")}>
-                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors[item.key] && "text-destructive")}>{item.key.replace(/_/g, " ")} {item.required && "*"}</Label>
-                      <Input
-                        id={`rc-${item.key}`}
-                        className={cn("bg-background/50 text-sm h-10 border-border/50", errors[item.key] && "border-destructive ring-1 ring-destructive/20")}
-                        value={credForm[item.key] || ""}
-                        onChange={e => handleCredChange(item.key, e.target.value)}
-                      />
-                      {errors[item.key] && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors[item.key]}</p>}
-                    </div>
-                  ))}
+        <TabsContent value="credentials" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Credential Intake History</CardTitle>
+                  <CardDescription>{credentials.length} version(s)</CardDescription>
                 </div>
-
-                <div className="bg-blue-50/30 border border-blue-100 rounded-xl p-4 space-y-4">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-blue-800 flex items-center gap-2">
-                    <Award className="h-3.5 w-3.5" /> Education & OPT Dates
-                  </h4>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.bachelors_graduation_date && "text-destructive")}>Bachelor's Grad Date *</Label>
-                      <DatePicker id="rc-bachelors_graduation_date" value={credForm.bachelors_graduation_date} onChange={val => handleCredChange("bachelors_graduation_date", val)} className={cn(errors.bachelors_graduation_date && "border-destructive ring-1 ring-destructive/20")} />
-                      {errors.bachelors_graduation_date && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.bachelors_graduation_date}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Grad Date</Label>
-                      <DatePicker id="rc-masters_graduation_date" value={credForm.masters_graduation_date} onChange={val => handleCredChange("masters_graduation_date", val)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.first_entry_us && "text-destructive")}>First Entry US *</Label>
-                      <DatePicker id="rc-first_entry_us" value={credForm.first_entry_us} onChange={val => handleCredChange("first_entry_us", val)} className={cn(errors.first_entry_us && "border-destructive ring-1 ring-destructive/20")} />
-                      {errors.first_entry_us && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.first_entry_us}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.opt_start_date && "text-destructive")}>OPT Start Date *</Label>
-                      <DatePicker id="rc-opt_start_date" value={credForm.opt_start_date} onChange={val => handleCredChange("opt_start_date", val)} className={cn(errors.opt_start_date && "border-destructive ring-1 ring-destructive/20")} />
-                      {errors.opt_start_date && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.opt_start_date}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-amber-50/30 border border-amber-100 rounded-xl p-4 space-y-4">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-amber-800 flex items-center gap-2">
-                      <KeyRound className="h-3.5 w-3.5" /> Account Credentials
-                    </h4>
-                    <CustomCredentialsDialog candidateId={candidateId} readOnly={true} onRefresh={fetchAll} />
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2 space-y-1.5">
-                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.shared_email && "text-destructive")}>Shared Email (All Platforms) *</Label>
-                      <Input id="rc-shared_email" type="email" className={cn("bg-white text-sm h-10 border-amber-200", errors.shared_email && "border-destructive ring-1 ring-destructive/20")} value={credForm["shared_email"] || ""} onChange={e => handleCredChange("shared_email", e.target.value)} placeholder="yourname@gmail.com" />
-                      {errors.shared_email && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.shared_email}</p>}
-                    </div>
-                    {/* Gmail */}
-                    <div className="sm:col-span-2 space-y-1.5">
-                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest text-amber-900", errors.gmail_password && "text-destructive")}>Gmail Password *</Label>
-                      <div className="relative">
-                        <Input id="rc-gmail_password" type={showPasswords["gmail_password"] ? "text" : "password"} className={cn("bg-white text-sm h-10 border-amber-200 pr-10", errors.gmail_password && "border-destructive ring-1 ring-destructive/20")} value={credForm["gmail_password"] || ""} onChange={e => handleCredChange("gmail_password", e.target.value)} placeholder="••••••••" />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("gmail_password")}>{showPasswords["gmail_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
-                      </div>
-                      {errors.gmail_password && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.gmail_password}</p>}
-                    </div>
-                    {/* LinkedIn */}
-                    <div className="space-y-1.5">
-                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest text-amber-900", errors.linkedin_login_id && "text-destructive")}>LinkedIn Login ID *</Label>
-                      <Input id="rc-linkedin_login_id" className={cn("bg-white text-sm h-10 border-amber-200", errors.linkedin_login_id && "border-destructive ring-1 ring-destructive/20")} value={credForm["linkedin_login_id"] || ""} onChange={e => handleCredChange("linkedin_login_id", e.target.value)} placeholder="LinkedIn email/username" />
-                      {errors.linkedin_login_id && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.linkedin_login_id}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className={cn("text-[10px] font-bold uppercase tracking-widest text-amber-900", errors.linkedin_password && "text-destructive")}>LinkedIn Password *</Label>
-                      <div className="relative">
-                        <Input id="rc-linkedin_password" type={showPasswords["linkedin_password"] ? "text" : "password"} className={cn("bg-white text-sm h-10 border-amber-200 pr-10", errors.linkedin_password && "border-destructive ring-1 ring-destructive/20")} value={credForm["linkedin_password"] || ""} onChange={e => handleCredChange("linkedin_password", e.target.value)} placeholder="••••••••" />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("linkedin_password")}>{showPasswords["linkedin_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
-                      </div>
-                      {errors.linkedin_password && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.linkedin_password}</p>}
-                    </div>
-                    {/* Indeed */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Login ID (Optional)</Label>
-                      <Input className="bg-white/50 text-sm h-10 border-amber-100" value={credForm["indeed_login_id"] || ""} onChange={e => handleCredChange("indeed_login_id", e.target.value)} placeholder="Indeed email/username" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Password (Optional)</Label>
-                      <div className="relative">
-                        <Input type={showPasswords["indeed_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["indeed_password"] || ""} onChange={e => handleCredChange("indeed_password", e.target.value)} placeholder="••••••••" />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("indeed_password")}>{showPasswords["indeed_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
-                      </div>
-                    </div>
-                    {/* Dice */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Login ID (Optional)</Label>
-                      <Input className="bg-white/50 text-sm h-10 border-amber-100" value={credForm["dice_login_id"] || ""} onChange={e => handleCredChange("dice_login_id", e.target.value)} placeholder="Dice email/username" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Password (Optional)</Label>
-                      <div className="relative">
-                        <Input type={showPasswords["dice_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["dice_password"] || ""} onChange={e => handleCredChange("dice_password", e.target.value)} placeholder="••••••••" />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("dice_password")}>{showPasswords["dice_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
-                      </div>
-                    </div>
-                    {/* Monster */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Login ID (Optional)</Label>
-                      <Input className="bg-white/50 text-sm h-10 border-amber-100" value={credForm["monster_login_id"] || ""} onChange={e => handleCredChange("monster_login_id", e.target.value)} placeholder="Monster email/username" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Password (Optional)</Label>
-                      <div className="relative">
-                        <Input type={showPasswords["monster_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["monster_password"] || ""} onChange={e => handleCredChange("monster_password", e.target.value)} placeholder="••••••••" />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("monster_password")}>{showPasswords["monster_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
-                      </div>
-                    </div>
-                    {/* ZipRecruiter */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Login ID (Optional)</Label>
-                      <Input className="bg-white/50 text-sm h-10 border-amber-100" value={credForm["ziprecruiter_login_id"] || ""} onChange={e => handleCredChange("ziprecruiter_login_id", e.target.value)} placeholder="ZipRecruiter email/username" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Password (Optional)</Label>
-                      <div className="relative">
-                        <Input type={showPasswords["ziprecruiter_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["ziprecruiter_password"] || ""} onChange={e => handleCredChange("ziprecruiter_password", e.target.value)} placeholder="••••••••" />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("ziprecruiter_password")}>{showPasswords["ziprecruiter_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
-                      </div>
-                    </div>
-                    {/* Foundit */}
-                    <div className="sm:col-span-2 space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Foundit Password (Optional)</Label>
-                      <div className="relative">
-                        <Input type={showPasswords["foundit_password"] ? "text" : "password"} className="bg-white/50 text-sm h-10 border-amber-100 pr-10" value={credForm["foundit_password"] || ""} onChange={e => handleCredChange("foundit_password", e.target.value)} placeholder="••••••••" />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent text-muted-foreground h-8 w-8" onClick={() => togglePassword("foundit_password")}>{showPasswords["foundit_password"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  <div className="border-t border-amber-200/50 pt-4 mt-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-800">Custom Job Platforms</Label>
-                      <Button variant="outline" size="sm" className="h-7 text-xs bg-white text-amber-900 border-amber-200" onClick={() => {
-                        setCredForm(p => ({
-                          ...p,
-                          custom_platforms: [...(p.custom_platforms || []), { platform_name: "", username_email: "", password: "" }]
-                        }));
-                      }}>
-                        <Plus className="h-3 w-3 mr-1" /> Add
-                      </Button>
-                    </div>
-                    {credForm.custom_platforms?.map((cp: any, idx: number) => (
-                      <div key={idx} className="p-2 bg-white/50 rounded-lg relative group">
-                        <Button variant="ghost" size="icon" className="absolute -top-1 -right-1 h-5 w-5 bg-destructive/10 text-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
-                          const n = [...credForm.custom_platforms];
-                          n.splice(idx, 1);
-                          setCredForm({ ...credForm, custom_platforms: n });
-                        }}>
-                          <Trash2 className="h-2.5 w-2.5" />
-                        </Button>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-[9px] font-bold uppercase text-amber-700">Platform</Label>
-                            <Input className="h-8 text-xs bg-white" placeholder="e.g. Glassdoor" value={cp.platform_name} onChange={e => {
-                              const n = [...credForm.custom_platforms];
-                              n[idx].platform_name = e.target.value;
-                              setCredForm({ ...credForm, custom_platforms: n });
-                            }} />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[9px] font-bold uppercase text-amber-700">Username / Email</Label>
-                            <Input className="h-8 text-xs bg-white" placeholder="Username or email" value={cp.username_email || ""} onChange={e => {
-                              const n = [...credForm.custom_platforms];
-                              n[idx].username_email = e.target.value;
-                              setCredForm({ ...credForm, custom_platforms: n });
-                            }} />
-                          </div>
-                          <div className="space-y-1 relative">
-                            <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
-                            <div className="relative">
-                              <Input className="h-8 text-xs bg-white pr-8" type={showPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
-                                const n = [...credForm.custom_platforms];
-                                n[idx].password = e.target.value;
-                                setCredForm({ ...credForm, custom_platforms: n });
-                              }} />
-                              <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 hover:bg-transparent text-muted-foreground" onClick={() => togglePassword(`cp_${idx}`)}>
-                                {showPasswords[`cp_${idx}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid gap-4">
-                  <div className="space-y-1.5">
-                    <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.work_history_summary && "text-destructive")}>Professional / Work History Summary *</Label>
-                    <Textarea id="rc-work_history_summary" rows={5} className={cn("bg-background/50 text-sm border-border/50", errors.work_history_summary && "border-destructive ring-1 ring-destructive/20")} value={credForm["work_history_summary"] || ""} onChange={e => handleCredChange("work_history_summary", e.target.value)} />
-                    {errors.work_history_summary && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.work_history_summary}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.skills_summary && "text-destructive")}>Skills Summary & Keywords *</Label>
-                    <Textarea id="rc-skills_summary" rows={3} className={cn("bg-background/50 text-sm border-border/50", errors.skills_summary && "border-destructive ring-1 ring-destructive/20")} value={credForm["skills_summary"] || ""} onChange={e => handleCredChange("skills_summary", e.target.value)} />
-                    {errors.skills_summary && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.skills_summary}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className={cn("text-[10px] font-bold uppercase tracking-widest opacity-70", errors.tools_and_technologies && "text-destructive")}>Tools & Technologies *</Label>
-                    <Textarea id="rc-tools_and_technologies" rows={3} className={cn("bg-background/50 text-sm border-border/50", errors.tools_and_technologies && "border-destructive ring-1 ring-destructive/20")} value={credForm["tools_and_technologies"] || ""} onChange={e => handleCredChange("tools_and_technologies", e.target.value)} />
-                    {errors.tools_and_technologies && <p className="text-xs text-destructive mt-1 font-semibold animate-in fade-in slide-in-from-top-1">{errors.tools_and_technologies}</p>}
-                  </div>
-                </div>
-                <Button variant="secondary" className="w-full h-11 text-white font-bold rounded-xl gap-2 shadow-lg shadow-secondary/20" onClick={handleSaveCredential} disabled={savingCred}>
-                  {savingCred ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Finalize and Update Credentials
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm bg-muted/20">
-              <CardHeader><CardTitle className="text-sm font-bold flex items-center gap-2"><History className="h-4 w-4" /> Version History</CardTitle></CardHeader>
-              <CardContent className="p-0">
-                <Accordion type="single" collapsible className="w-full">
-                  {credentials.map((v: any, idx) => (
-                    <AccordionItem key={v.id} value={v.id} className="border-b border-border/40 px-4">
-                      <AccordionTrigger className="hover:no-underline py-4">
-                        <div className="flex flex-col items-start gap-1">
-                          <span className="text-xs font-bold">Version {v.version}</span>
-                          <span className="text-[10px] text-muted-foreground font-medium">{formatDate(v.created_at)} by {v.edited_by?.profile?.full_name || "Admin"}</span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-4">
-                        <div className="space-y-4 pt-4">
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {Object.entries(v.data as Record<string, any>)
-                              .filter(([key]) => {
-                                if (
-                                  key === "custom_platforms" ||
-                                  key === "submitted_timestamp" ||
-                                  key === "email" ||
-                                  key === "shared_email" ||
-                                  key === "linkedin_url"
-                                )
-                                  return false;
-                                // Skip secondary keys if their primary counterparts exist in v.data
-                                const pair = DUPLICATE_PAIRS.find(p => p[1] === key);
-                                if (pair) {
-                                  const primaryKey = pair[0];
-                                  if (v.data[primaryKey] !== undefined && v.data[primaryKey] !== null && v.data[primaryKey] !== "") {
-                                    return false;
-                                  }
-                                }
-                                return true;
-                              })
-                              .map(([key, val]) => {
-                                if (!val) return null;
-                                const isPassword = ["gmail_password", "linkedin_password", "indeed_password", "dice_password", "foundit_password", "linkedin_pass", "indeed_pass", "dice_pass", "monster_pass", "ziprecruiter_pass"].includes(key);
-                                return (
-                                  <div key={key} className="bg-muted/30 p-2 rounded-lg border border-border/20 relative group">
-                                    <p className="text-[9px] font-bold uppercase opacity-50 tracking-tighter mb-1">
-                                      {CREDENTIAL_FIELD_LABELS[key] || key.replace(/_/g, " ")}
-                                    </p>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <p className="text-[11px] font-medium truncate flex-1">
-                                        {isPassword ? (showPasswords[`v_${v.id}_${key}`] ? val : "••••••••") : (key.includes('resume') || key.includes('url') || key.includes('file')) ? (
-                                          <DocumentPreview url={val} label="View File" />
-                                        ) : val}
-                                      </p>
-                                      {isPassword && (
-                                        <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:bg-transparent" onClick={() => togglePassword(`v_${v.id}_${key}`)}>
-                                          {showPasswords[`v_${v.id}_${key}`] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                          </div>
-
-                          {v.data?.custom_platforms && Array.isArray(v.data.custom_platforms) && v.data.custom_platforms.length > 0 && (
-                            <div className="border-t border-border/10 pt-3">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-2">Custom Platforms</p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {v.data.custom_platforms.map((cp: any, idx: number) => (
-                                  <div key={idx} className="bg-amber-50/50 p-2 rounded-lg border border-amber-100 flex items-center justify-between gap-2">
-                                    <div className="flex-1 overflow-hidden space-y-0.5">
-                                      <p className="text-[10px] font-bold text-amber-900 truncate">{cp.platform_name}</p>
-                                      <p className="text-[11px] text-amber-800 truncate">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
-                                      <p className="text-[11px] font-mono text-amber-700 truncate">PW: {showPasswords[`v_${v.id}_cp_${idx}`] ? cp.password : "••••••••"}</p>
-                                    </div>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-amber-800/60 hover:bg-transparent align-middle self-center" onClick={() => togglePassword(`v_${v.id}_cp_${idx}`)}>
-                                      {showPasswords[`v_${v.id}_cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {v.data?.skills_summary && (
-                            <div className="bg-muted/10 p-3 rounded-lg border border-border/20">
-                              <p className="text-[9px] font-bold uppercase opacity-50 mb-1 tracking-widest">Skills & Notes</p>
-                              <p className="text-xs italic leading-relaxed text-muted-foreground whitespace-pre-wrap">{v.data.skills_summary}</p>
-                            </div>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-                {credentials.length > 5 && (
-                  <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
-                    <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
+                {!isEditingCreds && (
+                  <div className="flex items-center gap-2">
+                    <CustomCredentialsDialog candidateId={candidateId} onRefresh={fetchAll} />
+                    <Button variant="outline" size="sm" onClick={() => setIsEditingCreds(true)} className="gap-2">
+                      <Pencil className="h-3.5 w-3.5" /> Edit Current Credentials
+                    </Button>
                   </div>
                 )}
-                {credentials.length === 0 && <p className="p-6 text-center text-xs text-muted-foreground italic">No prior versions recorded.</p>}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isEditingCreds ? (
+                <div className="space-y-8 animate-in fade-in slide-in-from-top-2 duration-300">
+                  {/* Section 1: Timeline & Education */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 border-b border-neutral-200 pb-4">
+                      <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                        <CalendarIcon className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-blue-600">Timeline & Education</h3>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Email Address *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.email || ""} onChange={e => setCredForm(prev => ({ ...prev, email: e.target.value }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Bachelor's Graduation Date *</Label>
+                        <DatePicker id="rec-cred-bach" value={credForm.bachelors_grad_date} onChange={val => setCredForm(p => ({ ...p, bachelors_grad_date: val }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">First Entry US *</Label>
+                        <DatePicker id="rec-cred-entry" value={credForm.first_entry_us} onChange={val => setCredForm(p => ({ ...p, first_entry_us: val }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Master's Graduation Date *</Label>
+                        <DatePicker id="rec-cred-mast" value={credForm.masters_grad_date} onChange={val => setCredForm(p => ({ ...p, masters_grad_date: val }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">OPT Start Date *</Label>
+                        <DatePicker id="rec-cred-opt" value={credForm.opt_start_date} onChange={val => setCredForm(p => ({ ...p, opt_start_date: val }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Is OPT Offer Submitted? *</Label>
+                        <Select value={credForm.opt_offer_submitted || "no"} onValueChange={val => setCredForm(p => ({ ...p, opt_offer_submitted: val, offer_letter_file: val === "no" ? null : p.offer_letter_file }))}>
+                          <SelectTrigger className="h-10 rounded-lg bg-neutral-50">
+                            <SelectValue placeholder="Select Response" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="yes">Yes</SelectItem>
+                            <SelectItem value="no">No</SelectItem>
+                            <SelectItem value="waiting">Waiting for One</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {credForm.opt_offer_submitted === "yes" && (
+                        <div className="sm:col-span-2 p-5 border-2 border-dashed rounded-lg bg-neutral-50 border-neutral-300 hover:border-primary/40 transition-all text-center">
+                          <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            onChange={e => setCredForm(p => ({ ...p, offer_letter_file: e.target.files?.[0] || null }))}
+                            accept=".pdf,.doc,.docx"
+                          />
+                          <div className="space-y-2 group text-left">
+                            <div className="flex items-center gap-2 ml-1">
+                              <Label className="text-sm font-semibold text-card-foreground/90 flex items-center">
+                                Upload OPT Offer Letter <span className="text-destructive ml-1 font-bold">*</span>
+                              </Label>
+                            </div>
+                            <div className="flex flex-col items-center gap-2 mt-2">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => fileInputRef.current?.click()} 
+                                className="bg-white border-neutral-300"
+                              >
+                                <Upload className="h-4 w-4 mr-2" /> Choose Document File
+                              </Button>
+                              {credForm.offer_letter_file ? (
+                                <div className="flex items-center gap-1.5 mt-2">
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <span className="text-xs font-bold text-green-700">
+                                    {typeof credForm.offer_letter_file === "string" 
+                                      ? "Previously uploaded offer letter" 
+                                      : (credForm.offer_letter_file as File).name}
+                                  </span>
+                                  {typeof credForm.offer_letter_file === "string" && (
+                                    <DocumentPreview 
+                                      url={credForm.offer_letter_file} 
+                                      label="Preview" 
+                                      className="text-xs font-semibold text-green-700 hover:underline ml-1" 
+                                    />
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-muted-foreground mt-1">PDF, DOC, DOCX up to 5MB</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section 2: Personal Information */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 border-b border-neutral-200 pb-4">
+                      <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                        <User className="h-4 w-4 text-green-600" />
+                      </div>
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-green-600">Personal Information</h3>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Full Name *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.full_name || ""} onChange={e => setCredForm(prev => ({ ...prev, full_name: e.target.value }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Personal Email Address *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.personal_email || ""} onChange={e => setCredForm(prev => ({ ...prev, personal_email: e.target.value }))} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Mobile Phone Number *</Label>
+                        <div className="flex gap-2">
+                          <Select value={credForm.country_code || "+1"} onValueChange={v => setCredForm(p => ({ ...p, country_code: v }))}>
+                            <SelectTrigger className="w-[100px] h-10 bg-neutral-50">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {COUNTRY_CODES.map(c => (
+                                <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input 
+                            value={credForm.phone_number || ""} 
+                            onChange={e => setCredForm(p => ({ ...p, phone_number: e.target.value }))} 
+                            placeholder="1234567890" 
+                            className="flex-1 h-10 bg-muted/30 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Location (City, State) *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.location || ""} onChange={e => setCredForm(prev => ({ ...prev, location: e.target.value }))} />
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Preferred Job Roles *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.preferred_roles || ""} onChange={e => setCredForm(prev => ({ ...prev, preferred_roles: e.target.value }))} />
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Preferred Location(s) *</Label>
+                        <Input className="bg-muted/30 text-sm h-10" value={credForm.preferred_locations || ""} onChange={e => setCredForm(prev => ({ ...prev, preferred_locations: e.target.value }))} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3: Account Credentials */}
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 space-y-6 overflow-hidden">
+                    <div className="flex items-center justify-between flex-wrap gap-2 border-b border-amber-200 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-amber-200 flex items-center justify-center">
+                          <KeyRound className="h-4 w-4 text-amber-900" />
+                        </div>
+                        <h3 className="font-bold text-xs uppercase tracking-widest text-amber-900">Account Credentials</h3>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">LinkedIn Login ID *</Label>
+                        <Input value={credForm.linkedin_id || ""} onChange={e => setCredForm(p => ({ ...p, linkedin_id: e.target.value }))} placeholder="LinkedIn username or email" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="linkedin_pass" label="LinkedIn Password" mandatory value={credForm.linkedin_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, linkedin_pass: v }))} placeholder="Password" />
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Indeed Login ID (Optional)</Label>
+                        <Input value={credForm.indeed_id || ""} onChange={e => setCredForm(p => ({ ...p, indeed_id: e.target.value }))} placeholder="Indeed Email ID" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="indeed_pass" label="Indeed Password" value={credForm.indeed_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, indeed_pass: v }))} placeholder="Password" />
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Dice Login ID (Optional)</Label>
+                        <Input value={credForm.dice_id || ""} onChange={e => setCredForm(p => ({ ...p, dice_id: e.target.value }))} placeholder="Dice username/email" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="dice_pass" label="Dice Password" value={credForm.dice_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, dice_pass: v }))} placeholder="Password" />
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Monster Login ID (Optional)</Label>
+                        <Input value={credForm.monster_id || ""} onChange={e => setCredForm(p => ({ ...p, monster_id: e.target.value }))} placeholder="Monster email" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="monster_pass" label="Monster Password" value={credForm.monster_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, monster_pass: v }))} placeholder="Password" />
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">ZipRecruiter Login ID (Optional)</Label>
+                        <Input value={credForm.ziprecruiter_id || ""} onChange={e => setCredForm(p => ({ ...p, ziprecruiter_id: e.target.value }))} placeholder="ZipRecruiter email" className="h-11 bg-white border-amber-200" />
+                      </div>
+                      <PasswordField id="ziprecruiter_pass" label="ZipRecruiter Password" value={credForm.ziprecruiter_pass || ""} onChange={(v: string) => setCredForm(p => ({ ...p, ziprecruiter_pass: v }))} placeholder="Password" />
+
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Mention other Platform accounts (Optional)</Label>
+                        <Textarea 
+                          value={credForm.other_platforms || ""} 
+                          onChange={e => setCredForm(p => ({ ...p, other_platforms: e.target.value }))}
+                          placeholder="Mention N/A if none."
+                          className="bg-white border-amber-200 min-h-[100px]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Custom Job Platforms */}
+                    <div className="border-t border-amber-200/60 pt-4 mt-2 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-800">Custom Job Platforms</Label>
+                        <Button variant="outline" size="sm" className="h-7 text-xs bg-white text-amber-900 border-amber-200" onClick={() => {
+                          setCredForm(p => ({
+                            ...p,
+                            custom_platforms: [...(p.custom_platforms || []), { platform_name: "", username_email: "", password: "" }]
+                          }));
+                        }}>
+                          <Plus className="h-3 w-3 mr-1" /> Add Platform
+                        </Button>
+                      </div>
+                      {credForm.custom_platforms?.map((cp: any, idx: number) => (
+                        <div key={idx} className="p-3 bg-white/60 rounded-xl border border-amber-100 relative group">
+                          <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+                            const n = [...credForm.custom_platforms]; n.splice(idx, 1);
+                            setCredForm({ ...credForm, custom_platforms: n });
+                          }}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-[9px] font-bold uppercase text-amber-700">Platform Name</Label>
+                              <Input className="h-8 text-xs bg-white" placeholder="e.g. Monster, ZipRecruiter" value={cp.platform_name} onChange={e => {
+                                const n = [...credForm.custom_platforms]; n[idx].platform_name = e.target.value;
+                                setCredForm({ ...credForm, custom_platforms: n });
+                              }} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[9px] font-bold uppercase text-amber-700">Username / Email</Label>
+                              <Input className="h-8 text-xs bg-white" placeholder="Username or email" value={cp.username_email || ""} onChange={e => {
+                                const n = [...credForm.custom_platforms]; n[idx].username_email = e.target.value;
+                                setCredForm({ ...credForm, custom_platforms: n });
+                              }} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[9px] font-bold uppercase text-amber-700">Password</Label>
+                              <div className="relative">
+                                <Input className="h-8 text-xs bg-white pr-8" type={showCredPasswords[`cp_${idx}`] ? "text" : "password"} value={cp.password} onChange={e => {
+                                  const n = [...credForm.custom_platforms]; n[idx].password = e.target.value;
+                                  setCredForm({ ...credForm, custom_platforms: n });
+                                }} />
+                                <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent" onClick={() => toggleCredPw(`cp_${idx}`)}>
+                                  {showCredPasswords[`cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="hero"
+                      className={`flex-1 h-11 font-bold transition-all ${credForm.full_name?.trim() ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                      onClick={handleSaveCredential}
+                      disabled={savingCred}
+                    >
+                      {savingCred ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                      Update Candidate Credentials
+                    </Button>
+                    <Button variant="outline" className="h-11" onClick={() => setIsEditingCreds(false)} disabled={savingCred}>Cancel</Button>
+                  </div>
+                </div>
+              ) : credentials.length === 0 ? (
+                <p className="text-muted-foreground py-8 text-center">No credential intake submitted yet.</p>
+              ) : (
+                <Accordion type="single" collapsible defaultValue={credentials[0]?.id}>
+                  {credentials.map((v: any) => {
+                    const cData = v.data as Record<string, any>;
+                    const optOfferVal = cData.opt_offer_submitted || cData.opt_offer_letter_submitted || cData.optOfferLetterSubmitted || "";
+                    const optOfferDisplay = optOfferVal === "yes" ? "Yes" : optOfferVal === "no" ? "No" : optOfferVal === "waiting" ? "Waiting for One" : optOfferVal || "—";
+                    return (
+                      <AccordionItem key={v.id} value={v.id} className="border-none shadow-sm mb-4 bg-muted/20 rounded-xl overflow-hidden px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-3 text-left">
+                            <Badge variant="secondary" className="h-6">v{v.version}</Badge>
+                            <div>
+                              <span className="font-semibold block">{v.editor_name || "Candidate Submission"}</span>
+                              <span className="text-[10px] uppercase text-muted-foreground font-bold">{formatDate(v.created_at)}</span>
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-6">
+                          <div className="space-y-8 pt-4">
+                            {/* Top Identity Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Full Name</p><p className="font-medium">{cData.full_name || cData.full_legal_name || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Personal Email</p><p className="font-medium">{cData.personal_email || cData.personalEmail || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Phone</p><p className="font-medium">{cData.phone_number || cData.phone || cData.phoneNumber || "—"}</p></div>
+                              <div className="col-span-2 md:col-span-3"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || cData.location_city_state || "—"}</p></div>
+                            </div>
+
+                            {/* OPT & Entry */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-white p-4 rounded-lg shadow-sm border border-muted">
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Bachelor's Graduation Date</p><p className="font-semibold">{cData.bachelors_grad_date || cData.bachelors_graduation_date || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Master's Graduation Date</p><p className="font-semibold">{cData.masters_grad_date || cData.masters_graduation_date || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{cData.first_entry_us || cData.firstEntryUS || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{optOfferDisplay}</Badge></div>
+                              {(cData.offer_letter_url || cData.opt_offer_letter_url) && (
+                                <div>
+                                  <p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Letter</p>
+                                  <DocumentPreview
+                                    url={cData.offer_letter_url || cData.opt_offer_letter_url}
+                                    label="View attached letter"
+                                    className="text-blue-600 underline font-semibold cursor-pointer mt-1 block"
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Job Portals - CRITICAL DATA */}
+                            <div className="space-y-3">
+                              <h4 className="text-[10px] font-bold uppercase tracking-widest text-destructive flex items-center gap-2">
+                                <Shield className="h-3 w-3" /> Job Portal Credentials
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {[
+                                  { label: 'LinkedIn', id: 'linkedin_id', altId: 'linkedin_login_id', pw: 'linkedin_pass', altPw: 'linkedin_password' },
+                                  { label: 'Indeed', id: 'indeed_id', altId: 'indeed_login_id', pw: 'indeed_pass', altPw: 'indeed_password' },
+                                  { label: 'Dice', id: 'dice_id', altId: 'dice_login_id', pw: 'dice_pass', altPw: 'dice_password' },
+                                  { label: 'Monster', id: 'monster_id', altId: 'monster_login_id', pw: 'monster_pass', altPw: 'monster_password' },
+                                  { label: 'ZipRecruiter', id: 'ziprecruiter_id', altId: 'ziprecruiter_login_id', pw: 'ziprecruiter_pass', altPw: 'ziprecruiter_password' }
+                                ].map(portal => {
+                                  const username = cData[portal.id] || cData[portal.altId];
+                                  const password = cData[portal.pw] || cData[portal.altPw];
+                                  if (!username && !password) return null;
+                                  return (
+                                    <div key={portal.label} className="bg-white border rounded-lg p-3">
+                                      <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
+                                      <div className="space-y-1">
+                                        <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{username || "N/A"}</span></p>
+                                        <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_${portal.pw}`)}>{password ? (showCredPasswords[`${v.id}_${portal.pw}`] ? password : "••••••••") : "N/A"}</span></p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {cData.other_platforms && (
+                                <div className="mt-4 bg-white border rounded-lg p-3 text-xs">
+                                  <p className="font-bold text-[10px] text-muted-foreground mb-2">Other Platform Accounts</p>
+                                  <p className="whitespace-pre-wrap leading-relaxed">{cData.other_platforms}</p>
+                                </div>
+                              )}
+
+                              {cData.custom_platforms && Array.isArray(cData.custom_platforms) && cData.custom_platforms.length > 0 && (
+                                <div className="mt-4">
+                                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2 mb-3">
+                                    <Shield className="h-3 w-3" /> Custom Platforms
+                                  </h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {cData.custom_platforms.map((cp: any, idx: number) => (
+                                      <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3">
+                                        <p className="font-bold text-[10px] text-amber-700 mb-2">{cp.platform_name || "Platform"}</p>
+                                        <div className="space-y-1">
+                                          <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
+                                          <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_cp_${idx}`)}>{cp.password ? (showCredPasswords[`${v.id}_cp_${idx}`] ? cp.password : "••••••••") : "N/A"}</span></p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                            </div>
+
+                            {/* Preferences */}
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="bg-primary/5 p-3 rounded-lg">
+                                <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Roles</p>
+                                <p className="text-xs font-medium">{cData.preferred_roles || cData.preferred_job_roles || cData.preferredRoles || "—"}</p>
+                              </div>
+                              <div className="bg-primary/5 p-3 rounded-lg">
+                                <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Locations</p>
+                                <p className="text-xs font-medium">{cData.preferred_locations || cData.preferredLocations || "—"}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })}
+                </Accordion>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="daily-log" className="space-y-6">
