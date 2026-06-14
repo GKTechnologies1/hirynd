@@ -1244,7 +1244,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-bold uppercase tracking-widest opacity-70">Is OPT Offer Submitted? *</Label>
-                        <Select value={credForm.opt_offer_submitted || "no"} onValueChange={val => setCredForm(p => ({ ...p, opt_offer_submitted: val, offer_letter_file: val === "no" ? null : p.offer_letter_file }))}>
+                        <Select value={credForm.opt_offer_submitted || "no"} onValueChange={val => setCredForm(p => ({ ...p, opt_offer_submitted: val, offer_letter_file: val === "yes" ? p.offer_letter_file : null }))}>
                           <SelectTrigger className="h-10 rounded-lg bg-neutral-50">
                             <SelectValue placeholder="Select Response" />
                           </SelectTrigger>
@@ -1522,7 +1522,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{cData.first_entry_us || cData.firstEntryUS || "—"}</p></div>
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{optOfferDisplay}</Badge></div>
-                              {(cData.offer_letter_url || cData.opt_offer_letter_url) && (
+                              {(optOfferVal === "yes" && (cData.offer_letter_url || cData.opt_offer_letter_url)) && (
                                 <div>
                                   <p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Letter</p>
                                   <DocumentPreview

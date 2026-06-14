@@ -403,7 +403,20 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
   };
 
   const handleChange = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === "opt_offer_submitted" && value !== "yes") {
+        next.offer_letter_file = null;
+      }
+      return next;
+    });
+    if (field === "opt_offer_submitted" && value !== "yes") {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.offer_letter_file;
+        return next;
+      });
+    }
     if (field === "offer_letter_file" && value instanceof File) {
       if (value.size > 5 * 1024 * 1024) {
         setErrors(prev => ({ ...prev, offer_letter_file: "File size must not exceed 5 MB" }));
@@ -613,6 +626,10 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                 const key = item.key;
                 const value = latestVersion.data[key] || (key === "offer_letter_url" ? latestVersion.data.opt_offer_letter_url : null);
                 if (!value) return null;
+
+                if (key === "offer_letter_url" && latestVersion.data.opt_offer_submitted !== "yes" && latestVersion.data.opt_offer_letter_submitted !== "yes") {
+                  return null;
+                }
 
                 const isSensitive = SENSITIVE_FIELDS.includes(key);
                 const isUrl = (key.includes('url') || key.includes('file')) && typeof value === 'string';
@@ -1024,6 +1041,11 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
                             if (v.data[primaryKey] !== undefined && v.data[primaryKey] !== null && v.data[primaryKey] !== "") {
                               return false;
                             }
+                          }
+                          // Skip offer letter if not submitted
+                          if (key === "offer_letter_url" || key === "opt_offer_letter_url") {
+                            const isOptOfferYes = v.data.opt_offer_submitted === "yes" || v.data.opt_offer_letter_submitted === "yes";
+                            if (!isOptOfferYes) return false;
                           }
                           return true;
                         })

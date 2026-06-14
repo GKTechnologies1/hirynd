@@ -143,9 +143,37 @@ class CandidateCredentialsTests(TestCase):
         """Test admin saving credentials."""
         self.client.force_authenticate(user=self.admin_user)
 
+        # Clean payload for normal creation
         response = self.client.post(self.upsert_url, {'data': self.valid_payload}, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         versions = CredentialVersion.objects.filter(candidate=self.candidate)
         self.assertEqual(versions.count(), 1)
         self.assertEqual(versions.first().edited_by, self.admin_user)
+
+    def test_upsert_credentials_clears_offer_letter(self):
+        """Test that updating opt_offer_submitted to except 'yes' clears offer_letter_url."""
+        self.client.force_authenticate(user=self.candidate_user)
+
+        # 1. Save with opt_offer_submitted='yes' and a valid url
+        payload_with_offer = self.valid_payload.copy()
+        payload_with_offer['opt_offer_submitted'] = 'yes'
+        payload_with_offer['offer_letter_url'] = 'https://hyrind.com/media/offers/letter.pdf'
+
+        response = self.client.post(self.upsert_url, {'data': payload_with_offer}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        versions = CredentialVersion.objects.filter(candidate=self.candidate)
+        self.assertEqual(versions.count(), 1)
+        self.assertEqual(versions.first().data['offer_letter_url'], 'https://hyrind.com/media/offers/letter.pdf')
+
+        # 2. Update with opt_offer_submitted='no'
+        payload_no_offer = self.valid_payload.copy()
+        payload_no_offer['opt_offer_submitted'] = 'no'
+
+        response = self.client.post(self.upsert_url, {'data': payload_no_offer}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Should retrieve the updated version and verify offer_letter_url is deleted (None)
+        versions = CredentialVersion.objects.filter(candidate=self.candidate).order_by('-version')
+        self.assertEqual(versions.first().data['offer_letter_url'], None)

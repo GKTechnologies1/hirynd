@@ -832,6 +832,11 @@ def upsert_credential(request, candidate_id):
     # 2. Synchronize key mapping bidirectionally
     if isinstance(merged_payload, dict):
         sync_credential_keys(merged_payload, payload if isinstance(payload, dict) else None, candidate)
+        # Clear offer letter if "Is OPT Offer Submitted" is not "yes"
+        opt_offer = merged_payload.get('opt_offer_submitted') or merged_payload.get('opt_offer_letter_submitted')
+        if opt_offer != 'yes':
+            merged_payload['offer_letter_url'] = None
+            merged_payload['opt_offer_letter_url'] = None
 
     # 3. Validate the merged and normalized credential data
     validation_errors = validate_credential_data(merged_payload)
