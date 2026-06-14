@@ -167,11 +167,12 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
   const [supportNotes, setSupportNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const fetchLogs = async (showLoading = true) => {
+  const fetchLogs = async (showLoading = true, isPolling = false) => {
     if (!candidate?.id) return;
     if (showLoading) setLoading(true);
+    const backgroundConfig = isPolling ? { headers: { 'X-Background-Request': 'true' } } : undefined;
     try {
-      const { data } = await candidatesApi.getInterviews(candidate.id);
+      const { data } = await candidatesApi.getInterviews(candidate.id, backgroundConfig);
       setLogs(data || []);
     } catch {
       setLogs([]);
@@ -180,9 +181,9 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
   };
 
   useEffect(() => {
-    fetchLogs(true);
+    fetchLogs(true, false);
     const interval = setInterval(() => {
-      fetchLogs(false);
+      fetchLogs(false, true);
     }, 8000);
     return () => clearInterval(interval);
   }, [candidate?.id, candidate?.updated_at]);

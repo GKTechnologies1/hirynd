@@ -212,10 +212,11 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
     sessionStorage.setItem(`admin_candidate_active_tab_${candidateId}`, val);
   };
 
-  const fetchAll = async (showLoading = true) => {
+  const fetchAll = async (showLoading = true, isPolling = false) => {
     if (showLoading) setLoading(true);
+    const backgroundConfig = isPolling ? { headers: { 'X-Background-Request': 'true' } } : undefined;
     try {
-      const { data: cand } = await candidatesApi.detail(candidateId);
+      const { data: cand } = await candidatesApi.detail(candidateId, backgroundConfig);
       setCandidate(cand);
       if (cand) {
         if (onLoaded) {
@@ -223,13 +224,13 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
           onLoaded(name);
         }
         const [intakeRes, roleRes, credRes, payRes, subRes, interviewRes, proposedRoleRes] = await Promise.all([
-          candidatesApi.getIntake(candidateId).catch(() => ({ data: null })),
-          candidatesApi.getRoles(candidateId).catch(() => ({ data: [] })),
-          candidatesApi.getCredentials(candidateId).catch(() => ({ data: [] })),
-          billingApi.payments(candidateId).catch(() => ({ data: [] })),
-          billingApi.subscription(candidateId).catch(() => ({ data: null })),
-          candidatesApi.getInterviews(candidateId).catch(() => ({ data: [] })),
-          candidatesApi.getProposedRoles(candidateId).catch(() => ({ data: [] })),
+          candidatesApi.getIntake(candidateId, backgroundConfig).catch(() => ({ data: null })),
+          candidatesApi.getRoles(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          candidatesApi.getCredentials(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          billingApi.payments(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          billingApi.subscription(candidateId, backgroundConfig).catch(() => ({ data: null })),
+          candidatesApi.getInterviews(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          candidatesApi.getProposedRoles(candidateId, backgroundConfig).catch(() => ({ data: [] })),
         ]);
         setIntake(intakeRes.data || null);
         setRoles(roleRes.data || []);
@@ -300,9 +301,9 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   };
 
   useEffect(() => {
-    fetchAll(true);
+    fetchAll(true, false);
     const interval = setInterval(() => {
-      fetchAll(false);
+      fetchAll(false, true);
     }, 8000);
     return () => clearInterval(interval);
   }, [candidateId]);

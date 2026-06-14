@@ -155,9 +155,14 @@ class CustomTokenRefreshView(TokenRefreshView):
                                 'error': 'Session expired due to inactivity'
                             }, status=status.HTTP_401_UNAUTHORIZED)
                     
-                    # Update activity since they refreshed token
-                    user.last_activity = timezone.now()
-                    user.save(update_fields=['last_activity'])
+                    # Update activity since they refreshed token, but ONLY if it's NOT a background request
+                    is_background = (
+                        request.headers.get('X-Background-Request') == 'true' or
+                        request.META.get('HTTP_X_BACKGROUND_REQUEST') == 'true'
+                    )
+                    if not is_background:
+                        user.last_activity = timezone.now()
+                        user.save(update_fields=['last_activity'])
         except Exception:
             # Let the standard error handling or response proceed if user lookup fails
             pass

@@ -55,12 +55,11 @@ const api = axios.create({
 });
 
 // Attach JWT token to every request
+// TODO(security): Token storage should be transitioned to HttpOnly cookies to comply with secure coding guidelines and prevent XSS retrieval.
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    // Track activity on API requests
-    localStorage.setItem('last_activity_timestamp', Date.now().toString());
   }
   return config;
 });
@@ -113,7 +112,11 @@ export const setupProactiveRefresh = (token: string | null) => {
         const refresh = localStorage.getItem('refresh_token');
         if (refresh) {
           try {
-            const { data } = await axios.post(`${API_BASE_URL}/auth/refresh/`, { refresh });
+            const { data } = await axios.post(
+              `${API_BASE_URL}/auth/refresh/`,
+              { refresh },
+              { headers: { 'X-Background-Request': 'true' } }
+            );
             localStorage.setItem('access_token', data.access);
             if (data.refresh) {
               localStorage.setItem('refresh_token', data.refresh);
@@ -172,7 +175,18 @@ api.interceptors.response.use(
       if (refresh) {
         isRefreshing = true;
         try {
-          const { data } = await axios.post(`${API_BASE_URL}/auth/refresh/`, { refresh });
+          const isBackground = originalRequest.headers?.['X-Background-Request'] === 'true' ||
+                               originalRequest.headers?.['x-background-request'] === 'true';
+          const refreshHeaders: Record<string, string> = {};
+          if (isBackground) {
+            refreshHeaders['X-Background-Request'] = 'true';
+          }
+
+          const { data } = await axios.post(
+            `${API_BASE_URL}/auth/refresh/`,
+            { refresh },
+            { headers: refreshHeaders }
+          );
           localStorage.setItem('access_token', data.access);
           if (data.refresh) {
             localStorage.setItem('refresh_token', data.refresh);
@@ -253,36 +267,36 @@ export const authApi = {
 
 // ─── Candidates ───
 export const candidatesApi = {
-  me: () => api.get('/candidates/me/'),
+  me: (config?: any) => api.get('/candidates/me/', config),
   list: (statusFilter?: string) => api.get('/candidates/', { params: statusFilter ? { status: statusFilter } : {} }),
-  detail: (id: string) => api.get(`/candidates/${id}/`),
+  detail: (id: string, config?: any) => api.get(`/candidates/${id}/`, config),
   updateStatus: (id: string, status: string) => api.post(`/candidates/${id}/status/`, { status }),
-  getIntake: (id: string) => api.get(`/candidates/${id}/intake/`),
+  getIntake: (id: string, config?: any) => api.get(`/candidates/${id}/intake/`, config),
   interestedList: (search?: string) => api.get('/candidates/interested-candidates/', { params: search ? { search } : {} }),
   interestedDetail: (id: string) => api.get(`/candidates/interested-candidates/${id}/`),
   updateInterested: (id: string, data: Record<string, any>) => api.patch(`/candidates/interested-candidates/${id}/`, data),
   submitIntake: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/intake/`, { data }),
   reopenIntake: (id: string) => api.post(`/candidates/${id}/intake/reopen/`),
-  getRoles: (id: string) => api.get(`/candidates/${id}/roles/`),
+  getRoles: (id: string, config?: any) => api.get(`/candidates/${id}/roles/`, config),
   reopenRoles: (id: string) => api.post(`/candidates/${id}/roles/reopen/`),
   addRole: (id: string, data: { role_title: string; description?: string; admin_note?: string; delete_proposed_role_id?: string }) =>
     api.post(`/candidates/${id}/roles/add/`, data),
   confirmRoles: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/roles/confirm/`, data),
-  getProposedRoles: (id: string) => api.get(`/candidates/${id}/roles/proposed/`),
+  getProposedRoles: (id: string, config?: any) => api.get(`/candidates/${id}/roles/proposed/`, config),
   deleteProposedRole: (id: string, roleId: string) => api.delete(`/candidates/${id}/roles/proposed/${roleId}/`),
   updateRole: (id: string, roleId: string, data: { role_title: string; description?: string }) =>
     api.put(`/candidates/${id}/roles/${roleId}/update/`, data),
   deleteRole: (id: string, roleId: string) =>
     api.delete(`/candidates/${id}/roles/${roleId}/delete/`),
-
-  getCredentials: (id: string) => api.get(`/candidates/${id}/credentials/`),
+ 
+  getCredentials: (id: string, config?: any) => api.get(`/candidates/${id}/credentials/`, config),
   upsertCredential: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/credentials/upsert/`, { data }),
   getReferrals: (id: string) => api.get(`/candidates/${id}/referrals/`),
   submitReferral: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/referrals/`, data),
-  getInterviews: (id: string) => api.get(`/candidates/${id}/interviews/`),
+  getInterviews: (id: string, config?: any) => api.get(`/candidates/${id}/interviews/`, config),
   submitInterview: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/interviews/`, data),
   updateInterview: (id: string, logId: string, data: Record<string, any>) =>
@@ -301,13 +315,13 @@ export const candidatesApi = {
 export const recruitersApi = {
   myCandidates: () => api.get('/recruiters/my-candidates/'),
   myAssignments: () => api.get('/recruiters/my-assignments/'),
-  assignments: (candidateId: string) => api.get(`/recruiters/${candidateId}/assignments/`),
+  assignments: (candidateId: string, config?: any) => api.get(`/recruiters/${candidateId}/assignments/`, config),
   assign: (data: { candidate: string; recruiter: string; role_type: string }) =>
     api.post('/recruiters/assign/', data),
   unassign: (assignmentId: string) => api.post(`/recruiters/unassign/${assignmentId}/`),
-  getDailyLogs: (candidateId: string) => api.get(`/recruiters/${candidateId}/daily-logs/`),
+  getDailyLogs: (candidateId: string, config?: any) => api.get(`/recruiters/${candidateId}/daily-logs/`, config),
   submitDailyLog: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/daily-logs/`, data),
-  getJobApplications: (candidateId: string) => api.get(`/recruiters/${candidateId}/job-applications/`),
+  getJobApplications: (candidateId: string, config?: any) => api.get(`/recruiters/${candidateId}/job-applications/`, config),
   submitJobApplications: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/job-applications/`, data),
   updateJobStatus: (jobId: string, status: string) => api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
   fetchJobDetails: (url: string) => api.post(`/recruiters/fetch-job-details/`, { url }),
@@ -354,7 +368,7 @@ export const billingApi = {
   ledgerReport: () => api.get('/billing/admin/ledger-report/'),
 
   // Per-candidate subscription
-  subscription: (candidateId: string) => api.get(`/billing/${candidateId}/subscription/`),
+  subscription: (candidateId: string, config?: any) => api.get(`/billing/${candidateId}/subscription/`, config),
   assignPlan: (candidateId: string, data: { plan_id: string; amount?: number; admin_notes?: string; addons?: string[] }) =>
     api.post(`/billing/${candidateId}/subscription/assign/`, data),
   assignAddon: (candidateId: string, data: { addon_id: string; amount?: number; admin_notes?: string; activate_immediately?: boolean }) =>
@@ -377,7 +391,7 @@ export const billingApi = {
     api.post(`/billing/${candidateId}/payments/${paymentId}/verify/`, data),
 
   // Payment history
-  payments: (candidateId: string) => api.get(`/billing/${candidateId}/payments/`),
+  payments: (candidateId: string, config?: any) => api.get(`/billing/${candidateId}/payments/`, config),
   recordPayment: (candidateId: string, data: Record<string, any>) =>
     api.post(`/billing/${candidateId}/payments/record/`, data),
   updatePayment: (paymentId: string, data: Record<string, any>) =>
@@ -407,7 +421,7 @@ export const auditApi = {
 
 // ─── Notifications ───
 export const notificationsApi = {
-  list: (unreadOnly?: boolean) => api.get('/notifications/', { params: unreadOnly ? { unread: 'true' } : {} }),
+  list: (unreadOnly?: boolean, config?: any) => api.get('/notifications/', { params: unreadOnly ? { unread: 'true' } : {}, ...config }),
   markRead: (id: string) => api.post(`/notifications/${id}/read/`),
 };
 
@@ -424,8 +438,8 @@ export const filesApi = {
 
 // ─── Chat ───
 export const chatApi = {
-  myRooms: () => api.get('/chat/rooms/'),
-  roomMessages: (roomId: string) => api.get(`/chat/rooms/${roomId}/messages/`),
+  myRooms: (config?: any) => api.get('/chat/rooms/', config),
+  roomMessages: (roomId: string, config?: any) => api.get(`/chat/rooms/${roomId}/messages/`, config),
   sendMessage: (roomId: string, message_text: string, attachment_url?: string) =>
     api.post(`/chat/rooms/${roomId}/send/`, { message_text, attachment_url }),
 };
@@ -441,8 +455,8 @@ export const jobsApi = {
   stats: () => api.get('/jobs/stats/'),
 
   // Submissions
-  listSubmissions: (params?: { job?: string; candidate?: string; status?: string; search?: string; page?: number; page_size?: number }) =>
-    api.get('/jobs/submissions/', { params }),
+  listSubmissions: (params?: { job?: string; candidate?: string; status?: string; search?: string; page?: number; page_size?: number }, config?: any) =>
+    api.get('/jobs/submissions/', { params, ...config }),
   createSubmission: (data: { job: string; candidate: string; notes?: string }) =>
     api.post('/jobs/submissions/create/', data),
   updateSubmission: (submissionId: string, data: Record<string, any>) =>

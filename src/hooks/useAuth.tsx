@@ -69,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
+      // TODO(security): Token storage should be transitioned to HttpOnly cookies to comply with secure coding guidelines and prevent XSS retrieval.
       const { data } = await authApi.login(email, password);
       localStorage.setItem("access_token", data.access);
       localStorage.setItem("refresh_token", data.refresh);

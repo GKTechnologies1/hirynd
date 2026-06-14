@@ -57,12 +57,13 @@ const ChatTab = ({ candidateId }: ChatTabProps) => {
   useEffect(() => {
     if (!activeRoom) return;
     
-    const fetchMessages = () => {
-      chatApi.roomMessages(activeRoom).then(({ data }) => setMessages(data));
+    const fetchMessages = (isBackground = false) => {
+      const config = isBackground ? { headers: { 'X-Background-Request': 'true' } } : undefined;
+      chatApi.roomMessages(activeRoom, config).then(({ data }) => setMessages(data));
     };
 
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
+    fetchMessages(false);
+    const interval = setInterval(() => fetchMessages(true), 5000);
     return () => clearInterval(interval);
   }, [activeRoom]);
 
