@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { CalendarIcon, User, Mail, School, Award, MapPin } from "lucide-react";
 
 const SERVICES = [
@@ -126,7 +127,7 @@ const Contact = () => {
 
     if (!phone) {
       newErrors.phone = "Phone number is required";
-    } else if (!/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
+    } else if (!/^\d{10}$/.test(phone)) {
       newErrors.phone = "Phone number must be exactly 10 digits";
     }
 
@@ -134,11 +135,11 @@ const Contact = () => {
       if (!formData.get("degree_major")) newErrors.degree_major = "Degree & Major is required";
       if (!formData.get("university")) newErrors.university = "University / College is required";
       
-      const gradYear = (formData.get("graduation_year") as string || "").trim();
+      const gradYear = formValues.graduation_year.trim();
       if (!gradYear) {
         newErrors.graduation_year = "Graduation date is required";
-      } else if (!/^\d{2}-\d{2}-\d{4}$/.test(gradYear)) {
-        newErrors.graduation_year = "Graduation date must be in MM-DD-YYYY format (e.g. 06-02-2026)";
+      } else if (!/^(0[1-9]|1[0-2])[-/](0[1-9]|[12][0-9]|3[01])[-/]\d{4}$/.test(gradYear)) {
+        newErrors.graduation_year = "Use MM/DD/YYYY format";
       }
 
       if (!visaStatus) newErrors.visa_status = "Please select your visa status";
@@ -237,7 +238,7 @@ const Contact = () => {
       finalData.append("degree", (degree || "").trim());
       finalData.append("major", majorParts.join("&").trim());
       finalData.append("degree_major", formValues.degree_major.trim());
-      const match = formValues.graduation_year.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+      const match = formValues.graduation_year.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
       const formattedGradDate = match ? `${match[3]}-${match[1]}-${match[2]}` : formValues.graduation_year;
       finalData.append("graduation_year", formattedGradDate);
       finalData.append("visa_status", visaStatus === "other" ? formValues.visa_other : visaStatus);
@@ -376,7 +377,7 @@ const Contact = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone Number *</Label>
                     <div className="flex gap-2">
                       <Select value={countryCode} onValueChange={setCountryCode}>
                         <SelectTrigger className="w-[100px] bg-neutral-50/50 border-neutral-200 rounded-xl h-11 focus-visible:ring-[#0d47a1]">
@@ -390,7 +391,18 @@ const Contact = () => {
                         </SelectContent>
                       </Select>
                       <div className={`flex-1 flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.phone ? 'border-destructive' : 'border-neutral-200'}`}>
-                        <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent" />
+                        <Input
+                          name="phone"
+                          type="tel"
+                          value={formValues.phone}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                            setFormValues(prev => ({ ...prev, phone: val }));
+                            setErrors(prev => ({ ...prev, phone: "" }));
+                          }}
+                          placeholder="1234567890"
+                          className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
+                        />
                       </div>
                     </div>
                     {errors.phone && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.phone}</p>}
@@ -469,7 +481,7 @@ const Contact = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone *</Label>
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Phone Number *</Label>
                     <div className="flex gap-2">
                       <select
                         value={countryCode}
@@ -482,7 +494,18 @@ const Contact = () => {
                         <option value="+61">🇦🇺 +61</option>
                       </select>
                       <div className={`flex-1 flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.phone ? 'border-destructive' : 'border-neutral-200'}`}>
-                        <Input name="phone" value={formValues.phone} onChange={handleInputChange} placeholder="(555) 000-0000" className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent" />
+                        <Input
+                          name="phone"
+                          type="tel"
+                          value={formValues.phone}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                            setFormValues(prev => ({ ...prev, phone: val }));
+                            setErrors(prev => ({ ...prev, phone: "" }));
+                          }}
+                          placeholder="1234567890"
+                          className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
+                        />
                       </div>
                     </div>
                     {errors.phone && <p className="text-destructive text-[10px] mt-1 font-bold animate-in fade-in slide-in-from-top-1">{errors.phone}</p>}
@@ -545,27 +568,19 @@ const Contact = () => {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Graduation Date *</Label>
-                      <div className={`flex items-center gap-2 border rounded-xl px-3 h-11 bg-neutral-50/50 focus-within:ring-2 focus-within:ring-[#0d47a1] ${errors.graduation_year ? 'border-destructive' : 'border-neutral-200'}`}>
-                        <CalendarIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" />
-                        <Input
-                          name="graduation_year"
-                          type="text"
-                          value={formValues.graduation_year}
-                          onChange={(e) => {
-                            let val = e.target.value.replace(/\D/g, "");
-                            if (val.length > 8) val = val.substring(0, 8);
-                            if (val.length > 4) {
-                              val = `${val.substring(0, 2)}-${val.substring(2, 4)}-${val.substring(4)}`;
-                            } else if (val.length > 2) {
-                              val = `${val.substring(0, 2)}-${val.substring(2)}`;
-                            }
-                            setFormValues(prev => ({ ...prev, graduation_year: val }));
-                            setErrors(prev => ({ ...prev, graduation_year: "" }));
-                          }}
-                          placeholder="MM-DD-YYYY"
-                          className="border-0 shadow-none focus-visible:ring-0 p-0 w-full bg-transparent"
-                        />
-                      </div>
+                      <DatePicker
+                        id="field-graduation_year"
+                        value={formValues.graduation_year}
+                        onChange={(val) => {
+                          setFormValues(prev => ({ ...prev, graduation_year: val }));
+                          setErrors(prev => ({ ...prev, graduation_year: "" }));
+                        }}
+                        placeholder="MM/DD/YYYY"
+                        className={cn(
+                          "h-11 rounded-xl bg-neutral-50/50 border border-neutral-200 font-normal text-sm hover:bg-neutral-50/50 focus:bg-white focus:ring-2 focus:ring-[#0d47a1] text-neutral-800",
+                          errors.graduation_year && "border-destructive focus:ring-destructive text-destructive"
+                        )}
+                      />
                       {errors.graduation_year && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.graduation_year}</p>}
                     </div>
                   </div>
