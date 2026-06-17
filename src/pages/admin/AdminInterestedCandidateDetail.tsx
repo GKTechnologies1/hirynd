@@ -71,7 +71,7 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
       if (onLoaded) {
         onLoaded(data.name || data.email || "Lead");
       }
-      
+
       let initialDegreeMajor = data.degree_major || "";
       if (!initialDegreeMajor) {
         if (data.degree && data.major) {
@@ -204,7 +204,7 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
           <form className="space-y-6" onSubmit={handleSave}>
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-widest">Name</Label>
+                <Label className="text-xs font-bold uppercase tracking-widest">Full Name</Label>
                 <Input value={form.name} onChange={(event) => handleChange('name', event.target.value)} className="h-11 rounded-xl" />
               </div>
               <div className="space-y-1.5">
@@ -215,11 +215,11 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-widest">Phone</Label>
+                <Label className="text-xs font-bold uppercase tracking-widest">Phone Number</Label>
                 <Input value={form.phone} onChange={(event) => handleChange('phone', event.target.value)} className="h-11 rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-widest">University</Label>
+                <Label className="text-xs font-bold uppercase tracking-widest">University / College </Label>
                 <Input value={form.university} onChange={(event) => handleChange('university', event.target.value)} className="h-11 rounded-xl" />
               </div>
             </div>
@@ -227,19 +227,19 @@ const AdminInterestedCandidateDetail = ({ leadId, onLoaded }: AdminInterestedCan
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-1">
                 <Label className="text-xs font-bold uppercase tracking-widest">Degree & Major</Label>
-                <Input 
-                  value={form.degree_major} 
+                <Input
+                  value={form.degree_major}
                   onChange={(event) => {
                     const val = event.target.value;
                     const [d, ...m] = val.split("&");
-                    setForm(prev => ({ 
-                      ...prev, 
+                    setForm(prev => ({
+                      ...prev,
                       degree_major: val,
-                      degree: (d || "").trim(), 
-                      major: m.join("&").trim() 
+                      degree: (d || "").trim(),
+                      major: m.join("&").trim()
                     }));
-                  }} 
-                  className="h-11 rounded-xl" 
+                  }}
+                  className="h-11 rounded-xl"
                   placeholder="e.g., Master's in Computer Science"
                 />
               </div>

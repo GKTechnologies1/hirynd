@@ -246,6 +246,7 @@ const Contact = () => {
       finalData.append("referral_source", referralSource);
       finalData.append("referral_friend", formValues.referral_friend);
       finalData.append("services", JSON.stringify(selectedServices));
+      finalData.append("message", formValues.message);
 
       const resumeFile = formData.get("resume") as File;
       if (resumeFile && resumeFile.name) {
@@ -678,6 +679,18 @@ const Contact = () => {
                       {errors.referral_friend && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.referral_friend}</p>}
                     </div>
                   )}
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-neutral-700 uppercase tracking-widest">Additional Notes (Optional)</Label>
+                    <Textarea 
+                      name="message" 
+                      value={formValues.message} 
+                      onChange={handleInputChange} 
+                      placeholder="Any additional details or requests?" 
+                      rows={4} 
+                      className="bg-neutral-50/50 border-neutral-200 focus-visible:ring-[#0d47a1] shadow-sm rounded-xl resize-none" 
+                    />
+                  </div>
 
                   {/* Terms & Privacy */}
                   <div className={`flex items-start gap-3 rounded-xl border p-5 mt-8 transition-colors ${errors.terms ? 'border-destructive bg-destructive/5' : 'border-neutral-200 bg-neutral-50'}`}>
