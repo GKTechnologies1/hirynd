@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileText, Download, ExternalLink, Eye } from 'lucide-react';
-import { getFileUrl } from '@/services/api';
+import { getPreviewTargetUrl } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useToast } from "@/hooks/use-toast";
@@ -26,8 +26,8 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 
   if (!url || typeof url !== 'string') return null;
 
-  const fileUrl = getFileUrl(url);
-  const targetUrl = fileUrl;
+  const targetUrl = getPreviewTargetUrl(url);
+
 
 
   const handleClick = (e: React.MouseEvent) => {

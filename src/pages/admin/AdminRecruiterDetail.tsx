@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { recruitersApi, authApi, auditApi, filesApi, getFileUrl } from "@/services/api";
+import { recruitersApi, authApi, auditApi, filesApi, getFileUrl, getPreviewTargetUrl } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -508,7 +508,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                         variant="outline"
                         size="sm"
                         className="rounded-xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 flex items-center gap-2 h-10 px-4"
-                        onClick={() => window.open(getFileUrl(formData.resume_file), "_blank")}
+                        onClick={() => window.open(getPreviewTargetUrl(formData.resume_file), "_blank")}
                       >
                         <FileUp className="h-4 w-4" /> View / Download Resume
                       </Button>

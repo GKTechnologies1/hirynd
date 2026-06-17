@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { authApi } from "@/services/api";
+import { authApi, getPreviewTargetUrl } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
@@ -399,7 +399,7 @@ const AdminApprovalsPage = () => {
                       <p className="text-[10px] uppercase text-blue-600/60 font-bold tracking-tight block mb-1.5">Uploaded Resume</p>
                       {selectedUser?.resume_file ? (
                         <a
-                          href={selectedUser.resume_file}
+                          href={getPreviewTargetUrl(selectedUser.resume_file)}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 text-xs font-bold bg-white text-blue-700 px-4 py-2.5 rounded-lg border border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm"
@@ -456,7 +456,7 @@ const AdminApprovalsPage = () => {
                       <p className="text-[10px] uppercase text-teal-600/60 font-bold tracking-tight block mb-1.5">Uploaded Resume</p>
                       {selectedUser?.resume_file ? (
                         <a
-                          href={selectedUser.resume_file}
+                          href={getPreviewTargetUrl(selectedUser.resume_file)}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 text-xs font-bold bg-white text-teal-700 px-4 py-2.5 rounded-lg border border-teal-200 hover:bg-teal-50 hover:border-teal-300 transition-all shadow-sm"

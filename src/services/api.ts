@@ -48,6 +48,26 @@ export const getFileUrl = (url: string | null | undefined): string => {
   return `${BACKEND_URL}${path}`;
 };
 
+export const getPreviewTargetUrl = (url: string | null | undefined): string => {
+  if (!url) return "";
+  
+  // Clean URL to check extension (ignoring query parameters and hash)
+  const cleanUrl = url.split('?')[0].split('#')[0].toLowerCase();
+  const isOfficeDoc = cleanUrl.endsWith('.doc') || 
+                      cleanUrl.endsWith('.docx') || 
+                      cleanUrl.endsWith('.xls') || 
+                      cleanUrl.endsWith('.xlsx') || 
+                      cleanUrl.endsWith('.ppt') || 
+                      cleanUrl.endsWith('.pptx');
+  
+  if (isOfficeDoc) {
+    return `/preview?url=${encodeURIComponent(url)}`;
+  }
+  
+  return getFileUrl(url);
+};
+
+
 
 const api = axios.create({
   baseURL: API_BASE_URL,
