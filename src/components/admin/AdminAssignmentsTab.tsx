@@ -66,7 +66,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
       return;
     }
 
-    const isAlreadyAssigned = assignments.some(a => a.recruiter_email === recruiterObj?.email);
+    const isAlreadyAssigned = assignments.some(a => a.recruiter_email === recruiterObj?.email && a.is_active === true);
 
     if (isAlreadyAssigned) {
       toast({
@@ -118,7 +118,9 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
   const canAssign = ["payment_completed", "credentials_submitted", "active_marketing"].includes(candidateStatus);
   const canStartMarketing = ["payment_completed", "credentials_submitted"].includes(candidateStatus) && hasCredentials && assignments.length > 0;
-  const assignedRecruiterNames = assignments.map((a: any) => a.recruiter_name && a.is_active === true);
+  const assignedRecruiterEmails = assignments
+    .filter((a: any) => a.is_active === true)
+    .map((a: any) => a.recruiter_email);
 
   return (
     <div className="space-y-4">
@@ -189,7 +191,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                 <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
                   <SelectTrigger><SelectValue placeholder="Select recruiter" /></SelectTrigger>
                   <SelectContent>
-                    {recruiters.filter((r: any) => !assignedRecruiterNames.includes(r.profile?.full_name)).map((r: any) => (
+                    {recruiters.filter((r: any) => !assignedRecruiterEmails.includes(r.email)).map((r: any) => (
                       <SelectItem key={r.id} value={r.id} >
                         <div className="flex justify-between items-center w-full gap-2">
                           <span className="truncate">{r.profile?.full_name || r.email} ({r.email})</span>
