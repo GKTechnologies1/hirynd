@@ -674,6 +674,14 @@ def reopen_intake(request, candidate_id):
         intake = ClientIntake.objects.get(candidate_id=candidate_id)
         intake.is_locked = False
         intake.save()
+        
+        try:
+            candidate = Candidate.objects.get(id=candidate_id)
+            candidate.status = 'approved'
+            candidate.save()
+        except Candidate.DoesNotExist:
+            pass
+            
         log_action(request.user, 'intake_reopened', str(candidate_id), 'intake', {})
         return Response({'message': 'Intake reopened'})
     except ClientIntake.DoesNotExist:
