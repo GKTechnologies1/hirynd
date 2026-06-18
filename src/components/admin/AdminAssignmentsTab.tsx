@@ -56,12 +56,12 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
     if (!selectedRecruiter || !selectedRole) return;
 
     const recruiterObj = recruiters.find(r => r.id === selectedRecruiter);
-    
+
     if (recruiterObj?.approval_status === "rejected") {
-      toast({ 
-        title: "Assignment Failed", 
-        description: "Rejected recruiters cannot be assigned to candidates.", 
-        variant: "destructive" 
+      toast({
+        title: "Assignment Failed",
+        description: "Rejected recruiters cannot be assigned to candidates.",
+        variant: "destructive"
       });
       return;
     }
@@ -69,10 +69,10 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
     const isAlreadyAssigned = assignments.some(a => a.recruiter_email === recruiterObj?.email);
 
     if (isAlreadyAssigned) {
-      toast({ 
-        title: "Assignment Failed", 
-        description: "This recruiter is already assigned to this candidate.", 
-        variant: "destructive" 
+      toast({
+        title: "Assignment Failed",
+        description: "This recruiter is already assigned to this candidate.",
+        variant: "destructive"
       });
       return;
     }
@@ -118,6 +118,7 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
   const canAssign = ["payment_completed", "credentials_submitted", "active_marketing"].includes(candidateStatus);
   const canStartMarketing = ["payment_completed", "credentials_submitted"].includes(candidateStatus) && hasCredentials && assignments.length > 0;
+  const assignedRecruiterNames = assignments.map((a: any) => a.recruiter_name && a.is_active === true);
 
   return (
     <div className="space-y-4">
@@ -175,8 +176,6 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
           )}
         </CardContent>
       </Card>
-
-
       {/* Assign New */}
       {canAssign && (
         <Card>
@@ -190,8 +189,8 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                 <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
                   <SelectTrigger><SelectValue placeholder="Select recruiter" /></SelectTrigger>
                   <SelectContent>
-                    {recruiters.map((r: any) => (
-                      <SelectItem key={r.id} value={r.id}>
+                    {recruiters.filter((r: any) => !assignedRecruiterNames.includes(r.profile?.full_name)).map((r: any) => (
+                      <SelectItem key={r.id} value={r.id} >
                         <div className="flex justify-between items-center w-full gap-2">
                           <span className="truncate">{r.profile?.full_name || r.email} ({r.email})</span>
                           <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary border border-primary/20">

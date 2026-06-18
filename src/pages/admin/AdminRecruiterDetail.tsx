@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   User, Mail, Phone, MapPin, Briefcase, Award, Calendar,
   BarChart3, TrendingUp, History, Save, ArrowLeft, Loader2,
-  Shield, CheckCircle2, XCircle, Clock, Eye, EyeOff, Landmark, Users, FileUp, Check
+  Shield, CheckCircle2, XCircle, Clock, Eye, EyeOff, Landmark, Users, FileUp, Check, Linkedin
 } from "lucide-react";
 import { DataTable } from "@/components/ui/DataTable";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -73,6 +73,11 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
   const [maskBank, setMaskBank] = useState(true);
   const [isBankEditing, setIsBankEditing] = useState(false);
   const [savingBank, setSavingBank] = useState(false);
+  const [isIdentityEditing, setIsIdentityEditing] = useState(false);
+  const [isEducationEditing, setIsEducationEditing] = useState(false);
+  const [isReferralEditing, setIsReferralEditing] = useState(false);
+  const [isProfessionalEditing, setIsProfessionalEditing] = useState(false);
+  const [isStaffEditing, setIsStaffEditing] = useState(false);
 
   // Document upload states
   const [documents, setDocuments] = useState<any>({
@@ -171,38 +176,181 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
 
   useEffect(() => { fetchData(); }, [id]);
 
-  const handleUpdate = async () => {
+  const handleSaveIdentity = async () => {
     if (!id) return;
     setSaving(true);
     try {
-      const cleanData = { ...formData };
-
-      // Convert MM-dd-yyyy back to yyyy-MM-dd for backend
-      if (cleanData.graduation_date && (cleanData.graduation_date.includes("-") || cleanData.graduation_date.includes("/"))) {
-        try {
-          const parsed = parse(cleanData.graduation_date.replace(/\//g, "-"), "MM-dd-yyyy", new Date());
-          if (!isNaN(parsed.getTime())) cleanData.graduation_date = format(parsed, "yyyy-MM-dd");
-        } catch (e) { }
-      }
-
-      if (cleanData.date_of_joining && (cleanData.date_of_joining.includes("-") || cleanData.date_of_joining.includes("/"))) {
-        try {
-          const parsed = parse(cleanData.date_of_joining.replace(/\//g, "-"), "MM-dd-yyyy", new Date());
-          if (!isNaN(parsed.getTime())) cleanData.date_of_joining = format(parsed, "yyyy-MM-dd");
-        } catch (e) { }
-      }
-
-      if (!cleanData.graduation_date) (cleanData.graduation_date as any) = null;
-      if (!cleanData.date_of_joining) (cleanData.date_of_joining as any) = null;
-
-      await recruitersApi.adminUpdateProfile(id, cleanData);
-      toast({ title: "Profile updated successfully" });
+      await recruitersApi.adminUpdateProfile(id, {
+        full_name: formData.full_name,
+        phone: formData.phone,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+      });
+      toast({ title: "Identity details updated successfully" });
+      setIsIdentityEditing(false);
       fetchData();
     } catch (err: any) {
       toast({ title: "Update failed", description: err.response?.data?.error || "Check your input", variant: "destructive" });
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCancelIdentity = () => {
+    if (!recruiter) return;
+    const data = recruiter;
+    setFormData(prev => ({
+      ...prev,
+      full_name: data.full_name || data.profile?.full_name || "",
+      phone: data.phone || data.profile?.phone || "",
+      city: data.city || data.profile?.city || "",
+      state: data.state || data.profile?.state || "",
+      country: data.country || data.profile?.country || ""
+    }));
+    setIsIdentityEditing(false);
+  };
+
+  const handleSaveEducation = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      let gradDate = formData.graduation_date;
+      if (gradDate && (gradDate.includes("-") || gradDate.includes("/"))) {
+        try {
+          const parsed = parse(gradDate.replace(/\//g, "-"), "MM-dd-yyyy", new Date());
+          if (!isNaN(parsed.getTime())) gradDate = format(parsed, "yyyy-MM-dd");
+        } catch (e) { }
+      }
+      const cleanGradDate = gradDate ? gradDate : null;
+
+      await recruitersApi.adminUpdateProfile(id, {
+        university: formData.university,
+        degree: formData.degree,
+        major: formData.major,
+        graduation_date: cleanGradDate,
+      });
+      toast({ title: "Education details updated successfully" });
+      setIsEducationEditing(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.response?.data?.error || "Check your input", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEducation = () => {
+    if (!recruiter) return;
+    const data = recruiter;
+    setFormData(prev => ({
+      ...prev,
+      university: data.university || data.profile?.university || "",
+      degree: data.degree || data.profile?.degree || "",
+      major: data.major || data.profile?.major || "",
+      graduation_date: data.graduation_date || data.profile?.graduation_date || ""
+    }));
+    setIsEducationEditing(false);
+  };
+
+  const handleSaveReferral = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await recruitersApi.adminUpdateProfile(id, {
+        referral_source: formData.referral_source,
+        referral_friend_name: formData.referral_friend_name,
+        work_type_preference: formData.work_type_preference,
+      });
+      toast({ title: "Registration & referral details updated successfully" });
+      setIsReferralEditing(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.response?.data?.error || "Check your input", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelReferral = () => {
+    if (!recruiter) return;
+    const data = recruiter;
+    setFormData(prev => ({
+      ...prev,
+      referral_source: data.referral_source || "",
+      referral_friend_name: data.referral_friend_name || "",
+      work_type_preference: data.work_type_preference || data.profile?.work_type_preference || ""
+    }));
+    setIsReferralEditing(false);
+  };
+
+  const handleSaveProfessional = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await recruitersApi.adminUpdateProfile(id, {
+        linkedin_url: formData.linkedin_url,
+        social_profile_url: formData.social_profile_url,
+        prior_recruitment_experience: formData.prior_recruitment_experience,
+      });
+      toast({ title: "Professional details updated successfully" });
+      setIsProfessionalEditing(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.response?.data?.error || "Check your input", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelProfessional = () => {
+    if (!recruiter) return;
+    const data = recruiter;
+    setFormData(prev => ({
+      ...prev,
+      linkedin_url: data.linkedin_url || data.profile?.linkedin_url || "",
+      social_profile_url: data.social_profile_url || data.profile?.social_profile_url || "",
+      prior_recruitment_experience: data.prior_recruitment_experience || data.profile?.prior_recruitment_experience || ""
+    }));
+    setIsProfessionalEditing(false);
+  };
+
+  const handleSaveStaff = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      let doj = formData.date_of_joining;
+      if (doj && (doj.includes("-") || doj.includes("/"))) {
+        try {
+          const parsed = parse(doj.replace(/\//g, "-"), "MM-dd-yyyy", new Date());
+          if (!isNaN(parsed.getTime())) doj = format(parsed, "yyyy-MM-dd");
+        } catch (e) { }
+      }
+      const cleanDoj = doj ? doj : null;
+
+      await recruitersApi.adminUpdateProfile(id, {
+        date_of_joining: cleanDoj,
+        max_clients: formData.max_clients,
+      });
+      toast({ title: "Administrative details updated successfully" });
+      setIsStaffEditing(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.response?.data?.error || "Check your input", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelStaff = () => {
+    if (!recruiter) return;
+    const data = recruiter;
+    setFormData(prev => ({
+      ...prev,
+      date_of_joining: data.date_of_joining || data.profile?.date_of_joining || "",
+      max_clients: data.max_clients || data.profile?.max_clients || 3
+    }));
+    setIsStaffEditing(false);
   };
 
   const handleSaveBankDetails = async () => {
@@ -217,6 +365,17 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
     } finally {
       setSavingBank(false);
     }
+  };
+
+  const handleCancelBank = () => {
+    if (!recruiter) return;
+    const bank = recruiter.bank_details || recruiter.profile?.bank_details || {};
+    setBankDetails({
+      bank_name: bank.bank_name || "",
+      account_number: bank.account_number_last4 ? `****${bank.account_number_last4}` : bank.account_number || "",
+      routing_number: bank.routing_number_last4 ? `****${bank.routing_number_last4}` : bank.routing_number || ""
+    });
+    setIsBankEditing(false);
   };
 
   const handleDocumentUpload = async (docType: string, file: File) => {
@@ -295,14 +454,6 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            onClick={handleUpdate}
-            disabled={saving}
-            className="rounded-xl px-6 h-11 font-black tracking-tight shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save Changes
-          </Button>
         </div>
       </div>
 
@@ -310,7 +461,6 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
         <TabsList className="bg-card/50 p-1 border border-border/40 rounded-2xl mb-6">
           <TabsTrigger value="overview" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overview</TabsTrigger>
           <TabsTrigger value="assigned_candidates" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Assigned Candidates</TabsTrigger>
-          <TabsTrigger value="professional" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Professional</TabsTrigger>
           <TabsTrigger value="staff" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Staff Details</TabsTrigger>
           <TabsTrigger value="documents" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Documents</TabsTrigger>
           <TabsTrigger value="performance" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Performance</TabsTrigger>
@@ -321,16 +471,20 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
         <TabsContent value="overview">
           <div className="grid gap-6 md:grid-cols-2">
             <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
-              <CardHeader className="bg-primary/5 pb-4">
+              <CardHeader className="bg-primary/5 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <User className="h-4 w-4 text-primary" /> Identity & Contact
                 </CardTitle>
+                {!isIdentityEditing && (
+                  <Button variant="outline" size="sm" onClick={() => setIsIdentityEditing(true)}>Edit</Button>
+                )}
               </CardHeader>
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
                   <Input
                     value={formData.full_name}
+                    disabled={!isIdentityEditing}
                     onChange={e => setFormData({ ...formData, full_name: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
@@ -347,6 +501,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                   <Input
                     value={formData.phone}
+                    disabled={!isIdentityEditing}
                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
@@ -354,17 +509,27 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">City</Label>
-                    <Input value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                    <Input disabled={!isIdentityEditing} value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">State</Label>
-                    <Input value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                    <Input disabled={!isIdentityEditing} value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Country</Label>
-                    <Input value={formData.country} onChange={e => setFormData({ ...formData, country: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
+                    <Input disabled={!isIdentityEditing} value={formData.country} onChange={e => setFormData({ ...formData, country: e.target.value })} className="h-10 rounded-lg bg-muted/20 text-xs" />
                   </div>
                 </div>
+                {isIdentityEditing && (
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" className="flex-1 h-11" onClick={handleCancelIdentity} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button className="flex-1 h-11" onClick={handleSaveIdentity} disabled={saving}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -404,68 +569,106 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                   <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.routing_number} onChange={e => setBankDetails({ ...bankDetails, routing_number: e.target.value })} />
                 </div>
                 {isBankEditing && (
-                  <Button className="w-full h-11" onClick={handleSaveBankDetails} disabled={savingBank}>
-                    {savingBank ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save Bank Details
-                  </Button>
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" className="flex-1 h-11" onClick={handleCancelBank} disabled={savingBank}>
+                      Cancel
+                    </Button>
+                    <Button className="flex-1 h-11" onClick={handleSaveBankDetails} disabled={savingBank}>
+                      {savingBank ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
 
             <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
-              <CardHeader className="bg-secondary/5 pb-4">
+              <CardHeader className="bg-secondary/5 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <Award className="h-4 w-4 text-secondary" /> University / College
                 </CardTitle>
+                {!isEducationEditing && (
+                  <Button variant="outline" size="sm" onClick={() => setIsEducationEditing(true)}>Edit</Button>
+                )}
               </CardHeader>
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">University/college</Label>
                   <Input
                     value={formData.university}
+                    disabled={!isEducationEditing}
                     onChange={e => setFormData({ ...formData, university: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree & Major</Label>
-                  <Input
-                    value={`${formData.degree || ""}${formData.degree && formData.major ? " & " : ""}${formData.major || ""}`}
-                    onChange={e => {
-                      const val = e.target.value;
-                      const [d, ...m] = val.split("&");
-                      setFormData(prev => ({
-                        ...prev,
-                        degree: (d || "").trim(),
-                        major: m.join("/").trim()
-                      }));
-                    }}
-                    className="h-11 rounded-xl bg-muted/20"
-                    placeholder="e.g., Master's in Computer Science"
-                  />
-                </div>
+                {isEducationEditing ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree</Label>
+                      <Input
+                        value={formData.degree}
+                        onChange={e => setFormData({ ...formData, degree: e.target.value })}
+                        className="h-11 rounded-xl bg-muted/20"
+                        placeholder="e.g. Bachelor of Science"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Major</Label>
+                      <Input
+                        value={formData.major}
+                        onChange={e => setFormData({ ...formData, major: e.target.value })}
+                        className="h-11 rounded-xl bg-muted/20"
+                        placeholder="e.g. Computer Science"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree & Major</Label>
+                    <Input
+                      value={`${formData.degree || ""}${formData.degree && formData.major ? " & " : ""}${formData.major || ""}`}
+                      disabled
+                      className="h-11 rounded-xl bg-muted/20"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Graduation Date</Label>
                   <DatePicker
                     value={formData.graduation_date}
+                    disabled={!isEducationEditing}
                     onChange={val => setFormData({ ...formData, graduation_date: val })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
+                {isEducationEditing && (
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" className="flex-1 h-11" onClick={handleCancelEducation} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button className="flex-1 h-11" onClick={handleSaveEducation} disabled={saving}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Registration & Referral Card */}
             <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40 flex flex-col">
-              <CardHeader className="bg-primary/5 pb-4">
+              <CardHeader className="bg-primary/5 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" /> Registration & Referral
                 </CardTitle>
+                {!isReferralEditing && (
+                  <Button variant="outline" size="sm" onClick={() => setIsReferralEditing(true)}>Edit</Button>
+                )}
               </CardHeader>
               <CardContent className="pt-6 space-y-4 flex-1">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Discovery Source</Label>
                   <Input
                     value={formData.referral_source}
+                    disabled={!isReferralEditing}
                     onChange={e => setFormData({ ...formData, referral_source: e.target.value })}
                     className="h-11 rounded-xl bg-muted/20"
                     placeholder="e.g. LinkedIn, Google, Friend, etc."
@@ -478,6 +681,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     </Label>
                     <Input
                       value={formData.referral_friend_name}
+                      disabled={!isReferralEditing}
                       onChange={e => setFormData({ ...formData, referral_friend_name: e.target.value })}
                       className="h-11 rounded-xl bg-muted/20"
                       placeholder={formData.referral_source?.toLowerCase() === "friend" ? "Name of the referring friend" : "Specified other source"}
@@ -488,6 +692,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Work Type Preference</Label>
                   <Select
                     value={formData.work_type_preference}
+                    disabled={!isReferralEditing}
                     onValueChange={v => setFormData({ ...formData, work_type_preference: v })}
                   >
                     <SelectTrigger className="h-11 rounded-xl bg-muted/20">
@@ -517,6 +722,108 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     <p className="text-[11px] text-muted-foreground italic ml-1">No resume uploaded during registration</p>
                   )}
                 </div>
+                {isReferralEditing && (
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" className="flex-1 h-11" onClick={handleCancelReferral} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button className="flex-1 h-11" onClick={handleSaveReferral} disabled={saving}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Professional Profile Card */}
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+              <CardHeader className="bg-primary/5 pb-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-primary" /> Professional Profile
+                </CardTitle>
+                {!isProfessionalEditing && (
+                  <Button variant="outline" size="sm" onClick={() => setIsProfessionalEditing(true)}>Edit</Button>
+                )}
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">LinkedIn URL</Label>
+                  {isProfessionalEditing ? (
+                    <Input
+                      type="url"
+                      value={formData.linkedin_url}
+                      onChange={e => setFormData({ ...formData, linkedin_url: e.target.value })}
+                      className="h-11 rounded-xl bg-muted/20"
+                      placeholder="https://linkedin.com/in/..."
+                    />
+                  ) : (
+                    formData.linkedin_url ? (
+                      <div className="h-11 rounded-xl bg-muted/10 border border-border/40 flex items-center px-4">
+                        <a
+                          href={formData.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-semibold text-primary hover:underline flex items-center gap-1.5 truncate"
+                        >
+                          <Linkedin className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="text-primary hover:underline truncate">{formData.linkedin_url}</span>
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="h-11 rounded-xl bg-muted/10 border border-border/40 flex items-center px-4 text-sm text-muted-foreground italic">
+                        No LinkedIn URL provided
+                      </div>
+                    )
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">GitHub Profile</Label>
+                  {isProfessionalEditing ? (
+                    <Input
+                      type="url"
+                      value={formData.social_profile_url}
+                      onChange={e => setFormData({ ...formData, social_profile_url: e.target.value })}
+                      className="h-11 rounded-xl bg-muted/20"
+                      placeholder="https://github.com/..."
+                    />
+                  ) : (
+                    formData.social_profile_url ? (
+                      <div className="h-11 rounded-xl bg-muted/10 border border-border/40 flex items-center px-4">
+                        <a
+                          href={formData.social_profile_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-semibold text-primary hover:underline flex items-center gap-1.5 truncate"
+                        >
+                          <span className="text-primary hover:underline truncate">{formData.social_profile_url}</span>
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="h-11 rounded-xl bg-muted/10 border border-border/40 flex items-center px-4 text-sm text-muted-foreground italic">
+                        No GitHub profile provided
+                      </div>
+                    )
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Prior Recruitment Experience</Label>
+                  <Input
+                    value={formData.prior_recruitment_experience}
+                    disabled={!isProfessionalEditing}
+                    onChange={e => setFormData({ ...formData, prior_recruitment_experience: e.target.value })}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                {isProfessionalEditing && (
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" className="flex-1 h-11" onClick={handleCancelProfessional} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button className="flex-1 h-11" onClick={handleSaveProfessional} disabled={saving}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -623,84 +930,6 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
           </Card>
         </TabsContent>
 
-        {/* Professional Tab */}
-        <TabsContent value="professional">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
-              <CardHeader className="bg-primary/5 pb-4">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-primary" /> Professional Profile
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">LinkedIn URL</Label>
-                  <Input
-                    type="url"
-                    value={formData.linkedin_url}
-                    onChange={e => setFormData({ ...formData, linkedin_url: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                  {formData.linkedin_url && (
-                    <a href={formData.linkedin_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 ml-1">
-                      Open Profile Link
-                    </a>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">GitHub Profile</Label>
-                  <Input
-                    type="url"
-                    value={formData.social_profile_url}
-                    onChange={e => setFormData({ ...formData, social_profile_url: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                    placeholder="https://github.com/..."
-                  />
-                  {formData.social_profile_url && (
-                    <a href={formData.social_profile_url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 ml-1">
-                      Open GitHub Link
-                    </a>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
-              <CardHeader className="bg-muted/50 pb-4">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" /> Preferences & Experience
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Work Type Preference</Label>
-                  <Select
-                    value={formData.work_type_preference}
-                    onValueChange={v => setFormData({ ...formData, work_type_preference: v })}
-                  >
-                    <SelectTrigger className="h-11 rounded-xl bg-muted/20">
-                      <SelectValue placeholder="Select Preference" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["Full-time", "Part-time", "Contract", "Remote"].map(o => (
-                        <SelectItem key={o} value={o}>{o}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Prior Recruitment Experience</Label>
-                  <Input
-                    value={formData.prior_recruitment_experience}
-                    onChange={e => setFormData({ ...formData, prior_recruitment_experience: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
         {/* Staff Details Tab */}
         <TabsContent value="staff">
           <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
@@ -711,19 +940,21 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                 </CardTitle>
                 <CardDescription className="text-[10px] uppercase font-bold tracking-tight text-secondary/70">Internal metadata controlled by Admin</CardDescription>
               </div>
+              {!isStaffEditing && (
+                <Button variant="outline" size="sm" onClick={() => setIsStaffEditing(true)}>Edit</Button>
+              )}
             </CardHeader>
-            <CardContent className="pt-6 grid gap-6 md:grid-cols-2">
-              <div className="space-y-4">
+            <CardContent className="pt-6 space-y-4">
+              <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Date of Joining</Label>
                   <DatePicker
                     value={formData.date_of_joining}
+                    disabled={!isStaffEditing}
                     onChange={val => setFormData({ ...formData, date_of_joining: val })}
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
-              </div>
-              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">System Limit (Max Clients)</Label>
                   <Input
@@ -731,11 +962,22 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                     min={1}
                     max={20}
                     value={formData.max_clients}
+                    disabled={!isStaffEditing}
                     onChange={e => setFormData({ ...formData, max_clients: parseInt(e.target.value) || 3 })}
                     className="h-11 rounded-xl bg-muted/20 font-bold"
                   />
                 </div>
               </div>
+              {isStaffEditing && (
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" className="flex-1 h-11" onClick={handleCancelStaff} disabled={saving}>
+                    Cancel
+                  </Button>
+                  <Button className="flex-1 h-11" onClick={handleSaveStaff} disabled={saving}>
+                    {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
