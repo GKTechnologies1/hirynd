@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/services/api";
@@ -546,7 +545,7 @@ const RecruiterLogin = () => {
 
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Prior Recruitment Experience</Label>
-                    <Textarea value={reg.prior_recruitment_experience} onChange={e => updateReg("prior_recruitment_experience", e.target.value)} maxLength={500} placeholder="specify years of experience" className="rounded-lg bg-neutral-50 min-h-[100px]" />
+                    <Input id="reg-prior_recruitment_experience" value={reg.prior_recruitment_experience} onChange={e => updateReg("prior_recruitment_experience", e.target.value)} maxLength={500} placeholder="specify years of experience" className="h-10 rounded-lg bg-neutral-50 border-neutral-200 shadow-sm" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium ml-1">Work Type Preference</Label>

@@ -58,9 +58,9 @@ const RecruiterHome = () => {
         setStats(statsRes?.data);
 
         // Auto-open if only one candidate is assigned
-        if (candData?.length === 1) {
-          navigate(`/recruiter-dashboard/candidates/${candData[0].id}`, { replace: true });
-        }
+        // if (candData?.length === 1) {
+        //   navigate(`/recruiter-dashboard/candidates/${candData[0].id}`, { replace: true });
+        // }
       } catch (err) {
         console.error("RecruiterDashboard: Core data fetch failed", err);
       }
@@ -217,7 +217,7 @@ const RecruiterHome = () => {
                 className: "px-6",
                 render: (c: any) => (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/10 text-secondary border border-secondary/20 uppercase tracking-tighter">
-                    {c.profile?.visa_status || "N/A"}
+                    {c?.visa_status || "N/A"}
                   </span>
                 )
               },

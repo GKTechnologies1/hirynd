@@ -36,7 +36,7 @@ const RecruiterProfilePage = () => {
   const [countryCode, setCountryCode] = useState("+1");
   const [isProfileEditing, setIsProfileEditing] = useState(false);
   const [isBankEditing, setIsBankEditing] = useState(false);
-  
+
   // Document upload states
   const [documents, setDocuments] = useState<any>({
     highest_degree_certificate_file: null,
@@ -65,7 +65,7 @@ const RecruiterProfilePage = () => {
           recruitersApi.getProfile(),
           recruitersApi.getBankDetails().catch(() => ({ data: null }))
         ]);
-        
+
         const fullName = user?.profile?.full_name || prof?.full_name || "";
         const nameParts = fullName.split(" ");
         const fName = nameParts[0] || "";
@@ -84,14 +84,14 @@ const RecruiterProfilePage = () => {
 
         const rawPhone = user?.profile?.phone || prof?.phone || "";
         if (rawPhone.startsWith("+")) {
-            const parts = rawPhone.split(" ");
-            if (parts.length > 1) {
-                setCountryCode(parts[0]);
-                setProfile(prev => ({ ...prev, phone: parts.slice(1).join("") }));
-            } else {
-                setCountryCode(rawPhone.slice(0, 3));
-                setProfile(prev => ({ ...prev, phone: rawPhone.slice(3) }));
-            }
+          const parts = rawPhone.split(" ");
+          if (parts.length > 1) {
+            setCountryCode(parts[0]);
+            setProfile(prev => ({ ...prev, phone: parts.slice(1).join("") }));
+          } else {
+            setCountryCode(rawPhone.slice(0, 3));
+            setProfile(prev => ({ ...prev, phone: rawPhone.slice(3) }));
+          }
         }
 
         if (bank) {
@@ -120,17 +120,17 @@ const RecruiterProfilePage = () => {
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     const submissionProfile = {
-        ...profile,
-        phone: `${countryCode} ${profile.phone}`
+      ...profile,
+      phone: `${countryCode} ${profile.phone}`
     };
 
     try {
       await recruitersApi.updateProfile(submissionProfile);
       // Update basic auth fields as well if changed
-      await authApi.updateProfile({ 
-          first_name: submissionProfile.first_name, 
-          last_name: submissionProfile.last_name,
-          phone: submissionProfile.phone
+      await authApi.updateProfile({
+        first_name: submissionProfile.first_name,
+        last_name: submissionProfile.last_name,
+        phone: submissionProfile.phone
       });
       await refreshUser();
       toast({ title: "Profile updated successfully" });
@@ -149,11 +149,11 @@ const RecruiterProfilePage = () => {
       toast({ title: "Bank details saved", description: "Audit record created and admin notified." });
       // Update masked view
       if (bankDetails.account_number.length > 4) {
-          setBankDetails(prev => ({
-              ...prev,
-              account_number: `****${bankDetails.account_number.slice(-4)}`,
-              routing_number: `****${bankDetails.routing_number.slice(-4)}`
-          }));
+        setBankDetails(prev => ({
+          ...prev,
+          account_number: `****${bankDetails.account_number.slice(-4)}`,
+          routing_number: `****${bankDetails.routing_number.slice(-4)}`
+        }));
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || "Failed to update bank details", variant: "destructive" });
@@ -167,7 +167,7 @@ const RecruiterProfilePage = () => {
     setUploadingDocs(prev => ({ ...prev, [docType]: true }));
     try {
       const { data } = await filesApi.upload(file, docType);
-      
+
       // Map docType to API field name
       const fieldMap: Record<string, string> = {
         'highest_degree_certificate': 'highest_degree_certificate_id',
@@ -175,10 +175,10 @@ const RecruiterProfilePage = () => {
         'pan_card': 'pan_card_id',
         'bank_passbook': 'bank_passbook_id'
       };
-      
+
       const fieldName = fieldMap[docType];
       await recruitersApi.updateProfile({ [fieldName]: data.id });
-      
+
       // Update local documents state
       setDocuments(prev => ({
         ...prev,
@@ -189,7 +189,7 @@ const RecruiterProfilePage = () => {
           uploaded_at: new Date().toISOString()
         }
       }));
-      
+
       toast({ title: "Success", description: `${docType.replace(/_/g, ' ')} uploaded successfully` });
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || "Failed to upload document", variant: "destructive" });
@@ -201,14 +201,14 @@ const RecruiterProfilePage = () => {
   if (loading) return <div className="p-12 text-center text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin mx-auto mr-2" /> Loading your profile...</div>;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }} 
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="max-w-4xl mx-auto space-y-8"
     >
       <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">My Profile & Payroll</h1>
-          <p className="text-muted-foreground text-sm font-medium">Manage your personal information and banking details for payroll.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">My Profile & Payroll</h1>
+        <p className="text-muted-foreground text-sm font-medium">Manage your personal information and banking details for payroll.</p>
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
@@ -230,15 +230,15 @@ const RecruiterProfilePage = () => {
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">First Name</Label>
                 <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                    <Input disabled={!isProfileEditing} className="pl-9 bg-background/50 h-10 text-sm" value={profile.first_name} onChange={e => setProfile({...profile, first_name: e.target.value})} />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                  <Input disabled={!isProfileEditing} className="pl-9 bg-background/50 h-10 text-sm" value={profile.first_name} onChange={e => setProfile({ ...profile, first_name: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Last Name</Label>
                 <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                    <Input disabled={!isProfileEditing} className="pl-9 bg-background/50 h-10 text-sm" value={profile.last_name} onChange={e => setProfile({...profile, last_name: e.target.value})} />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                  <Input disabled={!isProfileEditing} className="pl-9 bg-background/50 h-10 text-sm" value={profile.last_name} onChange={e => setProfile({ ...profile, last_name: e.target.value })} />
                 </div>
               </div>
             </div>
@@ -246,8 +246,8 @@ const RecruiterProfilePage = () => {
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Email Address</Label>
               <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                  <Input readOnly className="pl-9 bg-muted/30 border-dashed cursor-not-allowed h-10 text-sm opacity-80" value={profile.email} />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                <Input readOnly className="pl-9 bg-muted/30 border-dashed cursor-not-allowed h-10 text-sm opacity-80" value={profile.email} />
               </div>
             </div>
 
@@ -265,14 +265,14 @@ const RecruiterProfilePage = () => {
                   </SelectContent>
                 </Select>
                 <div className="relative flex-1">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                    <Input 
-                      disabled={!isProfileEditing}
-                      className="pl-9 bg-background/50 h-10 text-sm rounded-xl" 
-                      value={profile.phone} 
-                      onChange={e => setProfile({...profile, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
-                      placeholder="1234567890"
-                    />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                  <Input
+                    disabled={!isProfileEditing}
+                    className="pl-9 bg-background/50 h-10 text-sm rounded-xl"
+                    value={profile.phone}
+                    onChange={e => setProfile({ ...profile, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                    placeholder="1234567890"
+                  />
                 </div>
               </div>
             </div>
@@ -280,23 +280,23 @@ const RecruiterProfilePage = () => {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest opacity-60">City</Label>
-                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.city} onChange={e => setProfile({...profile, city: e.target.value})} />
+                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.city} onChange={e => setProfile({ ...profile, city: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest opacity-60">State</Label>
-                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.state} onChange={e => setProfile({...profile, state: e.target.value})} />
+                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.state} onChange={e => setProfile({ ...profile, state: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Country</Label>
-                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.country} onChange={e => setProfile({...profile, country: e.target.value})} />
+                <Input disabled={!isProfileEditing} className="bg-background/50 h-10 text-xs" value={profile.country} onChange={e => setProfile({ ...profile, country: e.target.value })} />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-widest opacity-60">LinkedIn URL</Label>
               <div className="relative">
-                  <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                  <Input disabled={!isProfileEditing} placeholder="https://linkedin.com/in/..." className="pl-9 bg-background/50 h-10 text-sm" value={profile.linkedin_url} onChange={e => setProfile({...profile, linkedin_url: e.target.value})} />
+                <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                <Input disabled={!isProfileEditing} placeholder="https://linkedin.com/in/..." className="pl-9 bg-background/50 h-10 text-sm" value={profile.linkedin_url} onChange={e => setProfile({ ...profile, linkedin_url: e.target.value })} />
               </div>
             </div>
 
@@ -326,24 +326,24 @@ const RecruiterProfilePage = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex gap-3 text-xs text-amber-700 dark:text-amber-400 mb-2">
-                  <ShieldCheck className="h-5 w-5 shrink-0" />
-                  <p>Bank details are masked after save. Updates trigger notifications to administrators and are recorded in the system audit log.</p>
+                <ShieldCheck className="h-5 w-5 shrink-0" />
+                <p>Bank details are masked after save. Updates trigger notifications to administrators and are recorded in the system audit log.</p>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Bank Name</Label>
-                <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.bank_name} onChange={e => setBankDetails({...bankDetails, bank_name: e.target.value})} placeholder="e.g. Chase Bank, Wells Fargo" />
+                <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.bank_name} onChange={e => setBankDetails({ ...bankDetails, bank_name: e.target.value })} placeholder="e.g. Chase Bank, Wells Fargo" />
               </div>
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Account Number</Label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     disabled={!isBankEditing}
-                    type={maskBank ? "password" : "text"} 
-                    className="bg-background/50 h-10 text-sm tracking-wider pr-10" 
-                    value={bankDetails.account_number} 
-                    onChange={e => setBankDetails({...bankDetails, account_number: e.target.value})} 
+                    type={maskBank ? "password" : "text"}
+                    className="bg-background/50 h-10 text-sm tracking-wider pr-10"
+                    value={bankDetails.account_number}
+                    onChange={e => setBankDetails({ ...bankDetails, account_number: e.target.value })}
                     placeholder="Enter full account number"
                   />
                   <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground h-8 w-8 hover:bg-transparent" onClick={() => setMaskBank(!maskBank)}>
@@ -354,7 +354,7 @@ const RecruiterProfilePage = () => {
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Routing Number</Label>
-                <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm tracking-wider" value={bankDetails.routing_number} onChange={e => setBankDetails({...bankDetails, routing_number: e.target.value})} placeholder="9-digit routing number" />
+                <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm tracking-wider" value={bankDetails.routing_number} onChange={e => setBankDetails({ ...bankDetails, routing_number: e.target.value })} placeholder="9-digit routing number" />
               </div>
 
               {isBankEditing && (
@@ -405,9 +405,9 @@ const RecruiterProfilePage = () => {
                   <p className="text-xs text-muted-foreground">File: {documents.highest_degree_certificate_file.name}</p>
                   <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.highest_degree_certificate_file.uploaded_at).toLocaleDateString()}</p>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 text-xs" 
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-xs"
                       disabled={uploadingDocs.highest_degree_certificate}
                       onClick={() => degreeInputRef.current?.click()}
                     >
@@ -425,9 +425,9 @@ const RecruiterProfilePage = () => {
                   </div>
                 </div>
               ) : (
-                <Button 
-                  variant="outline" 
-                  className="w-full text-xs" 
+                <Button
+                  variant="outline"
+                  className="w-full text-xs"
                   disabled={uploadingDocs.highest_degree_certificate}
                   onClick={() => degreeInputRef.current?.click()}
                 >
@@ -466,9 +466,9 @@ const RecruiterProfilePage = () => {
                   <p className="text-xs text-muted-foreground">File: {documents.government_id_card_file.name}</p>
                   <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.government_id_card_file.uploaded_at).toLocaleDateString()}</p>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 text-xs" 
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-xs"
                       disabled={uploadingDocs.government_id_card}
                       onClick={() => idCardInputRef.current?.click()}
                     >
@@ -486,9 +486,9 @@ const RecruiterProfilePage = () => {
                   </div>
                 </div>
               ) : (
-                <Button 
-                  variant="outline" 
-                  className="w-full text-xs" 
+                <Button
+                  variant="outline"
+                  className="w-full text-xs"
                   disabled={uploadingDocs.government_id_card}
                   onClick={() => idCardInputRef.current?.click()}
                 >
@@ -527,9 +527,9 @@ const RecruiterProfilePage = () => {
                   <p className="text-xs text-muted-foreground">File: {documents.pan_card_file.name}</p>
                   <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.pan_card_file.uploaded_at).toLocaleDateString()}</p>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 text-xs" 
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-xs"
                       disabled={uploadingDocs.pan_card}
                       onClick={() => panCardInputRef.current?.click()}
                     >
@@ -547,9 +547,9 @@ const RecruiterProfilePage = () => {
                   </div>
                 </div>
               ) : (
-                <Button 
-                  variant="outline" 
-                  className="w-full text-xs" 
+                <Button
+                  variant="outline"
+                  className="w-full text-xs"
                   disabled={uploadingDocs.pan_card}
                   onClick={() => panCardInputRef.current?.click()}
                 >
@@ -588,9 +588,9 @@ const RecruiterProfilePage = () => {
                   <p className="text-xs text-muted-foreground">File: {documents.bank_passbook_file.name}</p>
                   <p className="text-xs text-muted-foreground">Uploaded: {new Date(documents.bank_passbook_file.uploaded_at).toLocaleDateString()}</p>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 text-xs" 
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-xs"
                       disabled={uploadingDocs.bank_passbook}
                       onClick={() => bankPassbookInputRef.current?.click()}
                     >
@@ -608,9 +608,9 @@ const RecruiterProfilePage = () => {
                   </div>
                 </div>
               ) : (
-                <Button 
-                  variant="outline" 
-                  className="w-full text-xs" 
+                <Button
+                  variant="outline"
+                  className="w-full text-xs"
                   disabled={uploadingDocs.bank_passbook}
                   onClick={() => bankPassbookInputRef.current?.click()}
                 >
@@ -631,18 +631,18 @@ const RecruiterProfilePage = () => {
       </Card>
 
       <Card className="border-none shadow-sm bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Wallet className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <h4 className="text-sm font-bold">Payroll Schedule</h4>
-                        <p className="text-xs text-muted-foreground mt-0.5">Payments are processed bi-weekly. Ensure bank details are correct to avoid delays.</p>
-                    </div>
-                </div>
-              </CardContent>
-          </Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold">Payroll Schedule</h4>
+              <p className="text-xs text-muted-foreground mt-0.5">Payments are processed bi-monthly. Ensure bank details are correct to avoid delays.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </motion.div>
   );
 };
