@@ -1551,11 +1551,27 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                   const password = cData[portal.pw] || cData[portal.altPw];
                                   if (!username && !password) return null;
                                   return (
-                                    <div key={portal.label} className="bg-white border rounded-lg p-3">
-                                      <p className="font-bold text-[10px] text-muted-foreground mb-2">{portal.label}</p>
-                                      <div className="space-y-1">
-                                        <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{username || "N/A"}</span></p>
-                                        <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_${portal.pw}`)}>{password ? (showCredPasswords[`${v.id}_${portal.pw}`] ? password : "••••••••") : "N/A"}</span></p>
+                                    <div key={portal.label} className="bg-white border rounded-lg p-3 flex flex-col justify-between min-h-[90px]">
+                                      <div>
+                                        <p className="font-bold text-[10px] text-muted-foreground mb-1.5">{portal.label}</p>
+                                        <p className="text-[11px] truncate mb-1">Email/ID: <span className="font-medium">{username || "N/A"}</span></p>
+                                      </div>
+                                      <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-neutral-100 mt-1.5">
+                                        <p className="text-[11px] truncate flex-1">
+                                          PW: <span className="font-mono bg-muted px-1.5 py-0.5 rounded font-medium">{password ? (showCredPasswords[`${v.id}_${portal.pw}`] ? password : "••••••••") : "N/A"}</span>
+                                        </p>
+                                        {password && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            type="button"
+                                            className="h-6 w-6 hover:bg-neutral-100 text-muted-foreground/60 hover:text-secondary rounded-md"
+                                            onClick={() => toggleCredPw(`${v.id}_${portal.pw}`)}
+                                            title={showCredPasswords[`${v.id}_${portal.pw}`] ? "Hide password" : "Show password"}
+                                          >
+                                            {showCredPasswords[`${v.id}_${portal.pw}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                          </Button>
+                                        )}
                                       </div>
                                     </div>
                                   );
@@ -1576,11 +1592,27 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                   </h4>
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {cData.custom_platforms.map((cp: any, idx: number) => (
-                                      <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3">
-                                        <p className="font-bold text-[10px] text-amber-700 mb-2">{cp.platform_name || "Platform"}</p>
-                                        <div className="space-y-1">
-                                          <p className="text-[11px] truncate">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
-                                          <p className="text-[11px] truncate">PW: <span className="font-mono bg-muted px-1 rounded cursor-pointer hover:bg-muted/80" title="Click to reveal details" onClick={() => toggleCredPw(`${v.id}_cp_${idx}`)}>{cp.password ? (showCredPasswords[`${v.id}_cp_${idx}`] ? cp.password : "••••••••") : "N/A"}</span></p>
+                                      <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3 flex flex-col justify-between min-h-[90px]">
+                                        <div>
+                                          <p className="font-bold text-[10px] text-amber-700 mb-1.5">{cp.platform_name || "Platform"}</p>
+                                          <p className="text-[11px] truncate mb-1">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-amber-100 mt-1.5">
+                                          <p className="text-[11px] truncate flex-1">
+                                            PW: <span className="font-mono bg-muted px-1.5 py-0.5 rounded font-medium">{cp.password ? (showCredPasswords[`${v.id}_cp_${idx}`] ? cp.password : "••••••••") : "N/A"}</span>
+                                          </p>
+                                          {cp.password && (
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              type="button"
+                                              className="h-6 w-6 hover:bg-amber-50 text-amber-800/60 hover:text-amber-900 rounded-md"
+                                              onClick={() => toggleCredPw(`${v.id}_cp_${idx}`)}
+                                              title={showCredPasswords[`${v.id}_cp_${idx}`] ? "Hide password" : "Show password"}
+                                            >
+                                              {showCredPasswords[`${v.id}_cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                            </Button>
+                                          )}
                                         </div>
                                       </div>
                                     ))}
