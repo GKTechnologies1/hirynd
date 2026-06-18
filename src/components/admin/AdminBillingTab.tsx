@@ -263,7 +263,21 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div><Label>Plan Name</Label><Input value={formPlanName} onChange={e => setFormPlanName(e.target.value)} /></div>
-            <div><Label>Monthly Amount ($) *</Label><Input type="number" min="1" value={formAmount} onChange={e => setFormAmount(e.target.value)} placeholder="499" /></div>
+            <div>
+              <Label>Monthly Amount ($) *</Label>
+              <Input
+                type="number"
+                min="1"
+                onKeyDown={(e) => {
+                  if (e.key === '-') {
+                    e.preventDefault();
+                  }
+                }}
+                value={formAmount}
+                onChange={e => setFormAmount(e.target.value.replace(/-/g, ""))}
+                placeholder="499"
+              />
+            </div>
             <div><Label>Next Charge Date</Label><DatePicker value={formNextDate} onChange={setFormNextDate} /></div>
             <div><Label>Grace Days</Label><Input type="number" min="1" max="30" value={formGraceDays} onChange={e => setFormGraceDays(e.target.value)} /></div>
             <div><Label>Status</Label>

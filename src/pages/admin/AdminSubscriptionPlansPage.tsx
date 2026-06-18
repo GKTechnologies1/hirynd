@@ -458,7 +458,18 @@ const AdminSubscriptionPlansPage = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Amount ($)</Label>
-                <Input type="number" value={planForm.amount} onChange={e => setPlanForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
+                <Input
+                  type="number"
+                  min="0"
+                  onKeyDown={(e) => {
+                    if (e.key === '-') {
+                      e.preventDefault();
+                    }
+                  }}
+                  value={planForm.amount}
+                  onChange={e => setPlanForm(p => ({ ...p, amount: e.target.value.replace(/-/g, "") }))}
+                  placeholder="0.00"
+                />
               </div>
               <div>
                 <Label>Billing Cycle</Label>
@@ -492,7 +503,18 @@ const AdminSubscriptionPlansPage = () => {
             <div><Label>Description</Label><Textarea value={addonForm.description} onChange={e => setAddonForm(p => ({ ...p, description: e.target.value }))} rows={2} /></div>
             <div>
               <Label>Amount ($)</Label>
-              <Input type="number" value={addonForm.amount} onChange={e => setAddonForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
+              <Input
+                type="number"
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === '-') {
+                    e.preventDefault();
+                  }
+                }}
+                value={addonForm.amount}
+                onChange={e => setAddonForm(p => ({ ...p, amount: e.target.value.replace(/-/g, "") }))}
+                placeholder="0.00"
+              />
             </div>
           </div>
           <DialogFooter>
@@ -634,8 +656,14 @@ const AdminSubscriptionPlansPage = () => {
               <Label>Custom Price Override (USD)</Label>
               <Input
                 type="number"
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === '-') {
+                    e.preventDefault();
+                  }
+                }}
                 value={assignSubAmount}
-                onChange={e => setAssignSubAmount(e.target.value)}
+                onChange={e => setAssignSubAmount(e.target.value.replace(/-/g, ""))}
                 placeholder="Leave blank to use default plan price"
               />
             </div>
@@ -762,8 +790,14 @@ const AdminSubscriptionPlansPage = () => {
               <Label>Custom Price Override (USD)</Label>
               <Input
                 type="number"
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === '-') {
+                    e.preventDefault();
+                  }
+                }}
                 value={assignAddonAmount}
-                onChange={e => setAssignAddonAmount(e.target.value)}
+                onChange={e => setAssignAddonAmount(e.target.value.replace(/-/g, ""))}
                 placeholder="Leave blank to use default addon price"
               />
             </div>

@@ -1919,7 +1919,22 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div><Label>Amount ($) *</Label><Input type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="500.00" /></div>
+                  <div>
+                    <Label>Amount ($) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      onKeyDown={(e) => {
+                        if (e.key === '-') {
+                          e.preventDefault();
+                        }
+                      }}
+                      value={payAmount}
+                      onChange={e => setPayAmount(e.target.value.replace(/-/g, ""))}
+                      placeholder="500.00"
+                    />
+                  </div>
                   <div><Label>Type</Label>
                     <Select value={payType} onValueChange={setPayType}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
