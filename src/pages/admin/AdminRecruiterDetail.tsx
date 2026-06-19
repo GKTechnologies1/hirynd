@@ -35,6 +35,20 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
 
   const [recruiter, setRecruiter] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem(`admin_recruiter_active_tab_${id}`) || "overview";
+  });
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(`admin_recruiter_active_tab_${id}`) || "overview";
+    setActiveTab(stored);
+  }, [id]);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    sessionStorage.setItem(`admin_recruiter_active_tab_${id}`, val);
+  };
+
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
@@ -174,7 +188,10 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
     }
   };
 
-  useEffect(() => { fetchData(); }, [id]);
+  useEffect(() => {
+    setRecruiter(null);
+    fetchData();
+  }, [id]);
 
   const handleSaveIdentity = async () => {
     if (!id) return;
@@ -413,7 +430,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
     }
   };
 
-  if (loading) return (
+  if (loading && !recruiter) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <Loader2 className="h-10 w-10 animate-spin text-primary opacity-60" />
       <p className="text-sm font-bold text-muted-foreground animate-pulse">Retrieving recruiter profile...</p>
@@ -457,7 +474,7 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="bg-card/50 p-1 border border-border/40 rounded-2xl mb-6">
           <TabsTrigger value="overview" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overview</TabsTrigger>
           <TabsTrigger value="assigned_candidates" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Assigned Candidates</TabsTrigger>

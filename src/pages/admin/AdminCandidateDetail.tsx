@@ -301,6 +301,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   };
 
   useEffect(() => {
+    setCandidate(null);
     fetchAll(true, false);
     const interval = setInterval(() => {
       fetchAll(false, true);
@@ -588,7 +589,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading candidate data...</p></div>;
+  if (loading && !candidate) return <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading candidate data...</p></div>;
   if (!candidate) return <div className="p-8 text-center bg-muted/20 rounded-xl border border-dashed"><p className="text-muted-foreground">Candidate not found or internal system error.</p></div>;
 
   const intakeData = intake?.data as Record<string, any> | null;

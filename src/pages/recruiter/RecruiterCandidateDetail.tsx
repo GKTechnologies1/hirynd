@@ -269,6 +269,20 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [jobPostings, setJobPostings] = useState<any[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem(`recruiter_candidate_active_tab_${candidateId}`) || "overview";
+  });
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(`recruiter_candidate_active_tab_${candidateId}`) || "overview";
+    setActiveTab(stored);
+  }, [candidateId]);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    sessionStorage.setItem(`recruiter_candidate_active_tab_${candidateId}`, val);
+  };
+
   const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
 
   const [appSearchRole, setAppSearchRole] = useState("");
@@ -405,6 +419,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   }, [credentials]);
 
   useEffect(() => {
+    setCandidate(null);
     fetchAll(true, false);
     const interval = setInterval(() => {
       fetchAll(false, true);
@@ -613,7 +628,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     setSavingLog(false);
   };
 
-  if (loading) return <div className="p-8 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mx-auto mr-2 inline" /> Loading candidate file...</div>;
+  if (loading && !candidate) return <div className="p-8 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mx-auto mr-2 inline" /> Loading candidate file...</div>;
   if (!candidate) return <div className="p-8 text-center text-muted-foreground">Candidate not found.</div>;
 
   const intakeData = intake?.data as Record<string, any> | null;
@@ -656,7 +671,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         </Card>
       )}
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="bg-muted/50 p-1 h-auto flex-wrap justify-start border border-border/50 rounded-2xl shadow-sm">
           {[
             { value: "overview", label: "Overview", icon: <User className="h-3.5 w-3.5" /> },
