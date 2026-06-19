@@ -191,16 +191,23 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                 <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
                   <SelectTrigger><SelectValue placeholder="Select recruiter" /></SelectTrigger>
                   <SelectContent>
-                    {recruiters.filter((r: any) => !assignedRecruiterEmails.includes(r.email)).map((r: any) => (
-                      <SelectItem key={r.id} value={r.id} >
-                        <div className="flex justify-between items-center w-full gap-2">
-                          <span className="truncate">{r.profile?.full_name || r.email} ({r.email})</span>
-                          <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary border border-primary/20">
-                            {r.assigned_candidate_count ?? 0}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {recruiters
+                      .filter((r: any) => !assignedRecruiterEmails.includes(r.email))
+                      .filter((r: any) => {
+                        const maxClients = r.max_clients || 0;
+                        const activeCount = r.assigned_candidate_count ?? 0;
+                        return activeCount < maxClients;
+                      })
+                      .map((r: any) => (
+                        <SelectItem key={r.id} value={r.id} >
+                          <div className="flex justify-between items-center w-full gap-2">
+                            <span className="truncate">{r.profile?.full_name || r.email} ({r.email})</span>
+                            <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary border border-primary/20">
+                              {r.assigned_candidate_count ?? 0}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

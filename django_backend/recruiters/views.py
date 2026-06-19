@@ -38,8 +38,31 @@ def assign_recruiter(request):
     serializer.is_valid(raise_exception=True)
     
     recruiter_user = serializer.validated_data.get('recruiter')
+    candidate_obj = serializer.validated_data.get('candidate')
+    
     if recruiter_user and recruiter_user.approval_status == 'rejected':
         return Response({'error': 'Rejected recruiters cannot be assigned to candidates.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if recruiter_user and candidate_obj:
+        # Prevent duplicate active assignments
+        if RecruiterAssignment.objects.filter(recruiter=recruiter_user, candidate=candidate_obj, is_active=True).exists():
+            return Response({'error': 'This recruiter is already assigned to this candidate.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check client limit
+        active_count = RecruiterAssignment.objects.filter(
+            recruiter=recruiter_user, is_active=True
+        ).count()
+        
+        profile = getattr(recruiter_user, 'recruiter_profile', None)
+        max_clients = getattr(profile, 'max_clients', 3) if profile else 3
+        if max_clients is None:
+            max_clients = 3
+            
+        if active_count >= max_clients:
+            return Response(
+                {'error': f"Recruiter has reached their maximum limit of {max_clients} active clients."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
     serializer.save()
     log_action(request.user, 'recruiter_assigned', str(data.get('candidate')), 'assignment', data)

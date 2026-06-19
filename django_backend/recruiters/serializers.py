@@ -245,6 +245,7 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
     candidate_name = serializers.SerializerMethodField()
     candidate_display_id = serializers.SerializerMethodField()
     assigned_candidate_count = serializers.SerializerMethodField()
+    max_clients = serializers.SerializerMethodField()
 
     class Meta:
         model = RecruiterAssignment
@@ -275,6 +276,12 @@ class RecruiterAssignmentSerializer(serializers.ModelSerializer):
         # Fallback
         from .models import RecruiterAssignment
         return RecruiterAssignment.objects.filter(recruiter=obj.recruiter, is_active=True).count()
+
+    def get_max_clients(self, obj):
+        if not obj.recruiter:
+            return 3
+        profile = getattr(obj.recruiter, 'recruiter_profile', None)
+        return getattr(profile, 'max_clients', 3) if profile else 3
 
 
 class MyAssignmentSerializer(serializers.ModelSerializer):
