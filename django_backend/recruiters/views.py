@@ -324,7 +324,7 @@ def bank_details(request):
     
     if request.method == 'POST':
         acc = request.data.get('account_number', '')
-        rtn = request.data.get('routing_number', '')
+        rtn = request.data.get('routing_number', '') or request.data.get('ifsc_code', '')
         
         bank.bank_name = request.data.get('bank_name', bank.bank_name)
         if acc and not acc.startswith('****'):

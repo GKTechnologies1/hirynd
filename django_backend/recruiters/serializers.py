@@ -179,6 +179,9 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
                 'bank_name': bank.bank_name or "",
                 'account_number_last4': bank.account_number_last4 or "",
                 'routing_number_last4': bank.routing_number_last4 or "",
+                'account_number': bank.account_number_encrypted or "",
+                'ifsc_code': bank.routing_number_encrypted or "",
+                'routing_number': bank.routing_number_encrypted or "",
             }
         except Exception:
             return None
@@ -205,7 +208,7 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
                 bank.bank_name = bank_name
                 
             acc = bank_data.get('account_number', '')
-            rtn = bank_data.get('routing_number', '')
+            rtn = bank_data.get('routing_number', '') or bank_data.get('ifsc_code', '')
             
             if acc and not acc.startswith('****'):
                 bank.account_number_last4 = acc[-4:]
@@ -225,9 +228,13 @@ class AdminRecruiterFullSerializer(serializers.ModelSerializer):
 
 
 class RecruiterBankDetailsSerializer(serializers.ModelSerializer):
+    account_number = serializers.CharField(source='account_number_encrypted', required=False, allow_null=True, allow_blank=True)
+    ifsc_code = serializers.CharField(source='routing_number_encrypted', required=False, allow_null=True, allow_blank=True)
+    routing_number = serializers.CharField(source='routing_number_encrypted', required=False, allow_null=True, allow_blank=True)
+
     class Meta:
         model = RecruiterBankDetails
-        fields = ['bank_name', 'account_number_last4', 'routing_number_last4']
+        fields = ['bank_name', 'account_number_last4', 'routing_number_last4', 'account_number', 'ifsc_code', 'routing_number']
         read_only_fields = ['account_number_last4', 'routing_number_last4']
 
 

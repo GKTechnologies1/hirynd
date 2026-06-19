@@ -30,7 +30,8 @@ const RecruiterProfilePage = () => {
     account_number: "",
     routing_number: ""
   });
-  const [maskBank, setMaskBank] = useState(true);
+  const [maskAccount, setMaskAccount] = useState(true);
+  const [maskIfsc, setMaskIfsc] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingBank, setSavingBank] = useState(false);
   const [countryCode, setCountryCode] = useState("+1");
@@ -97,8 +98,8 @@ const RecruiterProfilePage = () => {
         if (bank) {
           setBankDetails({
             bank_name: bank.bank_name || "",
-            account_number: bank.account_number_last4 ? `****${bank.account_number_last4}` : "",
-            routing_number: bank.routing_number_last4 ? `****${bank.routing_number_last4}` : ""
+            account_number: bank.account_number || "",
+            routing_number: bank.ifsc_code || ""
           });
         }
 
@@ -147,14 +148,8 @@ const RecruiterProfilePage = () => {
     try {
       await recruitersApi.updateBankDetails(bankDetails);
       toast({ title: "Bank details saved", description: "Audit record created and admin notified." });
-      // Update masked view
-      if (bankDetails.account_number.length > 4) {
-        setBankDetails(prev => ({
-          ...prev,
-          account_number: `****${bankDetails.account_number.slice(-4)}`,
-          routing_number: `****${bankDetails.routing_number.slice(-4)}`
-        }));
-      }
+      setMaskAccount(true);
+      setMaskIfsc(true);
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || "Failed to update bank details", variant: "destructive" });
     } finally {
@@ -327,7 +322,7 @@ const RecruiterProfilePage = () => {
             <CardContent className="space-y-4">
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex gap-3 text-xs text-amber-700 dark:text-amber-400 mb-2">
                 <ShieldCheck className="h-5 w-5 shrink-0" />
-                <p>Bank details are masked after save. Updates trigger notifications to administrators and are recorded in the system audit log.</p>
+                <p>Bank details are masked by default. Click the eye icon to view complete values. Updates trigger notifications to administrators and are recorded in the system audit log.</p>
               </div>
 
               <div className="space-y-2">
@@ -340,21 +335,33 @@ const RecruiterProfilePage = () => {
                 <div className="relative">
                   <Input
                     disabled={!isBankEditing}
-                    type={maskBank ? "password" : "text"}
+                    type={maskAccount ? "password" : "text"}
                     className="bg-background/50 h-10 text-sm tracking-wider pr-10"
                     value={bankDetails.account_number}
                     onChange={e => setBankDetails({ ...bankDetails, account_number: e.target.value })}
                     placeholder="Enter full account number"
                   />
-                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground h-8 w-8 hover:bg-transparent" onClick={() => setMaskBank(!maskBank)}>
-                    {maskBank ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground h-8 w-8 hover:bg-transparent" onClick={() => setMaskAccount(!maskAccount)}>
+                    {maskAccount ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Routing Number</Label>
-                <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm tracking-wider" value={bankDetails.routing_number} onChange={e => setBankDetails({ ...bankDetails, routing_number: e.target.value })} placeholder="9-digit routing number" />
+                <Label className="text-xs font-bold uppercase tracking-widest opacity-60">IFSC Code</Label>
+                <div className="relative">
+                  <Input
+                    disabled={!isBankEditing}
+                    type={maskIfsc ? "password" : "text"}
+                    className="bg-background/50 h-10 text-sm tracking-wider pr-10 uppercase"
+                    value={bankDetails.routing_number}
+                    onChange={e => setBankDetails({ ...bankDetails, routing_number: e.target.value })}
+                    placeholder="Enter 11-digit IFSC code"
+                  />
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground h-8 w-8 hover:bg-transparent" onClick={() => setMaskIfsc(!maskIfsc)}>
+                    {maskIfsc ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
 
               {isBankEditing && (

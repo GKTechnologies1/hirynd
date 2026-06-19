@@ -84,7 +84,8 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
     account_number: "",
     routing_number: ""
   });
-  const [maskBank, setMaskBank] = useState(true);
+  const [maskAccount, setMaskAccount] = useState(true);
+  const [maskIfsc, setMaskIfsc] = useState(true);
   const [isBankEditing, setIsBankEditing] = useState(false);
   const [savingBank, setSavingBank] = useState(false);
   const [isIdentityEditing, setIsIdentityEditing] = useState(false);
@@ -152,8 +153,8 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
         const bank = data.bank_details || data.profile?.bank_details;
         setBankDetails({
           bank_name: bank.bank_name || "",
-          account_number: bank.account_number_last4 ? `****${bank.account_number_last4}` : bank.account_number || "",
-          routing_number: bank.routing_number_last4 ? `****${bank.routing_number_last4}` : bank.routing_number || ""
+          account_number: bank.account_number || "",
+          routing_number: bank.ifsc_code || ""
         });
       }
 
@@ -376,6 +377,8 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
       await recruitersApi.adminUpdateProfile(id!, { bank_details: bankDetails });
       toast({ title: "Bank details updated successfully" });
       setIsBankEditing(false);
+      setMaskAccount(true);
+      setMaskIfsc(true);
       fetchData();
     } catch (err: any) {
       toast({ title: "Update failed", description: err.message, variant: "destructive" });
@@ -389,10 +392,12 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
     const bank = recruiter.bank_details || recruiter.profile?.bank_details || {};
     setBankDetails({
       bank_name: bank.bank_name || "",
-      account_number: bank.account_number_last4 ? `****${bank.account_number_last4}` : bank.account_number || "",
-      routing_number: bank.routing_number_last4 ? `****${bank.routing_number_last4}` : bank.routing_number || ""
+      account_number: bank.account_number || "",
+      routing_number: bank.ifsc_code || ""
     });
     setIsBankEditing(false);
+    setMaskAccount(true);
+    setMaskIfsc(true);
   };
 
   const handleDocumentUpload = async (docType: string, file: File) => {
@@ -571,19 +576,31 @@ const AdminRecruiterDetail = ({ id: propId, onLoaded }: AdminRecruiterDetailProp
                   <div className="relative">
                     <Input
                       disabled={!isBankEditing}
-                      type={maskBank ? "password" : "text"}
+                      type={maskAccount ? "password" : "text"}
                       className="bg-background/50 h-10 text-sm tracking-wider pr-10"
                       value={bankDetails.account_number}
                       onChange={e => setBankDetails({ ...bankDetails, account_number: e.target.value })}
                     />
-                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground" onClick={() => setMaskBank(!maskBank)}>
-                      {maskBank ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:bg-transparent" onClick={() => setMaskAccount(!maskAccount)}>
+                      {maskAccount ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Routing Number</Label>
-                  <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.routing_number} onChange={e => setBankDetails({ ...bankDetails, routing_number: e.target.value })} />
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">IFSC Code</Label>
+                  <div className="relative">
+                    <Input
+                      disabled={!isBankEditing}
+                      type={maskIfsc ? "password" : "text"}
+                      className="bg-background/50 h-10 text-sm tracking-wider pr-10 uppercase"
+                      value={bankDetails.routing_number}
+                      onChange={e => setBankDetails({ ...bankDetails, routing_number: e.target.value })}
+                      placeholder="Enter 11-digit IFSC code"
+                    />
+                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:bg-transparent" onClick={() => setMaskIfsc(!maskIfsc)}>
+                      {maskIfsc ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
                 {isBankEditing && (
                   <div className="flex gap-2 pt-2">
