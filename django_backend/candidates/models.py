@@ -43,6 +43,7 @@ class Candidate(models.Model):
     referral_source = models.CharField(max_length=255, blank=True, null=True)
     referral_friend_name = models.CharField(max_length=255, blank=True, null=True)
     current_location = models.CharField(max_length=255, blank=True, null=True)
+    preferred_locations = models.TextField(blank=True, null=True, help_text='Preferred Location(s)')
     github_url = models.URLField(blank=True, null=True)
     
     # Marketing and Contact Details

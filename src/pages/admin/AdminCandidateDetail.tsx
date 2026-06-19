@@ -789,9 +789,15 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 grid gap-y-4 text-sm flex-1">
-                <div>
-                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Current Location</Label>
-                  <p className="font-medium text-foreground">{candidate?.current_location || "—"}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Current Location</Label>
+                    <p className="font-medium text-foreground">{candidate?.current_location || "—"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Preferred Location(s)</Label>
+                    <p className="font-medium text-foreground">{candidate?.preferred_locations || "—"}</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div>

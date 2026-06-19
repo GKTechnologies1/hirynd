@@ -827,6 +827,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
               </div>
 
               <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Preferred Location(s)</p>
+                <p className="font-medium">{candidate?.preferred_locations || "—"}</p>
+              </div>
+
+              <div className="space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-70">Resume File (PDF/DOCX) *</p>
                 <div className="font-medium mt-1">
                   {candidate?.resume_file || candidate?.resume_url ? (

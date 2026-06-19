@@ -112,7 +112,7 @@ class CandidateListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'display_id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
             'university', 'degree', 'major', 'graduation_year', 'graduation_date', 'referral_source',
-            'referral_friend_name', 'current_location', 'notes',
+            'referral_friend_name', 'current_location', 'preferred_locations', 'notes',
             'total_applications', 'total_interviews'
         ]
 

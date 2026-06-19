@@ -879,8 +879,10 @@ def upsert_credential(request, candidate_id):
     # ── Sync key fields from credential data to top-level Candidate model ──
     if merged_payload.get('personal_email'):
         candidate.personal_email = merged_payload['personal_email']
+    if merged_payload.get('location'):
+        candidate.current_location = merged_payload['location']
     if merged_payload.get('preferred_locations'):
-        candidate.current_location = merged_payload['preferred_locations']
+        candidate.preferred_locations = merged_payload['preferred_locations']
     if merged_payload.get('linkedin_id'):
         # Store LinkedIn ID as the linkedin_url field (best match in current model)
         candidate.linkedin_url = merged_payload['linkedin_id']
@@ -903,11 +905,11 @@ def upsert_credential(request, candidate_id):
 
     if candidate.status in ('payment_completed', 'roles_confirmed', 'pending_payment'):
         candidate.status = 'credentials_submitted'
-        candidate.save(update_fields=['status', 'personal_email', 'current_location',
+        candidate.save(update_fields=['status', 'personal_email', 'current_location', 'preferred_locations',
                                       'linkedin_url', 'bachelors_graduation_date',
                                       'masters_graduation_date', 'opt_start_date', 'first_entry_us'])
     else:
-        candidate.save(update_fields=['personal_email', 'current_location', 'linkedin_url',
+        candidate.save(update_fields=['personal_email', 'current_location', 'preferred_locations', 'linkedin_url',
                                       'bachelors_graduation_date', 'masters_graduation_date',
                                       'opt_start_date', 'first_entry_us'])
 

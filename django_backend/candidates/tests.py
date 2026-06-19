@@ -85,7 +85,8 @@ class CandidateCredentialsTests(TestCase):
         # But top-level model fields should be updated
         self.candidate.refresh_from_db()
         self.assertEqual(self.candidate.personal_email, 'john.doe@personal.com')
-        self.assertEqual(self.candidate.current_location, 'Remote')
+        self.assertEqual(self.candidate.current_location, 'New York, NY')
+        self.assertEqual(self.candidate.preferred_locations, 'Remote')
         self.assertEqual(self.candidate.linkedin_url, 'john-doe-linkedin')
         self.assertEqual(self.candidate.bachelors_graduation_date, date(2022, 5, 15))
 
