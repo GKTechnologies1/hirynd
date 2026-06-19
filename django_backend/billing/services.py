@@ -318,6 +318,25 @@ class AddonService:
                 ),
                 attachments=attachments,
             )
+
+            # Notify Admin/Operations
+            try:
+                from django.utils.html import escape
+                admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+                cand_name = _user_name(payment.candidate.user)
+                escaped_cand_name = escape(cand_name)
+                escaped_description = escape(description)
+                send_email(
+                    to=admin_email,
+                    subject=f'Payment Completed: {escaped_description} — {escaped_cand_name}',
+                    html=f'<p><strong>{escaped_cand_name}</strong> ({payment.candidate.user.email}) has successfully completed a payment of <strong>{payment.currency} {payment.amount}</strong> for <strong>{escaped_description}</strong>.</p>'
+                         f'<p><strong>Service Type:</strong> Addon Service ({escaped_description})</p>'
+                         f'<p><strong>Payment Reference:</strong> {escape(resolved_ref)}</p>'
+                         f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{payment.candidate.id}">View Candidate in Admin</a></p>',
+                    email_type='admin_notification'
+                )
+            except Exception as admin_err:
+                logger.error(f"Failed to send addon payment notification to admin: {admin_err}")
         except Exception as e:
             logger.error(f"Failed to generate invoice PDF or send email: {e}")
 
@@ -498,6 +517,24 @@ class PaymentService:
                 ),
                 attachments=attachments,
             )
+
+            # Notify Admin/Operations
+            try:
+                from django.utils.html import escape
+                admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+                cand_name = _user_name(candidate.user)
+                escaped_cand_name = escape(cand_name)
+                send_email(
+                    to=admin_email,
+                    subject=f'Payment Completed: {escaped_cand_name}',
+                    html=f'<p><strong>{escaped_cand_name}</strong> ({candidate.user.email}) has successfully completed a payment of <strong>{rp_order.currency} {rp_order.amount}</strong>.</p>'
+                         f'<p><strong>Service Type:</strong> Core Subscription Fee ({escape(sub.plan_name) if sub else "Monthly Service Fee"})</p>'
+                         f'<p><strong>Payment Reference:</strong> {escape(razorpay_payment_id)}</p>'
+                         f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View Candidate in Admin</a></p>',
+                    email_type='admin_notification'
+                )
+            except Exception as admin_err:
+                logger.error(f"Failed to send payment notification to admin: {admin_err}")
         except Exception as e:
             logger.error(f"Fulfillment invoice creation failed: {e}")
 
