@@ -210,17 +210,30 @@ def recruiter_stats(request):
     today_logs = logs.filter(log_date=today)
     week_logs = logs.filter(log_date__gte=start_of_week)
     
-    # We can also count interviews/offers from JobLinkEntry
+    # Aggregate manual daily logs (where is_manual=True)
+    manual_apps_today = sum(l.applications_count for l in today_logs.filter(is_manual=True))
+    manual_apps_week = sum(l.applications_count for l in week_logs.filter(is_manual=True))
+    manual_apps_total = sum(l.applications_count for l in logs.filter(is_manual=True))
+    
+    # Aggregate automated JobLinkEntry applications
+    auto_apps_today = JobLinkEntry.objects.filter(submitted_by=user, created_at__date=today).count()
+    auto_apps_week = JobLinkEntry.objects.filter(submitted_by=user, created_at__date__gte=start_of_week).count()
+    auto_apps_total = JobLinkEntry.objects.filter(submitted_by=user).count()
+
+    from candidates.models import InterviewLog
+    manual_interviews_week = InterviewLog.objects.filter(submitted_by=user, created_at__date__gte=start_of_week).count()
+    manual_interviews_total = InterviewLog.objects.filter(submitted_by=user).count()
+
     jobs = JobLinkEntry.objects.filter(submitted_by=user)
     week_interviews = jobs.filter(application_status__icontains='interview', updated_at__date__gte=start_of_week).count()
     week_offers = jobs.filter(application_status='offer', updated_at__date__gte=start_of_week).count()
 
     return Response({
-        'apps_today': sum(l.applications_count for l in today_logs),
-        'apps_week': sum(l.applications_count for l in week_logs),
-        'total_apps': sum(l.applications_count for l in logs),
-        'total_interviews': JobLinkEntry.objects.filter(submitted_by=user, application_status__icontains='interview').count(),
-        'interviews_week': week_interviews,
+        'apps_today': manual_apps_today + auto_apps_today,
+        'apps_week': manual_apps_week + auto_apps_week,
+        'total_apps': manual_apps_total + auto_apps_total,
+        'total_interviews': manual_interviews_total + JobLinkEntry.objects.filter(submitted_by=user, application_status__icontains='interview').count(),
+        'interviews_week': manual_interviews_week + week_interviews,
         'offers_week': week_offers
     })
 
@@ -378,13 +391,20 @@ def admin_productivity_report(request):
         total_assignments = r.recruiter_assignments.count()
         # Active assignments
         active_assignments = r.recruiter_assignments.filter(is_active=True).count()
-        # Total submissions (JobLinkEntry submitted by this user)
-        total_submissions = JobLinkEntry.objects.filter(submitted_by=r).count()
-        # Total interviews (status contains 'interview')
+        
+        # Total submissions (JobLinkEntry + manual logs sum)
+        from django.db.models import Sum
+        manual_subs = DailySubmissionLog.objects.filter(recruiter=r, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
+        total_submissions = JobLinkEntry.objects.filter(submitted_by=r).count() + manual_subs
+        
+        # Total interviews (JobLinkEntry status contains 'interview' + manual InterviewLog count)
+        from candidates.models import InterviewLog
+        manual_interviews = InterviewLog.objects.filter(submitted_by=r).count()
         total_interviews = JobLinkEntry.objects.filter(
             submitted_by=r, 
             application_status__icontains='interview'
-        ).count()
+        ).count() + manual_interviews
+        
         # Total offers
         total_offers = JobLinkEntry.objects.filter(
             submitted_by=r, 

@@ -981,6 +981,13 @@ def interviews(request, candidate_id):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        # Touch candidate to update updated_at
+        try:
+            candidate = Candidate.objects.get(id=candidate_id)
+            candidate.save()
+        except Candidate.DoesNotExist:
+            pass
+
         log_action(request.user, 'interview_outcome_update', str(candidate_id), 'interview', {'log_id': str(log.id), 'outcome': log.outcome})
         return Response(serializer.data)
 
@@ -989,6 +996,14 @@ def interviews(request, candidate_id):
     serializer = InterviewLogSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     serializer.save(submitted_by=request.user)
+
+    # Touch candidate to update updated_at
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+        candidate.save()
+    except Candidate.DoesNotExist:
+        pass
+
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 

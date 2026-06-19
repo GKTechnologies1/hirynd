@@ -1904,7 +1904,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         </TabsContent>
 
         <TabsContent value="interviews">
-          <RecruiterInterviewsTab candidateId={candidateId} candidateUserId={candidate.user_id} />
+          <RecruiterInterviewsTab 
+            candidateId={candidateId} 
+            candidateUserId={candidate.user_id} 
+            onRefresh={() => fetchAll(false)} 
+          />
         </TabsContent>
 
         <TabsContent value="messages">

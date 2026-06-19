@@ -77,13 +77,18 @@ class CandidateSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_total_applications(self, obj):
-        from recruiters.models import DailySubmissionLog
+        from recruiters.models import DailySubmissionLog, JobLinkEntry
         from django.db.models import Sum
-        return DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
+        manual_count = DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
+        auto_count = JobLinkEntry.objects.filter(candidate=obj).count()
+        return manual_count + auto_count
 
     def get_total_interviews(self, obj):
         from .models import InterviewLog
-        return InterviewLog.objects.filter(candidate=obj).count()
+        from recruiters.models import JobLinkEntry
+        manual_interviews = InterviewLog.objects.filter(candidate=obj).count()
+        link_interviews = JobLinkEntry.objects.filter(candidate=obj, application_status__icontains='interview').count()
+        return manual_interviews + link_interviews
 
     def to_representation(self, instance):
         try:
@@ -118,13 +123,18 @@ class CandidateListSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_total_applications(self, obj):
-        from recruiters.models import DailySubmissionLog
+        from recruiters.models import DailySubmissionLog, JobLinkEntry
         from django.db.models import Sum
-        return DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
+        manual_count = DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
+        auto_count = JobLinkEntry.objects.filter(candidate=obj).count()
+        return manual_count + auto_count
 
     def get_total_interviews(self, obj):
         from .models import InterviewLog
-        return InterviewLog.objects.filter(candidate=obj).count()
+        from recruiters.models import JobLinkEntry
+        manual_interviews = InterviewLog.objects.filter(candidate=obj).count()
+        link_interviews = JobLinkEntry.objects.filter(candidate=obj, application_status__icontains='interview').count()
+        return manual_interviews + link_interviews
 
     def to_representation(self, instance):
         try:

@@ -44,6 +44,7 @@ const OUTCOMES = ["scheduled", "completed", "selected", "rejected", "follow_up_n
 
 interface CandidateInterviewsPageProps {
   candidate: any;
+  onStatusChange?: () => void;
 }
 
 const LongTextCell = ({ 
@@ -135,7 +136,7 @@ const OutcomeDropdown = ({
 };
 
 
-const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) => {
+const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateInterviewsPageProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [logs, setLogs] = useState<any[]>([]);
@@ -219,7 +220,8 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
       toast({ title: "Interview log saved" });
       setShowForm(false);
       resetForm();
-      fetchLogs();
+      fetchLogs(false);
+      if (onStatusChange) onStatusChange();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
@@ -459,7 +461,10 @@ const CandidateInterviewsPage = ({ candidate }: CandidateInterviewsPageProps) =>
                       <OutcomeDropdown
                         candidateId={candidate.id}
                         log={l}
-                        onUpdateSuccess={() => fetchLogs(false)}
+                        onUpdateSuccess={() => {
+                          fetchLogs(false);
+                          if (onStatusChange) onStatusChange();
+                        }}
                       />
                     )
                   }

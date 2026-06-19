@@ -275,7 +275,7 @@ const CandidateDashboard = () => {
       case "payments": return <CandidatePaymentsPage candidate={candidate} onStatusChange={fetchData} />;
       case "billing": return <CandidateBillingPage candidate={candidate} />;
       case "applications": return <CandidateApplicationsPage candidate={candidate} />;
-      case "interviews": return <CandidateInterviewsPage candidate={candidate} />;
+      case "interviews": return <CandidateInterviewsPage candidate={candidate} onStatusChange={() => fetchData(false)} />;
       case "referrals": return <CandidateReferralsPage candidate={candidate} />;
       case "settings": return <CandidateSettingsPage />;
       case "messages": return <CandidateMessagesPage />;

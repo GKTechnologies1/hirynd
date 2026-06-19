@@ -31,6 +31,7 @@ const OUTCOMES = ["scheduled", "completed", "selected", "rejected", "follow_up_n
 interface RecruiterInterviewsTabProps {
   candidateId: string;
   candidateUserId: string;
+  onRefresh?: () => void;
 }
 
 const LongTextCell = ({ 
@@ -122,7 +123,7 @@ const OutcomeDropdown = ({
 };
 
 
-const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInterviewsTabProps) => {
+const RecruiterInterviewsTab = ({ candidateId, candidateUserId, onRefresh }: RecruiterInterviewsTabProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [logs, setLogs] = useState<any[]>([]);
@@ -206,7 +207,8 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
       toast({ title: "Log saved" });
       setShowForm(false);
       resetForm();
-      fetchLogs();
+      fetchLogs(false);
+      if (onRefresh) onRefresh();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
@@ -371,7 +373,10 @@ const RecruiterInterviewsTab = ({ candidateId, candidateUserId }: RecruiterInter
                   <OutcomeDropdown
                     candidateId={candidateId}
                     log={l}
-                    onUpdateSuccess={() => fetchLogs(false)}
+                    onUpdateSuccess={() => {
+                      fetchLogs(false);
+                      if (onRefresh) onRefresh();
+                    }}
                   />
                 )
               }
