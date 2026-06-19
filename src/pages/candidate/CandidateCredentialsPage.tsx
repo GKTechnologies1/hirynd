@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DatePicker } from "@/components/ui/DatePicker";
-import { cn } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
 
@@ -169,6 +169,44 @@ const DUPLICATE_PAIRS: [string, string][] = [
   ["opt_offer_submitted", "opt_offer_letter_submitted"],
   ["offer_letter_url", "opt_offer_letter_url"],
 ];
+
+const formatToMMDDYYYY = (date: string | Date | null | undefined): string => {
+  if (!date) return "—";
+  if (typeof date === "string") {
+    if (date.toLowerCase() === "present") return "Present";
+    const clean = date.trim();
+    const slashMatch = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+      const m = slashMatch[1].padStart(2, '0');
+      const d = slashMatch[2].padStart(2, '0');
+      const y = slashMatch[3];
+      return `${m}-${d}-${y}`;
+    }
+    const dashMatch = clean.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (dashMatch) {
+      const m = dashMatch[1].padStart(2, '0');
+      const d = dashMatch[2].padStart(2, '0');
+      const y = dashMatch[3];
+      return `${m}-${d}-${y}`;
+    }
+    const isoDashMatch = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoDashMatch) {
+      const y = isoDashMatch[1];
+      const m = isoDashMatch[2].padStart(2, '0');
+      const d = isoDashMatch[3].padStart(2, '0');
+      return `${m}-${d}-${y}`;
+    }
+  }
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return typeof date === "string" ? date : "—";
+  
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  
+  return `${month}-${day}-${year}`;
+};
 
 // --- Sub-components ---
 
@@ -1009,100 +1047,155 @@ const CandidateCredentialsPage = ({ candidate, onStatusChange }: CandidateCreden
           </CardHeader>
           <CardContent>
             <Accordion type="single" collapsible className="space-y-3">
-              {versions.map((v: any) => (
-                <AccordionItem key={v.id} value={v.id} className="bg-white rounded-xl border border-neutral-200 px-4 shadow-sm overflow-hidden border-none ring-1 ring-neutral-200/50">
-                  <AccordionTrigger className="hover:no-underline py-4">
-                    <div className="flex items-center gap-4 text-left">
-                      <Badge variant="secondary" className="h-7 w-8 flex items-center justify-center font-bold bg-muted text-muted-foreground">v{v.version}</Badge>
-                      <div className="space-y-0.5">
-                        <span className="font-bold text-sm block tracking-tight">Credentials Revision</span>
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium italic">
-                          <Clock className="h-3 w-3" /> {new Date(v.created_at).toLocaleString()}
-                        </span>
+              {versions.map((v: any) => {
+                const cData = v.data as Record<string, any>;
+                const optOfferVal = cData.opt_offer_submitted || cData.opt_offer_letter_submitted || cData.optOfferLetterSubmitted || "";
+                const optOfferDisplay = optOfferVal === "yes" ? "Yes" : optOfferVal === "no" ? "No" : optOfferVal === "waiting" ? "Waiting for One" : optOfferVal || "—";
+                return (
+                  <AccordionItem key={v.id} value={v.id} className="bg-white rounded-xl border border-neutral-200 px-4 shadow-sm overflow-hidden border-none ring-1 ring-neutral-200/50">
+                    <AccordionTrigger className="hover:no-underline py-4">
+                      <div className="flex items-center gap-4 text-left">
+                        <Badge variant="secondary" className="h-7 w-8 flex items-center justify-center font-bold bg-muted text-muted-foreground">v{v.version}</Badge>
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-sm block tracking-tight">Credentials Revision</span>
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium italic">
+                            <Clock className="h-3 w-3" /> {formatDate(v.created_at)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="pt-2 pb-6">
-                    <div className="grid gap-3 text-sm">
-                      {v.data && Object.entries(v.data as Record<string, any>)
-                        .filter(([key]) => {
-                          if (
-                            key === "custom_platforms" ||
-                            key === "submitted_timestamp" ||
-                            key === "email" ||
-                            key === "shared_email" ||
-                            key === "linkedin_url"
-                          )
-                            return false;
-                          // Skip secondary keys if their primary counterparts exist in v.data
-                          const pair = DUPLICATE_PAIRS.find(p => p[1] === key);
-                          if (pair) {
-                            const primaryKey = pair[0];
-                            if (v.data[primaryKey] !== undefined && v.data[primaryKey] !== null && v.data[primaryKey] !== "") {
-                              return false;
-                            }
-                          }
-                          // Skip offer letter if not submitted
-                          if (key === "offer_letter_url" || key === "opt_offer_letter_url") {
-                            const isOptOfferYes = v.data.opt_offer_submitted === "yes" || v.data.opt_offer_letter_submitted === "yes";
-                            if (!isOptOfferYes) return false;
-                          }
-                          return true;
-                        })
-                        .map(([key, value]) => {
-                          return value ? (
-                            <div key={key} className="col-span-full border-b border-neutral-50 pb-3 last:border-0 text-left">
-                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1 opacity-60">
-                                {CREDENTIAL_FIELD_LABELS[key] || key.replace(/_/g, " ")}:
-                              </span>
-                              <div className="text-foreground text-sm font-medium whitespace-pre-wrap leading-relaxed">
-                                {(key.includes('url') || key.includes('file')) ? (
-                                  <DocumentPreview
-                                    url={String(value)}
-                                    label="View Attached File"
-                                    className="text-blue-600 underline font-semibold cursor-pointer"
-                                  />
-                                ) : (key === "opt_offer_submitted" 
-                                  ? (value === "yes" ? "Yes" : (value === "no" ? "No" : (value === "waiting" ? "Waiting for One" : maskSensitive(key, String(value)))))
-                                  : maskSensitive(key, String(value)))}
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-2 pb-6">
+                      <div className="space-y-8 pt-4">
+                        {/* Top Identity Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+                          <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Full Name</p><p className="font-medium">{cData.full_name || cData.full_legal_name || "—"}</p></div>
+                          <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Personal Email</p><p className="font-medium">{cData.personal_email || cData.personalEmail || "—"}</p></div>
+                          <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Phone</p><p className="font-medium">{cData.phone_number || cData.phone || cData.phoneNumber || "—"}</p></div>
+                          <div className="col-span-2 md:col-span-3"><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold">Location</p><p className="font-medium">{cData.location || cData.location_city_state || "—"}</p></div>
+                        </div>
+
+                        {/* OPT & Entry */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-white p-4 rounded-lg shadow-sm border border-muted">
+                          <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Bachelor's Graduation Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.bachelors_grad_date || cData.bachelors_graduation_date)}</p></div>
+                          <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Master's Graduation Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.masters_grad_date || cData.masters_graduation_date)}</p></div>
+                          <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{formatToMMDDYYYY(cData.first_entry_us || cData.firstEntryUS)}</p></div>
+                          <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.opt_start_date || cData.optStartDate)}</p></div>
+                          <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{optOfferDisplay}</Badge></div>
+                          {(optOfferVal === "yes" && (cData.offer_letter_url || cData.opt_offer_letter_url)) && (
+                            <div>
+                              <p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Letter</p>
+                              <DocumentPreview
+                                url={cData.offer_letter_url || cData.opt_offer_letter_url}
+                                label="View attached letter"
+                                className="text-blue-600 underline font-semibold cursor-pointer mt-1 block"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Job Portals - CRITICAL DATA */}
+                        <div className="space-y-3">
+                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-destructive flex items-center gap-2">
+                            <Shield className="h-3 w-3" /> Job Portal Credentials
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {[
+                              { label: 'LinkedIn', id: 'linkedin_id', altId: 'linkedin_login_id', pw: 'linkedin_pass', altPw: 'linkedin_password' },
+                              { label: 'Indeed', id: 'indeed_id', altId: 'indeed_login_id', pw: 'indeed_pass', altPw: 'indeed_password' },
+                              { label: 'Dice', id: 'dice_id', altId: 'dice_login_id', pw: 'dice_pass', altPw: 'dice_password' },
+                              { label: 'Monster', id: 'monster_id', altId: 'monster_login_id', pw: 'monster_pass', altPw: 'monster_password' },
+                              { label: 'ZipRecruiter', id: 'ziprecruiter_id', altId: 'ziprecruiter_login_id', pw: 'ziprecruiter_pass', altPw: 'ziprecruiter_password' }
+                            ].map(portal => {
+                              const username = cData[portal.id] || cData[portal.altId];
+                              const password = cData[portal.pw] || cData[portal.altPw];
+                              if (!username && !password) return null;
+                              return (
+                                <div key={portal.label} className="bg-white border rounded-lg p-3 flex flex-col justify-between min-h-[90px]">
+                                  <div>
+                                    <p className="font-bold text-[10px] text-muted-foreground mb-1.5">{portal.label}</p>
+                                    <p className="text-[11px] truncate mb-1">Email/ID: <span className="font-medium">{username || "N/A"}</span></p>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-neutral-100 mt-1.5">
+                                    <p className="text-[11px] truncate flex-1">
+                                      PW: <span className="font-mono bg-muted px-1.5 py-0.5 rounded font-medium">{password ? (showCustomPw[`v_${v.id}_${portal.pw}`] ? password : "••••••••") : "N/A"}</span>
+                                    </p>
+                                    {password && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        type="button"
+                                        className="h-6 w-6 hover:bg-neutral-100 text-muted-foreground/60 hover:text-secondary rounded-md"
+                                        onClick={() => toggleCustomPw(`v_${v.id}_${portal.pw}`)}
+                                        title={showCustomPw[`v_${v.id}_${portal.pw}`] ? "Hide password" : "Show password"}
+                                      >
+                                        {showCustomPw[`v_${v.id}_${portal.pw}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {cData.other_platforms && (
+                            <div className="mt-4 bg-white border rounded-lg p-3 text-xs">
+                              <p className="font-bold text-[10px] text-muted-foreground mb-2">Other Platform Accounts</p>
+                              <p className="whitespace-pre-wrap leading-relaxed">{cData.other_platforms}</p>
+                            </div>
+                          )}
+
+                          {cData.custom_platforms && Array.isArray(cData.custom_platforms) && cData.custom_platforms.length > 0 && (
+                            <div className="mt-4">
+                              <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-2 mb-3">
+                                <Shield className="h-3 w-3" /> Custom Platforms
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {cData.custom_platforms.map((cp: any, idx: number) => (
+                                  <div key={idx} className="bg-white border border-amber-200/50 rounded-lg p-3 flex flex-col justify-between min-h-[90px]">
+                                    <div>
+                                      <p className="font-bold text-[10px] text-amber-700 mb-1.5">{cp.platform_name || "Platform"}</p>
+                                      <p className="text-[11px] truncate mb-1">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-amber-100 mt-1.5">
+                                      <p className="text-[11px] truncate flex-1">
+                                        PW: <span className="font-mono bg-muted px-1.5 py-0.5 rounded font-medium">{cp.password ? (showCustomPw[`v_${v.id}_cp_${idx}`] ? cp.password : "••••••••") : "N/A"}</span>
+                                      </p>
+                                      {cp.password && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          type="button"
+                                          className="h-6 w-6 hover:bg-amber-50 text-amber-800/60 hover:text-amber-900 rounded-md"
+                                          onClick={() => toggleCustomPw(`v_${v.id}_cp_${idx}`)}
+                                          title={showCustomPw[`v_${v.id}_cp_${idx}`] ? "Hide password" : "Show password"}
+                                        >
+                                          {showCustomPw[`v_${v.id}_cp_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             </div>
-                          ) : null;
-                        })}
+                          )}
+                        </div>
 
-                      {v.data?.custom_platforms && Array.isArray(v.data.custom_platforms) && v.data.custom_platforms.length > 0 && (
-                        <div className="col-span-full border-t border-neutral-100 pt-4 mt-2 text-left">
-                          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-2">
-                            Custom Job Platforms:
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {v.data.custom_platforms.map((cp: any, idx: number) => (
-                              <div key={idx} className="bg-amber-50/10 border border-amber-200/50 rounded-xl p-3 flex justify-between items-center gap-2">
-                                <div className="flex-1 overflow-hidden space-y-0.5">
-                                  <p className="text-[10px] font-bold text-amber-900 truncate">{cp.platform_name}</p>
-                                  <p className="text-[11px] text-amber-800 truncate">Email/ID: <span className="font-medium">{cp.username_email || "N/A"}</span></p>
-                                  <p className="text-[11px] font-mono text-amber-700 truncate">
-                                    PW: {showCustomPw[`v_${v.id}_${idx}`] ? cp.password : "••••••••"}
-                                  </p>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  type="button"
-                                  className="h-7 w-7 hover:bg-transparent text-amber-800/60 align-middle self-center"
-                                  onClick={() => toggleCustomPw(`v_${v.id}_${idx}`)}
-                                >
-                                  {showCustomPw[`v_${v.id}_${idx}`] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                                </Button>
-                              </div>
-                            ))}
+                        {/* Preferences */}
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="bg-primary/5 p-3 rounded-lg">
+                            <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Roles</p>
+                            <p className="text-xs font-medium">{cData.preferred_roles || cData.preferred_job_roles || cData.preferredRoles || "—"}</p>
+                          </div>
+                          <div className="bg-primary/5 p-3 rounded-lg">
+                            <p className="text-[9px] font-bold uppercase text-primary mb-1">Preferred Locations</p>
+                            <p className="text-xs font-medium">{cData.preferred_locations || cData.preferredLocations || "—"}</p>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
             </Accordion>
           </CardContent>
         </Card>
