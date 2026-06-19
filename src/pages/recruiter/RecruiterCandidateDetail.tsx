@@ -25,11 +25,42 @@ import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const formatToMMDDYYYY = (dateStr: string | null | undefined): string => {
-  if (!dateStr) return "—";
-  if (dateStr.toLowerCase() === "present") return "Present";
-  const formatted = formatDate(dateStr);
-  return formatted === "—" ? dateStr : formatted;
+const formatToMMDDYYYY = (date: string | Date | null | undefined): string => {
+  if (!date) return "—";
+  if (typeof date === "string") {
+    if (date.toLowerCase() === "present") return "Present";
+    const clean = date.trim();
+    const slashMatch = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+      const m = slashMatch[1].padStart(2, '0');
+      const d = slashMatch[2].padStart(2, '0');
+      const y = slashMatch[3];
+      return `${m}-${d}-${y}`;
+    }
+    const dashMatch = clean.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (dashMatch) {
+      const m = dashMatch[1].padStart(2, '0');
+      const d = dashMatch[2].padStart(2, '0');
+      const y = dashMatch[3];
+      return `${m}-${d}-${y}`;
+    }
+    const isoDashMatch = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoDashMatch) {
+      const y = isoDashMatch[1];
+      const m = isoDashMatch[2].padStart(2, '0');
+      const d = isoDashMatch[3].padStart(2, '0');
+      return `${m}-${d}-${y}`;
+    }
+  }
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return typeof date === "string" ? date : "—";
+  
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  
+  return `${month}-${day}-${year}`;
 };
 
 const COUNTRY_CODES = [
@@ -842,7 +873,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Date of Birth</p>
-                        <p className="font-bold text-neutral-900">{intakeData.dob || "—"}</p>
+                        <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.date_of_birth || intakeData.dob)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Phone Number</p>
@@ -886,7 +917,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <div className="grid grid-cols-2 gap-3">
                           <div className="col-span-2">
                             <p className="text-muted-foreground font-semibold mb-0.5">University / College</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_uni || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_uni || intakeData.highest_university || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Degree Type</p>
@@ -894,15 +925,15 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Major / Field</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_field || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_field || intakeData.highest_field_of_study || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Country</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_country || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_country || intakeData.highest_country || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_grad_date || "—"}</p>
+                            <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.highest_graduation_date || intakeData.masters_grad_date)}</p>
                           </div>
                         </div>
                       </div>
@@ -913,7 +944,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <div className="grid grid-cols-2 gap-3">
                           <div className="col-span-2">
                             <p className="text-muted-foreground font-semibold mb-0.5">University / College</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_uni || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_uni || intakeData.bachelors_university || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Degree Type</p>
@@ -921,7 +952,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Major / Field</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_field || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_field || intakeData.bachelors_field_of_study || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Country</p>
@@ -929,7 +960,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_grad_date || "—"}</p>
+                            <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.bachelors_graduation_date || intakeData.bachelors_grad_date)}</p>
                           </div>
                         </div>
                       </div>
@@ -946,11 +977,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     <div className="grid gap-6 sm:grid-cols-3 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Current Visa Status</p>
-                        <p className="font-bold text-neutral-900">{intakeData.visa_status || "—"}</p>
+                        <p className="font-bold text-neutral-900">{intakeData.visa_status || intakeData.visa_type || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">First Entry into the U.S.</p>
-                        <p className="font-bold text-neutral-900">{intakeData.first_entry_us || "—"}</p>
+                        <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.first_entry_us)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Total Years in the U.S.</p>
@@ -969,23 +1000,23 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     <div className="space-y-3 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Strongly Skilled In</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.skilled_in || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.skilled_in || intakeData.primary_skills || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Recently Learned</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.recently_learned || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.recently_learned || intakeData.currently_learning || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Experience / Familiarity With</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.experienced_with || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.experienced_with || intakeData.experienced_tools || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Learning Now</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.learning_now || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.learning_now || intakeData.learning_tools || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Other Non-Technical Skills</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.other_non_tech || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.other_non_tech || intakeData.non_technical_skills || "—"}</p>
                       </div>
                     </div>
                   </div>
@@ -1000,11 +1031,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     <div className="grid gap-6 sm:grid-cols-2 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Desired Role</p>
-                        <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_role || "—"}</p>
+                        <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_role || intakeData.target_roles || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Desired Years of Experience</p>
-                        <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_exp_years || "—"}</p>
+                        <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_exp_years || intakeData.desired_years_of_experience || "—"}</p>
                       </div>
                     </div>
                   </div>
@@ -1517,10 +1548,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
                             {/* OPT & Entry */}
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-white p-4 rounded-lg shadow-sm border border-muted">
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Bachelor's Graduation Date</p><p className="font-semibold">{cData.bachelors_grad_date || cData.bachelors_graduation_date || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Master's Graduation Date</p><p className="font-semibold">{cData.masters_grad_date || cData.masters_graduation_date || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{cData.first_entry_us || cData.firstEntryUS || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Bachelor's Graduation Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.bachelors_grad_date || cData.bachelors_graduation_date)}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Master's Graduation Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.masters_grad_date || cData.masters_graduation_date)}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{formatToMMDDYYYY(cData.first_entry_us || cData.firstEntryUS)}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.opt_start_date || cData.optStartDate)}</p></div>
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{optOfferDisplay}</Badge></div>
                               {(optOfferVal === "yes" && (cData.offer_letter_url || cData.opt_offer_letter_url)) && (
                                 <div>

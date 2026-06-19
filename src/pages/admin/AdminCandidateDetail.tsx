@@ -773,7 +773,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Graduation Date</Label>
                   <p className="font-medium text-foreground">
-                    {formatDate(candidate?.graduation_date)}
+                    {formatToMMDDYYYY(candidate?.graduation_date)}
                     {candidate?.graduation_year && !candidate?.graduation_date && ` (${candidate.graduation_year})`}
                   </p>
                 </div>
@@ -835,7 +835,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">OPT / STEM End Date</Label>
-                  <p className="font-medium text-foreground">{formatDate(candidate?.opt_end_date)}</p>
+                  <p className="font-medium text-foreground">{formatToMMDDYYYY(candidate?.opt_end_date)}</p>
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest block mb-1">Source / Referral</Label>
@@ -915,7 +915,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Date of Birth *</p>
-                        <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.dob)}</p>
+                        <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.date_of_birth || intakeData.dob)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Email Address *</p>
@@ -935,7 +935,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Current Visa Status *</p>
-                        <p className="font-bold text-neutral-900">{intakeData.visa_status || "—"}</p>
+                        <p className="font-bold text-neutral-900">{intakeData.visa_status || intakeData.visa_type || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">First Entry into the U.S. *</p>
@@ -966,23 +966,23 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     <div className="space-y-3 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Skilled In (Skills you can confidently work with, e.g., Python, React, Java) *</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.skilled_in || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.skilled_in || intakeData.primary_skills || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Currently Learning / Recently Learned *</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.recently_learned || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.recently_learned || intakeData.currently_learning || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Experienced With Tools *</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.experienced_with || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.experienced_with || intakeData.experienced_tools || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Learning Now / Self-Taught Tools *</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.learning_now || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.learning_now || intakeData.learning_tools || "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground font-bold uppercase tracking-wide text-[9px] mb-1">Other Non-Technical Skills / Courses *</p>
-                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.other_non_tech || "—"}</p>
+                        <p className="font-medium text-neutral-900 bg-white p-2.5 rounded border leading-relaxed whitespace-pre-wrap">{intakeData.other_non_tech || intakeData.non_technical_skills || "—"}</p>
                       </div>
                     </div>
                   </div>
@@ -997,10 +997,10 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     <div className="space-y-4 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Do you have any work experience (U.S. and/or International)? *</p>
-                        <p className="font-bold text-neutral-900 uppercase">{intakeData.has_work_exp || "—"}</p>
+                        <p className="font-bold text-neutral-900 uppercase">{intakeData.has_work_exp || intakeData.has_work_experience || "—"}</p>
                       </div>
 
-                      {intakeData.has_work_exp === "yes" && intakeData.experiences && Array.isArray(intakeData.experiences) && intakeData.experiences.length > 0 && (
+                      {(intakeData.has_work_exp === "yes" || intakeData.has_work_experience === "yes") && intakeData.experiences && Array.isArray(intakeData.experiences) && intakeData.experiences.length > 0 && (
                         <div className="grid gap-6 sm:grid-cols-2 pt-2 border-t">
                           {intakeData.experiences.map((exp: any, idx: number) => (
                             <div key={idx} className="p-4 rounded-xl bg-white border space-y-3">
@@ -1063,7 +1063,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                         <div className="grid grid-cols-2 gap-3">
                           <div className="col-span-2">
                             <p className="text-muted-foreground font-semibold mb-0.5">University / Institution Name (Highest) *</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_uni || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_uni || intakeData.highest_university || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Highest Degree *</p>
@@ -1071,21 +1071,21 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Field of Study (Highest Degree) *</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_field || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_field || intakeData.highest_field_of_study || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Country (Highest) *</p>
-                            <p className="font-bold text-neutral-900">{intakeData.masters_country || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.masters_country || intakeData.highest_country || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date (Highest)*</p>
-                            <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.masters_grad_date)}</p>
+                            <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.highest_graduation_date || intakeData.masters_grad_date)}</p>
                           </div>
                           <div className="col-span-2 pt-2 border-t">
                             <p className="text-muted-foreground font-semibold mb-0.5">LinkedIn Profile Link *</p>
-                            {intakeData.linkedin_link ? (
-                              <a href={intakeData.linkedin_link.startsWith('http') ? intakeData.linkedin_link : `https://${intakeData.linkedin_link}`} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline flex items-center gap-1">
-                                {intakeData.linkedin_link} <Eye className="h-3.5 w-3.5" />
+                            {intakeData.linkedin_link || intakeData.linkedin_url ? (
+                              <a href={(intakeData.linkedin_link || intakeData.linkedin_url).startsWith('http') ? (intakeData.linkedin_link || intakeData.linkedin_url) : `https://${intakeData.linkedin_link || intakeData.linkedin_url}`} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline flex items-center gap-1">
+                                {intakeData.linkedin_link || intakeData.linkedin_url} <Eye className="h-3.5 w-3.5" />
                               </a>
                             ) : <p className="font-bold text-neutral-900">—</p>}
                           </div>
@@ -1098,7 +1098,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                         <div className="grid grid-cols-2 gap-3">
                           <div className="col-span-2">
                             <p className="text-muted-foreground font-semibold mb-0.5">University / Institution Name *</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_uni || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_uni || intakeData.bachelors_university || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Bachelors Degree *</p>
@@ -1106,7 +1106,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Field of Study *</p>
-                            <p className="font-bold text-neutral-900">{intakeData.bachelors_field || "—"}</p>
+                            <p className="font-bold text-neutral-900">{intakeData.bachelors_field || intakeData.bachelors_field_of_study || "—"}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Country *</p>
@@ -1114,7 +1114,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                           </div>
                           <div>
                             <p className="text-muted-foreground font-semibold mb-0.5">Graduation Date *</p>
-                            <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.bachelors_grad_date)}</p>
+                            <p className="font-bold text-neutral-900">{formatToMMDDYYYY(intakeData.bachelors_graduation_date || intakeData.bachelors_grad_date)}</p>
                           </div>
                         </div>
                       </div>
@@ -1131,10 +1131,10 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     <div className="space-y-4 bg-neutral-50/50 p-4 rounded-xl border text-xs">
                       <div>
                         <p className="text-muted-foreground font-semibold mb-0.5">Have you completed any professional certifications? *</p>
-                        <p className="font-bold text-neutral-900 uppercase">{intakeData.has_certs || "—"}</p>
+                        <p className="font-bold text-neutral-900 uppercase">{intakeData.has_certs || intakeData.has_certifications || "—"}</p>
                       </div>
 
-                      {intakeData.has_certs === "yes" && intakeData.certifications && Array.isArray(intakeData.certifications) && intakeData.certifications.length > 0 && (
+                      {(intakeData.has_certs === "yes" || intakeData.has_certifications === "yes") && intakeData.certifications && Array.isArray(intakeData.certifications) && intakeData.certifications.length > 0 && (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-2 border-t">
                           {intakeData.certifications.map((cert: any, idx: number) => (
                             <div key={idx} className="p-4 rounded-xl bg-white border space-y-3 flex flex-col justify-between">
@@ -1233,11 +1233,11 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                       <div className="grid gap-6 sm:grid-cols-2">
                         <div>
                           <p className="text-muted-foreground font-semibold mb-0.5">Desired Job Role / Roles *</p>
-                          <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_role || "—"}</p>
+                          <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_role || intakeData.target_roles || "—"}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground font-semibold mb-0.5">Desired Years of Experience *</p>
-                          <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_exp_years || "—"}</p>
+                          <p className="font-bold text-neutral-900 text-sm">{intakeData.desired_exp_years || intakeData.desired_years_of_experience || "—"}</p>
                         </div>
                       </div>
                       <div className="pt-4 border-t">
@@ -1773,10 +1773,10 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
                             {/* OPT & Entry */}
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-white p-4 rounded-lg shadow-sm border border-muted">
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Bachelor's Graduation Date</p><p className="font-semibold">{cData.bachelors_grad_date || cData.bachelors_graduation_date || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Master's Graduation Date</p><p className="font-semibold">{cData.masters_grad_date || cData.masters_graduation_date || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{cData.first_entry_us || cData.firstEntryUS || "—"}</p></div>
-                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{cData.opt_start_date || cData.optStartDate || "—"}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Bachelor's Graduation Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.bachelors_grad_date || cData.bachelors_graduation_date)}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Master's Graduation Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.masters_grad_date || cData.masters_graduation_date)}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">First Entry US</p><p className="font-semibold">{formatToMMDDYYYY(cData.first_entry_us || cData.firstEntryUS)}</p></div>
+                              <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">OPT Start Date</p><p className="font-semibold">{formatToMMDDYYYY(cData.opt_start_date || cData.optStartDate)}</p></div>
                               <div><p className="text-muted-foreground mb-1 uppercase text-[9px] font-bold italic text-blue-600">Offer Submitted</p><Badge variant="outline" className="mt-1">{optOfferDisplay}</Badge></div>
                               {(optOfferVal === "yes" && (cData.offer_letter_url || cData.opt_offer_letter_url)) && (
                                 <div>
