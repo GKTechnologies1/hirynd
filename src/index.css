@@ -190,3 +190,39 @@
     animation: spin-slow 8s linear infinite;
   }
 }
+
+/* Document Preview Styling Overrides for react-doc-viewer components */
+.doc-viewer-wrapper #react-doc-viewer {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  width: 100% !important;
+  background-color: transparent !important;
+}
+
+.doc-viewer-wrapper #react-doc-viewer > div {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.doc-viewer-wrapper #msdoc-renderer, 
+.doc-viewer-wrapper #msdoc-iframe,
+.doc-viewer-wrapper #docx-renderer,
+.doc-viewer-wrapper #pdf-renderer,
+.doc-viewer-wrapper #csv-renderer,
+.doc-viewer-wrapper #txt-renderer {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  width: 100% !important;
+  border: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: auto !important;
+}
+
+.doc-viewer-wrapper #msdoc-iframe {
+  border: none !important;
+}
