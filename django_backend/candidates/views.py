@@ -392,6 +392,9 @@ def intake(request, candidate_id):
             'validation_errors': validation_errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
+    # Check if this intake was already submitted previously (for resubmission email logic)
+    is_reopen_resubmit = ClientIntake.objects.filter(candidate=candidate, submitted_at__isnull=False).exists()
+
     intake, created = ClientIntake.objects.update_or_create(
         candidate=candidate,
         defaults={'data': payload, 'submitted_at': timezone.now(), 'is_locked': True},
@@ -486,26 +489,47 @@ def intake(request, candidate_id):
     # ── Email: Intake Submitted ──
     cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
     try:
-        send_email(
-            to=candidate.user.email,
-            subject='Intake Form Submitted Successfully – Hyrind',
-            html=get_styled_email_html(
-                cand_name,
-                '<p>Your intake form has been submitted and locked successfully.</p>'
-                '<p>Our team will now review your profile and suggest relevant roles for your marketing.</p>'
-                '<p>You will receive a notification once roles are published for your review.</p>',
-                action_label="View Dashboard",
-                action_url="/candidate-dashboard"
-            ),
-        )
-        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
-        send_email(
-            to=admin_email,
-            subject=f'Intake Submitted: {cand_name}',
-            html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has submitted their intake form.</p>'
-                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">Review in Admin</a></p>',
-            email_type='admin_notification'
-        )
+        if is_reopen_resubmit:
+            send_email(
+                to=candidate.user.email,
+                subject='Intake Form Updates Received – Hyrind',
+                html=get_styled_email_html(
+                    cand_name,
+                    '<p>Your intake form updates have been received and locked successfully.</p>'
+                    '<p>Our team will review the updated information. If you have already completed payment or subsequent workflow steps, no further action is required from your side.</p>',
+                    action_label="View Dashboard",
+                    action_url="/candidate-dashboard"
+                ),
+            )
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+            send_email(
+                to=admin_email,
+                subject=f'Intake Updates Submitted: {cand_name}',
+                html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has submitted updates to their intake form.</p>'
+                     f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">Review in Admin</a></p>',
+                email_type='admin_notification'
+            )
+        else:
+            send_email(
+                to=candidate.user.email,
+                subject='Intake Form Submitted Successfully – Hyrind',
+                html=get_styled_email_html(
+                    cand_name,
+                    '<p>Your intake form has been submitted and locked successfully.</p>'
+                    '<p>Our team will now review your profile and suggest relevant roles for your marketing.</p>'
+                    '<p>You will receive a notification once roles are published for your review.</p>',
+                    action_label="View Dashboard",
+                    action_url="/candidate-dashboard"
+                ),
+            )
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+            send_email(
+                to=admin_email,
+                subject=f'Intake Submitted: {cand_name}',
+                html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has submitted their intake form.</p>'
+                     f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">Review in Admin</a></p>',
+                email_type='admin_notification'
+            )
     except Exception:
         pass  # Non-critical
 
@@ -597,25 +621,51 @@ def confirm_roles(request, candidate_id):
     # ── Email: Roles Confirmed by Candidate ──
     cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
     try:
-        send_email(
-            to=candidate.user.email,
-            subject='Role Selections Confirmed – Hyrind',
-            html=get_styled_email_html(
-                cand_name,
-                '<p>Your role selections have been confirmed successfully.</p>'
-                '<p>Your next step is to complete your payment to proceed with the onboarding process.</p>',
-                action_label="Proceed to Payment",
-                action_url="/candidate-dashboard"
-            ),
-        )
-        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
-        send_email(
-            to=admin_email,
-            subject=f'Roles Confirmed: {cand_name}',
-            html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has confirmed their role selections.</p>'
-                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
-            email_type='admin_notification'
-        )
+        from billing.models import Payment
+        has_paid = Payment.objects.filter(candidate=candidate, status='completed', payment_type='monthly_service').exists()
+
+        if has_paid:
+            # Candidate has already paid, send clean selections confirmation email without payment reference
+            send_email(
+                to=candidate.user.email,
+                subject='Role Selections Confirmed – Hyrind',
+                html=get_styled_email_html(
+                    cand_name,
+                    '<p>Your updated role selections have been confirmed successfully.</p>'
+                    '<p>Our marketing team will proceed with your profile marketing using these selections.</p>',
+                    action_label="View Dashboard",
+                    action_url="/candidate-dashboard"
+                ),
+            )
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+            send_email(
+                to=admin_email,
+                subject=f'Roles Updated: {cand_name}',
+                html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has updated their role selections.</p>'
+                     f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
+                email_type='admin_notification'
+            )
+        else:
+            # Original onboarding/payment email
+            send_email(
+                to=candidate.user.email,
+                subject='Role Selections Confirmed – Hyrind',
+                html=get_styled_email_html(
+                    cand_name,
+                    '<p>Your role selections have been confirmed successfully.</p>'
+                    '<p>Your next step is to complete your payment to proceed with the onboarding process.</p>',
+                    action_label="Proceed to Payment",
+                    action_url="/candidate-dashboard"
+                ),
+            )
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+            send_email(
+                to=admin_email,
+                subject=f'Roles Confirmed: {cand_name}',
+                html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has confirmed their role selections.</p>'
+                     f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
+                email_type='admin_notification'
+            )
     except Exception:
         pass
 
@@ -918,26 +968,46 @@ def upsert_credential(request, candidate_id):
     # ── Email: Credential Submitted/Updated ──
     cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
     try:
-        action_text = 'submitted' if new_version == 1 else f'updated (v{new_version})'
-        send_email(
-            to=candidate.user.email,
-            subject=f'Credentials {action_text.title()} – Hyrind',
-            html=get_styled_email_html(
-                cand_name,
-                f'<p>Your credential intake sheet has been {action_text} successfully.</p>'
-                '<p>Our marketing team will use the latest version of your credentials for job applications.</p>',
-                action_label="View Dashboard",
-                action_url="/candidate-dashboard"
-            ),
-        )
-        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
-        send_email(
-            to=admin_email,
-            subject=f'Credentials {action_text.title()}: {cand_name}',
-            html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has {action_text} their credential intake sheet.</p>'
-                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
-            email_type='admin_notification'
-        )
+        if new_version > 1:
+            send_email(
+                to=candidate.user.email,
+                subject='Credential Details Updated – Hyrind',
+                html=get_styled_email_html(
+                    cand_name,
+                    f'<p>Your credential details have been updated successfully (Version {new_version}).</p>'
+                    '<p>Our marketing team will use these updated credentials for active and upcoming job applications.</p>',
+                    action_label="View Dashboard",
+                    action_url="/candidate-dashboard"
+                ),
+            )
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+            send_email(
+                to=admin_email,
+                subject=f'Credentials Updated: {cand_name}',
+                html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has updated their credential details.</p>'
+                     f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
+                email_type='admin_notification'
+            )
+        else:
+            send_email(
+                to=candidate.user.email,
+                subject='Credentials Submitted – Hyrind',
+                html=get_styled_email_html(
+                    cand_name,
+                    '<p>Your credential intake sheet has been submitted successfully.</p>'
+                    '<p>Our marketing team will use the latest version of your credentials for job applications.</p>',
+                    action_label="View Dashboard",
+                    action_url="/candidate-dashboard"
+                ),
+            )
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+            send_email(
+                to=admin_email,
+                subject=f'Credentials Submitted: {cand_name}',
+                html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has submitted their credential intake sheet.</p>'
+                     f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
+                email_type='admin_notification'
+            )
     except Exception:
         pass
 
@@ -1072,6 +1142,20 @@ def placement(request, candidate_id):
 
     data = request.data.copy()
     data['candidate'] = candidate_id
+    
+    # Sanitize salary: remove currency symbols, commas, spaces, and extract clean decimal/integer number
+    if 'salary' in data:
+        salary_val = data['salary']
+        if isinstance(salary_val, str):
+            import re
+            cleaned_salary = salary_val.replace(',', '').replace('$', '').strip()
+            match = re.search(r'\d+(?:\.\d+)?', cleaned_salary)
+            if match:
+                data['salary'] = match.group(0)
+
+    # Map frontend 'notes' to backend 'placement_notes'
+    if 'notes' in data and 'placement_notes' not in data:
+        data['placement_notes'] = data['notes']
     
     try:
         instance = PlacementClosure.objects.get(candidate_id=candidate_id)

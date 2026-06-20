@@ -1978,7 +1978,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     <Select value={payType} onValueChange={setPayType}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="monthly_service">Monthly Service Fee</SelectItem>
+                        <SelectItem value="monthly_service">Marketing Service Fee</SelectItem>
                         <SelectItem value="mock_practice">Mock Practice Fee</SelectItem>
                         <SelectItem value="interview_support">Interview Support Fee</SelectItem>
                         <SelectItem value="operations_support">Operations Support Fee</SelectItem>

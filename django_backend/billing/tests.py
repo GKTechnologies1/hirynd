@@ -20,8 +20,8 @@ class BillingDecoupledTests(TestCase):
 
         # Create plans and addons
         self.base_plan = SubscriptionPlan.objects.create(
-            name='Monthly Service Fee',
-            description='Standard monthly service fee',
+            name='Marketing Service Fee',
+            description='Standard monthly marketing & support fee',
             amount=Decimal('400.00'),
             currency='USD',
             billing_cycle='monthly',

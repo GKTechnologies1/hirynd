@@ -102,11 +102,11 @@ const cleanNotes = (notes: string) => {
 const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, onStatusChange?: () => void }) => {
   const { toast } = useToast();
   const [subscription, setSubscription] = useState<any>(null);
-  const [addons, setAddons]             = useState<any[]>([]);
-  const [payments, setPayments]         = useState<any[]>([]);
-  const [loading, setLoading]           = useState(true);
+  const [addons, setAddons] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [payingSubscription, setPayingSubscription] = useState(false);
-  const [payingId, setPayingId]         = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!candidate?.id) return;
@@ -253,7 +253,7 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
                   </div>
                   {subscriptionPending ? (
                     <Button className="px-8 py-6 text-md font-bold shadow-lg shadow-blue-500/10" variant="hero" onClick={handlePaySubscription} disabled={payingSubscription}>
-                      {payingSubscription ? "Processing..." : "Pay Plan Now"}
+                      {payingSubscription ? "Processing..." : "Pay Now"}
                     </Button>
                   ) : subscription?.status === "active" ? (
                     <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/5 text-emerald-600 rounded-xl font-bold text-xs border border-emerald-500/10">
@@ -291,11 +291,11 @@ const CandidatePaymentsPage = ({ candidate, onStatusChange }: { candidate: any, 
                     <div className="pt-5 border-t border-amber-500/10 mt-4 flex items-center justify-between">
                       <span className="text-[10px] text-slate-400 font-semibold">Assigned {formatDate(addon.added_at)}</span>
                       {pendingPayment && (
-                        <Button 
-                          variant="hero" 
-                          size="sm" 
-                          className="h-8 px-4 font-bold text-xs" 
-                          onClick={() => handlePayIndividual(pendingPayment.id)} 
+                        <Button
+                          variant="hero"
+                          size="sm"
+                          className="h-8 px-4 font-bold text-xs"
+                          onClick={() => handlePayIndividual(pendingPayment.id)}
                           disabled={payingId === pendingPayment.id}
                         >
                           {payingId === pendingPayment.id ? "Processing..." : "Pay Now"}

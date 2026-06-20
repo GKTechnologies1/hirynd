@@ -383,7 +383,7 @@ class CandidateLegacyPayment(models.Model):
         ('cancelled', 'Cancelled'),
     ]
     CHARGE_TYPE_CHOICES = [
-        ('monthly_service_fee', 'Monthly Service Fee'),
+        ('monthly_service_fee', 'Marketing Service Fee'),
         ('mock_practice_fee', 'Mock Practice Fee'),
         ('interview_support_fee', 'Interview Support Fee'),
         ('operations_support_fee', 'Operations Support Fee'),

@@ -82,7 +82,13 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
       toast({ title: "Case closed successfully!" });
       onRefresh();
     } catch (err: any) {
-      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+      let errorMsg = err.response?.data?.error || err.message;
+      if (err.response?.data && typeof err.response.data === 'object' && !err.response.data.error) {
+        errorMsg = Object.entries(err.response.data)
+          .map(([key, val]) => `${key.replace('_', ' ').toUpperCase()}: ${Array.isArray(val) ? val.join(', ') : val}`)
+          .join('\n');
+      }
+      toast({ title: "Error", description: errorMsg || "Failed to submit form", variant: "destructive" });
     }
     setSubmitting(false);
   };
