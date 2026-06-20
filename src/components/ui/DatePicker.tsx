@@ -20,9 +20,10 @@ interface DatePickerProps {
   className?: string
   id?: string
   disabled?: boolean
+  formatStr?: string
 }
 
-export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", className, id, disabled }: DatePickerProps) {
+export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", className, id, disabled, formatStr = "MM/dd/yyyy" }: DatePickerProps) {
   const [date, setDate] = React.useState<Date | undefined>(() => {
     if (!value) return undefined;
 
@@ -65,7 +66,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
     setDate(newDate);
     if (onChange) {
       if (newDate) {
-        onChange(format(newDate, "MM/dd/yyyy"));
+        onChange(format(newDate, formatStr));
         setOpen(false); // Close the calendar after selection
       } else {
         onChange("");
@@ -87,7 +88,7 @@ export function DatePicker({ value, onChange, placeholder = "MM/DD/YYYY", classN
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-          <span className="truncate">{date ? format(date, "MM/dd/yyyy") : placeholder}</span>
+          <span className="truncate">{date ? format(date, formatStr) : placeholder}</span>
           {date && !disabled && (
             <div
               role="button"

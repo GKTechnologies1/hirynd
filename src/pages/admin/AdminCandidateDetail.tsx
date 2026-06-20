@@ -874,14 +874,14 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
             </Card>
           )}
 
-          {interviewLogs.length > 0 && (
+          {((candidate?.total_interviews || 0) > 0 || interviewLogs.length > 0) && (
             <Card className="bg-blue-600 shadow-lg border-none text-white">
               <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest opacity-90"><BarChart className="h-4 w-4" /> Pipeline Performance</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-8 text-sm">
-                  <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Total Interviews</span> <strong className="text-2xl">{interviewLogs.length}</strong></div>
+                  <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Total Interviews</span> <strong className="text-2xl">{candidate?.total_interviews || 0}</strong></div>
                   <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Scheduled</span> <strong className="text-2xl">{interviewLogs.filter((l: any) => l.outcome === "scheduled").length}</strong></div>
-                  <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Success Rate</span> <strong className="text-2xl">{Math.round((interviewLogs.filter((l: any) => l.outcome === "selected").length / interviewLogs.length) * 100)}%</strong></div>
+                  <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Success Rate</span> <strong className="text-2xl">{interviewLogs.length > 0 ? Math.round((interviewLogs.filter((l: any) => l.outcome === "selected").length / interviewLogs.length) * 100) : 0}%</strong></div>
                   <div className="flex flex-col"><span className="text-[10px] font-bold opacity-70 uppercase">Offers Received</span> <strong className="text-2xl">{interviewLogs.filter((l: any) => l.outcome === "selected").length}</strong></div>
                 </div>
               </CardContent>
@@ -2026,9 +2026,8 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
           <CandidateApplicationsPage candidate={candidate} />
         </TabsContent>
 
-        {/* Interviews Tab */}
         <TabsContent value="interviews">
-          <CandidateInterviewsPage candidate={candidate} />
+          <CandidateInterviewsPage candidate={candidate} onStatusChange={() => fetchAll(false)} />
         </TabsContent>
 
         {/* Billing Tab */}
