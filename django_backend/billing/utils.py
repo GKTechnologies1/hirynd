@@ -288,8 +288,11 @@ def ensure_default_subscription(candidate):
     from .models import Subscription, SubscriptionPlan
     
     with transaction.atomic():
+        # First rename any existing Monthly Service Fee plan to Marketing Service Fee to preserve records
+        SubscriptionPlan.objects.filter(name="Monthly Service Fee").update(name="Marketing Service Fee")
+        
         plan, _ = SubscriptionPlan.objects.get_or_create(
-            name="Monthly Service Fee",
+            name="Marketing Service Fee",
             defaults={
                 'amount': 400.00,
                 'currency': 'USD',

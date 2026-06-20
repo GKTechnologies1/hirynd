@@ -38,7 +38,7 @@ const STATUS_LABELS: Record<string, string> = {
 /** Map raw payment_type keys to human-readable labels */
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
   subscription: "Subscription",
-  monthly_service: "Monthly Service",
+  monthly_service: "Marketing Service",
   one_time: "One-Time",
   addon: "Add-On",
   refund: "Refund",

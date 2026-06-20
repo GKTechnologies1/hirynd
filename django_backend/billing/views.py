@@ -495,7 +495,7 @@ def record_payment(request, candidate_id):
                 'amount': pay.amount,
                 'currency': pay.currency,
                 'status': 'pending_payment' if pay.status == 'pending' else 'active',
-                'plan_name': 'Monthly Service Fee',
+                'plan_name': 'Marketing Service Fee',
                 'assigned_by': request.user,
             }
         )

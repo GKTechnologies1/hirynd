@@ -528,7 +528,7 @@ class PaymentService:
                     to=admin_email,
                     subject=f'Payment Completed: {escaped_cand_name}',
                     html=f'<p><strong>{escaped_cand_name}</strong> ({candidate.user.email}) has successfully completed a payment of <strong>{rp_order.currency} {rp_order.amount}</strong>.</p>'
-                         f'<p><strong>Service Type:</strong> Core Subscription Fee ({escape(sub.plan_name) if sub else "Monthly Service Fee"})</p>'
+                         f'<p><strong>Service Type:</strong> Core Subscription Fee ({escape(sub.plan_name) if sub else "Marketing Service Fee"})</p>'
                          f'<p><strong>Payment Reference:</strong> {escape(razorpay_payment_id)}</p>'
                          f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View Candidate in Admin</a></p>',
                     email_type='admin_notification'

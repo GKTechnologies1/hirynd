@@ -201,7 +201,7 @@ class RazorpayOrder(models.Model):
 # ────────────────────────────────────────────────────────────────
 class Payment(models.Model):
     PAYMENT_TYPE_CHOICES = [
-        ('monthly_service', 'Monthly Service Fee ($400)'),
+        ('monthly_service', 'Marketing Service Fee ($400)'),
         ('mock_practice', 'Mock Practice Fee'),
         ('interview_support', 'Interview Support Fee'),
         ('operations_support', 'Operations Support Fee'),

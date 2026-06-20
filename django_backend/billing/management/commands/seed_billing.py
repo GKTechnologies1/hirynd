@@ -8,11 +8,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('Seeding billing plans...')
         
-        # 1. Monthly Service Fee
+        # 1. Marketing Service Fee
         Plan, created = SubscriptionPlan.objects.get_or_create(
-            name='Monthly Service Fee',
+            name='Marketing Service Fee',
             defaults={
-                'description': 'Standard monthly service fee for Hyrind platform access.',
+                'description': 'Standard monthly marketing & support fee for Hyrind platform access.',
                 'amount': Decimal('400.00'),
                 'currency': 'USD',
                 'billing_cycle': 'monthly',

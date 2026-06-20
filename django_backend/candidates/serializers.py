@@ -235,9 +235,15 @@ class InterviewLogSerializer(serializers.ModelSerializer):
 
 
 class PlacementClosureSerializer(serializers.ModelSerializer):
+    notes = serializers.CharField(source='placement_notes', required=False, allow_blank=True, allow_null=True)
+
     class Meta:
         model = PlacementClosure
-        fields = '__all__'
+        fields = [
+            'id', 'candidate', 'company_name', 'role_title', 'salary', 'currency',
+            'start_date', 'hr_email', 'interviewer_email', 'bgv_company_name',
+            'offer_letter_url', 'placement_notes', 'notes', 'closed_by', 'created_at'
+        ]
         read_only_fields = ['id', 'closed_by', 'created_at']
 
 

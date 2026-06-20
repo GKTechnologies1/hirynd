@@ -52,7 +52,7 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
   const [formNextDate, setFormNextDate] = useState("");
   const [formGraceDays, setFormGraceDays] = useState("5");
   const [formStatus, setFormStatus] = useState("pending_payment");
-  const [formPlanName, setFormPlanName] = useState("Monthly Service Fee");
+  const [formPlanName, setFormPlanName] = useState("Marketing Service Fee");
   const [saving, setSaving] = useState(false);
 
   // Record payment
