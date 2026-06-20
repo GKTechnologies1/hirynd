@@ -82,10 +82,7 @@ class CandidateSerializer(serializers.ModelSerializer):
 
     def get_total_interviews(self, obj):
         from .models import InterviewLog
-        from recruiters.models import JobLinkEntry
-        manual_interviews = InterviewLog.objects.filter(candidate=obj).count()
-        link_interviews = JobLinkEntry.objects.filter(candidate=obj, application_status__icontains='interview').count()
-        return manual_interviews + link_interviews
+        return InterviewLog.objects.filter(candidate=obj).count()
 
     def to_representation(self, instance):
         try:
@@ -125,10 +122,7 @@ class CandidateListSerializer(serializers.ModelSerializer):
 
     def get_total_interviews(self, obj):
         from .models import InterviewLog
-        from recruiters.models import JobLinkEntry
-        manual_interviews = InterviewLog.objects.filter(candidate=obj).count()
-        link_interviews = JobLinkEntry.objects.filter(candidate=obj, application_status__icontains='interview').count()
-        return manual_interviews + link_interviews
+        return InterviewLog.objects.filter(candidate=obj).count()
 
     def to_representation(self, instance):
         try:

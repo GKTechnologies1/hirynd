@@ -1193,13 +1193,8 @@ def admin_activity_report(request):
         # Total submissions (JobLinkEntry)
         total_submissions = JobLinkEntry.objects.filter(candidate=c).count()
         
-        # Total interviews (Manual logs + JobLinkEntry with interview status)
-        manual_interviews = InterviewLog.objects.filter(candidate=c).count()
-        link_interviews = JobLinkEntry.objects.filter(
-            candidate=c, 
-            application_status__icontains='interview'
-        ).count()
-        total_interviews = manual_interviews + link_interviews
+        # Total interviews (InterviewLog records)
+        total_interviews = InterviewLog.objects.filter(candidate=c).count()
         
         # Training clicks
         training_clicks = TrainingScheduleClick.objects.filter(candidate=c).count()
