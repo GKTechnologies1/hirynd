@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload } from "lucide-react";
+import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload, Search } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
@@ -286,15 +286,52 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
 
   const [appSearchRole, setAppSearchRole] = useState("");
-  const [appSearchDate, setAppSearchDate] = useState("");
+  const [appSearchCompany, setAppSearchCompany] = useState("");
+  const [appFromDate, setAppFromDate] = useState("");
+  const [appToDate, setAppToDate] = useState("");
+  const [appActionFilter, setAppActionFilter] = useState("all");
 
   const filteredJobPostings = useMemo(() => {
     return jobPostings.filter(j => {
       const matchRole = !appSearchRole || j.role_title?.toLowerCase().includes(appSearchRole.toLowerCase());
-      const matchDate = !appSearchDate || formatDate(j.log_date || j.created_at) === appSearchDate;
-      return matchRole && matchDate;
+      const matchCompany = !appSearchCompany || j.company_name?.toLowerCase().includes(appSearchCompany.toLowerCase());
+      
+      let matchDate = true;
+      const logDateStr = j.log_date || j.created_at;
+      if (logDateStr) {
+        // Construct date at local midnight to avoid timezone shift
+        const cleanDate = logDateStr.split("T")[0];
+        const [y, m, d] = cleanDate.split("-").map((s: string) => parseInt(s, 10));
+        const itemDate = new Date(y, m - 1, d);
+        itemDate.setHours(0, 0, 0, 0);
+
+        if (appFromDate) {
+          const fParts = appFromDate.split(/[-\/]/);
+          if (fParts.length === 3) {
+            const fd = new Date(parseInt(fParts[2], 10), parseInt(fParts[0], 10) - 1, parseInt(fParts[1], 10));
+            fd.setHours(0, 0, 0, 0);
+            if (itemDate < fd) matchDate = false;
+          }
+        }
+        
+        if (appToDate) {
+          const tParts = appToDate.split(/[-\/]/);
+          if (tParts.length === 3) {
+            const td = new Date(parseInt(tParts[2], 10), parseInt(tParts[0], 10) - 1, parseInt(tParts[1], 10));
+            td.setHours(23, 59, 59, 999);
+            if (itemDate > td) matchDate = false;
+          }
+        }
+      } else {
+        if (appFromDate || appToDate) matchDate = false;
+      }
+
+      const currentStatus = j.candidate_response_status || j.status || j.application_status;
+      const matchAction = appActionFilter === "all" || currentStatus?.toLowerCase() === appActionFilter.toLowerCase();
+      
+      return matchRole && matchCompany && matchDate && matchAction;
     });
-  }, [jobPostings, appSearchRole, appSearchDate]);
+  }, [jobPostings, appSearchRole, appSearchCompany, appFromDate, appToDate, appActionFilter]);
 
   const handleOpenDescription = (company: string, role: string, description: string) => {
     setActiveJobDesc({ company, role, description });
@@ -1840,38 +1877,96 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           <Card className="border-none shadow-sm bg-card/60 mt-6">
             <CardHeader><CardTitle className="text-base font-bold">Submission Pipeline</CardTitle></CardHeader>
             <CardContent className="p-0">
-              <div className="px-6 pt-4 pb-2 flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
-                  <Input
-                    placeholder="Search by role..."
-                    value={appSearchRole}
-                    onChange={(e) => setAppSearchRole(e.target.value)}
-                    className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
-                  />
-                  {appSearchRole && (
-                    <button
-                      onClick={() => setAppSearchRole("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                <div className="w-full sm:w-48">
-                  <DatePicker
-                    value={appSearchDate}
-                    onChange={setAppSearchDate}
-                    placeholder="Filter by date"
-                    className="h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors font-normal w-full"
-                  />
+              <div className="px-6 pt-4 pb-2">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-5 mb-4 items-end">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search by Role</Label>
+                    <div className="relative">
+                      <Briefcase className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                      <Input
+                        placeholder="e.g. Frontend"
+                        value={appSearchRole}
+                        onChange={(e) => setAppSearchRole(e.target.value)}
+                        className="pl-8 pr-8 h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+                      />
+                      {appSearchRole && (
+                        <button
+                          onClick={() => setAppSearchRole("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search by Company</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                      <Input
+                        placeholder="e.g. Google"
+                        value={appSearchCompany}
+                        onChange={(e) => setAppSearchCompany(e.target.value)}
+                        className="pl-8 pr-8 h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+                      />
+                      {appSearchCompany && (
+                        <button
+                          onClick={() => setAppSearchCompany("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From Date</Label>
+                    <DatePicker
+                      value={appFromDate}
+                      onChange={appFromDate => setAppFromDate(appFromDate)}
+                      placeholder="MM-DD-YYYY"
+                      formatStr="MM-dd-yyyy"
+                      className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors font-semibold w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To Date</Label>
+                    <DatePicker
+                      value={appToDate}
+                      onChange={appToDate => setAppToDate(appToDate)}
+                      placeholder="MM-DD-YYYY"
+                      formatStr="MM-dd-yyyy"
+                      className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors font-semibold w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Actions</Label>
+                    <Select value={appActionFilter} onValueChange={setAppActionFilter}>
+                      <SelectTrigger className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full">
+                        <SelectValue placeholder="All Actions" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs">All Actions</SelectItem>
+                        <SelectItem value="applied" className="text-xs">Applied</SelectItem>
+                        <SelectItem value="screening" className="text-xs">Screening</SelectItem>
+                        <SelectItem value="screening_scheduled" className="text-xs">Screening Scheduled</SelectItem>
+                        <SelectItem value="interview" className="text-xs">Interview</SelectItem>
+                        <SelectItem value="interview_scheduled" className="text-xs">Interview Scheduled</SelectItem>
+                        <SelectItem value="offer" className="text-xs">Offer</SelectItem>
+                        <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
+                        <SelectItem value="no_response" className="text-xs">No Response</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               <DataTable
                 data={filteredJobPostings}
                 isLoading={loading}
-                searchPlaceholder="Search company..."
-                searchKey="company_name"
                 emptyMessage="No applications recorded in the system."
                 columns={[
                   {

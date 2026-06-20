@@ -9,8 +9,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X, Search } from "lucide-react";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -87,15 +88,52 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
 
   const [searchRole, setSearchRole] = useState("");
-  const [searchDate, setSearchDate] = useState("");
+  const [searchCompany, setSearchCompany] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [actionFilter, setActionFilter] = useState("all");
 
   const filteredJobPostings = useMemo(() => {
     return jobPostings.filter(j => {
       const matchRole = !searchRole || j.role_title?.toLowerCase().includes(searchRole.toLowerCase());
-      const matchDate = !searchDate || formatDate(j.log_date || j.created_at) === searchDate;
-      return matchRole && matchDate;
+      const matchCompany = !searchCompany || j.company_name?.toLowerCase().includes(searchCompany.toLowerCase());
+      
+      let matchDate = true;
+      const logDateStr = j.log_date || j.created_at;
+      if (logDateStr) {
+        // Construct date at local midnight to avoid timezone shift
+        const cleanDate = logDateStr.split("T")[0];
+        const [y, m, d] = cleanDate.split("-").map((s: string) => parseInt(s, 10));
+        const itemDate = new Date(y, m - 1, d);
+        itemDate.setHours(0, 0, 0, 0);
+
+        if (fromDate) {
+          const fParts = fromDate.split(/[-\/]/);
+          if (fParts.length === 3) {
+            const fd = new Date(parseInt(fParts[2], 10), parseInt(fParts[0], 10) - 1, parseInt(fParts[1], 10));
+            fd.setHours(0, 0, 0, 0);
+            if (itemDate < fd) matchDate = false;
+          }
+        }
+        
+        if (toDate) {
+          const tParts = toDate.split(/[-\/]/);
+          if (tParts.length === 3) {
+            const td = new Date(parseInt(tParts[2], 10), parseInt(tParts[0], 10) - 1, parseInt(tParts[1], 10));
+            td.setHours(23, 59, 59, 999);
+            if (itemDate > td) matchDate = false;
+          }
+        }
+      } else {
+        if (fromDate || toDate) matchDate = false;
+      }
+
+      const currentStatus = j.candidate_response_status || j.status || j.application_status;
+      const matchAction = actionFilter === "all" || currentStatus?.toLowerCase() === actionFilter.toLowerCase();
+      
+      return matchRole && matchCompany && matchDate && matchAction;
     });
-  }, [jobPostings, searchRole, searchDate]);
+  }, [jobPostings, searchRole, searchCompany, fromDate, toDate, actionFilter]);
 
   const handleOpenDescription = (company: string, role: string, description: string) => {
     setActiveJobDesc({ company, role, description });
@@ -199,11 +237,12 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       {loading ? <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading applications...</p></div> : (
         <div className="space-y-6">
           {/* Summary Cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-4">
             {[
               { label: "Today", value: todayCount },
               { label: "This Week", value: weekCount },
               { label: "This Month", value: monthCount },
+              { label: "Total Applications", value: jobPostings.length },
             ].map((item) => (
               <Card key={item.label}>
                 <CardContent className="p-4 text-center">
@@ -223,38 +262,93 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="px-6 pt-4 pb-2 flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
-                  <Input
-                    placeholder="Search by role..."
-                    value={searchRole}
-                    onChange={(e) => setSearchRole(e.target.value)}
-                    className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
-                  />
-                  {searchRole && (
-                    <button
-                      onClick={() => setSearchRole("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                <div className="w-full sm:w-48">
-                  <DatePicker
-                    value={searchDate}
-                    onChange={setSearchDate}
-                    placeholder="Filter by date"
-                    className="h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors font-normal w-full"
-                  />
+              <div className="px-6 pt-4 pb-2">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-5 mb-4 items-end">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search by Role</Label>
+                    <div className="relative">
+                      <Briefcase className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                      <Input
+                        placeholder="e.g. Frontend"
+                        value={searchRole}
+                        onChange={(e) => setSearchRole(e.target.value)}
+                        className="pl-8 pr-8 h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+                      />
+                      {searchRole && (
+                        <button
+                          onClick={() => setSearchRole("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search by Company</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                      <Input
+                        placeholder="e.g. Google"
+                        value={searchCompany}
+                        onChange={(e) => setSearchCompany(e.target.value)}
+                        className="pl-8 pr-8 h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+                      />
+                      {searchCompany && (
+                        <button
+                          onClick={() => setSearchCompany("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From Date</Label>
+                    <DatePicker
+                      value={fromDate}
+                      onChange={setFromDate}
+                      placeholder="MM-DD-YYYY"
+                      formatStr="MM-dd-yyyy"
+                      className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors font-semibold w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To Date</Label>
+                    <DatePicker
+                      value={toDate}
+                      onChange={setToDate}
+                      placeholder="MM-DD-YYYY"
+                      formatStr="MM-dd-yyyy"
+                      className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors font-semibold w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Actions</Label>
+                    <Select value={actionFilter} onValueChange={setActionFilter}>
+                      <SelectTrigger className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full">
+                        <SelectValue placeholder="All Actions" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs">All Actions</SelectItem>
+                        {CANDIDATE_STATUSES.map((s) => (
+                          <SelectItem key={s.value} value={s.value} className="text-xs">
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               <DataTable
                 data={filteredJobPostings}
                 isLoading={loading}
-                searchPlaceholder="Search company..."
-                searchKey="company_name"
                 emptyMessage="No applications submitted yet."
                 columns={[
                   { 

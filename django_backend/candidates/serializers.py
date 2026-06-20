@@ -77,11 +77,8 @@ class CandidateSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_total_applications(self, obj):
-        from recruiters.models import DailySubmissionLog, JobLinkEntry
-        from django.db.models import Sum
-        manual_count = DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
-        auto_count = JobLinkEntry.objects.filter(candidate=obj).count()
-        return manual_count + auto_count
+        from recruiters.models import JobLinkEntry
+        return JobLinkEntry.objects.filter(candidate=obj).count()
 
     def get_total_interviews(self, obj):
         from .models import InterviewLog
@@ -123,11 +120,8 @@ class CandidateListSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_total_applications(self, obj):
-        from recruiters.models import DailySubmissionLog, JobLinkEntry
-        from django.db.models import Sum
-        manual_count = DailySubmissionLog.objects.filter(candidate=obj, is_manual=True).aggregate(Sum('applications_count'))['applications_count__sum'] or 0
-        auto_count = JobLinkEntry.objects.filter(candidate=obj).count()
-        return manual_count + auto_count
+        from recruiters.models import JobLinkEntry
+        return JobLinkEntry.objects.filter(candidate=obj).count()
 
     def get_total_interviews(self, obj):
         from .models import InterviewLog
