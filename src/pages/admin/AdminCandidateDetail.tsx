@@ -185,6 +185,11 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   const [addingPayment, setAddingPayment] = useState(false);
 
   const [isEditingCreds, setIsEditingCreds] = useState(false);
+  const isEditingCredsRef = useRef(isEditingCreds);
+  useEffect(() => {
+    isEditingCredsRef.current = isEditingCreds;
+  }, [isEditingCreds]);
+
   const [credForm, setCredForm] = useState<Record<string, any>>({});
   const [savingCred, setSavingCred] = useState(false);
   const [showCredPasswords, setShowCredPasswords] = useState<Record<string, boolean>>({});
@@ -236,61 +241,63 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
         setRoles(roleRes.data || []);
         setProposedRoles(proposedRoleRes.data || []);
         setCredentials(credRes.data || []);
-        if (credRes.data && credRes.data.length > 0 && credRes.data[0].data) {
-          const data = credRes.data[0].data;
-          let country_code = "+1";
-          let phone = data.phone_number || "";
-          if (phone.startsWith("+")) {
-            const parts = phone.split(" ");
-            if (parts.length > 1) {
-              country_code = parts[0];
-              phone = parts.slice(1).join(" ");
+        if (!isEditingCredsRef.current) {
+          if (credRes.data && credRes.data.length > 0 && credRes.data[0].data) {
+            const data = credRes.data[0].data;
+            let country_code = "+1";
+            let phone = data.phone_number || "";
+            if (phone.startsWith("+")) {
+              const parts = phone.split(" ");
+              if (parts.length > 1) {
+                country_code = parts[0];
+                phone = parts.slice(1).join(" ");
+              }
             }
-          }
-          setCredForm({
-            ...data,
-            country_code,
-            phone_number: phone,
-            offer_letter_file: data.offer_letter_url || null,
-          });
-        } else {
-          let country_code = "+1";
-          let phone = cand?.profile?.phone || "";
-          if (phone.startsWith("+")) {
-            const parts = phone.split(" ");
-            if (parts.length > 1) {
-              country_code = parts[0];
-              phone = parts.slice(1).join(" ");
+            setCredForm({
+              ...data,
+              country_code,
+              phone_number: phone,
+              offer_letter_file: data.offer_letter_url || null,
+            });
+          } else {
+            let country_code = "+1";
+            let phone = cand?.profile?.phone || "";
+            if (phone.startsWith("+")) {
+              const parts = phone.split(" ");
+              if (parts.length > 1) {
+                country_code = parts[0];
+                phone = parts.slice(1).join(" ");
+              }
             }
+            setCredForm({
+              email: cand?.email || cand?.profile?.email || "",
+              bachelors_grad_date: cand?.bachelors_graduation_date || "",
+              first_entry_us: cand?.first_entry_us || "",
+              masters_grad_date: cand?.masters_graduation_date || "",
+              opt_start_date: cand?.opt_start_date || "",
+              opt_offer_submitted: "no",
+              offer_letter_file: null,
+              preferred_roles: cand?.preferred_roles || "",
+              preferred_locations: cand?.preferred_locations || "",
+              full_name: cand?.full_name || cand?.profile?.full_name || "",
+              personal_email: cand?.personal_email || "",
+              country_code: country_code,
+              phone_number: phone,
+              location: cand?.current_location || "",
+              linkedin_id: cand?.linkedin_url || cand?.profile?.linkedin_profile || "",
+              linkedin_pass: "",
+              indeed_id: "",
+              indeed_pass: "",
+              dice_id: "",
+              dice_pass: "",
+              monster_id: "",
+              monster_pass: "",
+              ziprecruiter_id: "",
+              ziprecruiter_pass: "",
+              other_platforms: "",
+              custom_platforms: [],
+            });
           }
-          setCredForm({
-            email: cand?.email || cand?.profile?.email || "",
-            bachelors_grad_date: cand?.bachelors_graduation_date || "",
-            first_entry_us: cand?.first_entry_us || "",
-            masters_grad_date: cand?.masters_graduation_date || "",
-            opt_start_date: cand?.opt_start_date || "",
-            opt_offer_submitted: "no",
-            offer_letter_file: null,
-            preferred_roles: cand?.preferred_roles || "",
-            preferred_locations: cand?.preferred_locations || "",
-            full_name: cand?.full_name || cand?.profile?.full_name || "",
-            personal_email: cand?.personal_email || "",
-            country_code: country_code,
-            phone_number: phone,
-            location: cand?.current_location || "",
-            linkedin_id: cand?.linkedin_url || cand?.profile?.linkedin_profile || "",
-            linkedin_pass: "",
-            indeed_id: "",
-            indeed_pass: "",
-            dice_id: "",
-            dice_pass: "",
-            monster_id: "",
-            monster_pass: "",
-            ziprecruiter_id: "",
-            ziprecruiter_pass: "",
-            other_platforms: "",
-            custom_platforms: [],
-          });
         }
         setPayments(payRes.data || []);
         setSubscription(subRes.data?.id ? subRes.data : null);
@@ -561,6 +568,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
       await candidatesApi.upsertCredential(candidateId, payload);
       toast({ title: "Credentials updated by Admin" });
+      isEditingCredsRef.current = false;
       setIsEditingCreds(false);
       fetchAll();
     } catch (err: any) {
@@ -1746,7 +1754,11 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                       {savingCred ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                       Update Candidate Credentials
                     </Button>
-                    <Button variant="outline" className="h-11" onClick={() => setIsEditingCreds(false)} disabled={savingCred}>Cancel</Button>
+                    <Button variant="outline" className="h-11" onClick={() => {
+                      isEditingCredsRef.current = false;
+                      setIsEditingCreds(false);
+                      fetchAll();
+                    }} disabled={savingCred}>Cancel</Button>
                   </div>
                 </div>
               ) : credentials.length === 0 ? (
