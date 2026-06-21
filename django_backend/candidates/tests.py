@@ -204,6 +204,30 @@ class CandidateCredentialsTests(TestCase):
         intake = ClientIntake.objects.get(candidate=self.candidate)
         self.assertFalse(intake.is_locked)
 
+    def test_reopen_intake_past_payment_does_not_reset_status(self):
+        """Test that reopening the intake sheet for a candidate who completed payment does not reset their status to approved."""
+        ClientIntake.objects.create(
+            candidate=self.candidate,
+            data=self.valid_payload,
+            is_locked=True
+        )
+        self.candidate.status = 'active_marketing'
+        self.candidate.save()
+
+        # Admin authenticates
+        self.client.force_authenticate(user=self.admin_user)
+
+        reopen_url = reverse('reopen_intake', kwargs={'candidate_id': self.candidate.id})
+        response = self.client.post(reopen_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify candidate status remains active_marketing, but intake is unlocked
+        self.candidate.refresh_from_db()
+        self.assertEqual(self.candidate.status, 'active_marketing')
+        
+        intake = ClientIntake.objects.get(candidate=self.candidate)
+        self.assertFalse(intake.is_locked)
+
 
 from unittest.mock import patch
 

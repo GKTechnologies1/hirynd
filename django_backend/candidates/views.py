@@ -729,8 +729,9 @@ def reopen_intake(request, candidate_id):
         
         try:
             candidate = Candidate.objects.get(id=candidate_id)
-            candidate.status = 'approved'
-            candidate.save()
+            if candidate.status in ('intake_submitted', 'roles_suggested', 'roles_published', 'payment_pending', 'approved'):
+                candidate.status = 'approved'
+                candidate.save()
         except Candidate.DoesNotExist:
             pass
             
@@ -749,9 +750,13 @@ def reopen_roles(request, candidate_id):
             confirmed_at=None,
             change_request_note=None
         )
-        candidate = Candidate.objects.get(id=candidate_id)
-        candidate.status = 'intake_submitted'
-        candidate.save()
+        try:
+            candidate = Candidate.objects.get(id=candidate_id)
+            if candidate.status in ('roles_suggested', 'roles_published', 'payment_pending', 'intake_submitted'):
+                candidate.status = 'intake_submitted'
+                candidate.save()
+        except Candidate.DoesNotExist:
+            pass
         log_action(request.user, 'roles_reopened', str(candidate_id), 'roles', {})
         return Response({'message': 'Roles reopened and status reset'})
     except Candidate.DoesNotExist:
