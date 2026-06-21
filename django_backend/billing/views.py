@@ -596,13 +596,20 @@ def record_payment(request, candidate_id):
                 "content": list(pdf_bytes),
             }]
 
+            # Remove reference details from description for the email subject
+            clean_desc = description
+            if " | Razorpay" in clean_desc:
+                clean_desc = clean_desc.split(" | Razorpay")[0]
+            if " | ADMIN-" in clean_desc:
+                clean_desc = clean_desc.split(" | ADMIN-")[0]
+
             send_email(
                 pay.candidate.user.email,
-                f'Payment Recorded — {description} — Hyrind',
+                f'Payment Recorded — {clean_desc} — Hyrind',
                 get_styled_email_html(
                     _user_name(pay.candidate.user),
                     f'<p>A payment of <strong>{pay.currency} {pay.amount}</strong> '
-                    f'for <strong>{description}</strong> has been recorded and confirmed for your account. '
+                    f'for <strong>{clean_desc}</strong> has been recorded and confirmed for your account. '
                     f'Please find your receipt attached.</p>',
                     action_label='View Invoices', action_url='/candidate-dashboard/billing',
                 ),

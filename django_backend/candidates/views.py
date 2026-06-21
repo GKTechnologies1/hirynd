@@ -495,8 +495,9 @@ def intake(request, candidate_id):
                 subject='Intake Form Updates Received – Hyrind',
                 html=get_styled_email_html(
                     cand_name,
-                    '<p>Your intake form updates have been received and locked successfully.</p>'
-                    '<p>Our team will review the updated information. If you have already completed payment or subsequent workflow steps, no further action is required from your side.</p>',
+                    '<p>Your intake form has been submitted and locked successfully.</p>'
+                    '<p>Our team will now review your profile and suggest relevant roles for your marketing.</p>'
+                    '<p>You will receive a notification once roles are published for your review.</p>',
                     action_label="View Dashboard",
                     action_url="/candidate-dashboard"
                 ),
@@ -632,7 +633,7 @@ def confirm_roles(request, candidate_id):
                 html=get_styled_email_html(
                     cand_name,
                     '<p>Your updated role selections have been confirmed successfully.</p>'
-                    '<p>Our marketing team will proceed with your profile marketing using these selections.</p>',
+                    '<p>Our marketing team will review the updated information. If you have already completed payment or subsequent workflow steps, no further action is required from your side. If not, please complete.</p>',
                     action_label="View Dashboard",
                     action_url="/candidate-dashboard"
                 ),
@@ -985,6 +986,7 @@ def upsert_credential(request, candidate_id):
                 to=admin_email,
                 subject=f'Credentials Updated: {cand_name}',
                 html=f'<p><strong>{cand_name}</strong> ({candidate.user.email}) has updated their credential details.</p>'
+                     f'<p><strong>Version:</strong> {new_version}</p>'
                      f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View in Admin</a></p>',
                 email_type='admin_notification'
             )

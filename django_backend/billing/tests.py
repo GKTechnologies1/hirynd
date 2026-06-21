@@ -382,3 +382,112 @@ class BillingDecoupledTests(TestCase):
         data_admin = serializer_admin.data
         self.assertEqual(data_admin['details']['payment_id'], "pay_Sv1Ta4P6sPfata")
 
+    @patch('billing.services.send_email')
+    def test_addon_payment_completed_email_formatting(self, mock_send_email):
+        """Test that addon payment confirmation emails clean out reference IDs from subject and body."""
+        assignment = AddonService.assign_addon(
+            candidate=self.candidate,
+            addon=self.mock_addon,
+            custom_amount=Decimal('150.00'),
+            added_by=self.admin,
+            activate_immediately=False
+        )
+        pay = Payment.objects.get(addon_assignment=assignment)
+        
+        # Verify individual payment, which triggers generate_invoice_for_addon
+        rp_order = RazorpayOrder.objects.create(
+            candidate=self.candidate,
+            razorpay_order_id='rz_addon_order_123',
+            amount=150.00,
+            currency='USD',
+            payment_type='addon',
+            notes={'billing_payment_id': str(pay.id)}
+        )
+        
+        with patch('billing.views._get_razorpay_client') as mock_get_rz:
+            from unittest.mock import MagicMock
+            mock_client = MagicMock()
+            mock_get_rz.return_value = (mock_client, 'key_123')
+            
+            PaymentService.verify_individual_payment(
+                candidate_id=self.candidate.id,
+                payment_id=pay.id,
+                razorpay_order_id='rz_addon_order_123',
+                razorpay_payment_id='pay_addon_payment_456',
+                razorpay_signature='signature_123'
+            )
+            
+        # We expect multiple send_email calls: candidate notification (invoice) + admin notification.
+        # Find calls containing candidate or admin recipient:
+        candidate_call = None
+        admin_call = None
+        for call in mock_send_email.call_args_list:
+            args, kwargs = call
+            to = args[0] if args else kwargs.get('to')
+            subject = args[1] if len(args) > 1 else kwargs.get('subject')
+            html = args[2] if len(args) > 2 else kwargs.get('html')
+            if to == self.candidate_user.email and 'Payment Confirmed' in subject:
+                candidate_call = (subject, html)
+            elif to == 'hyrind.operations@gmail.com':
+                admin_call = (subject, html)
+                
+        self.assertIsNotNone(candidate_call)
+        self.assertIsNotNone(admin_call)
+        
+        cand_subject, cand_html = candidate_call
+        self.assertNotIn("pay_addon_payment_456", cand_subject)
+        self.assertNotIn("Razorpay", cand_subject)
+        
+        admin_subject, admin_html = admin_call
+        self.assertNotIn("pay_addon_payment_456", admin_subject)
+        
+        # Admin body check: reference ID should not be in the general description or service type, but MUST be in Payment Reference
+        self.assertNotIn("pay_addon_payment_456", admin_html.split("<strong>Payment Reference:</strong>")[0])
+        self.assertIn("<strong>Payment Reference:</strong> pay_addon_payment_456", admin_html)
+
+    @patch('billing.services.send_email')
+    def test_subscription_payment_completed_admin_email_subject(self, mock_send_email):
+        """Test that subscription payment completed emails notify admin with Marketing Service Fee in subject."""
+        sub = Subscription.objects.create(
+            candidate=self.candidate,
+            plan=self.base_plan,
+            plan_name=self.base_plan.name,
+            amount=Decimal('400.00'),
+            currency='USD',
+            billing_cycle='monthly',
+            status='pending_payment'
+        )
+        
+        rp_order = RazorpayOrder.objects.create(
+            candidate=self.candidate,
+            subscription=sub,
+            razorpay_order_id='rz_sub_order_123',
+            amount=400.00,
+            currency='USD',
+            payment_type='subscription'
+        )
+        
+        with patch('billing.views._get_razorpay_client') as mock_get_rz:
+            from unittest.mock import MagicMock
+            mock_client = MagicMock()
+            mock_get_rz.return_value = (mock_client, 'key_123')
+            
+            PaymentService.verify_subscription_payment(
+                candidate_id=self.candidate.id,
+                razorpay_order_id='rz_sub_order_123',
+                razorpay_payment_id='pay_sub_payment_456',
+                razorpay_signature='signature_123'
+            )
+            
+        admin_call = None
+        for call in mock_send_email.call_args_list:
+            args, kwargs = call
+            to = args[0] if args else kwargs.get('to')
+            subject = args[1] if len(args) > 1 else kwargs.get('subject')
+            if to == 'hyrind.operations@gmail.com':
+                admin_call = subject
+                
+        self.assertIsNotNone(admin_call)
+        self.assertIn("Marketing Service Fee", admin_call)
+        self.assertIn("candidate@gmail.com", admin_call)
+

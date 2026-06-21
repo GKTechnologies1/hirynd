@@ -307,13 +307,20 @@ class AddonService:
                 "content": list(pdf_bytes),
             }]
 
+            # Remove reference details from description for subjects and general body references
+            clean_desc = description
+            if " | Razorpay" in clean_desc:
+                clean_desc = clean_desc.split(" | Razorpay")[0]
+            if " | ADMIN-" in clean_desc:
+                clean_desc = clean_desc.split(" | ADMIN-")[0]
+
             send_email(
                 payment.candidate.user.email,
-                f'Payment Confirmed — {description} — Hyrind',
+                f'Payment Confirmed — {clean_desc} — Hyrind',
                 get_styled_email_html(
                     _user_name(payment.candidate.user),
                     f'<p>Your payment of <strong>{payment.currency} {payment.amount}</strong> '
-                    f'for <strong>{description}</strong> has been received and confirmed. Please find your receipt attached.</p>',
+                    f'for <strong>{clean_desc}</strong> has been received and confirmed. Please find your receipt attached.</p>',
                     action_label='View Invoices', action_url='/candidate-dashboard/billing',
                 ),
                 attachments=attachments,
@@ -325,12 +332,12 @@ class AddonService:
                 admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
                 cand_name = _user_name(payment.candidate.user)
                 escaped_cand_name = escape(cand_name)
-                escaped_description = escape(description)
+                escaped_clean_desc = escape(clean_desc)
                 send_email(
                     to=admin_email,
-                    subject=f'Payment Completed: {escaped_description} — {escaped_cand_name}',
-                    html=f'<p><strong>{escaped_cand_name}</strong> ({payment.candidate.user.email}) has successfully completed a payment of <strong>{payment.currency} {payment.amount}</strong> for <strong>{escaped_description}</strong>.</p>'
-                         f'<p><strong>Service Type:</strong> Addon Service ({escaped_description})</p>'
+                    subject=f'Payment Completed: {escaped_clean_desc} — {escaped_cand_name}',
+                    html=f'<p><strong>{escaped_cand_name}</strong> ({payment.candidate.user.email}) has successfully completed a payment of <strong>{payment.currency} {payment.amount}</strong> for <strong>{escaped_clean_desc}</strong>.</p>'
+                         f'<p><strong>Service Type:</strong> Addon Service ({escaped_clean_desc})</p>'
                          f'<p><strong>Payment Reference:</strong> {escape(resolved_ref)}</p>'
                          f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{payment.candidate.id}">View Candidate in Admin</a></p>',
                     email_type='admin_notification'
@@ -526,7 +533,7 @@ class PaymentService:
                 escaped_cand_name = escape(cand_name)
                 send_email(
                     to=admin_email,
-                    subject=f'Payment Completed: {escaped_cand_name}',
+                    subject=f'Payment Completed: Marketing Service Fee — {escaped_cand_name}',
                     html=f'<p><strong>{escaped_cand_name}</strong> ({candidate.user.email}) has successfully completed a payment of <strong>{rp_order.currency} {rp_order.amount}</strong>.</p>'
                          f'<p><strong>Service Type:</strong> Core Subscription Fee ({escape(sub.plan_name) if sub else "Marketing Service Fee"})</p>'
                          f'<p><strong>Payment Reference:</strong> {escape(razorpay_payment_id)}</p>'
