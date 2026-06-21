@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from users.permissions import IsAdmin, IsApproved, IsRecruiter
 from candidates.models import Candidate
 from audit.utils import log_action
+from notifications.utils import send_email, get_styled_email_html, create_notification
 from .models import RecruiterAssignment, DailySubmissionLog, JobLinkEntry
 from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
@@ -64,8 +65,59 @@ def assign_recruiter(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-    serializer.save()
+    instance = serializer.save()
     log_action(request.user, 'recruiter_assigned', str(data.get('candidate')), 'assignment', data)
+
+    # ── Email & In-App Notifications: Recruiter Assigned ──
+    try:
+        candidate = instance.candidate
+        recruiter = instance.recruiter
+        cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+        rec_name = recruiter.profile.full_name if hasattr(recruiter, 'profile') else recruiter.email
+
+        # 1. Send Email to Candidate
+        send_email(
+            to=candidate.user.email,
+            subject='Your Recruiter Has Been Assigned',
+            html=get_styled_email_html(
+                cand_name,
+                f'<p>A recruiter has been assigned to support you: <strong>{rec_name}</strong>.</p>'
+                f'<p>They will log daily application activities and coordinate submission links with you.</p>',
+                action_label="Go to Dashboard",
+                action_url="/candidate-dashboard"
+            )
+        )
+
+        # 2. Send Email to Recruiter
+        send_email(
+            to=recruiter.email,
+            subject='Your Recruiter Has Been Assigned',
+            html=get_styled_email_html(
+                rec_name,
+                f'<p>You have been assigned to support candidate: <strong>{cand_name}</strong> ({candidate.user.email}).</p>'
+                f'<p>Please review their details and begin logging their daily applications.</p>',
+                action_label="View Assignment",
+                action_url="/recruiter-dashboard"
+            )
+        )
+
+        # 3. In-App Notification to Candidate
+        create_notification(
+            candidate.user,
+            'Recruiter Assigned',
+            f'Recruiter {rec_name} has been assigned to your profile.',
+            link='/candidate-dashboard'
+        )
+
+        # 4. In-App Notification to Recruiter
+        create_notification(
+            recruiter,
+            'New Candidate Assigned',
+            f'Candidate {cand_name} has been assigned to you.',
+            link='/recruiter-dashboard'
+        )
+    except Exception:
+        pass
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 

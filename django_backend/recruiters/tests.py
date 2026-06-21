@@ -117,3 +117,57 @@ class RecruiterBankDetailsTests(TestCase):
         self.assertEqual(bank.bank_name, 'Axis Bank')
         self.assertEqual(bank.account_number_encrypted, '222233334444')
         self.assertEqual(bank.routing_number_encrypted, 'UTIB0001111')
+
+
+from unittest.mock import patch
+from candidates.models import Candidate
+
+class RecruiterAssignmentTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email='admin@hyrind.com',
+            password='password',
+            role='admin',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=self.admin, full_name='System Admin')
+
+        self.recruiter = User.objects.create_user(
+            email='recruiter@hyrind.com',
+            password='password',
+            role='recruiter',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=self.recruiter, full_name='Recruiter User')
+        RecruiterProfile.objects.create(user=self.recruiter)
+
+        self.candidate_user = User.objects.create_user(
+            email='candidate@hyrind.com',
+            password='password',
+            role='candidate',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=self.candidate_user, full_name='Candidate User')
+        self.candidate = Candidate.objects.create(user=self.candidate_user, status='approved')
+
+    @patch('recruiters.views.send_email')
+    @patch('recruiters.views.create_notification')
+    def test_assign_recruiter_sends_notifications(self, mock_create_notification, mock_send_email):
+        """Test that assigning a recruiter sends emails and in-app notifications to candidate & recruiter."""
+        self.client.force_authenticate(user=self.admin)
+        url = reverse('assign_recruiter')
+        
+        payload = {
+            'candidate': str(self.candidate.id),
+            'recruiter': str(self.recruiter.id),
+            'role_type': 'primary'
+        }
+        
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify notifications are created
+        self.assertEqual(mock_create_notification.call_count, 2)
+        # Verify emails are sent to candidate and recruiter
+        self.assertEqual(mock_send_email.call_count, 2)

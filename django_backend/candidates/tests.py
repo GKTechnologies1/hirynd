@@ -203,3 +203,79 @@ class CandidateCredentialsTests(TestCase):
         
         intake = ClientIntake.objects.get(candidate=self.candidate)
         self.assertFalse(intake.is_locked)
+
+
+from unittest.mock import patch
+
+class CandidateLifecycleEmailsTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email='admin@hyrind.com',
+            password='password',
+            role='admin',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=self.admin, full_name='System Admin')
+
+        self.candidate_user = User.objects.create_user(
+            email='candidate@hyrind.com',
+            password='password',
+            role='candidate',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=self.candidate_user, full_name='John Doe')
+        self.candidate = Candidate.objects.create(user=self.candidate_user, status='approved')
+
+    @patch('candidates.views.send_email')
+    @patch('candidates.views.create_notification')
+    def test_referral_triggers_notifications(self, mock_create_notification, mock_send_email):
+        """Test that submitting a referral triggers admin/friend emails and admin in-app notification."""
+        self.client.force_authenticate(user=self.candidate_user)
+        referral_url = reverse('referrals', kwargs={'candidate_id': self.candidate.id})
+        
+        payload = {
+            'friend_name': 'Friend User',
+            'friend_email': 'friend@gmail.com',
+            'friend_phone': '1234567890',
+            'referred_for': 'Software Engineer',
+            'referral_note': 'Strong recommendation'
+        }
+        
+        response = self.client.post(referral_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify in-app notifications created for admin
+        mock_create_notification.assert_called()
+        # Verify send_email called for both friend and admin
+        self.assertEqual(mock_send_email.call_count, 2)
+        
+        # Verify audit log exists
+        from audit.models import AuditLog
+        self.assertTrue(AuditLog.objects.filter(action='referral_submitted').exists())
+
+    @patch('candidates.views.send_email')
+    def test_placement_closure_triggers_emails(self, mock_send_email):
+        """Test that closing placement triggers congratulations to candidate and confirmation to admin."""
+        self.client.force_authenticate(user=self.admin)
+        placement_url = reverse('placement', kwargs={'candidate_id': self.candidate.id})
+        
+        payload = {
+            'company_name': 'Google',
+            'role_title': 'Staff Software Engineer',
+            'start_date': '2026-07-01',
+            'salary': '200,000',
+            'currency': 'USD',
+            'hr_email': 'hr@google.com',
+            'offer_letter_url': 'https://google.com/offer.pdf'
+        }
+        
+        response = self.client.post(placement_url, payload, format='json')
+        self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        
+        # Verify candidate status updated
+        self.candidate.refresh_from_db()
+        self.assertEqual(self.candidate.status, 'placed_closed')
+        
+        # Verify emails triggered
+        self.assertEqual(mock_send_email.call_count, 2)

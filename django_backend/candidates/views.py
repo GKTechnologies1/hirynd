@@ -9,6 +9,7 @@ from datetime import datetime
 
 from django.conf import settings
 from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsCandidate
+from users.models import User
 from audit.utils import log_action
 from notifications.utils import send_email, get_styled_email_html, create_notification
 from .models import (
@@ -1028,7 +1029,67 @@ def referrals(request, candidate_id):
     data = request.data.copy()
     serializer = ReferralSerializer(data=data)
     serializer.is_valid(raise_exception=True)
-    serializer.save(referrer_id=candidate_id)
+    referral = serializer.save(referrer_id=candidate_id)
+
+    # ── Referral Triggers: Emails, Notifications, Audit Logs ──
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+        referrer_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+        friend_name = referral.friend_name
+        friend_email = referral.friend_email
+
+        # 1. Audit Log: referral_submitted
+        log_action(request.user, 'referral_submitted', str(referral.id), 'referral', {
+            'referrer_id': str(candidate_id),
+            'friend_name': friend_name,
+            'friend_email': friend_email
+        })
+
+        # 2. In-app notifications to admin
+        for admin in User.objects.filter(role='admin'):
+            try:
+                create_notification(
+                    user=admin,
+                    title='New Referral Received',
+                    message=f'{referrer_name} has referred {friend_name} ({friend_email}).',
+                    link='/admin-dashboard/referrals'
+                )
+            except Exception:
+                pass
+
+        # 3. Email to referred friend (optional)
+        send_email(
+            to=friend_email,
+            subject='Join HYRIND – You have been referred!',
+            html=get_styled_email_html(
+                friend_name,
+                f'<p>Your friend <strong>{referrer_name}</strong> has referred you to HYRIND, a premier recruitment and career growth platform.</p>'
+                f'<p>Join us to explore curated role recommendations, professional training, and direct marketing opportunities.</p>',
+                action_label="Join HYRIND",
+                action_url="/"
+            )
+        )
+
+        # 4. Email to admin with referral details
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+        send_email(
+            to=admin_email,
+            subject='New Referral Received',
+            html=f'<p>A new referral has been submitted by candidate <strong>{referrer_name}</strong> ({candidate.user.email}).</p>'
+                 f'<p><strong>Referred Friend Details:</strong></p>'
+                 f'<ul>'
+                 f'<li><strong>Name:</strong> {friend_name}</li>'
+                 f'<li><strong>Email:</strong> {friend_email}</li>'
+                 f'<li><strong>Phone:</strong> {referral.friend_phone or "N/A"}</li>'
+                 f'<li><strong>Referred For:</strong> {referral.referred_for or "N/A"}</li>'
+                 f'<li><strong>Note:</strong> {referral.referral_note or "N/A"}</li>'
+                 f'</ul>'
+                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/referrals">Review Referrals in Admin Portal</a></p>',
+            email_type='admin_notification'
+        )
+    except Exception:
+        pass
+
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -1170,6 +1231,42 @@ def placement(request, candidate_id):
 
     Candidate.objects.filter(id=candidate_id).update(status='placed_closed')
     log_action(request.user, 'placement_closed', str(candidate_id), 'candidate', data)
+
+    # ── Placement Closure Emails ──
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+        cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+        
+        # 1. Send Congratulations email to Candidate
+        send_email(
+            to=candidate.user.email,
+            subject='Congratulations – Your Placement Has Been Confirmed',
+            html=get_styled_email_html(
+                cand_name,
+                f'<p>Fantastic news! Your placement at <strong>{serializer.data.get("company_name", "your new employer")}</strong> as a <strong>{serializer.data.get("role_title", "Placed Role")}</strong> has been confirmed.</p>'
+                f'<p>We are incredibly proud of your achievement and wish you all the best in your new career journey!</p>'
+                f'<p>Thank you for partnering with HYRIND.</p>',
+                action_label="Go to Portal",
+                action_url="/"
+            )
+        )
+
+        # 2. Send placement confirmation to Admin team
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+        send_email(
+            to=admin_email,
+            subject='Congratulations – Your Placement Has Been Confirmed',
+            html=f'<p><strong>Placement Closure Confirmed</strong></p>'
+                 f'<p>Candidate: {cand_name} ({candidate.user.email})</p>'
+                 f'<p>Employer: {serializer.data.get("company_name")}</p>'
+                 f'<p>Role: {serializer.data.get("role_title")}</p>'
+                 f'<p>Salary: {serializer.data.get("salary")} {serializer.data.get("currency")}</p>'
+                 f'<p>Start Date: {serializer.data.get("start_date")}</p>'
+                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View Candidate in Admin</a></p>',
+            email_type='admin_notification'
+        )
+    except Exception:
+        pass
     return Response(serializer.data, status=status.HTTP_201_CREATED if serializer.instance.id is None else status.HTTP_200_OK)
 
 

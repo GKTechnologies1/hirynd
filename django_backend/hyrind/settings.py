@@ -222,7 +222,7 @@ if not USE_LOCAL_STORAGE:
 # Set RESEND_API_KEY in .env.  If missing/placeholder, emails log to console only.
 RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
 RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'Hyrind <noreply@hyrind.com>')
-ADMIN_NOTIFICATION_EMAIL = os.getenv('ADMIN_EMAIL', 'hyrind.operations@gmail.com')
+ADMIN_NOTIFICATION_EMAIL = os.getenv('ADMIN_EMAIL') or os.getenv('OPERATIONS_EMAIL') or 'hyrind.operations@gmail.com'
 SITE_URL = os.getenv('SITE_URL', 'https://hyrnd.netlify.app')
 
 # Comma-separated list of days before subscription renewal to send reminder emails (0 means on the due date itself)

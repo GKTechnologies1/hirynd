@@ -515,7 +515,7 @@ class PaymentService:
             }]
 
             send_email(
-                candidate.user.email, 'Payment Confirmed & Invoice - Hyrind',
+                candidate.user.email, 'Payment Confirmed – Hyrind',
                 get_styled_email_html(
                     _user_name(candidate.user),
                     f'<p>We received your payment of <strong>{rp_order.currency} {rp_order.amount}</strong>. '
