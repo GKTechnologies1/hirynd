@@ -30,18 +30,26 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
   const [referralNote, setReferralNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchReferrals = async () => {
+  const fetchReferrals = async (showLoading = true, isPolling = false) => {
     if (!candidate?.id) return;
+    if (showLoading) setLoading(true);
+    const backgroundConfig = isPolling ? { headers: { 'X-Background-Request': 'true' } } : undefined;
     try {
-      const { data } = await candidatesApi.getReferrals(candidate.id);
+      const { data } = await candidatesApi.getReferrals(candidate.id, backgroundConfig);
       setReferrals(data || []);
     } catch {
       setReferrals([]);
     }
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
-  useEffect(() => { fetchReferrals(); }, [candidate?.id]);
+  useEffect(() => {
+    fetchReferrals(true, false);
+    const interval = setInterval(() => {
+      fetchReferrals(false, true);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [candidate?.id]);
 
   const handleSubmit = async () => {
     if (!friendName.trim() || !friendEmail.trim() || !friendPhone.trim()) {
@@ -140,6 +148,24 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
                   sortable: true,
                   accessorKey: "status",
                   render: (r: any) => <StatusBadge status={r.status} />
+                },
+                { 
+                  header: "My Notes", 
+                  accessorKey: "referral_note",
+                  render: (r: any) => (
+                    <span className="text-xs text-muted-foreground max-w-[150px] truncate block" title={r.referral_note || ""}>
+                      {r.referral_note || "—"}
+                    </span>
+                  )
+                },
+                { 
+                  header: "Admin Notes", 
+                  accessorKey: "notes",
+                  render: (r: any) => (
+                    <span className="text-xs text-muted-foreground max-w-[150px] truncate block" title={r.notes || ""}>
+                      {r.notes || "—"}
+                    </span>
+                  )
                 },
                 { 
                   header: "Date", 

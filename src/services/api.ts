@@ -313,7 +313,7 @@ export const candidatesApi = {
   getCredentials: (id: string, config?: any) => api.get(`/candidates/${id}/credentials/`, config),
   upsertCredential: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/credentials/upsert/`, { data }),
-  getReferrals: (id: string) => api.get(`/candidates/${id}/referrals/`),
+  getReferrals: (id: string, config?: any) => api.get(`/candidates/${id}/referrals/`, config),
   submitReferral: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/referrals/`, data),
   getInterviews: (id: string, config?: any) => api.get(`/candidates/${id}/interviews/`, config),
@@ -325,7 +325,7 @@ export const candidatesApi = {
   closePlacement: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/placement/`, data),
   getPayments: (id: string) => api.get(`/candidates/${id}/payments/`),
-  adminListReferrals: () => api.get('/candidates/referrals/all/'),
+  adminListReferrals: (config?: any) => api.get('/candidates/referrals/all/', config),
   updateReferral: (referralId: string, data: Record<string, any>) =>
     api.patch(`/candidates/referrals/${referralId}/update/`, data),
   activityReport: () => api.get('/candidates/admin/activity-report/'),

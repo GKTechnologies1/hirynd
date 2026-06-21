@@ -37,7 +37,7 @@ const statusConfig: Record<string, { label: string; className: string; dot?: str
   rejected: { label: "Rejected", className: "bg-red-50 text-red-700", dot: "bg-red-500" },
   no_response: { label: "No Response", className: "bg-muted text-muted-foreground", dot: "bg-muted-foreground" },
   // Referral statuses
-  sent: { label: "Sent", className: "bg-blue-50 text-blue-700", dot: "bg-blue-500" },
+  sent: { label: "New", className: "bg-blue-50 text-blue-700", dot: "bg-blue-500" },
   contacted: { label: "Contacted", className: "bg-violet-50 text-violet-700", dot: "bg-violet-500" },
   onboarded: { label: "Onboarded", className: "bg-secondary text-secondary-foreground", dot: "bg-white" },
   closed: { label: "Closed", className: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },

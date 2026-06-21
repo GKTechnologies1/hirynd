@@ -18,17 +18,25 @@ const AdminReferralsPage = () => {
   const [referrals, setReferrals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = true, isPolling = false) => {
+    if (showLoading) setLoading(true);
+    const backgroundConfig = isPolling ? { headers: { 'X-Background-Request': 'true' } } : undefined;
     try {
-      const { data } = await candidatesApi.adminListReferrals();
+      const { data } = await candidatesApi.adminListReferrals(backgroundConfig);
       setReferrals(data || []);
     } catch {
       setReferrals([]);
     }
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData(true, false);
+    const interval = setInterval(() => {
+      fetchData(false, true);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
@@ -48,7 +56,7 @@ const AdminReferralsPage = () => {
     }
   };
 
-  const STATUSES = ["new", "contacted", "onboarded", "closed"];
+  const STATUSES = ["sent", "contacted", "onboarded", "closed"];
 
   return (
     <div className="space-y-4">
@@ -93,9 +101,18 @@ const AdminReferralsPage = () => {
                   <Select value={r.status} onValueChange={v => handleStatusChange(r.id, v)}>
                     <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                      {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s === 'sent' ? 'New' : s}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                )
+              },
+              { 
+                header: "Candidate Notes", 
+                accessorKey: "referral_note",
+                render: (r: any) => (
+                  <span className="text-xs text-muted-foreground max-w-[150px] truncate block" title={r.referral_note || ""}>
+                    {r.referral_note || "—"}
+                  </span>
                 )
               },
               { 
