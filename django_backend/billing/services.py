@@ -503,6 +503,7 @@ class PaymentService:
                 status='paid',
                 paid_at=timezone.now(),
                 payment_reference=razorpay_payment_id,
+                description='Marketing Service Fee',
                 tax_amount=Decimal('0.00'),
                 tax_rate=Decimal('0.00'),
             )

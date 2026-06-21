@@ -559,6 +559,8 @@ def record_payment(request, candidate_id):
             period_start = pay.payment_date or timezone.now().date()
             period_end   = period_start + relativedelta(months=1)
             description  = pay.payment_type.replace('_', ' ').title()
+            if pay.payment_type in ('subscription', 'monthly_service'):
+                description = 'Marketing Service Fee'
 
             invoice = Invoice.objects.create(
                 subscription=getattr(pay, 'subscription', None),

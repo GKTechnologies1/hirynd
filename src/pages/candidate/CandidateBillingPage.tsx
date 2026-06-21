@@ -148,7 +148,7 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
                 header: "Description / Period",
                 render: (inv: any) => (
                   <div className="space-y-0.5">
-                    <p className="text-[11px] font-bold text-slate-700 font-sans">{inv.description || "Service Fee"}</p>
+                    <p className="text-[11px] font-bold text-slate-700 font-sans">{inv.description || "Marketing Service Fee"}</p>
                     {inv.is_addon ? (
                       <p className="text-[10px] text-slate-400 font-medium">Paid On: {formatDate(inv.paid_at || inv.created_at)}</p>
                     ) : (

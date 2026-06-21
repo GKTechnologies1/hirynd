@@ -198,12 +198,12 @@ def generate_invoice_pdf(invoice):
         cleaned = re.sub(r'(?:\s*\|\s*|\s*-\s*|\s*,\s*|^|\b)Razorpay\s*(?:payment|Signature|Order|:)?\s*[a-zA-Z0-9_]+', '', desc, flags=re.IGNORECASE).strip()
         cleaned = re.sub(r'\b(?:pay|order|sign|rzp)_[a-zA-Z0-9_]+\b', '', cleaned, flags=re.IGNORECASE).strip()
         cleaned = re.sub(r'^[|,\-\s]+|[|,\-\s]+$', '', cleaned).strip()
-        plan_name = cleaned or "Profile Marketing Services Fee"
+        plan_name = cleaned or "Marketing Service Fee"
     else:
         plan_name = (
             invoice.subscription.plan_name
             if invoice.subscription
-            else "Profile Marketing Services Fee"
+            else "Marketing Service Fee"
         )
     amount = invoice.amount
     currency = invoice.currency.upper() if invoice.currency else 'USD'
