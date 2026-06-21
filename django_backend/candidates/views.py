@@ -732,7 +732,27 @@ def reopen_intake(request, candidate_id):
             if candidate.status in ('intake_submitted', 'roles_suggested', 'roles_published', 'payment_pending', 'approved'):
                 candidate.status = 'approved'
                 candidate.save()
-        except Candidate.DoesNotExist:
+            
+            # Send email and notification to candidate
+            cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+            send_email(
+                to=candidate.user.email,
+                subject='Your Intake Form Has Been Reopened',
+                html=get_styled_email_html(
+                    cand_name,
+                    '<p>Your intake form has been reopened by the administrator for updates.</p>'
+                    '<p>Please log in to your dashboard to review and update your intake sheet details.</p>',
+                    action_label="Update Intake",
+                    action_url="/candidate-dashboard/intake"
+                )
+            )
+            create_notification(
+                user=candidate.user,
+                title='Intake Form Reopened',
+                message='Your intake form has been reopened by admin for updates.',
+                link='/candidate-dashboard/intake'
+            )
+        except Exception:
             pass
             
         log_action(request.user, 'intake_reopened', str(candidate_id), 'intake', {})
@@ -755,7 +775,27 @@ def reopen_roles(request, candidate_id):
             if candidate.status in ('roles_suggested', 'roles_published', 'payment_pending', 'intake_submitted'):
                 candidate.status = 'intake_submitted'
                 candidate.save()
-        except Candidate.DoesNotExist:
+                
+            # Send email and notification to candidate
+            cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+            send_email(
+                to=candidate.user.email,
+                subject='Your Role Selection Has Been Reopened',
+                html=get_styled_email_html(
+                    cand_name,
+                    '<p>Your role selection form has been reopened by the administrator for changes.</p>'
+                    '<p>Please log in to your dashboard to review and update your suggested roles confirmation.</p>',
+                    action_label="Review Roles",
+                    action_url="/candidate-dashboard/roles"
+                )
+            )
+            create_notification(
+                user=candidate.user,
+                title='Role Selection Reopened',
+                message='Your role selection has been reopened by admin for changes.',
+                link='/candidate-dashboard/roles'
+            )
+        except Exception:
             pass
         log_action(request.user, 'roles_reopened', str(candidate_id), 'roles', {})
         return Response({'message': 'Roles reopened and status reset'})

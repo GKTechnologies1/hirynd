@@ -303,3 +303,36 @@ class CandidateLifecycleEmailsTests(TestCase):
         
         # Verify emails triggered
         self.assertEqual(mock_send_email.call_count, 2)
+
+    @patch('candidates.views.send_email')
+    @patch('candidates.views.create_notification')
+    def test_reopen_intake_sends_notifications(self, mock_create_notification, mock_send_email):
+        """Test that reopening intake sends email and notification to candidate."""
+        ClientIntake.objects.create(
+            candidate=self.candidate,
+            data={},
+            is_locked=True
+        )
+        self.client.force_authenticate(user=self.admin)
+        reopen_url = reverse('reopen_intake', kwargs={'candidate_id': self.candidate.id})
+        
+        response = self.client.post(reopen_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify email and notification sent
+        mock_send_email.assert_called_once()
+        mock_create_notification.assert_called_once()
+
+    @patch('candidates.views.send_email')
+    @patch('candidates.views.create_notification')
+    def test_reopen_roles_sends_notifications(self, mock_create_notification, mock_send_email):
+        """Test that reopening roles sends email and notification to candidate."""
+        self.client.force_authenticate(user=self.admin)
+        reopen_url = reverse('reopen_roles', kwargs={'candidate_id': self.candidate.id})
+        
+        response = self.client.post(reopen_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify email and notification sent
+        mock_send_email.assert_called_once()
+        mock_create_notification.assert_called_once()
