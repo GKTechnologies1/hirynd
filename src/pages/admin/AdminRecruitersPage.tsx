@@ -142,6 +142,8 @@ const AdminRecruitersPage = () => {
               {
                 header: "Assigned To",
                 className: "font-bold text-xs uppercase tracking-widest text-center",
+                sortable: true,
+                accessorKey: "assigned_candidate_count",
                 render: (r: any) => (
                   <div className="flex flex-col items-center justify-center gap-1">
                     <Badge variant="outline" className="h-7 px-3 rounded-xl bg-secondary/5 text-secondary border-secondary/20 font-black text-xs">

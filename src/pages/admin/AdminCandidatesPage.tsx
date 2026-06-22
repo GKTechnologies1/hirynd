@@ -177,7 +177,7 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
                 header: "Update Status", 
                 render: (c: any) => (
                   <Select value={c.status} onValueChange={(val) => handleStatusChange(c.id, val)}>
-                    <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {STATUSES.map((s) => (
                         <SelectItem key={s} value={s}>{s.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
@@ -185,6 +185,8 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
                     </SelectContent>
                   </Select>
                 ),
+                sortable: true,
+                accessorKey: "status",
                 className: "text-xs"
               },
               { 

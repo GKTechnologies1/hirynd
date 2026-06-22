@@ -353,6 +353,8 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                 columns={[
                   { 
                     header: "ID", 
+                    sortable: true,
+                    accessorKey: "id",
                     render: (j: any) => (
                       <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap">
                         {`HYRSUB${j.id.toString().slice(-6).toUpperCase()}`}
@@ -413,10 +415,14 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   },
                   { 
                     header: "Recruiter Status", 
+                    sortable: true,
+                    accessorKey: "candidate_response_status",
                     render: (j: any) => <StatusBadge status={j.candidate_response_status || j.status || j.application_status} />
                   },
                   { 
                     header: "Logged Date", 
+                    sortable: true,
+                    accessorKey: "log_date",
                     render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{formatDate(j.log_date)}</span>
                   },
                   { 

@@ -189,7 +189,7 @@ export function DataTable<T>({
                     className={cn(
                       "h-10 px-4 text-center align-middle font-bold text-muted-foreground [&:has([role=checkbox])]:pr-0",
                       col.className,
-                      isSortable && "cursor-pointer select-none transition-colors hover:text-foreground"
+                      isSortable && "group cursor-pointer select-none transition-colors hover:text-foreground"
                     )}
                     onClick={() => isSortable && handleSort(col.accessorKey!)}
                   >

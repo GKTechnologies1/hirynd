@@ -141,6 +141,8 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
                 },
                 { 
                   header: "Phone", 
+                  sortable: true,
+                  accessorKey: "friend_phone",
                   render: (r: any) => <span className="text-sm">{r.friend_phone || "—"}</span>
                 },
                 { 
@@ -151,6 +153,7 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
                 },
                 { 
                   header: "My Notes", 
+                  sortable: true,
                   accessorKey: "referral_note",
                   render: (r: any) => (
                     <span className="text-xs text-muted-foreground max-w-[150px] truncate block" title={r.referral_note || ""}>
@@ -160,6 +163,7 @@ const CandidateReferralsPage = ({ candidate }: CandidateReferralsPageProps) => {
                 },
                 { 
                   header: "Admin Notes", 
+                  sortable: true,
                   accessorKey: "notes",
                   render: (r: any) => (
                     <span className="text-xs text-muted-foreground max-w-[150px] truncate block" title={r.notes || ""}>

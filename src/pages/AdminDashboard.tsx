@@ -350,6 +350,8 @@ const AdminDashboard = () => {
                       </SelectContent>
                     </Select>
                   ),
+                  sortable: true,
+                  accessorKey: "status",
                   className: "text-xs font-semibold"
                 },
                 {
@@ -420,6 +422,8 @@ const AdminDashboard = () => {
                   {
                     header: "Assigned To",
                     className: "font-bold text-xs uppercase text-center",
+                    sortable: true,
+                    accessorKey: "assigned_candidate_count",
                     render: (r: any) => (
                       <div className="flex justify-center">
                         <span className="bg-secondary/10 text-secondary px-2 py-0.5 rounded-full text-[10px] font-bold">

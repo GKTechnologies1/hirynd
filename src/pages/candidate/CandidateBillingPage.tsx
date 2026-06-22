@@ -130,6 +130,8 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
             columns={[
               {
                 header: "Candidate ID",
+                sortable: true,
+                accessorKey: "candidate_display_id",
                 render: (inv: any) => (
                   <Badge variant="outline" className="font-mono text-[10px] text-[#0d47a1] bg-blue-50/50 border-blue-200 px-2 py-0.5 font-bold shadow-none">
                     {inv.candidate_display_id || "—"}
@@ -138,6 +140,8 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
               },
               {
                 header: "Invoice ID",
+                sortable: true,
+                accessorKey: "display_id",
                 render: (inv: any) => (
                   <span className="font-mono font-bold text-blue-600 text-[10px] uppercase hover:underline cursor-pointer">
                     {inv.display_id || `INV-${inv.id.slice(0,8).toUpperCase()}`}
@@ -159,6 +163,8 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
               },
               {
                 header: "Amount",
+                sortable: true,
+                accessorKey: "amount",
                 render: (inv: any) => (
                   <div className="space-y-0.5">
                     <p className="font-bold text-[11px] text-slate-700">${Number(inv.amount).toLocaleString()}</p>
@@ -170,6 +176,8 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
               },
               {
                 header: "Status",
+                sortable: true,
+                accessorKey: "status",
                 render: (inv: any) => (
                   <Badge className="bg-emerald-500 text-white border-none shadow-none text-[9px] font-bold h-4 px-1.5 rounded-sm uppercase">
                     {inv.status}
@@ -178,6 +186,8 @@ const CandidateBillingPage = ({ candidate }: { candidate: any }) => {
               },
               {
                 header: "Paid On",
+                sortable: true,
+                accessorKey: "paid_at",
                 render: (inv: any) => <span className="text-[11px] font-medium text-slate-400">{formatDate(inv.paid_at || inv.created_at)}</span>
               },
               {

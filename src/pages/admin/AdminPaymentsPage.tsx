@@ -216,6 +216,8 @@ const AdminPaymentsPage = () => {
               columns={[
                 {
                   header: "Candidate ID",
+                  sortable: true,
+                  accessorKey: "candidate_display_id",
                   render: (p: any) => (
                     <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
                       {p.candidate_display_id || "—"}
@@ -225,6 +227,8 @@ const AdminPaymentsPage = () => {
                 },
                 {
                   header: "Payment ID",
+                  sortable: true,
+                  accessorKey: "display_id",
                   render: (p: any) => (
                     <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded uppercase whitespace-nowrap font-mono">
                       {p.display_id || `PAY${p.id.toString().slice(-6).toUpperCase()}`}
