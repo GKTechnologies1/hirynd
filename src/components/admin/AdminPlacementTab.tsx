@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Award, CheckCircle } from "lucide-react";
+import { Award, CheckCircle, Pencil } from "lucide-react";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import { formatDate } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -24,6 +24,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const [form, setForm] = useState({
     company_name: "",
@@ -37,13 +38,33 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
     notes: "",
   });
 
-  useEffect(() => {
+  const fetchPlacement = () => {
+    setLoading(true);
     candidatesApi.getPlacement(candidateId)
       .then(({ data }) => { 
-        setPlacement(data && Object.keys(data).length > 0 ? data : null); 
+        if (data && Object.keys(data).length > 0) {
+          setPlacement(data);
+          setForm({
+            company_name: data.company_name || "",
+            role_title: data.role_title || "",
+            start_date: data.start_date || "",
+            salary: data.salary || "",
+            hr_email: data.hr_email || "",
+            offer_letter_url: data.offer_letter_url || "",
+            interviewer_email: data.interviewer_email || "",
+            bgv_company_name: data.bgv_company_name || "",
+            notes: data.notes || data.placement_notes || "",
+          });
+        } else {
+          setPlacement(null);
+        }
         setLoading(false); 
       })
       .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchPlacement();
   }, [candidateId]);
 
 
@@ -68,7 +89,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
         }
       }
 
-      await candidatesApi.closePlacement(candidateId, {
+      const { data } = await candidatesApi.closePlacement(candidateId, {
         company_name: form.company_name.trim(),
         role_title: form.role_title.trim(),
         start_date: startDate,
@@ -79,7 +100,9 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
         bgv_company_name: form.bgv_company_name,
         notes: form.notes,
       });
-      toast({ title: "Case closed successfully!" });
+      toast({ title: placement ? "Placement details updated successfully!" : "Case closed successfully!" });
+      setPlacement(data);
+      setIsEditing(false);
       onRefresh();
     } catch (err: any) {
       let errorMsg = err.response?.data?.error || err.message;
@@ -93,14 +116,38 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
     setSubmitting(false);
   };
 
+  const handleCancel = () => {
+    if (placement) {
+      setForm({
+        company_name: placement.company_name || "",
+        role_title: placement.role_title || "",
+        start_date: placement.start_date || "",
+        salary: placement.salary || "",
+        hr_email: placement.hr_email || "",
+        offer_letter_url: placement.offer_letter_url || "",
+        interviewer_email: placement.interviewer_email || "",
+        bgv_company_name: placement.bgv_company_name || "",
+        notes: placement.notes || placement.placement_notes || "",
+      });
+      setIsEditing(false);
+    } else {
+      setShowForm(false);
+    }
+  };
+
   if (loading) return <p className="text-muted-foreground p-4">Loading...</p>;
 
-  if (placement) {
+  if (placement && !isEditing) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-secondary" /> Placement Closed</CardTitle>
-          <CardDescription>This candidate has been successfully placed.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-secondary" /> Placement Closed</CardTitle>
+            <CardDescription>This candidate has been successfully placed.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1">
+            <Pencil className="h-3.5 w-3.5" /> Edit Details
+          </Button>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 text-sm">
           <div><span className="text-muted-foreground">Company:</span> <strong>{placement.company_name}</strong></div>
@@ -122,7 +169,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
     );
   }
 
-  if (!showForm) {
+  if (!placement && !showForm) {
     return (
       <Card>
         <CardContent className="p-6 text-center space-y-4">
@@ -139,8 +186,8 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5" /> Case Closure Form</CardTitle>
-        <CardDescription>Fill in placement details to close this candidate's case.</CardDescription>
+        <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5" /> {placement ? "Edit Placement Details" : "Case Closure Form"}</CardTitle>
+        <CardDescription>{placement ? "Modify the placement details for this candidate." : "Fill in placement details to close this candidate's case."}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -160,8 +207,8 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
         </div>
         <div><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} /></div>
         <div className="flex gap-3">
-          <Button variant="hero" onClick={handleSubmit} disabled={submitting}>{submitting ? "Closing..." : "Close Case & Mark Placed"}</Button>
-          <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+          <Button variant="hero" onClick={handleSubmit} disabled={submitting}>{submitting ? "Saving..." : (placement ? "Save Changes" : "Close Case & Mark Placed")}</Button>
+          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
         </div>
       </CardContent>
     </Card>

@@ -193,6 +193,47 @@ class InterestedCandidate(models.Model):
         return f"{self.display_id} - {self.name} ({self.email})"
 
 
+class GeneralEnquiry(models.Model):
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    phone = models.CharField(max_length=30, blank=True, null=True)
+    message = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    seq_number = models.PositiveIntegerField(
+        unique=True, null=True, blank=True, editable=False,
+        help_text="Auto-assigned sequential number for HYREQ display ID"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'general_enquiries'
+
+    @property
+    def display_id(self):
+        """Branded display ID: HYREQ0001"""
+        if self.seq_number is None:
+            return str(self.id)[:8].upper()
+        return f"HYREQ{self.seq_number:04d}"
+
+    def save(self, *args, **kwargs):
+        if self.seq_number is None:
+            from django.db.models import Max
+            max_seq = GeneralEnquiry.objects.aggregate(Max('seq_number'))['seq_number__max']
+            self.seq_number = (max_seq or 0) + 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.display_id} - {self.name} ({self.status})"
+
+
 class ClientIntake(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.OneToOneField(Candidate, on_delete=models.CASCADE, related_name='intake')

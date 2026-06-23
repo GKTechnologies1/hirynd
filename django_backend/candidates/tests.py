@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from datetime import date
-from candidates.models import Candidate, CredentialVersion, ClientIntake
+from candidates.models import Candidate, CredentialVersion, ClientIntake, GeneralEnquiry
 from users.models import Profile
 
 User = get_user_model()
@@ -326,13 +326,167 @@ class CandidateLifecycleEmailsTests(TestCase):
     @patch('candidates.views.send_email')
     @patch('candidates.views.create_notification')
     def test_reopen_roles_sends_notifications(self, mock_create_notification, mock_send_email):
-        """Test that reopening roles sends email and notification to candidate."""
+        """Test that reopening roles resets RoleSuggestion and reverts status to intake_submitted."""
+        from candidates.models import RoleSuggestion
+        from django.utils import timezone
+        
+        # Setup candidate in roles_confirmed status with a confirmed role suggestion
+        self.candidate.status = 'roles_confirmed'
+        self.candidate.save()
+        
+        suggestion = RoleSuggestion.objects.create(
+            candidate=self.candidate,
+            role_title='Software Engineer',
+            candidate_confirmed=True,
+            confirmed_at=timezone.now(),
+            change_request_note='Looks good'
+        )
+        
         self.client.force_authenticate(user=self.admin)
         reopen_url = reverse('reopen_roles', kwargs={'candidate_id': self.candidate.id})
         
         response = self.client.post(reopen_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
+        # Verify candidate status reverted
+        self.candidate.refresh_from_db()
+        self.assertEqual(self.candidate.status, 'intake_submitted')
+        
+        # Verify suggestion reset
+        suggestion.refresh_from_db()
+        self.assertIsNone(suggestion.candidate_confirmed)
+        self.assertIsNone(suggestion.confirmed_at)
+        self.assertIsNone(suggestion.change_request_note)
+        
         # Verify email and notification sent
         mock_send_email.assert_called_once()
         mock_create_notification.assert_called_once()
+
+
+class GeneralEnquiryTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email='admin@hyrind.com',
+            password='password',
+            role='admin',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=self.admin, full_name='System Admin')
+
+        self.candidate = User.objects.create_user(
+            email='candidate@hyrind.com',
+            password='password',
+            role='candidate',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=self.candidate, full_name='Candidate User')
+
+    @patch('users.views.send_email')
+    def test_submit_general_enquiry(self, mock_send_email):
+        """Test submitting a general inquiry stores it and sends emails."""
+        contact_url = reverse('submit_contact')
+        payload = {
+            'name': 'Inquirer Name',
+            'email': 'inquirer@example.com',
+            'phone': '1234567890',
+            'message': 'Hello, I have a question.',
+            'mode': 'general'
+        }
+        response = self.client.post(contact_url, payload)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check DB
+        enquiries = GeneralEnquiry.objects.filter(email='inquirer@example.com')
+        self.assertEqual(enquiries.count(), 1)
+        enquiry = enquiries.first()
+        self.assertEqual(enquiry.name, 'Inquirer Name')
+        self.assertEqual(enquiry.message, 'Hello, I have a question.')
+        self.assertEqual(enquiry.status, 'new')
+        self.assertEqual(enquiry.display_id, 'HYREQ0001')
+
+        # Check emails sent (one to admin, one to inquirer)
+        self.assertEqual(mock_send_email.call_count, 2)
+
+    def test_list_enquiries_admin_only(self):
+        """Test that only admin users can list general enquiries."""
+        # Create some enquiries
+        GeneralEnquiry.objects.create(name='Enquiry 1', email='e1@example.com', message='msg1')
+        GeneralEnquiry.objects.create(name='Enquiry 2', email='e2@example.com', message='msg2')
+
+        list_url = reverse('general_enquiry_list')
+
+        # Unauthorized
+        response = self.client.get(list_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Candidate user (non-admin)
+        self.client.force_authenticate(user=self.candidate)
+        response = self.client.get(list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Admin user
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    def test_list_enquiries_filters_and_sorting_pagination(self):
+        """Test filtering, sorting and pagination on enquiries."""
+        GeneralEnquiry.objects.create(name='Alice', email='alice@example.com', message='first', status='new')
+        GeneralEnquiry.objects.create(name='Bob', email='bob@example.com', message='second', status='in_progress')
+        GeneralEnquiry.objects.create(name='Charlie', email='charlie@example.com', message='third', status='resolved')
+
+        self.client.force_authenticate(user=self.admin)
+        list_url = reverse('general_enquiry_list')
+
+        # 1. Filter by status
+        response = self.client.get(list_url, {'status': 'in_progress'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Bob')
+
+        # 2. Search query
+        response = self.client.get(list_url, {'search': 'char'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Charlie')
+
+        # 3. Sorting by name
+        response = self.client.get(list_url, {'ordering': 'name'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [item['name'] for item in response.data]
+        self.assertEqual(names, ['Alice', 'Bob', 'Charlie'])
+
+        # 4. Sorting desc
+        response = self.client.get(list_url, {'ordering': '-name'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [item['name'] for item in response.data]
+        self.assertEqual(names, ['Charlie', 'Bob', 'Alice'])
+
+        # 5. Pagination
+        response = self.client.get(list_url, {'page': 1, 'page_size': 2, 'ordering': 'name'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total'], 3)
+        self.assertEqual(len(response.data['results']), 2)
+        self.assertEqual(response.data['results'][0]['name'], 'Alice')
+        self.assertEqual(response.data['results'][1]['name'], 'Bob')
+
+    def test_update_enquiry_status(self):
+        """Test admin can update status of an enquiry."""
+        enquiry = GeneralEnquiry.objects.create(name='Alice', email='alice@example.com', message='first', status='new')
+        
+        detail_url = reverse('general_enquiry_detail', kwargs={'enquiry_id': enquiry.id})
+        
+        # Admin updates status
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(detail_url, {'status': 'in_progress'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        enquiry.refresh_from_db()
+        self.assertEqual(enquiry.status, 'in_progress')
+        
+        # Check audit log
+        from audit.models import AuditLog
+        self.assertTrue(AuditLog.objects.filter(action='general_enquiry_updated').exists())
+

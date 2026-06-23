@@ -604,7 +604,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
   const status = candidate.status;
   const isPlaced = status === "placed_closed";
   const STATUSES = [
-    "pending_approval", "lead", "approved", "intake_submitted", "roles_published",
+    "pending_approval", "approved", "intake_submitted", "roles_published",
     "roles_candidate_responded", "roles_confirmed", "payment_pending", "pending_payment", "payment_completed",
     "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due",
     "cancelled", "placed_closed"

@@ -458,6 +458,15 @@ def submit_contact(request):
 
     else:
         # General Inquiry
+        from candidates.models import GeneralEnquiry
+        
+        enquiry = GeneralEnquiry.objects.create(
+            name=data['name'],
+            email=data['email'],
+            phone=data.get('phone', ''),
+            message=data.get('message', ''),
+        )
+
         admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@hyrind.com')
         send_email(
             to=admin_email,

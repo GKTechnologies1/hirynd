@@ -295,6 +295,12 @@ export const candidatesApi = {
   interestedList: (search?: string) => api.get('/candidates/interested-candidates/', { params: search ? { search } : {} }),
   interestedDetail: (id: string) => api.get(`/candidates/interested-candidates/${id}/`),
   updateInterested: (id: string, data: Record<string, any>) => api.patch(`/candidates/interested-candidates/${id}/`, data),
+  generalEnquiriesList: (params?: { status?: string; search?: string; page?: number; page_size?: number; ordering?: string }) =>
+    api.get('/candidates/general-enquiries/', { params }),
+  updateGeneralEnquiry: (id: string, data: Record<string, any>) =>
+    api.patch(`/candidates/general-enquiries/${id}/`, data),
+  deleteGeneralEnquiry: (id: string) =>
+    api.delete(`/candidates/general-enquiries/${id}/`),
   submitIntake: (id: string, data: Record<string, any>) => api.post(`/candidates/${id}/intake/`, { data }),
   reopenIntake: (id: string) => api.post(`/candidates/${id}/intake/reopen/`),
   getRoles: (id: string, config?: any) => api.get(`/candidates/${id}/roles/`, config),

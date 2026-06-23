@@ -14,7 +14,7 @@ from audit.utils import log_action
 from notifications.utils import send_email, get_styled_email_html, create_notification
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, CredentialVersion,
-    Referral, InterviewLog, PlacementClosure, CandidateLegacyPayment, InterestedCandidate,
+    Referral, InterviewLog, PlacementClosure, CandidateLegacyPayment, InterestedCandidate, GeneralEnquiry,
     WorkExperience, Certification,
 )
 from billing.models import Payment
@@ -23,6 +23,7 @@ from .serializers import (
     RoleSuggestionSerializer, CredentialVersionSerializer,
     ReferralSerializer, InterviewLogSerializer, PlacementClosureSerializer,
     PaymentSerializer, InterestedCandidateSerializer, RoleConfirmationSerializer,
+    GeneralEnquirySerializer,
 )
 from billing.utils import ensure_default_subscription
 
@@ -762,7 +763,7 @@ def reopen_intake(request, candidate_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdmin])
+@permission_classes([IsRecruiter])
 def reopen_roles(request, candidate_id):
     try:
         RoleSuggestion.objects.filter(candidate_id=candidate_id).update(
@@ -772,7 +773,7 @@ def reopen_roles(request, candidate_id):
         )
         try:
             candidate = Candidate.objects.get(id=candidate_id)
-            if candidate.status in ('roles_suggested', 'roles_published', 'payment_pending', 'intake_submitted'):
+            if candidate.status not in ('placed_closed', 'cancelled', 'lead', 'approved', 'pending_approval'):
                 candidate.status = 'intake_submitted'
                 candidate.save()
                 
@@ -1355,3 +1356,75 @@ def admin_activity_report(request):
         })
         
     return Response(report_data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def general_enquiry_list(request):
+    qs = GeneralEnquiry.objects.all()
+    
+    # Status Filter
+    status_filter = request.query_params.get('status')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+        
+    # Search Filter
+    search = request.query_params.get('search', '').strip()
+    if search:
+        qs = qs.filter(
+            Q(name__icontains=search) |
+            Q(email__icontains=search) |
+            Q(phone__icontains=search) |
+            Q(message__icontains=search)
+        )
+        
+    # Sorting
+    ordering = request.query_params.get('ordering', '-created_at')
+    if ordering == 'display_id':
+        ordering = 'seq_number'
+    elif ordering == '-display_id':
+        ordering = '-seq_number'
+        
+    valid_fields = ['name', '-name', 'email', '-email', 'phone', '-phone', 'status', '-status', 'created_at', '-created_at', 'seq_number', '-seq_number']
+    if ordering in valid_fields:
+        qs = qs.order_by(ordering)
+    else:
+        qs = qs.order_by('-created_at')
+        
+    # Pagination
+    total = qs.count()
+    page = int(request.query_params.get('page', 0))
+    page_size = int(request.query_params.get('page_size', 0))
+    if page > 0 and page_size > 0:
+        start = (page - 1) * page_size
+        data = GeneralEnquirySerializer(qs[start:start + page_size], many=True).data
+        return Response({'total': total, 'results': data})
+        
+    return Response(GeneralEnquirySerializer(qs, many=True).data)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAdmin])
+def general_enquiry_detail(request, enquiry_id):
+    try:
+        enquiry = GeneralEnquiry.objects.get(id=enquiry_id)
+    except GeneralEnquiry.DoesNotExist:
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    if request.method == 'GET':
+        return Response(GeneralEnquirySerializer(enquiry).data)
+        
+    elif request.method == 'PATCH':
+        serializer = GeneralEnquirySerializer(enquiry, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        # Log action in audit logs
+        log_action(request.user, 'general_enquiry_updated', str(enquiry.id), 'general_enquiry', request.data)
+        return Response(serializer.data)
+        
+    elif request.method == 'DELETE':
+        enquiry.delete()
+        log_action(request.user, 'general_enquiry_deleted', str(enquiry.id), 'general_enquiry', {'name': enquiry.name, 'email': enquiry.email})
+        return Response({'message': 'Enquiry deleted'})
+

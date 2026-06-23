@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation, 
     CredentialVersion, Referral, InterviewLog, PlacementClosure, 
-    CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate,
+    CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate, GeneralEnquiry,
 )
 
 class ClientIntakeInline(admin.StackedInline):
@@ -121,4 +121,14 @@ class CandidateLegacyPaymentAdmin(admin.ModelAdmin):
 class TrainingScheduleClickAdmin(admin.ModelAdmin):
     list_display = ('candidate', 'schedule_type', 'clicked_by', 'clicked_at')
     list_filter = ('schedule_type', 'clicked_at')
+
+
+@admin.register(GeneralEnquiry)
+class GeneralEnquiryAdmin(admin.ModelAdmin):
+    list_display = ('display_id', 'name', 'email', 'phone', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('name', 'email', 'phone', 'message')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+
 

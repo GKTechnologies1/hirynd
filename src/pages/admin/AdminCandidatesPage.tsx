@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 
 
 const STATUSES = [
-  "pending_approval", "lead", "approved", "intake_submitted", "roles_published",
+  "pending_approval", "approved", "intake_submitted", "roles_published",
   "roles_candidate_responded", "roles_confirmed", "payment_pending", "payment_completed",
   "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due", "cancelled", "placed_closed"
 ];
@@ -60,7 +60,6 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
   };
 
   const pipelineWidgets = [
-    { key: "lead", label: "New Leads", count: pipelineCounts["lead"] || 0, icon: <Activity className="h-4 w-4" />, filter: "lead", color: "bg-muted" },
     { key: "approved", label: "Approved", count: pipelineCounts["approved"] || 0, icon: <CheckCircle className="h-4 w-4" />, filter: "approved", color: "bg-secondary/10" },
     { key: "intake_submitted", label: "Intake Submitted", count: pipelineCounts["intake_submitted"] || 0, icon: <FileText className="h-4 w-4" />, filter: "intake_submitted", color: "bg-accent/10" },
     { key: "roles_published", label: "Roles Published", count: pipelineCounts["roles_published"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "roles_published", color: "bg-accent/10" },

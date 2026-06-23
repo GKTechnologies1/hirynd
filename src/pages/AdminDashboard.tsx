@@ -20,6 +20,7 @@ import AdminRecruiterDetail from "@/pages/admin/AdminRecruiterDetail";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminInterestedCandidatesPage from "@/pages/admin/AdminInterestedCandidatesPage";
 import AdminInterestedCandidateDetail from "@/pages/admin/AdminInterestedCandidateDetail";
+import AdminGeneralEnquiriesPage from "@/pages/admin/AdminGeneralEnquiriesPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
@@ -49,6 +50,7 @@ const navItems = [
   { label: "Subscriptions", path: "/admin-dashboard/subscriptions", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <AlertTriangle className="h-4 w-4" /> },
   { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
+  { label: "General Enquiries", path: "/admin-dashboard/general-enquiries", icon: <ClipboardList className="h-4 w-4" /> },
   { label: "Notifications", path: "/admin-dashboard/notifications", icon: <Bell className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
@@ -57,7 +59,7 @@ const navItems = [
 ];
 
 const STATUSES = [
-  "pending_approval", "lead", "approved", "intake_submitted", "roles_published",
+  "pending_approval", "approved", "intake_submitted", "roles_published",
   "roles_candidate_responded", "roles_confirmed", "payment_pending", "payment_completed",
   "credentials_submitted", "active_marketing", "paused", "on_hold", "past_due", "cancelled", "placed_closed"
 ];
@@ -197,6 +199,7 @@ const AdminDashboard = () => {
       case "jobs": return <AdminJobsPage />;
       case "candidates": return <AdminCandidatesPage />;
       case "interested-candidates": return <AdminInterestedCandidatesPage />;
+      case "general-enquiries": return <AdminGeneralEnquiriesPage />;
       case "recruiters": return <AdminRecruitersPage />;
       case "payments": return <AdminPaymentsPage />;
       case "notifications": return <AdminNotificationsPage />;
@@ -206,7 +209,6 @@ const AdminDashboard = () => {
 
     const pipelineWidgets = [
       { key: "pending_approvals", label: "Pending Approvals", count: pendingApprovals, icon: <Shield className="h-4 w-4" />, link: "/admin-dashboard/approvals", color: "bg-destructive/10 text-destructive" },
-      { key: "lead", label: "New Leads", count: pipelineCounts["lead"] || 0, icon: <Activity className="h-4 w-4" />, filter: "lead", color: "bg-muted" },
       { key: "approved", label: "Approved", count: pipelineCounts["approved"] || 0, icon: <CheckCircle className="h-4 w-4" />, filter: "approved", color: "bg-secondary/10" },
       { key: "intake_submitted", label: "Intake → Awaiting Roles", count: pipelineCounts["intake_submitted"] || 0, icon: <FileText className="h-4 w-4" />, filter: "intake_submitted", color: "bg-accent/10" },
       { key: "roles_published", label: "Roles → Awaiting Confirmation", count: pipelineCounts["roles_published"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "roles_published", color: "bg-accent/15" },
@@ -218,6 +220,7 @@ const AdminDashboard = () => {
       { key: "placed_closed", label: "Placed", count: pipelineCounts["placed_closed"] || 0, icon: <Users className="h-4 w-4" />, filter: "placed_closed", color: "bg-secondary text-secondary-foreground" },
       { key: "billing_alerts", label: "Billing Alerts", count: billingAlerts, icon: <AlertTriangle className="h-4 w-4" />, link: "/admin-dashboard/billing-run", color: billingAlerts > 0 ? "bg-destructive/10 text-destructive" : "bg-muted" },
       { key: "paused", label: "Paused", count: pipelineCounts["paused"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "paused", color: "bg-accent/30" },
+      { key: "past_due", label: "Past Due", count: pipelineCounts["past_due"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "past_due", color: "bg-destructive/10 text-destructive" },
       { key: "training_clicks", label: "Training Clicks (7d / 30d)", count: trainingClicks7d, icon: <MousePointer className="h-4 w-4" />, link: "/admin-dashboard/config", color: "bg-muted", subtitle: `${trainingClicks7d} / ${trainingClicks30d}` },
     ];
 
@@ -229,7 +232,7 @@ const AdminDashboard = () => {
 
     return (
       <>
-        {notifications.length > 0 && (
+        {/* {notifications.length > 0 && (
           <Card className="mb-6 border-secondary/20">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -251,7 +254,7 @@ const AdminDashboard = () => {
               ))}
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* Pipeline Widgets */}
         <div className="dashboard-section">

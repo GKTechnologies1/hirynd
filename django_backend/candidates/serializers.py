@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation,
     CredentialVersion, Referral, InterviewLog, PlacementClosure,
-    CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate,
+    CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate, GeneralEnquiry,
     WorkExperience, Certification,
 )
 from billing.models import Payment
@@ -36,6 +36,15 @@ class InterestedCandidateSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         relative = f"/media/{obj.resume_file.name}"
         return request.build_absolute_uri(relative) if request else relative
+
+
+class GeneralEnquirySerializer(serializers.ModelSerializer):
+    display_id = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = GeneralEnquiry
+        fields = '__all__'
+        read_only_fields = ['id', 'display_id', 'seq_number', 'created_at', 'updated_at']
 
 
 class CandidateSerializer(serializers.ModelSerializer):
