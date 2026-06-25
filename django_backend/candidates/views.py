@@ -498,8 +498,7 @@ def intake(request, candidate_id):
                 html=get_styled_email_html(
                     cand_name,
                     '<p>Your intake form has been submitted and locked successfully.</p>'
-                    '<p>Our team will now review your profile and suggest relevant roles for your marketing.</p>'
-                    '<p>You will receive a notification once roles are published for your review.</p>',
+                    '<p>Our marketing team will review the updated information. If you have already confirmed the roles, completed payment, or finished any subsequent workflow steps, no further action is required from your side. If not, please complete the remaining steps.</p>',
                     action_label="View Dashboard",
                     action_url="/candidate-dashboard"
                 ),
