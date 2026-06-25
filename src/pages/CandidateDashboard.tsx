@@ -192,7 +192,7 @@ const CandidateDashboard = () => {
   }, [location.pathname]);
 
   const status = candidate?.status || "pending_approval";
-  const isRolesConfirmed = ![
+  const isRolesConfirmed = candidate?.has_confirmed_roles || ![
     "pending_approval",
     "lead",
     "approved",
@@ -200,7 +200,19 @@ const CandidateDashboard = () => {
     "roles_published"
   ].includes(status);
 
-  const allowedTabs = STATUS_TAB_ACCESS[status] || ["overview"];
+  const allowedTabs = [...(STATUS_TAB_ACCESS[status] || ["overview"])];
+  if (candidate?.has_completed_payment) {
+    const allTabs = ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"];
+    allTabs.forEach(t => {
+      if (!allowedTabs.includes(t)) allowedTabs.push(t);
+    });
+  } else if (candidate?.has_confirmed_roles) {
+    if (!allowedTabs.includes("roles")) allowedTabs.push("roles");
+    if (!allowedTabs.includes("payments")) allowedTabs.push("payments");
+  } else if (candidate?.has_suggested_roles) {
+    if (!allowedTabs.includes("roles")) allowedTabs.push("roles");
+  }
+
   const tabKey = subPath === "" ? "overview" : subPath;
   const isBillingTab = tabKey === "payments" || tabKey === "billing";
   const hasPendingSub = ["payment_pending", "pending_payment", "pending", "unpaid", "past_due"].includes(candidate?.subscription_status);

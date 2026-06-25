@@ -56,11 +56,60 @@ class CandidateSerializer(serializers.ModelSerializer):
     total_interviews = serializers.SerializerMethodField()
     display_id = serializers.CharField(read_only=True)
     resume_file_url = serializers.SerializerMethodField()
+    has_suggested_roles = serializers.SerializerMethodField()
+    has_confirmed_roles = serializers.SerializerMethodField()
+    has_completed_payment = serializers.SerializerMethodField()
+    has_submitted_credentials = serializers.SerializerMethodField()
+    roles_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
         fields = '__all__'
-        read_only_fields = ['id', 'display_id', 'user', 'created_at', 'updated_at', 'subscription_status', 'total_applications', 'total_interviews']
+        read_only_fields = [
+            'id', 'display_id', 'user', 'created_at', 'updated_at',
+            'subscription_status', 'total_applications', 'total_interviews',
+            'has_suggested_roles', 'has_confirmed_roles', 'has_completed_payment',
+            'has_submitted_credentials', 'roles_status'
+        ]
+
+    def get_has_suggested_roles(self, obj):
+        from .models import RoleSuggestion
+        return RoleSuggestion.objects.filter(candidate=obj).exists()
+
+    def get_has_confirmed_roles(self, obj):
+        from .models import RoleSuggestion
+        return RoleSuggestion.objects.filter(candidate=obj, candidate_confirmed__isnull=False).exists()
+
+    def get_has_completed_payment(self, obj):
+        try:
+            if hasattr(obj, 'subscription') and obj.subscription and obj.subscription.status in ('active', 'expiring_soon'):
+                return True
+        except Exception:
+            pass
+        from billing.models import Payment
+        if Payment.objects.filter(candidate=obj, status='completed').exists():
+            return True
+        return False
+
+    def get_has_submitted_credentials(self, obj):
+        return obj.credentials.exists()
+
+    def get_roles_status(self, obj):
+        if obj.status in ('pending_approval', 'lead'):
+            return 'none'
+        if obj.status == 'roles_published':
+            return 'published'
+        if obj.status in ('approved', 'intake_submitted'):
+            return 'draft'
+        
+        # Post-roles selection statuses
+        from .models import RoleSuggestion
+        suggestions = RoleSuggestion.objects.filter(candidate=obj)
+        if suggestions.exists():
+            if suggestions.filter(candidate_confirmed__isnull=True).exists():
+                return 'draft'
+            return 'confirmed'
+        return 'none'
 
     def get_resume_file_url(self, obj):
         if not obj.resume_file:

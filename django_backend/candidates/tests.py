@@ -362,6 +362,47 @@ class CandidateLifecycleEmailsTests(TestCase):
         mock_send_email.assert_called_once()
         mock_create_notification.assert_called_once()
 
+    @patch('candidates.views.send_email')
+    @patch('candidates.views.create_notification')
+    def test_reopen_roles_for_paid_candidate_does_not_reset_status(self, mock_create_notification, mock_send_email):
+        """Test that reopening roles for a candidate who has paid does not revert status to intake_submitted."""
+        from candidates.models import RoleSuggestion
+        from django.utils import timezone
+        from billing.models import Subscription
+        
+        # Setup candidate in active_marketing status with a confirmed role suggestion
+        self.candidate.status = 'active_marketing'
+        self.candidate.save()
+        
+        # Setup subscription as active (paid)
+        Subscription.objects.create(
+            candidate=self.candidate,
+            status='active',
+            plan_name='standard'
+        )
+        
+        suggestion = RoleSuggestion.objects.create(
+            candidate=self.candidate,
+            role_title='Software Engineer',
+            candidate_confirmed=True,
+            confirmed_at=timezone.now(),
+            change_request_note='Looks good'
+        )
+        
+        self.client.force_authenticate(user=self.admin)
+        reopen_url = reverse('reopen_roles', kwargs={'candidate_id': self.candidate.id})
+        
+        response = self.client.post(reopen_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify candidate status remains active_marketing
+        self.candidate.refresh_from_db()
+        self.assertEqual(self.candidate.status, 'active_marketing')
+        
+        # Verify suggestion was still reset
+        suggestion.refresh_from_db()
+        self.assertIsNone(suggestion.candidate_confirmed)
+
 
 class GeneralEnquiryTests(TestCase):
     def setUp(self):

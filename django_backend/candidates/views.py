@@ -614,7 +614,23 @@ def confirm_roles(request, candidate_id):
                 )
 
     if candidate.status in ('roles_suggested', 'roles_published', 'intake_submitted'):
-        candidate.status = 'payment_pending'
+        from billing.models import Payment
+        has_paid = False
+        try:
+            if hasattr(candidate, 'subscription') and candidate.subscription and candidate.subscription.status in ('active', 'expiring_soon'):
+                has_paid = True
+        except Exception:
+            pass
+        if not has_paid and Payment.objects.filter(candidate=candidate, status='completed').exists():
+            has_paid = True
+
+        if has_paid:
+            if candidate.credentials.exists():
+                candidate.status = 'active_marketing'
+            else:
+                candidate.status = 'payment_completed'
+        else:
+            candidate.status = 'payment_pending'
         candidate.save()
         
     # AUTOMATION: Ensure the $400 subscription exists
@@ -772,7 +788,18 @@ def reopen_roles(request, candidate_id):
         )
         try:
             candidate = Candidate.objects.get(id=candidate_id)
-            if candidate.status not in ('placed_closed', 'cancelled', 'lead', 'approved', 'pending_approval'):
+            # Check if they have already completed payment
+            has_paid = False
+            try:
+                if hasattr(candidate, 'subscription') and candidate.subscription and candidate.subscription.status in ('active', 'expiring_soon'):
+                    has_paid = True
+            except Exception:
+                pass
+            from billing.models import Payment
+            if not has_paid and Payment.objects.filter(candidate=candidate, status='completed').exists():
+                has_paid = True
+
+            if not has_paid and candidate.status not in ('placed_closed', 'cancelled', 'lead', 'approved', 'pending_approval'):
                 candidate.status = 'intake_submitted'
                 candidate.save()
                 

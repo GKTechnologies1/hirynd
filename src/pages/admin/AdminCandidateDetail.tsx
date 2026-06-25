@@ -602,6 +602,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
   const intakeData = intake?.data as Record<string, any> | null;
   const status = candidate.status;
+  const rolesStatus = candidate.roles_status;
   const isPlaced = status === "placed_closed";
   const STATUSES = [
     "pending_approval", "approved", "intake_submitted", "roles_published",
@@ -1290,7 +1291,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5" /> Role Suggestions</CardTitle>
-                {!["pending_approval", "lead", "approved", "intake_submitted"].includes(status) && (
+                {rolesStatus === "confirmed" && (
                   <Button variant="outline" size="sm" onClick={handleReopenRoles} className="text-secondary border-secondary/30 hover:bg-secondary/5">
                     <History className="mr-1 h-3.5 w-3.5" /> Reopen & Reset
                   </Button>
@@ -1330,30 +1331,33 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                   {
                     header: "Actions",
                     className: "pr-6 text-right",
-                    render: (r: any) => (
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => {
-                            setEditingRole(r);
-                            setEditRoleTitle(r.role_title);
-                            setEditRoleDescription(r.description || "");
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteSuggestedRole(r.id)}
-                        >
-                          <Trash className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )
+                    render: (r: any) => {
+                      if (rolesStatus !== "draft") return <span className="text-xs text-muted-foreground">—</span>;
+                      return (
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              setEditingRole(r);
+                              setEditRoleTitle(r.role_title);
+                              setEditRoleDescription(r.description || "");
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteSuggestedRole(r.id)}
+                          >
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    }
                   }
                 ]}
               />
@@ -1436,7 +1440,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
               </CardContent>
             </Card>
           )}
-          {!isPlaced && ["intake_submitted", "roles_suggested"].includes(status) && (
+          {!isPlaced && rolesStatus === "draft" && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Add Role Suggestion</CardTitle></CardHeader>
               <CardContent className="space-y-4">
@@ -1446,7 +1450,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                   <Button onClick={handleAddRole} disabled={addingRole || !newRoleTitle.trim()}>{addingRole ? "Adding..." : "Add Role"}</Button>
                   <Button
                     variant="hero"
-                    className={`font-bold transition-all ${status === "intake_submitted" && roles.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
+                    className={`font-bold transition-all ${roles.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-300 shadow-none pointer-events-none'}`}
                     onClick={handleSuggestRoles}
                   >
                     Publish Suggested Roles
