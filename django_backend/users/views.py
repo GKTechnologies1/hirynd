@@ -391,9 +391,23 @@ def submit_contact(request):
     data = serializer.validated_data
     mode = data['mode']
     
+    from datetime import timedelta
+    from django.utils import timezone
+    recent_time = timezone.now() - timedelta(seconds=10)
+    
     if mode == 'interest':
         # Save interest submissions in a separate lead table
         from candidates.models import InterestedCandidate
+
+        # Check for duplicate submission within 10 seconds
+        duplicate = InterestedCandidate.objects.filter(
+            email=data['email'],
+            notes=data.get('message', ''),
+            created_at__gte=recent_time
+        ).first()
+
+        if duplicate:
+            return Response({'message': 'Interest form submitted successfully.'}, status=status.HTTP_201_CREATED)
 
         existing_user = User.objects.filter(email=data['email']).first()
 
@@ -460,6 +474,16 @@ def submit_contact(request):
         # General Inquiry
         from candidates.models import GeneralEnquiry
         
+        # Check for duplicate submission within 10 seconds
+        duplicate = GeneralEnquiry.objects.filter(
+            email=data['email'],
+            message=data.get('message', ''),
+            created_at__gte=recent_time
+        ).first()
+
+        if duplicate:
+            return Response({'message': 'General inquiry submitted successfully.'})
+
         enquiry = GeneralEnquiry.objects.create(
             name=data['name'],
             email=data['email'],

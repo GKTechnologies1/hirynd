@@ -41,6 +41,7 @@ const Contact = () => {
   const { toast } = useToast();
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formValues, setFormValues] = useState({
     first_name: "", last_name: "", email: "", phone: "",
@@ -213,6 +214,8 @@ const Contact = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     const formElement = e.target as HTMLFormElement;
     const formData = new FormData(formElement);
 
@@ -220,6 +223,8 @@ const Contact = () => {
       toast({ title: "Please fix the errors in the form.", variant: "destructive" });
       return;
     }
+
+    setIsSubmitting(true);
 
     const firstName = formValues.first_name;
     const lastName = formValues.last_name;
@@ -252,6 +257,7 @@ const Contact = () => {
       if (resumeFile && resumeFile.name) {
         if (resumeFile.size > 5 * 1024 * 1024) {
           toast({ title: "File too large", description: "Resume must be less than 5MB.", variant: "destructive" });
+          setIsSubmitting(false);
           return;
         }
         finalData.append("resume", resumeFile);
@@ -284,6 +290,8 @@ const Contact = () => {
         description: error.response?.data?.message || "Something went wrong. Please try again later.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -417,9 +425,10 @@ const Contact = () => {
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button
                       type="submit"
-                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isGeneralFilled ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 cursor-pointer'}`}
+                      disabled={isSubmitting}
+                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isGeneralFilled && !isSubmitting ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 cursor-pointer'}`}
                     >
-                      Send Message
+                      {isSubmitting ? "Sending..." : "Send Message"}
                     </Button>
                     <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => { setWantsMarketing(null); setErrors({}); }}>Back</Button>
                   </div>
@@ -712,9 +721,10 @@ const Contact = () => {
                   <div className="flex gap-3 pt-4 border-t border-neutral-100">
                     <Button
                       type="submit"
-                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isInterestFilled ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 cursor-pointer'}`}
+                      disabled={isSubmitting}
+                      className={`rounded-xl h-11 px-6 font-bold shadow-sm transition-all ${isInterestFilled && !isSubmitting ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20' : 'bg-neutral-300 text-neutral-500 hover:bg-neutral-400 cursor-pointer'}`}
                     >
-                      Submit Interest
+                      {isSubmitting ? "Submitting..." : "Submit Interest"}
                     </Button>
                     <Button variant="ghost" type="button" className="rounded-xl h-11 px-6 font-bold text-neutral-500 hover:text-neutral-900" onClick={() => { setWantsMarketing(null); setTermsAccepted(false); setErrors({}); }}>Back</Button>
                   </div>

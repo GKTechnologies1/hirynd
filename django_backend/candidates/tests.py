@@ -449,6 +449,32 @@ class GeneralEnquiryTests(TestCase):
         # Check emails sent (one to admin, one to inquirer)
         self.assertEqual(mock_send_email.call_count, 2)
 
+    @patch('users.views.send_email')
+    def test_submit_general_enquiry_duplicate(self, mock_send_email):
+        """Test that submitting duplicate general inquiries within a short window is deduplicated."""
+        contact_url = reverse('submit_contact')
+        payload = {
+            'name': 'Inquirer Name',
+            'email': 'inquirer@example.com',
+            'phone': '1234567890',
+            'message': 'Hello, I have a question.',
+            'mode': 'general'
+        }
+        # First submission
+        response1 = self.client.post(contact_url, payload)
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+
+        # Second submission (immediate duplicate)
+        response2 = self.client.post(contact_url, payload)
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+
+        # Check DB - should only have 1 enquiry
+        enquiries = GeneralEnquiry.objects.filter(email='inquirer@example.com')
+        self.assertEqual(enquiries.count(), 1)
+
+        # Check emails sent - should only be 2 total (from the first submission)
+        self.assertEqual(mock_send_email.call_count, 2)
+
     def test_list_enquiries_admin_only(self):
         """Test that only admin users can list general enquiries."""
         # Create some enquiries
