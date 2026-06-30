@@ -1,19 +1,21 @@
 import axios from 'axios';
 
-const isStaging = window.location.href.includes("staging.hyrind.com") || window.location.href.includes("hyrind.com");
+const isProd = window.location.href.includes("hyrind.com") && !window.location.href.includes("staging.hyrind.com");
+const isStaging = window.location.href.includes("staging.hyrind.com")
 
-const STAGING_URL = import.meta.env.VITE_STAGING_API || 'https://api-staging.hyrind.com';
-const LOCAL_URL = import.meta.env.VITE_LOCAL_API || 'http://127.0.0.1:8000';
+const PROD_URL = 'https://api.hyrind.com';
+const STAGING_URL = 'https://api-staging.hyrind.com';
+const LOCAL_URL = 'http://127.0.0.1:8000';
 
-const DEFAULT_URL = isStaging ? STAGING_URL : LOCAL_URL;
+const DEFAULT_URL = isProd ? PROD_URL : isStaging ? STAGING_URL : LOCAL_URL;
 
-const VITE_API_URL = import.meta.env.VITE_API_URL || DEFAULT_URL;
+const VITE_API_URL = DEFAULT_URL;
 export const BACKEND_URL = VITE_API_URL.replace(/\/$/, "");
 const API_BASE_URL = `${BACKEND_URL}/api`;
 
 export const getFileUrl = (url: string | null | undefined): string => {
   if (!url) return "";
-  
+
   // 1. If it's a direct MinIO/S3 URL containing the bucket name 'hyrind-files', proxy it through the backend
   if (url.includes('/hyrind-files/')) {
     const parts = url.split('/hyrind-files/');
@@ -34,7 +36,7 @@ export const getFileUrl = (url: string | null | undefined): string => {
     }
     return url;
   }
-  
+
   let path = url;
   // If the path doesn't start with /media/ and it's a relative path from Django,
   // we need to prepend /media/ for it to be served correctly.
@@ -44,26 +46,26 @@ export const getFileUrl = (url: string | null | undefined): string => {
   } else if (path.startsWith("media/")) {
     path = `/${path}`;
   }
-  
+
   return `${BACKEND_URL}${path}`;
 };
 
 export const getPreviewTargetUrl = (url: string | null | undefined): string => {
   if (!url) return "";
-  
+
   // Clean URL to check extension (ignoring query parameters and hash)
   const cleanUrl = url.split('?')[0].split('#')[0].toLowerCase();
-  const isOfficeDoc = cleanUrl.endsWith('.doc') || 
-                      cleanUrl.endsWith('.docx') || 
-                      cleanUrl.endsWith('.xls') || 
-                      cleanUrl.endsWith('.xlsx') || 
-                      cleanUrl.endsWith('.ppt') || 
-                      cleanUrl.endsWith('.pptx');
-  
+  const isOfficeDoc = cleanUrl.endsWith('.doc') ||
+    cleanUrl.endsWith('.docx') ||
+    cleanUrl.endsWith('.xls') ||
+    cleanUrl.endsWith('.xlsx') ||
+    cleanUrl.endsWith('.ppt') ||
+    cleanUrl.endsWith('.pptx');
+
   if (isOfficeDoc) {
     return `/preview?url=${encodeURIComponent(url)}`;
   }
-  
+
   return getFileUrl(url);
 };
 
@@ -196,7 +198,7 @@ api.interceptors.response.use(
         isRefreshing = true;
         try {
           const isBackground = originalRequest.headers?.['X-Background-Request'] === 'true' ||
-                               originalRequest.headers?.['x-background-request'] === 'true';
+            originalRequest.headers?.['x-background-request'] === 'true';
           const refreshHeaders: Record<string, string> = {};
           if (isBackground) {
             refreshHeaders['X-Background-Request'] = 'true';
@@ -315,7 +317,7 @@ export const candidatesApi = {
     api.put(`/candidates/${id}/roles/${roleId}/update/`, data),
   deleteRole: (id: string, roleId: string) =>
     api.delete(`/candidates/${id}/roles/${roleId}/delete/`),
- 
+
   getCredentials: (id: string, config?: any) => api.get(`/candidates/${id}/credentials/`, config),
   upsertCredential: (id: string, data: Record<string, any>) =>
     api.post(`/candidates/${id}/credentials/upsert/`, { data }),
