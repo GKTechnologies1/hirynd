@@ -464,6 +464,10 @@ export default function Header() {
                 )}
               </div>
 
+              <Link to="/job-alert" className={`nav-link ${isActive("/job-alert") ? "active" : ""}`}>
+                Job Alert
+              </Link>
+
               <Link to="/how-it-works" className={`nav-link ${isActive("/how-it-works") ? "active" : ""}`}>
                 How it works
               </Link>
@@ -576,6 +580,7 @@ export default function Header() {
              <Link to="/" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Home</Link>
              <Link to="/about" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>About Us</Link>
              <Link to="/services" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Services</Link>
+             <Link to="/job-alert" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Job Alert</Link>
              <Link to="/how-it-works" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>How It Works</Link>
              <Link to="/reviews" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Reviews</Link>
              <Link to="/contact?type=general" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Contact Us</Link>

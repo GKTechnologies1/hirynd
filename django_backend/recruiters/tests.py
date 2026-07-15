@@ -1,9 +1,10 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework import status
-from recruiters.models import RecruiterBankDetails, RecruiterProfile
+from recruiters.models import RecruiterBankDetails, RecruiterProfile, DailySubmissionLog, JobLinkEntry
 from users.models import Profile
 
 User = get_user_model()
@@ -194,3 +195,51 @@ class RecruiterAssignmentTests(TestCase):
         # Verify db
         from recruiters.models import JobLinkEntry
         self.assertTrue(JobLinkEntry.objects.filter(job_url=long_url).exists())
+
+
+class PublicJobAlertsTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.recruiter = User.objects.create_user(
+            email='recruiter@hyrind.com',
+            password='password',
+            role='recruiter',
+            approval_status='approved'
+        )
+        self.candidate_user = User.objects.create_user(
+            email='cand@hyrind.com',
+            password='password',
+            role='candidate',
+            approval_status='approved'
+        )
+        from candidates.models import Candidate
+        self.candidate = Candidate.objects.create(user=self.candidate_user, status='approved')
+        self.log = DailySubmissionLog.objects.create(
+            candidate=self.candidate,
+            recruiter=self.recruiter,
+            log_date=timezone.now().date(),
+            applications_count=1
+        )
+        self.job = JobLinkEntry.objects.create(
+            submission_log=self.log,
+            candidate=self.candidate,
+            company_name='Test Company',
+            role_title='Software Dev',
+            job_url='http://example.com',
+            job_description='Test description',
+            is_public=True
+        )
+        self.public_url = reverse('public_job_alerts')
+
+    def test_public_job_alerts_endpoint(self):
+        """Test that anyone can fetch public job alerts and that log_date is included."""
+        # Unauthenticated request
+        response = self.client.get(self.public_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['company_name'], 'Test Company')
+        self.assertEqual(response.data[0]['role_title'], 'Software Dev')
+        self.assertEqual(response.data[0]['job_description'], 'Test description')
+        self.assertEqual(response.data[0]['job_url'], 'http://example.com')
+        # Check that log_date is serialized correctly
+        self.assertEqual(response.data[0]['log_date'], self.log.log_date)
