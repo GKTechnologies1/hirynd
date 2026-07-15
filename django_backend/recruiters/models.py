@@ -139,7 +139,7 @@ class JobLinkEntry(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='job_postings')
     company_name = models.CharField(max_length=255)
     role_title = models.CharField(max_length=255)
-    job_url = models.URLField()
+    job_url = models.URLField(max_length=1000)
     job_description = models.TextField(blank=True, null=True)
     fetch_status = models.CharField(max_length=20, default='pending')
     resume_used = models.CharField(max_length=255, blank=True, null=True)

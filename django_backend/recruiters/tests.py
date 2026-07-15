@@ -171,3 +171,26 @@ class RecruiterAssignmentTests(TestCase):
         self.assertEqual(mock_create_notification.call_count, 2)
         # Verify emails are sent to candidate and recruiter
         self.assertEqual(mock_send_email.call_count, 2)
+
+    def test_submit_job_application_long_url(self):
+        """Test that submitting a job application with a long URL succeeds."""
+        self.client.force_authenticate(user=self.recruiter)
+        url = reverse('job_applications', kwargs={'candidate_id': self.candidate.id})
+        
+        long_url = "http://example.com/jobs/" + ("a" * 800)
+        payload = {
+            'job_links': [{
+                'company_name': 'Long URL Company',
+                'role_title': 'Software Engineer',
+                'job_url': long_url,
+                'job_description': 'Description',
+                'resume_used': 'Resume.pdf',
+                'status': 'applied'
+            }]
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify db
+        from recruiters.models import JobLinkEntry
+        self.assertTrue(JobLinkEntry.objects.filter(job_url=long_url).exists())
