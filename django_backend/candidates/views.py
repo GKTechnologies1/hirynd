@@ -367,6 +367,7 @@ def intake(request, candidate_id):
                 'major': candidate.major,
                 'degree': candidate.degree,
                 'graduation_year': candidate.graduation_year or (str(candidate.graduation_date.year) if candidate.graduation_date else ""),
+                'graduation_date': candidate.graduation_date.strftime('%Y-%m-%d') if candidate.graduation_date else "",
                 'visa_status': candidate.visa_status,
                 'linkedin_url': candidate.linkedin_url,
                 'portfolio_url': candidate.portfolio_url,

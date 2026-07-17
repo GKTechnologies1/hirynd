@@ -222,7 +222,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 mastersField: intake.data.masters_field || intake.data.major || "",
                 mastersUni: intake.data.masters_uni || intake.data.university || "",
                 mastersCountry: intake.data.masters_country || "",
-                mastersGradDate: intake.data.masters_grad_date || intake.data.graduation_year || "",
+                mastersGradDate: intake.data.masters_grad_date || intake.data.graduation_date || intake.data.graduation_year || "",
                 linkedinLink: intake.data.linkedin_link || intake.data.linkedin_url || "",
                 bachelorsDegree: intake.data.bachelors_degree || "",
                 bachelorsField: intake.data.bachelors_field || "",
@@ -547,6 +547,15 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     // Document Uploads (Mandatory)
     ["passportUpload", "govIdUpload", "visaUpload", "workAuthUpload", "resumeUpload"].forEach(f => {
       if (!formData[f]) newErrors[f] = "File required";
+    });
+
+    // Date fields validation
+    const dateFields = ["dob", "firstEntryUS", "mastersGradDate", "bachelorsGradDate"];
+    const fullDateRegex = /^(0[1-9]|1[0-2])[-/](0[1-9]|[12][0-9]|3[01])[-/]\d{4}$|^\d{4}-\d{2}-\d{2}$/;
+    dateFields.forEach(field => {
+      if (formData[field] && !fullDateRegex.test(formData[field])) {
+        newErrors[field] = "Invalid date format";
+      }
     });
 
     // Formatting
