@@ -1040,6 +1040,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                           e.preventDefault();
                         }
                       }}
+                      onWheel={e => {
+                        if (document.activeElement === e.target) {
+                          e.currentTarget.blur();
+                        }
+                      }}
                       value={formData.totalYearsUS}
                       onChange={e => {
                         const val = e.target.value;
@@ -1630,7 +1635,29 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="desiredExpYears" className="space-y-2">
                     <Label className="text-sm font-medium">Desired Years of Experience *</Label>
-                    <Input type="number" value={formData.desiredExpYears} onChange={e => handleChange("desiredExpYears", e.target.value)} disabled={isLocked} placeholder="e.g. 3" className={cn("h-10 rounded-lg bg-neutral-50", errors.desiredExpYears && "border-destructive ring-1 ring-destructive/20")} />
+                    <Input
+                      type="number"
+                      min="0"
+                      onKeyPress={e => {
+                        if (e.key === "-") {
+                          e.preventDefault();
+                        }
+                      }}
+                      onWheel={e => {
+                        if (document.activeElement === e.target) {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      value={formData.desiredExpYears}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val && parseFloat(val) < 0) return;
+                        handleChange("desiredExpYears", val);
+                      }}
+                      disabled={isLocked}
+                      placeholder="e.g. 3"
+                      className={cn("h-10 rounded-lg bg-neutral-50", errors.desiredExpYears && "border-destructive ring-1 ring-destructive/20")}
+                    />
                     {errors.desiredExpYears && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.desiredExpYears}</p>}
                   </div>
 
