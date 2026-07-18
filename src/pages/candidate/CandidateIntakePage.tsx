@@ -222,7 +222,7 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                 mastersField: intake.data.masters_field || intake.data.major || "",
                 mastersUni: intake.data.masters_uni || intake.data.university || "",
                 mastersCountry: intake.data.masters_country || "",
-                mastersGradDate: intake.data.masters_grad_date || intake.data.graduation_year || "",
+                mastersGradDate: intake.data.masters_grad_date || intake.data.graduation_date || intake.data.graduation_year || "",
                 linkedinLink: intake.data.linkedin_link || intake.data.linkedin_url || "",
                 bachelorsDegree: intake.data.bachelors_degree || "",
                 bachelorsField: intake.data.bachelors_field || "",
@@ -547,6 +547,15 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
     // Document Uploads (Mandatory)
     ["passportUpload", "govIdUpload", "visaUpload", "workAuthUpload", "resumeUpload"].forEach(f => {
       if (!formData[f]) newErrors[f] = "File required";
+    });
+
+    // Date fields validation
+    const dateFields = ["dob", "firstEntryUS", "mastersGradDate", "bachelorsGradDate"];
+    const fullDateRegex = /^(0[1-9]|1[0-2])[-/](0[1-9]|[12][0-9]|3[01])[-/]\d{4}$|^\d{4}-\d{2}-\d{2}$/;
+    dateFields.forEach(field => {
+      if (formData[field] && !fullDateRegex.test(formData[field])) {
+        newErrors[field] = "Invalid date format";
+      }
     });
 
     // Formatting
@@ -1029,6 +1038,11 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                       onKeyPress={e => {
                         if (e.key === "-") {
                           e.preventDefault();
+                        }
+                      }}
+                      onWheel={e => {
+                        if (document.activeElement === e.target) {
+                          e.currentTarget.blur();
                         }
                       }}
                       value={formData.totalYearsUS}
@@ -1621,7 +1635,29 @@ const CandidateIntakePage = ({ candidate, onStatusChange }: CandidateIntakePageP
                   </div>
                   <div id="desiredExpYears" className="space-y-2">
                     <Label className="text-sm font-medium">Desired Years of Experience *</Label>
-                    <Input type="number" value={formData.desiredExpYears} onChange={e => handleChange("desiredExpYears", e.target.value)} disabled={isLocked} placeholder="e.g. 3" className={cn("h-10 rounded-lg bg-neutral-50", errors.desiredExpYears && "border-destructive ring-1 ring-destructive/20")} />
+                    <Input
+                      type="number"
+                      min="0"
+                      onKeyPress={e => {
+                        if (e.key === "-") {
+                          e.preventDefault();
+                        }
+                      }}
+                      onWheel={e => {
+                        if (document.activeElement === e.target) {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      value={formData.desiredExpYears}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val && parseFloat(val) < 0) return;
+                        handleChange("desiredExpYears", val);
+                      }}
+                      disabled={isLocked}
+                      placeholder="e.g. 3"
+                      className={cn("h-10 rounded-lg bg-neutral-50", errors.desiredExpYears && "border-destructive ring-1 ring-destructive/20")}
+                    />
                     {errors.desiredExpYears && <p className="text-[10px] text-destructive mt-1 font-medium ml-1">{errors.desiredExpYears}</p>}
                   </div>
 
