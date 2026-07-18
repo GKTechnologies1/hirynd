@@ -43,6 +43,7 @@ urlpatterns = [
     path('api/files/',         include('files.urls')),
     path('api/chat/',          include('chat.urls')),
     path('api/jobs/',          include('jobs.urls')),
+    path('api/reviews/',       include('reviews.urls')),
     path('api/admin/',         include('audit.admin_urls')),
     
     # ── API Catch-all for proper 404 JSON ──

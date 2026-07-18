@@ -1,8 +1,11 @@
+import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import SEO from "@/components/SEO";
 import Footer from "@/components/layout/Footer";
 import { motion } from "framer-motion";
-import { Star, Quote } from "lucide-react";
+import { Quote } from "lucide-react";
+import { reviewsApi } from "@/services/api";
+import { StarRating } from "@/components/ui/StarRating";
 
 const testimonials = [
   {
@@ -38,6 +41,37 @@ const testimonials = [
 ];
 
 const Reviews = () => {
+  const [dynamicReviews, setDynamicReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPublicReviews = async () => {
+      try {
+        const { data } = await reviewsApi.listPublic();
+        if (data && data.length > 0) {
+          setDynamicReviews(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch public reviews:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPublicReviews();
+  }, []);
+
+  const reviewsToShow = dynamicReviews.length > 0 ? dynamicReviews : testimonials;
+
+  const normalizedReviews = reviewsToShow.map((r: any) => ({
+    name: r.candidate_name || r.name,
+    role: r.candidate_name ? null : r.role, // Remove subtag for dynamic reviews, keep specific role for testimonials
+    heading: r.job_title || null,
+    text: r.review_text || r.text,
+    rating: r.rating !== undefined ? r.rating : 5.0,
+    imageUrl: r.image_url || null,
+    avatarUrl: r.candidate_avatar || null,
+  }));
+
   return (
     <div className="flex flex-col min-h-screen bg-neutral-50">
       <SEO title="Reviews" description="Hear from candidates who landed jobs through HYRIND's recruiter-led profile marketing and interview support." path="/reviews" />
@@ -56,32 +90,67 @@ const Reviews = () => {
 
         <section className="py-20 lg:py-28">
           <div className="container px-4 md:px-6">
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {testimonials.map((t, i) => (
-                <motion.div
-                  key={t.name}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08 }}
-                  className="rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm transition-shadow hover:shadow-md flex flex-col"
-                >
-                  <Quote className="mb-5 h-8 w-8 text-[#0d47a1]/20" />
-                  <p className="mb-8 text-sm leading-relaxed text-neutral-700">{t.text}</p>
-                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-neutral-100">
-                    <div>
-                      <p className="font-bold text-neutral-900">{t.name}</p>
-                      <p className="text-xs font-medium text-neutral-500">{t.role}</p>
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <div className="h-8 w-8 border-4 border-[#0d47a1] border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-neutral-500 font-medium">Loading reviews...</p>
+              </div>
+            ) : (
+              <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                {normalizedReviews.map((t, i) => (
+                  <motion.div
+                    key={`${t.name}-${i}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.08 }}
+                    className="rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm transition-shadow hover:shadow-md flex flex-col justify-between"
+                  >
+                    <div className="flex flex-col flex-1">
+                      <Quote className="mb-5 h-8 w-8 text-[#0d47a1]/20" />
+                      
+                      {t.imageUrl && (
+                        <div className="mb-6 overflow-hidden rounded-2xl border border-neutral-100 max-h-72 flex items-center justify-center bg-neutral-50 shadow-inner">
+                          <img src={t.imageUrl} alt={`${t.name} review highlight`} className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.03]" />
+                        </div>
+                      )}
+
+                      {t.heading && (
+                        <h4 className="text-base font-bold text-neutral-900 mb-3 leading-snug">
+                          {t.heading}
+                        </h4>
+                      )}
+
+                      <p className="mb-8 text-sm leading-relaxed text-neutral-700 flex-1">"{t.text}"</p>
                     </div>
-                    <div className="flex gap-1">
-                      {[...Array(5)].map((_, j) => (
-                        <Star key={j} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                      ))}
+
+                    <div className="flex items-center justify-between pt-4 border-t border-neutral-100 mt-auto">
+                      <div className="flex items-center gap-3 min-w-0 pr-2">
+                        {t.avatarUrl ? (
+                          <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden border border-neutral-200 shadow-sm">
+                            <img src={t.avatarUrl} alt={t.name} className="h-full w-full object-cover" />
+                          </div>
+                        ) : (
+                          // initials avatar for dynamic reviews
+                          t.heading && (
+                            <div className="h-10 w-10 shrink-0 rounded-full bg-[#0d47a1]/10 text-[#0d47a1] flex items-center justify-center font-bold text-sm shadow-sm border border-[#0d47a1]/10">
+                              {t.name?.[0]?.toUpperCase()}
+                            </div>
+                          )
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-bold text-neutral-900 truncate text-sm">{t.name}</p>
+                          {t.role && <p className="text-xs font-medium text-neutral-500 truncate">{t.role}</p>}
+                        </div>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-1.5">
+                        <StarRating rating={t.rating} size={5} />
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>
