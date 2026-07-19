@@ -37,10 +37,10 @@ def candidate_review_me(request):
         # Save review with candidate association
         review_obj = serializer.save(candidate=candidate)
         
-        # If review was modified/created, let's reset its is_approved state to false so admin has to re-approve it
-        if review:
-            review_obj.is_approved = False
-            review_obj.save()
+        # Reset approval and status to open
+        review_obj.is_approved = False
+        review_obj.status = 'open'
+        review_obj.save()
         
         # Log audit action
         action_name = 'review_updated' if review else 'review_created'
@@ -74,21 +74,29 @@ def admin_manage_review(request, review_id):
 
     if request.method == 'DELETE':
         log_action(request.user, 'review_deleted', str(review_id), 'review', {'candidate': review.candidate.user.email})
-        review.delete()
-        return Response({'detail': 'Review deleted successfully.'})
+        if review.status == 'deleted':
+            review.delete()
+            return Response({'detail': 'Review permanently deleted.'})
+        else:
+            review.is_approved = False
+            review.status = 'deleted'
+            review.save()
+            return Response({'detail': 'Review soft-deleted successfully.'})
 
     elif request.method == 'PATCH':
-        is_approved = request.data.get('is_approved')
-        if is_approved is not None:
-            review.is_approved = is_approved
-            review.save()
-            action_name = 'review_approved' if is_approved else 'review_unapproved'
-            log_action(request.user, action_name, str(review.id), 'review', {'is_approved': is_approved})
-            
         serializer = ReviewSerializer(review, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+        review_obj = serializer.save()
+        
+        is_approved = request.data.get('is_approved')
+        if is_approved is not None:
+            review_obj.is_approved = is_approved
+            review_obj.status = 'approved' if is_approved else 'unapproved'
+            review_obj.save()
+            action_name = 'review_approved' if is_approved else 'review_unapproved'
+            log_action(request.user, action_name, str(review_obj.id), 'review', {'is_approved': is_approved})
+            
+        return Response(ReviewSerializer(review_obj).data)
 
 
 @api_view(['GET'])
@@ -97,6 +105,6 @@ def list_public_reviews(request):
     """
     GET /api/reviews/public/ - List all approved reviews for public reviews page.
     """
-    reviews = Review.objects.filter(is_approved=True)
+    reviews = Review.objects.filter(is_approved=True, status='approved')
     serializer = ReviewSerializer(reviews, many=True)
     return Response(serializer.data)

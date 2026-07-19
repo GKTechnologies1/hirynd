@@ -50,7 +50,11 @@ export const AdminReviewsPage = () => {
       });
       // Refresh local list
       setReviews((prev) =>
-        prev.map((r) => (r.id === reviewId ? { ...r, is_approved: targetStatus } : r))
+        prev.map((r) =>
+          r.id === reviewId
+            ? { ...r, is_approved: targetStatus, status: targetStatus ? "approved" : "unapproved" }
+            : r
+        )
       );
     } catch (err) {
       console.error("Failed to toggle review approval:", err);
@@ -63,17 +67,34 @@ export const AdminReviewsPage = () => {
   };
 
   const handleDeleteReview = async (reviewId: string) => {
-    if (!window.confirm("Are you sure you want to permanently delete this review? This action cannot be undone.")) {
+    const review = reviews.find((r) => r.id === reviewId);
+    const isSoftDelete = review && review.status !== "deleted";
+
+    const confirmMessage = isSoftDelete
+      ? "Are you sure you want to delete this review? It will be moved to the Deleted section."
+      : "Are you sure you want to permanently delete this review? This action cannot be undone.";
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
       await reviewsApi.deleteAdmin(reviewId);
-      toast({
-        title: "Review Deleted",
-        description: "The review has been permanently removed.",
-      });
-      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      if (isSoftDelete) {
+        toast({
+          title: "Review Deleted",
+          description: "The review has been moved to the Deleted section.",
+        });
+        setReviews((prev) =>
+          prev.map((r) => (r.id === reviewId ? { ...r, is_approved: false, status: "deleted" } : r))
+        );
+      } else {
+        toast({
+          title: "Review Deleted",
+          description: "The review has been permanently removed.",
+        });
+        setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      }
     } catch (err) {
       console.error("Failed to delete review:", err);
       toast({
@@ -95,27 +116,33 @@ export const AdminReviewsPage = () => {
 
     const matchesStatus =
       statusFilter === "all" ||
-      (statusFilter === "approved" && r.is_approved) ||
-      (statusFilter === "pending" && !r.is_approved);
+      (statusFilter === "open" && (r.status === "open" || !r.status)) ||
+      (statusFilter === "approved" && r.status === "approved") ||
+      (statusFilter === "unapproved" && r.status === "unapproved") ||
+      (statusFilter === "deleted" && r.status === "deleted");
 
     return matchesSearch && matchesStatus;
   });
 
   // Counts
   const totalCount = reviews.length;
-  const approvedCount = reviews.filter((r) => r.is_approved).length;
-  const pendingCount = reviews.filter((r) => !r.is_approved).length;
+  const openCount = reviews.filter((r) => r.status === "open" || !r.status).length;
+  const approvedCount = reviews.filter((r) => r.status === "approved").length;
+  const unapprovedCount = reviews.filter((r) => r.status === "unapproved").length;
+  const deletedCount = reviews.filter((r) => r.status === "deleted").length;
 
   const cards = [
     { key: "all", label: "Total Reviews", count: totalCount, icon: <Star className="h-5 w-5 text-primary" />, color: "bg-primary/10 text-primary" },
-    { key: "approved", label: "Approved Reviews", count: approvedCount, icon: <CheckCircle className="h-5 w-5 text-emerald-600" />, color: "bg-emerald-50 text-emerald-700" },
-    { key: "pending", label: "Pending Approval", count: pendingCount, icon: <Clock className="h-5 w-5 text-amber-600" />, color: "bg-amber-50 text-amber-700" },
+    { key: "open", label: "Open Reviews", count: openCount, icon: <Clock className="h-5 w-5 text-amber-500" />, color: "bg-amber-50 text-amber-600" },
+    { key: "approved", label: "Approved", count: approvedCount, icon: <CheckCircle className="h-5 w-5 text-emerald-600" />, color: "bg-emerald-50 text-emerald-700" },
+    { key: "unapproved", label: "Unapproved", count: unapprovedCount, icon: <XCircle className="h-5 w-5 text-rose-600" />, color: "bg-rose-50 text-rose-700" },
+    { key: "deleted", label: "Deleted", count: deletedCount, icon: <Trash2 className="h-5 w-5 text-neutral-500" />, color: "bg-neutral-100 text-neutral-600" },
   ];
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
         {cards.map((c) => (
           <Card
             key={c.key}
@@ -124,13 +151,13 @@ export const AdminReviewsPage = () => {
             }`}
             onClick={() => setStatusFilter(c.key)}
           >
-            <CardContent className="flex items-center gap-4 p-5">
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${c.color}`}>
+            <CardContent className="flex flex-col items-center justify-center text-center gap-3 p-4">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${c.color}`}>
                 {c.icon}
               </div>
               <div className="min-w-0">
-                <p className="text-2xl font-bold text-card-foreground leading-none">{c.count}</p>
-                <p className="text-xs text-muted-foreground mt-1.5 font-bold uppercase tracking-wider">{c.label}</p>
+                <p className="text-xl font-bold text-card-foreground leading-none">{c.count}</p>
+                <p className="text-[10px] text-muted-foreground mt-1.5 font-bold uppercase tracking-wider">{c.label}</p>
               </div>
             </CardContent>
           </Card>
@@ -156,9 +183,11 @@ export const AdminReviewsPage = () => {
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Reviews</SelectItem>
+              <SelectItem value="all">Total Reviews</SelectItem>
+              <SelectItem value="open">Open Reviews</SelectItem>
               <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="pending">Pending Approval</SelectItem>
+              <SelectItem value="unapproved">Unapproved</SelectItem>
+              <SelectItem value="deleted">Deleted</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -214,13 +243,21 @@ export const AdminReviewsPage = () => {
                       <p className="text-xs text-muted-foreground truncate group-hover/cand:underline">{rev.candidate_email}</p>
                     </div>
                     <div>
-                      {rev.is_approved ? (
+                      {rev.status === "deleted" ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full">
+                          Deleted
+                        </span>
+                      ) : rev.is_approved ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
                           Live
                         </span>
+                      ) : rev.status === "unapproved" ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">
+                          Unapproved
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full animate-pulse">
-                          Pending
+                          Open
                         </span>
                       )}
                     </div>
@@ -275,11 +312,21 @@ export const AdminReviewsPage = () => {
                     size="sm"
                     onClick={() => handleDeleteReview(rev.id)}
                     className="h-8 px-2 text-destructive hover:bg-destructive/10 rounded-lg hover:text-destructive"
+                    title={rev.status === "deleted" ? "Permanently Delete" : "Delete"}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                   
-                  {rev.is_approved ? (
+                  {rev.status === "deleted" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleApproveToggle(rev.id, false)}
+                      className="h-8 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700"
+                    >
+                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Approve / Restore
+                    </Button>
+                  ) : rev.is_approved ? (
                     <Button
                       variant="outline"
                       size="sm"

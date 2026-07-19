@@ -201,11 +201,6 @@ export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate:
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex flex-col sm:flex-row gap-6 items-start">
-              {review.image_url && (
-                <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-border">
-                  <img src={review.image_url} alt="Review attachment" className="h-full w-full object-cover" />
-                </div>
-              )}
               <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-3">
                   <StarRating rating={review.rating} />
@@ -229,7 +224,7 @@ export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate:
           <CardHeader>
             <CardTitle>{exists ? "Modify Your Review" : "Write a New Review"}</CardTitle>
             <CardDescription>
-              Provide rating, review heading, review content, and an optional visual highlight (like a landing announcement, offer letter segment, or a workspace photo).
+              Provide rating, review heading, and review content.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -270,60 +265,6 @@ export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate:
                 <div className="text-right text-xs text-muted-foreground">
                   {reviewText.length}/1000 characters
                 </div>
-              </div>
-
-              {/* Image Upload */}
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-card-foreground">Review Image (Optional)</Label>
-                
-                {imageUrl ? (
-                  <div className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-muted/20">
-                    <div className="h-16 w-16 overflow-hidden rounded-xl border border-border">
-                      <img src={imageUrl} alt="Review attachment" className="h-full w-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate text-neutral-700">Uploaded Review Image</p>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRemoveImage}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/15 h-8 px-2 mt-1 rounded-lg"
-                      >
-                        <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Remove Image
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-border rounded-2xl p-6 text-center hover:bg-muted/10 transition-colors">
-                    <div className="mx-auto h-12 w-12 text-muted-foreground bg-muted/20 rounded-xl flex items-center justify-center mb-3">
-                      {isUploading ? (
-                        <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                      ) : (
-                        <Upload className="h-6 w-6" />
-                      )}
-                    </div>
-                    {isUploading ? (
-                      <p className="text-sm font-semibold text-muted-foreground">Uploading image...</p>
-                    ) : (
-                      <>
-                        <Label htmlFor="imageUpload" className="text-sm font-bold text-primary hover:underline cursor-pointer">
-                          Upload a photo
-                        </Label>
-                        <span className="text-sm text-muted-foreground"> or drag & drop</span>
-                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG, or WEBP up to 5MB</p>
-                        <input
-                          id="imageUpload"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          disabled={isUploading}
-                        />
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* Form Buttons */}

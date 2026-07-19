@@ -10,6 +10,7 @@ class Review(models.Model):
     job_title = models.CharField(max_length=255, blank=True, null=True)
     image_url = models.URLField(max_length=500, blank=True, null=True)
     is_approved = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, default='open')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -12,9 +12,10 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'candidate', 'rating', 'review_text', 'job_title', 
             'image_url', 'is_approved', 'created_at', 'updated_at',
-            'candidate_name', 'candidate_email', 'candidate_display_id', 'candidate_avatar'
+            'candidate_name', 'candidate_email', 'candidate_display_id', 'candidate_avatar',
+            'status'
         ]
-        read_only_fields = ['id', 'candidate', 'is_approved', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'candidate', 'is_approved', 'created_at', 'updated_at', 'status']
 
     def get_candidate_name(self, obj):
         profile = getattr(obj.candidate.user, 'profile', None)
