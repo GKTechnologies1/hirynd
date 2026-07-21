@@ -96,7 +96,11 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
 
   const handleCreateOrUpdate = async () => {
     if (!formAmount || Number(formAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
-    setSaving(true);
+    const graceDaysNum = Number(formGraceDays);
+    if (isNaN(graceDaysNum) || graceDaysNum < 0) {
+      toast({ title: "Grace Days cannot be negative", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       let nextBilling = formNextDate;
@@ -279,7 +283,24 @@ const AdminBillingTab = ({ candidateId, onRefresh }: AdminBillingTabProps) => {
               />
             </div>
             <div><Label>Next Charge Date</Label><DatePicker value={formNextDate} onChange={setFormNextDate} /></div>
-            <div><Label>Grace Days</Label><Input type="number" min="1" max="30" value={formGraceDays} onChange={e => setFormGraceDays(e.target.value)} /></div>
+            <div>
+              <Label>Grace Days</Label>
+              <Input
+                type="number"
+                min="0"
+                max="30"
+                onKeyDown={(e) => {
+                  if (e.key === '-') {
+                    e.preventDefault();
+                  }
+                }}
+                value={formGraceDays}
+                onChange={e => {
+                  const cleaned = e.target.value.replace(/-/g, "");
+                  setFormGraceDays(cleaned);
+                }}
+              />
+            </div>
             <div><Label>Status</Label>
               <Select value={formStatus} onValueChange={setFormStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
