@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from django.utils import timezone
 import requests
 import re
@@ -492,3 +493,11 @@ def admin_productivity_report(request):
         })
         
     return Response(report_data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_job_alerts(request):
+    jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log').order_by('-created_at')
+    return Response(JobLinkEntrySerializer(jobs, many=True).data)
+

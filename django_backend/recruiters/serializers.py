@@ -323,10 +323,15 @@ class MyAssignmentSerializer(serializers.ModelSerializer):
 
 
 class JobLinkEntrySerializer(serializers.ModelSerializer):
+    log_date = serializers.SerializerMethodField()
+
     class Meta:
         model = JobLinkEntry
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_log_date(self, obj):
+        return obj.submission_log.log_date if obj.submission_log else None
 
 
 class DailyJournalSerializer(serializers.ModelSerializer):

@@ -370,6 +370,7 @@ export const recruitersApi = {
   uploadBankPassbook: (fileId: string) =>
     api.patch('/recruiters/profile/', { bank_passbook_id: fileId }),
   productivityReport: () => api.get('/recruiters/admin/productivity-report/'),
+  getPublicJobAlerts: (config?: any) => api.get('/recruiters/public-job-alerts/', config),
 };
 
 // ─── Billing ───

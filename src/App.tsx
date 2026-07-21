@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import About from "./pages/About";
 import Services from "./pages/Services";
 import HowItWorks from "./pages/HowItWorks";
+import JobAlert from "./pages/JobAlert"; // Recents page addition
 import Reviews from "./pages/Reviews";
 import Contact from "./pages/Contact";
 import ScanConnect from "./pages/ScanConnect";
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/services/interview-training" element={<InterviewTraining />} />
             <Route path="/services/skills-training" element={<SkillsTraining />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/job-alert" element={<JobAlert />} />
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/terms" element={<Terms />} />
