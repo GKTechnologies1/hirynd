@@ -648,14 +648,39 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   };
 
   const handleSubmitJobApplication = async () => {
-    const validLinks = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
-    if (validLinks.length === 0) {
+    if (jobLinks.length === 0) {
       toast({ title: "Add at least one job link", variant: "destructive" }); return;
     }
+
+    // Validate that all fields in all added forms are filled
+    for (let i = 0; i < jobLinks.length; i++) {
+      const j = jobLinks[i];
+      if (!j.company_name.trim()) {
+        toast({ title: "Validation Error", description: `Company Name is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.role_title.trim()) {
+        toast({ title: "Validation Error", description: `Role Title is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.job_description.trim()) {
+        toast({ title: "Validation Error", description: `Job Description is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.job_url.trim()) {
+        toast({ title: "Validation Error", description: `Job Application Link is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.resume_used.trim()) {
+        toast({ title: "Validation Error", description: `Google Drive link of resume is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+    }
+
     setSavingLog(true);
     try {
       await recruitersApi.submitJobApplications(candidateId, {
-        job_links: validLinks.map(j => ({
+        job_links: jobLinks.map(j => ({
           company_name: j.company_name,
           role_title: j.role_title,
           job_url: j.job_url,
@@ -1831,7 +1856,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
                         <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
                       </div>
-                      <Textarea placeholder="Job Description (Optional)" className="text-xs bg-background/50 min-h-[80px]" value={job.job_description} onChange={e => updateJobLink(idx, "job_description", e.target.value)} />
+                      <Textarea placeholder="Job Description" className="text-xs bg-background/50 min-h-[80px]" value={job.job_description} onChange={e => updateJobLink(idx, "job_description", e.target.value)} />
                       <div className="relative">
                         <Input placeholder="Job Application Link" className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
                         <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
