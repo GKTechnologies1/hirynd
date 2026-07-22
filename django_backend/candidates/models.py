@@ -338,6 +338,7 @@ class Referral(models.Model):
 class InterviewLog(models.Model):
     INTERVIEW_TYPE_CHOICES = [
         ('screening_call', 'Screening Call'),
+        ('assessment', 'Assessment'),
         ('technical_interview', 'Technical Interview'),
         ('hr_interview', 'HR Interview'),
         ('client_round', 'Client Round'),

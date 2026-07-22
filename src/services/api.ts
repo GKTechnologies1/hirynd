@@ -493,3 +493,15 @@ export const jobsApi = {
   deleteSubmission: (submissionId: string) =>
     api.delete(`/jobs/submissions/${submissionId}/`),
 };
+
+// ─── Reviews ───
+export const reviewsApi = {
+  getMine: () => api.get('/reviews/me/'),
+  createOrUpdateMine: (data: { rating: number; review_text: string; job_title?: string; image_url?: string }) =>
+    api.post('/reviews/me/', data),
+  listAdmin: () => api.get('/reviews/admin/'),
+  manageAdmin: (id: string, data: { is_approved?: boolean }) =>
+    api.patch(`/reviews/admin/${id}/`, data),
+  deleteAdmin: (id: string) => api.delete(`/reviews/admin/${id}/`),
+  listPublic: () => api.get('/reviews/public/'),
+};

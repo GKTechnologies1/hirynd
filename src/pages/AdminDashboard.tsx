@@ -21,11 +21,12 @@ import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminInterestedCandidatesPage from "@/pages/admin/AdminInterestedCandidatesPage";
 import AdminInterestedCandidateDetail from "@/pages/admin/AdminInterestedCandidateDetail";
 import AdminGeneralEnquiriesPage from "@/pages/admin/AdminGeneralEnquiriesPage";
+import AdminReviewsPage from "@/pages/admin/AdminReviewsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
@@ -51,6 +52,7 @@ const navItems = [
   { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <AlertTriangle className="h-4 w-4" /> },
   { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
   { label: "General Enquiries", path: "/admin-dashboard/general-enquiries", icon: <ClipboardList className="h-4 w-4" /> },
+  { label: "Reviews", path: "/admin-dashboard/reviews", icon: <Star className="h-4 w-4" /> },
   { label: "Notifications", path: "/admin-dashboard/notifications", icon: <Bell className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
@@ -203,6 +205,7 @@ const AdminDashboard = () => {
       case "recruiters": return <AdminRecruitersPage />;
       case "payments": return <AdminPaymentsPage />;
       case "notifications": return <AdminNotificationsPage />;
+      case "reviews": return <AdminReviewsPage />;
       case "settings": return <AdminSettingsPage />;
       default: break;
     }

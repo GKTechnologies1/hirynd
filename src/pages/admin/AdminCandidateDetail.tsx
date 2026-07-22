@@ -1978,16 +1978,17 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     <Label>Amount ($) *</Label>
                     <Input
                       type="number"
-                      step="0.01"
-                      min="0.01"
+                      step="1"
+                      min="1"
                       onKeyDown={(e) => {
                         if (e.key === '-') {
                           e.preventDefault();
                         }
                       }}
+                      onWheel={(e) => e.currentTarget.blur()}
                       value={payAmount}
                       onChange={e => setPayAmount(e.target.value.replace(/-/g, ""))}
-                      placeholder="500.00"
+                      placeholder="500"
                     />
                   </div>
                   <div><Label>Type</Label>
