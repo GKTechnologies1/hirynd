@@ -108,6 +108,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     candidate_name = serializers.SerializerMethodField()
     candidate_display_id = serializers.SerializerMethodField()
     display_id = serializers.SerializerMethodField()
+    payment_type = serializers.CharField(max_length=50)
 
     class Meta:
         model = Payment

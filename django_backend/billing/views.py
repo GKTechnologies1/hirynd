@@ -487,7 +487,12 @@ def record_payment(request, candidate_id):
     serializer = PaymentSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     pay = serializer.save(recorded_by=request.user)
-    if pay.payment_type in ('subscription', 'monthly_service'):
+    from .models import SubscriptionPlan
+    is_sub_plan = pay.payment_type in ('subscription', 'monthly_service')
+    if not is_sub_plan:
+        is_sub_plan = SubscriptionPlan.objects.filter(name=pay.payment_type).exists()
+
+    if is_sub_plan:
         # Ensure subscription object exists and is synced with this payment
         sub, created = Subscription.objects.get_or_create(
             candidate_id=candidate_id,
@@ -495,7 +500,7 @@ def record_payment(request, candidate_id):
                 'amount': pay.amount,
                 'currency': pay.currency,
                 'status': 'pending_payment' if pay.status == 'pending' else 'active',
-                'plan_name': 'Marketing Service Fee',
+                'plan_name': pay.payment_type if pay.payment_type != 'subscription' else 'Marketing Service Fee',
                 'assigned_by': request.user,
             }
         )
@@ -505,13 +510,16 @@ def record_payment(request, candidate_id):
             if pay.status == 'completed':
                 sub.amount = pay.amount
                 sub.currency = pay.currency
-                # Note: helper will update status, last_payment_at, start_date, next_billing_at and save sub
+                if pay.payment_type != 'subscription':
+                    sub.plan_name = pay.payment_type
             elif pay.status == 'pending':
                 # If a new pending payment is recorded, make sure the subscription reflects it
                 sub.status = 'pending_payment'
                 sub.amount = pay.amount
                 sub.currency = pay.currency
-                sub.save(update_fields=['status', 'amount', 'currency'])
+                if pay.payment_type != 'subscription':
+                    sub.plan_name = pay.payment_type
+                sub.save(update_fields=['status', 'amount', 'currency', 'plan_name'])
         
         # LINK THE PAYMENT TO THE SUBSCRIPTION FOR CASCADE/SYNC
         pay.subscription = sub
