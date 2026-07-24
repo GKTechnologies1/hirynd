@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Briefcase, Search, Globe, X, ExternalLink, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 const JobDescriptionCell = ({ 
   company, 
@@ -56,6 +57,8 @@ export default function JobAlert() {
 
   const [searchRole, setSearchRole] = useState("");
   const [searchCompany, setSearchCompany] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -72,10 +75,10 @@ export default function JobAlert() {
         const res = await recruitersApi.getPublicJobAlerts();
         setJobPostings(res.data || []);
       } catch (err: any) {
-        console.error("Error fetching job alerts:", err);
+        console.error("Error fetching job openings:", err);
         toast({
-          title: "Error loading job alerts",
-          description: "Could not fetch job alerts. Please try again later.",
+          title: "Error loading job openings",
+          description: "Could not fetch job openings. Please try again later.",
           variant: "destructive",
         });
       } finally {
@@ -89,9 +92,39 @@ export default function JobAlert() {
     return jobPostings.filter((job) => {
       const matchRole = !searchRole || job.role_title?.toLowerCase().includes(searchRole.toLowerCase());
       const matchCompany = !searchCompany || job.company_name?.toLowerCase().includes(searchCompany.toLowerCase());
-      return matchRole && matchCompany;
+      
+      let matchDate = true;
+      const logDateStr = job.log_date || job.created_at;
+      if (logDateStr) {
+        const cleanDate = logDateStr.split("T")[0];
+        const [y, m, d] = cleanDate.split("-").map((s: string) => parseInt(s, 10));
+        const itemDate = new Date(y, m - 1, d);
+        itemDate.setHours(0, 0, 0, 0);
+
+        if (fromDate) {
+          const fParts = fromDate.split(/[-\/]/);
+          if (fParts.length === 3) {
+            const fd = new Date(parseInt(fParts[2], 10), parseInt(fParts[0], 10) - 1, parseInt(fParts[1], 10));
+            fd.setHours(0, 0, 0, 0);
+            if (itemDate < fd) matchDate = false;
+          }
+        }
+        
+        if (toDate) {
+          const tParts = toDate.split(/[-\/]/);
+          if (tParts.length === 3) {
+            const td = new Date(parseInt(tParts[2], 10), parseInt(tParts[0], 10) - 1, parseInt(tParts[1], 10));
+            td.setHours(23, 59, 59, 999);
+            if (itemDate > td) matchDate = false;
+          }
+        }
+      } else {
+        if (fromDate || toDate) matchDate = false;
+      }
+
+      return matchRole && matchCompany && matchDate;
     });
-  }, [jobPostings, searchRole, searchCompany]);
+  }, [jobPostings, searchRole, searchCompany, fromDate, toDate]);
 
   const handleOpenDescription = (company: string, role: string, description: string) => {
     setActiveJobDesc({ company, role, description });
@@ -100,7 +133,7 @@ export default function JobAlert() {
   return (
     <div className="job-alerts-page min-h-screen flex flex-col">
       <SEO 
-        title="Job Alerts | HYRIND" 
+        title="Job Openings | HYRIND" 
         description="View real-time job openings submitted and assigned by our recruiter network. Apply directly using the provided links." 
         path="/job-alert" 
       />
@@ -207,7 +240,7 @@ export default function JobAlert() {
       {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-content">
-          <h1 className="hero-title">Live Job Alerts</h1>
+          <h1 className="hero-title">Live Job Openings</h1>
           <p className="hero-subtitle">
             Explore live job listings sourced and vetted by our recruitment partners. Any visitor can apply directly.
           </p>
@@ -220,7 +253,7 @@ export default function JobAlert() {
           {/* Filters Panel */}
           <Card className="filter-card">
             <CardContent className="p-6">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
                   <Label htmlFor="search-role" className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Search by Role
@@ -229,10 +262,10 @@ export default function JobAlert() {
                     <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
                       id="search-role"
-                      placeholder="e.g. Software Engineer, Product Manager"
+                      placeholder="e.g. Software Engineer"
                       value={searchRole}
                       onChange={(e) => setSearchRole(e.target.value)}
-                      className="pl-10 h-10 border-slate-200 focus-visible:ring-primary rounded-xl"
+                      className="pl-10 h-10 border-slate-200 focus-visible:ring-primary rounded-xl text-xs"
                     />
                     {searchRole && (
                       <button
@@ -256,7 +289,7 @@ export default function JobAlert() {
                       placeholder="e.g. Google, Amazon"
                       value={searchCompany}
                       onChange={(e) => setSearchCompany(e.target.value)}
-                      className="pl-10 h-10 border-slate-200 focus-visible:ring-primary rounded-xl"
+                      className="pl-10 h-10 border-slate-200 focus-visible:ring-primary rounded-xl text-xs"
                     />
                     {searchCompany && (
                       <button
@@ -268,6 +301,32 @@ export default function JobAlert() {
                     )}
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    From Date
+                  </Label>
+                  <DatePicker
+                    value={fromDate}
+                    onChange={setFromDate}
+                    placeholder="MM-DD-YYYY"
+                    formatStr="MM-dd-yyyy"
+                    className="h-10 text-xs border-slate-200 focus-visible:ring-primary rounded-xl bg-white"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    To Date
+                  </Label>
+                  <DatePicker
+                    value={toDate}
+                    onChange={setToDate}
+                    placeholder="MM-DD-YYYY"
+                    formatStr="MM-dd-yyyy"
+                    className="h-10 text-xs border-slate-200 focus-visible:ring-primary rounded-xl bg-white"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -277,14 +336,14 @@ export default function JobAlert() {
             <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-6">
               <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
                 <Globe className="h-5 w-5 text-primary" />
-                All Available Job Alerts ({filteredJobs.length})
+                All Available Job Openings ({filteredJobs.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <DataTable
                 data={filteredJobs}
                 isLoading={loading}
-                emptyMessage="No job alerts match your search."
+                emptyMessage="No job openings match your search."
                 pageSize={10}
                 columns={[
                   {

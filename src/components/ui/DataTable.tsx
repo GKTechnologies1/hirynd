@@ -131,7 +131,7 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-0">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-border/60 bg-muted/10">
         {searchKey ? (
           <div className="relative max-w-sm w-full">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
@@ -139,7 +139,7 @@ export function DataTable<T>({
               placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors"
+              className="pl-9 pr-8 h-9 text-sm bg-background border-border/60 focus:bg-background transition-colors"
             />
             {searchTerm && (
               <button
@@ -152,8 +152,8 @@ export function DataTable<T>({
           </div>
         ) : <div />}
 
-        <div className="flex items-center gap-2">
-          <p className="text-[11px] font-medium text-muted-foreground">Rows per page:</p>
+        <div className="flex items-center gap-2 ml-auto">
+          <p className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Rows per page:</p>
           <Select
             value={currentPageSize.toString()}
             onValueChange={(value) => {
@@ -161,12 +161,12 @@ export function DataTable<T>({
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="h-8 w-[70px] text-xs">
+            <SelectTrigger className="h-8 w-[72px] text-xs px-2.5 py-1 flex items-center justify-between rounded-lg border border-input bg-background shadow-sm focus:ring-1 focus:ring-primary">
               <SelectValue placeholder={currentPageSize.toString()} />
             </SelectTrigger>
-            <SelectContent side="bottom">
+            <SelectContent side="bottom" align="end" className="min-w-[72px] z-[10001]">
               {[5, 10, 15, 20, 25].map((size) => (
-                <SelectItem key={size} value={size.toString()} className="text-xs">
+                <SelectItem key={size} value={size.toString()} className="text-xs py-1.5 pl-7 pr-2 cursor-pointer font-medium">
                   {size}
                 </SelectItem>
               ))}
@@ -175,7 +175,7 @@ export function DataTable<T>({
         </div>
       </div>
 
-      <div className="rounded-xl border border-border overflow-hidden">
+      <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40 border-b">
@@ -196,11 +196,11 @@ export function DataTable<T>({
                     <div className="flex items-center justify-center gap-2">
                        {col.header}
                        {isSortable && (
-                         <div className="flex flex-col opacity-40 group-hover:opacity-100">
-                           {isSorted && sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-secondary" /> : 
-                            isSorted && sortConfig.direction === 'desc' ? <ArrowDown className="h-3 w-3 text-secondary" /> :
-                            <ArrowUpDown className="h-3 w-3" />}
-                         </div>
+                          <div className="flex flex-col opacity-40 group-hover:opacity-100">
+                            {isSorted && sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-secondary" /> : 
+                             isSorted && sortConfig.direction === 'desc' ? <ArrowDown className="h-3 w-3 text-secondary" /> :
+                             <ArrowUpDown className="h-3 w-3" />}
+                          </div>
                        )}
                     </div>
                   </TableHead>
@@ -260,7 +260,7 @@ export function DataTable<T>({
 
       {/* Pagination Tray */}
       {(totalPages > 1 || filteredAndSortedData.length > 5) && (
-        <div className="flex items-center justify-between px-1 pt-4">
+        <div className="flex items-center justify-between px-6 py-3.5 border-t border-border/60 bg-muted/10">
           <p className="text-[11px] font-medium text-muted-foreground tracking-wide">
             Showing{" "}
             <span className="font-bold text-foreground">
