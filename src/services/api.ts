@@ -444,8 +444,14 @@ export const billingApi = {
 
 // ─── Audit ───
 export const auditApi = {
-  globalLogs: (action?: string) => api.get('/audit/', { params: action ? { action } : {} }),
-  candidateLogs: (candidateId: string) => api.get(`/audit/${candidateId}/`),
+  globalLogs: (params?: string | { action?: string; date_from?: string; date_to?: string }) => {
+    if (typeof params === 'string') {
+      return api.get('/audit/', { params: { action: params } });
+    }
+    return api.get('/audit/', { params });
+  },
+  candidateLogs: (candidateId: string, params?: { action?: string; date_from?: string; date_to?: string }) =>
+    api.get(`/audit/${candidateId}/`, { params }),
 };
 
 // ─── Notifications ───
