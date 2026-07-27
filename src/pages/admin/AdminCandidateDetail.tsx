@@ -179,7 +179,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
 
   const [payAmount, setPayAmount] = useState("");
-  const [payType, setPayType] = useState("monthly_service");
+  const [payType, setPayType] = useState("");
   const [payStatus, setPayStatus] = useState("completed");
   const [payNotes, setPayNotes] = useState("");
   const [addingPayment, setAddingPayment] = useState(false);
@@ -425,17 +425,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
       setPayAmount(String(Math.round(selectedAddon.amount)));
       return;
     }
-    if (val === "monthly_service") {
-      setPayAmount("400");
-    } else if (val === "mock_practice") {
-      setPayAmount("150");
-    } else if (val === "interview_support") {
-      setPayAmount("300");
-    } else if (val === "operations_support") {
-      setPayAmount("200");
-    } else {
-      setPayAmount("");
-    }
+    setPayAmount("");
   };
 
   const handleRecordPayment = async () => {
@@ -445,7 +435,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
       await billingApi.recordPayment(candidateId, { amount: Number(payAmount), payment_type: payType, status: payStatus, notes: payNotes });
       setPayAmount(""); 
       setPayNotes("");
-      setPayType("monthly_service");
+      setPayType("");
       setPayStatus("completed");
       toast({ title: "Payment recorded" }); fetchAll();
     } catch (err: any) {
@@ -2027,21 +2017,10 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                   </div>
                   <div><Label>Type</Label>
                     <Select value={payType} onValueChange={handlePayTypeChange}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select type..." /></SelectTrigger>
                       <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Standard Fees</SelectLabel>
-                          <SelectItem value="monthly_service">Marketing Service Fee</SelectItem>
-                          <SelectItem value="mock_practice">Mock Practice Fee</SelectItem>
-                          <SelectItem value="interview_support">Interview Support Fee</SelectItem>
-                          <SelectItem value="operations_support">Operations Support Fee</SelectItem>
-                          <SelectItem value="manual">Manual / Other</SelectItem>
-                          <SelectItem value="refund">Refund</SelectItem>
-                        </SelectGroup>
-
                         {manualPayPlans && manualPayPlans.length > 0 && (
                           <SelectGroup>
-                            <SelectSeparator />
                             <SelectLabel>Subscription Plans</SelectLabel>
                             {manualPayPlans.map((plan: any) => (
                               <SelectItem key={plan.id} value={plan.name}>
@@ -2053,8 +2032,8 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
                         {manualPayAddons && manualPayAddons.length > 0 && (
                           <SelectGroup>
-                            <SelectSeparator />
-                            <SelectLabel>Add-ons Catalog</SelectLabel>
+                            {manualPayPlans && manualPayPlans.length > 0 && <SelectSeparator />}
+                            <SelectLabel>Add-on Services</SelectLabel>
                             {manualPayAddons.map((addon: any) => (
                               <SelectItem key={addon.id} value={addon.name}>
                                 {addon.name} (+${Number(addon.amount).toLocaleString()})
