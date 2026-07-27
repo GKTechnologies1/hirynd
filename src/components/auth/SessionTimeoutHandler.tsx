@@ -13,14 +13,14 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock } from "lucide-react";
 
 // Inactivity timeouts in milliseconds
-const WARNING_TIMEOUT = 55 * 60 * 1000; // 55 minutes of inactivity triggers warning
-const MAX_TIMEOUT = 60 * 60 * 1000;     // 60 minutes of inactivity forces logout
+const WARNING_TIMEOUT = 50 * 60 * 1000; // 50 minutes of inactivity triggers warning
+const MAX_TIMEOUT = 60 * 60 * 1000;     // 60 minutes (1 hour) of inactivity forces logout
 const CHECK_INTERVAL = 1000;            // Check state every second
 
 export const SessionTimeoutHandler = () => {
   const { user, signOut } = useAuth();
   const [showWarning, setShowWarning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds (300)
+  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes warning window (600 seconds)
   const isLoggingOutRef = useRef(false);
 
   useEffect(() => {
@@ -150,7 +150,7 @@ export const SessionTimeoutHandler = () => {
           <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
             <div 
               className="bg-amber-500 h-1.5 rounded-full transition-all duration-1000 ease-linear"
-              style={{ width: `${(timeLeft / 300) * 100}%` }}
+              style={{ width: `${(timeLeft / 600) * 100}%` }}
             />
           </div>
         </div>

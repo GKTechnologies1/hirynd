@@ -149,11 +149,37 @@ export const setupProactiveRefresh = (token: string | null) => {
           }
         }
       }, delay);
+    } else if (currentTime < expiryTime) {
+      // If delay <= 0 but token is still valid (e.g. background tab woke up), refresh immediately
+      const refresh = localStorage.getItem('refresh_token');
+      if (refresh) {
+        axios.post(
+          `${API_BASE_URL}/auth/refresh/`,
+          { refresh },
+          { headers: { 'X-Background-Request': 'true' } }
+        ).then(({ data }) => {
+          localStorage.setItem('access_token', data.access);
+          if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+          setupProactiveRefresh(data.access);
+        }).catch(() => {});
+      }
     }
   } catch (e) {
     console.error("Failed to parse token for proactive refresh", e);
   }
 };
+
+// Also listen for tab focus to handle background tab sleeping
+if (typeof window !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const currentToken = localStorage.getItem('access_token');
+      if (currentToken) {
+        setupProactiveRefresh(currentToken);
+      }
+    }
+  });
+}
 
 // Start proactive refresh on application load if token exists
 const initialToken = localStorage.getItem('access_token');
