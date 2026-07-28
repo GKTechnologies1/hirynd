@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Trash2, Edit2, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate: any; onStatusChange: () => void }) => {
   const { user } = useAuth();
@@ -26,6 +27,9 @@ export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate:
   const [imageUrl, setImageUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [touched, setTouched] = useState<{ rating?: boolean; jobTitle?: boolean; reviewText?: boolean }>({});
+
+  const isValid = rating > 0 && jobTitle.trim() !== "" && reviewText.trim() !== "";
 
   const fetchReview = async () => {
     setLoading(true);
@@ -47,6 +51,7 @@ export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate:
         setImageUrl("");
         setIsEditing(true);
       }
+      setTouched({});
     } catch (err) {
       console.error("Failed to fetch review:", err);
       toast({
@@ -107,19 +112,12 @@ export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (rating === 0) {
-      toast({
-        title: "Rating required",
-        description: "Please select a star rating (from 0.5 to 5.0).",
-        variant: "destructive",
-      });
-      return;
-    }
+    setTouched({ rating: true, jobTitle: true, reviewText: true });
 
-    if (!reviewText.trim()) {
+    if (rating === 0 || !jobTitle.trim() || !reviewText.trim()) {
       toast({
-        title: "Review text required",
-        description: "Please write some feedback before submitting.",
+        title: "Required Fields Missing",
+        description: "Please fill in all required fields marked with *.",
         variant: "destructive",
       });
       return;
@@ -231,37 +229,55 @@ export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate:
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Rating */}
               <div className="space-y-2">
-                <Label className="text-sm font-bold text-card-foreground">Your Rating</Label>
+                <Label className="text-sm font-bold text-card-foreground">Your Rating *</Label>
                 <div className="p-3 bg-muted/30 rounded-2xl border border-border/40 inline-block">
-                  <StarRating rating={rating} onChange={setRating} interactive={true} />
+                  <StarRating
+                    rating={rating}
+                    onChange={(val) => {
+                      setRating(val);
+                      setTouched((prev) => ({ ...prev, rating: true }));
+                    }}
+                    interactive={true}
+                  />
                 </div>
+                {touched.rating && rating === 0 && (
+                  <p className="text-sm text-red-500 mt-1">Please select a rating.</p>
+                )}
                 <p className="text-xs text-muted-foreground">Click stars to select. Hover to see rating value. Left half of a star gives half rating.</p>
               </div>
 
               {/* Review Heading */}
               <div className="space-y-2">
-                <Label htmlFor="jobTitle" className="text-sm font-bold text-card-foreground">Review Heading / Title</Label>
+                <Label htmlFor="jobTitle" className="text-sm font-bold text-card-foreground">Review Heading / Title *</Label>
                 <Input
                   id="jobTitle"
                   placeholder="e.g. Outstanding recruiter support!, Landed my dream role in 6 weeks!, Optimized my resume!"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
+                  onBlur={() => setTouched((prev) => ({ ...prev, jobTitle: true }))}
                   className="rounded-xl h-11"
                 />
-                <p className="text-xs text-muted-foreground">Optional. This will be shown as a heading/title for your review on the website reviews page.</p>
+                {touched.jobTitle && !jobTitle.trim() && (
+                  <p className="text-sm text-red-500 mt-1">Please enter a review heading.</p>
+                )}
+                <p className="text-xs text-muted-foreground">This will be shown as a heading/title for your review on the website reviews page.</p>
               </div>
 
               {/* Review Text */}
               <div className="space-y-2">
-                <Label htmlFor="reviewText" className="text-sm font-bold text-card-foreground">Review Content</Label>
+                <Label htmlFor="reviewText" className="text-sm font-bold text-card-foreground">Review Content *</Label>
                 <Textarea
                   id="reviewText"
                   placeholder="Tell others how HYRIND assisted you in optimizing your profile, scheduling calls, managing interviews, or getting a placement..."
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
+                  onBlur={() => setTouched((prev) => ({ ...prev, reviewText: true }))}
                   className="min-h-[140px] rounded-2xl resize-none p-4"
                   maxLength={1000}
                 />
+                {touched.reviewText && !reviewText.trim() && (
+                  <p className="text-sm text-red-500 mt-1">Please enter review content.</p>
+                )}
                 <div className="text-right text-xs text-muted-foreground">
                   {reviewText.length}/1000 characters
                 </div>
@@ -282,9 +298,13 @@ export const CandidateReviewsPage = ({ candidate, onStatusChange }: { candidate:
                 )}
                 <Button
                   type="submit"
-                  variant="hero"
-                  className="h-11 px-8 rounded-xl font-bold order-1 sm:order-2 shadow-lg"
-                  disabled={isSubmitting || isUploading}
+                  className={cn(
+                    "h-11 px-8 rounded-xl font-bold order-1 sm:order-2 transition-all",
+                    isValid
+                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+                      : "bg-gray-300 text-gray-500 hover:bg-gray-300 cursor-not-allowed shadow-none"
+                  )}
+                  disabled={!isValid || isSubmitting || isUploading}
                 >
                   {isSubmitting ? (
                     <>

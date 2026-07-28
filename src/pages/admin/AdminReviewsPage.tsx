@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Search, CheckCircle, XCircle, Trash2, Calendar, User, Star, ExternalLink, Clock } from "lucide-react";
+import { Loader2, Search, CheckCircle, XCircle, Trash2, Calendar, User, Star, ExternalLink, Clock, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export const AdminReviewsPage = () => {
   const { toast } = useToast();
@@ -15,7 +16,12 @@ export const AdminReviewsPage = () => {
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // all, pending, approved
+  const [statusFilter, setStatusFilter] = useState("open"); // Default to open
+  const [editingReview, setEditingReview] = useState<any | null>(null);
+  const [editRating, setEditRating] = useState<number>(5);
+  const [editReviewText, setEditReviewText] = useState("");
+  const [editJobTitle, setEditJobTitle] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const fetchReviews = async () => {
     setLoading(true);
@@ -38,31 +44,90 @@ export const AdminReviewsPage = () => {
     fetchReviews();
   }, []);
 
-  const handleApproveToggle = async (reviewId: string, currentStatus: boolean) => {
+  const handleApproveReview = async (reviewId: string) => {
     try {
-      const targetStatus = !currentStatus;
-      await reviewsApi.manageAdmin(reviewId, { is_approved: targetStatus });
+      await reviewsApi.manageAdmin(reviewId, { is_approved: true });
       toast({
-        title: targetStatus ? "Review Approved" : "Approval Revoked",
-        description: targetStatus
-          ? "The review will now appear on the public reviews page."
-          : "The review has been hidden from the public reviews page.",
+        title: "Review Approved",
+        description: "The review will now appear on the public reviews page.",
       });
       // Refresh local list
       setReviews((prev) =>
         prev.map((r) =>
           r.id === reviewId
-            ? { ...r, is_approved: targetStatus, status: targetStatus ? "approved" : "unapproved" }
+            ? { ...r, is_approved: true, status: "approved" }
             : r
         )
       );
     } catch (err) {
-      console.error("Failed to toggle review approval:", err);
+      console.error("Failed to approve review:", err);
       toast({
         title: "Action failed",
         description: "An error occurred while updating approval status.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleRejectReview = async (reviewId: string) => {
+    try {
+      await reviewsApi.manageAdmin(reviewId, { is_approved: false });
+      toast({
+        title: "Review Rejected",
+        description: "The review has been rejected and will not appear on the public reviews page.",
+      });
+      // Refresh local list
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === reviewId
+            ? { ...r, is_approved: false, status: "rejected" }
+            : r
+        )
+      );
+    } catch (err) {
+      console.error("Failed to reject review:", err);
+      toast({
+        title: "Action failed",
+        description: "An error occurred while updating rejection status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditClick = (rev: any) => {
+    setEditingReview(rev);
+    setEditRating(rev.rating);
+    setEditReviewText(rev.review_text || "");
+    setEditJobTitle(rev.job_title || "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingReview) return;
+    setIsSavingEdit(true);
+    try {
+      const { data } = await reviewsApi.manageAdmin(editingReview.id, {
+        rating: editRating,
+        review_text: editReviewText,
+        job_title: editJobTitle,
+      });
+      toast({
+        title: "Review Updated",
+        description: "The review content has been updated successfully.",
+      });
+      // Update local list
+      setReviews((prev) =>
+        prev.map((r) => (r.id === editingReview.id ? { ...r, ...data } : r))
+      );
+      setEditingReview(null);
+    } catch (err) {
+      console.error("Failed to update review:", err);
+      toast({
+        title: "Update failed",
+        description: "An error occurred while updating the review.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -118,7 +183,7 @@ export const AdminReviewsPage = () => {
       statusFilter === "all" ||
       (statusFilter === "open" && (r.status === "open" || !r.status)) ||
       (statusFilter === "approved" && r.status === "approved") ||
-      (statusFilter === "unapproved" && r.status === "unapproved") ||
+      (statusFilter === "rejected" && (r.status === "rejected" || r.status === "unapproved")) ||
       (statusFilter === "deleted" && r.status === "deleted");
 
     return matchesSearch && matchesStatus;
@@ -128,14 +193,14 @@ export const AdminReviewsPage = () => {
   const totalCount = reviews.length;
   const openCount = reviews.filter((r) => r.status === "open" || !r.status).length;
   const approvedCount = reviews.filter((r) => r.status === "approved").length;
-  const unapprovedCount = reviews.filter((r) => r.status === "unapproved").length;
+  const rejectedCount = reviews.filter((r) => r.status === "rejected" || r.status === "unapproved").length;
   const deletedCount = reviews.filter((r) => r.status === "deleted").length;
 
   const cards = [
     { key: "all", label: "Total Reviews", count: totalCount, icon: <Star className="h-5 w-5 text-primary" />, color: "bg-primary/10 text-primary" },
     { key: "open", label: "Open Reviews", count: openCount, icon: <Clock className="h-5 w-5 text-amber-500" />, color: "bg-amber-50 text-amber-600" },
     { key: "approved", label: "Approved", count: approvedCount, icon: <CheckCircle className="h-5 w-5 text-emerald-600" />, color: "bg-emerald-50 text-emerald-700" },
-    { key: "unapproved", label: "Unapproved", count: unapprovedCount, icon: <XCircle className="h-5 w-5 text-rose-600" />, color: "bg-rose-50 text-rose-700" },
+    { key: "rejected", label: "Rejected", count: rejectedCount, icon: <XCircle className="h-5 w-5 text-rose-600" />, color: "bg-rose-50 text-rose-700" },
     { key: "deleted", label: "Deleted", count: deletedCount, icon: <Trash2 className="h-5 w-5 text-neutral-500" />, color: "bg-neutral-100 text-neutral-600" },
   ];
 
@@ -186,7 +251,7 @@ export const AdminReviewsPage = () => {
               <SelectItem value="all">Total Reviews</SelectItem>
               <SelectItem value="open">Open Reviews</SelectItem>
               <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="unapproved">Unapproved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="deleted">Deleted</SelectItem>
             </SelectContent>
           </Select>
@@ -251,9 +316,9 @@ export const AdminReviewsPage = () => {
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
                           Live
                         </span>
-                      ) : rev.status === "unapproved" ? (
+                      ) : (rev.status === "unapproved" || rev.status === "rejected") ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">
-                          Unapproved
+                          Rejected
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full animate-pulse">
@@ -307,6 +372,17 @@ export const AdminReviewsPage = () => {
                   {new Date(rev.created_at).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-2">
+                  {rev.status !== "deleted" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditClick(rev)}
+                      className="h-8 px-2 text-primary hover:bg-primary/10 rounded-lg hover:text-primary"
+                      title="Edit Review"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -321,29 +397,34 @@ export const AdminReviewsPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleApproveToggle(rev.id, false)}
+                      onClick={() => handleApproveReview(rev.id)}
                       className="h-8 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700"
                     >
                       <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Approve / Restore
                     </Button>
-                  ) : rev.is_approved ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleApproveToggle(rev.id, rev.is_approved)}
-                      className="h-8 text-xs font-semibold rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-700"
-                    >
-                      <XCircle className="mr-1.5 h-3.5 w-3.5" /> Unapprove
-                    </Button>
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleApproveToggle(rev.id, rev.is_approved)}
-                      className="h-8 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700"
-                    >
-                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Approve
-                    </Button>
+                    <>
+                      {rev.status !== "approved" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleApproveReview(rev.id)}
+                          className="h-8 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700"
+                        >
+                          <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Approve
+                        </Button>
+                      )}
+                      {rev.status !== "rejected" && rev.status !== "unapproved" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRejectReview(rev.id)}
+                          className="h-8 text-xs font-semibold rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-700"
+                        >
+                          <XCircle className="mr-1.5 h-3.5 w-3.5" /> Reject
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -351,6 +432,62 @@ export const AdminReviewsPage = () => {
           ))}
         </div>
       )}
+
+      {/* Edit Review Dialog */}
+      <Dialog open={!!editingReview} onOpenChange={(open) => !open && setEditingReview(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Review</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-muted-foreground">Rating</label>
+              <div className="flex items-center gap-2">
+                <StarRating rating={editRating} onChange={setEditRating} interactive={true} />
+                <span className="text-sm font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded">
+                  {editRating.toFixed(1)} / 5.0
+                </span>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-muted-foreground">Review Heading</label>
+              <Input
+                value={editJobTitle}
+                onChange={(e) => setEditJobTitle(e.target.value)}
+                placeholder="Review Heading / Job Title"
+                className="rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-muted-foreground">Review Text</label>
+              <textarea
+                value={editReviewText}
+                onChange={(e) => setEditReviewText(e.target.value)}
+                placeholder="Write your review details here..."
+                rows={4}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 rounded-xl"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingReview(null)} className="rounded-xl">
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit} className="rounded-xl">
+              {isSavingEdit ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
