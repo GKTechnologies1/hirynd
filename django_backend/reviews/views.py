@@ -91,9 +91,9 @@ def admin_manage_review(request, review_id):
         is_approved = request.data.get('is_approved')
         if is_approved is not None:
             review_obj.is_approved = is_approved
-            review_obj.status = 'approved' if is_approved else 'unapproved'
+            review_obj.status = 'approved' if is_approved else 'rejected'
             review_obj.save()
-            action_name = 'review_approved' if is_approved else 'review_unapproved'
+            action_name = 'review_approved' if is_approved else 'review_rejected'
             log_action(request.user, action_name, str(review_obj.id), 'review', {'is_approved': is_approved})
             
         return Response(ReviewSerializer(review_obj).data)
