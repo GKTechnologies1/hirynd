@@ -133,8 +133,8 @@ export default function JobAlert() {
   return (
     <div className="job-alerts-page min-h-screen flex flex-col">
       <SEO 
-        title="Job Openings | HYRIND" 
-        description="View real-time job openings submitted and assigned by our recruiter network. Apply directly using the provided links." 
+        title="Job Board | HYRIND" 
+        description="Discover recruiter-verified job opportunities updated every day." 
         path="/job-alert" 
       />
       <Header />
@@ -152,7 +152,7 @@ export default function JobAlert() {
         .hero-section {
           background: radial-gradient(circle at top right, #1e40af, #0d47a1);
           color: white;
-          padding: 160px 24px 100px;
+          padding: 120px 24px 45px;
           text-align: center;
           clip-path: ellipse(150% 100% at 50% 0%);
           position: relative;
@@ -176,15 +176,15 @@ export default function JobAlert() {
         }
 
         .hero-title {
-          font-size: clamp(3rem, 8vw, 4.5rem);
+          font-size: clamp(2.25rem, 5vw, 3.25rem);
           font-weight: 800;
-          margin-bottom: 24px;
+          margin-bottom: 12px;
           letter-spacing: -0.04em;
           line-height: 1.1;
         }
 
         .hero-subtitle {
-          font-size: 1.25rem;
+          font-size: 1.125rem;
           opacity: 0.9;
           font-weight: 300;
           max-width: 700px;
@@ -240,9 +240,9 @@ export default function JobAlert() {
       {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-content">
-          <h1 className="hero-title">Live Job Openings</h1>
+          <h1 className="hero-title">Live Job Board</h1>
           <p className="hero-subtitle">
-            Explore live job listings sourced and vetted by our recruitment partners. Any visitor can apply directly.
+            Discover recruiter-verified job opportunities updated every day.
           </p>
         </div>
       </section>

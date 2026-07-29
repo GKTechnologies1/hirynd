@@ -41,7 +41,7 @@ export default function SkillsTraining() {
         .service-hero {
           background: radial-gradient(circle at top right, #1e40af, #0d47a1);
           color: white;
-          padding: 160px 24px 100px;
+          padding: 120px 24px 45px;
           text-align: center;
           clip-path: ellipse(150% 100% at 50% 0%);
           position: relative;
@@ -73,33 +73,33 @@ export default function SkillsTraining() {
           font-weight: 700;
           letter-spacing: 1.5px;
           text-transform: uppercase;
-          margin-bottom: 24px;
+          margin-bottom: 12px;
         }
 
         .service-hero h1 {
-          font-size: clamp(3rem, 8vw, 4.5rem);
+          font-size: clamp(2.25rem, 5vw, 3.25rem);
           font-weight: 800;
-          margin-bottom: 24px;
+          margin-bottom: 12px;
           letter-spacing: -0.04em;
           line-height: 1.1;
         }
 
         .service-hero p {
-          font-size: 1.25rem;
+          font-size: 1.125rem;
           opacity: 0.9;
           font-weight: 300;
           max-width: 750px;
-          margin: 0 auto 40px;
+          margin: 0 auto 24px;
           line-height: 1.6;
         }
 
         .btn-premium-v2 {
           background: white;
           color: #0d47a1;
-          padding: 20px 48px;
+          padding: 14px 32px;
           border-radius: 20px;
           font-weight: 800;
-          font-size: 1.1rem;
+          font-size: 1rem;
           text-decoration: none;
           display: inline-flex;
           align-items: center;

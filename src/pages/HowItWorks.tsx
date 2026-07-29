@@ -105,7 +105,7 @@ export default function HowItWorks() {
         .hiw-hero {
           background: linear-gradient(135deg, #0d47a1 0%, #1e40af 100%);
           color: white;
-          padding: 160px 24px 120px;
+          padding: 120px 24px 45px;
           text-align: center;
           position: relative;
           overflow: hidden;
@@ -131,15 +131,15 @@ export default function HowItWorks() {
         }
 
         .hiw-hero h1 {
-          font-size: clamp(3rem, 8vw, 4.5rem);
+          font-size: clamp(2.25rem, 5vw, 3.25rem);
           font-weight: 800;
-          margin-bottom: 24px;
+          margin-bottom: 12px;
           letter-spacing: -0.04em;
           line-height: 1.1;
         }
 
         .hiw-hero p {
-          font-size: 1.25rem;
+          font-size: 1.125rem;
           opacity: 0.9;
           font-weight: 300;
           max-width: 600px;
