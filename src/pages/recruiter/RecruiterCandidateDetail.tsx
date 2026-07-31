@@ -680,14 +680,27 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     setSavingLog(true);
     try {
       await recruitersApi.submitJobApplications(candidateId, {
-        job_links: jobLinks.map(j => ({
-          company_name: j.company_name,
-          role_title: j.role_title,
-          job_url: j.job_url,
-          job_description: j.job_description,
-          resume_used: j.resume_used,
-          status: j.status.toLowerCase().replace(/ /g, "_"),
-        })),
+        job_links: jobLinks.map(j => {
+          let url = (j.job_url || "").trim();
+          if (url && !/^https?:\/\//i.test(url)) {
+            url = "https://" + url;
+          }
+          let resume = (j.resume_used || "").trim();
+          if (resume && !/^https?:\/\//i.test(resume) && (resume.includes(".") || resume.includes("google.com"))) {
+            resume = "https://" + resume;
+          }
+          const rawStatus = (j.status || "applied").toString().trim();
+          const formattedStatus = rawStatus.toLowerCase().replace(/ /g, "_");
+
+          return {
+            company_name: (j.company_name || "").trim(),
+            role_title: (j.role_title || "").trim(),
+            job_url: url,
+            job_description: (j.job_description || "").trim(),
+            resume_used: resume,
+            status: formattedStatus || "applied",
+          };
+        }),
       });
       toast({ title: "Job applications submitted" });
       setJobLinks([]);

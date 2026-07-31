@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.utils import timezone
+from django.db import transaction
 import requests
 import re
 from bs4 import BeautifulSoup
@@ -214,37 +215,65 @@ def job_applications(request, candidate_id):
         jobs = JobLinkEntry.objects.filter(candidate_id=candidate_id).order_by('-created_at')
         return Response(JobLinkEntrySerializer(jobs, many=True).data)
 
-    # POST: Create new job entries
-    log = DailySubmissionLog.objects.create(
-        candidate_id=candidate_id,
-        recruiter=request.user,
-        log_date=timezone.now().date(),
-        notes="Job application submitted",
-        is_manual=False
-    )
-    
-    job_links = request.data.get('job_links', [])
-    created_entries = []
-    for jl in job_links:
-        entry = JobLinkEntry.objects.create(
-            submission_log=log,
-            candidate_id=candidate_id,
-            company_name=jl.get('company_name', ''),
-            role_title=jl.get('role_title', ''),
-            job_url=jl.get('job_url', ''),
-            job_description=jl.get('job_description', ''),
-            resume_used=jl.get('resume_used', ''),
-            application_status=jl.get('status', 'applied').lower().replace(' ', '_'),
-            submitted_by=request.user
-        )
-        created_entries.append(entry)
-    
-    # We no longer increment applications_count here to keep it strictly for manual journal entries
-    # as requested by the user.
-    log.save()
-    candidate_obj.save() # Touch candidate to trigger updated_at refresh
+    # POST: Create new job entries atomically with defensive validation & fallback logic
+    try:
+        with transaction.atomic():
+            log = DailySubmissionLog.objects.create(
+                candidate_id=candidate_id,
+                recruiter=request.user,
+                log_date=timezone.now().date(),
+                notes="Job application submitted",
+                is_manual=False
+            )
+            
+            job_links = request.data.get('job_links', [])
+            if not isinstance(job_links, list):
+                return Response({'error': 'job_links must be a list'}, status=status.HTTP_400_BAD_REQUEST)
 
-    return Response(JobLinkEntrySerializer(created_entries, many=True).data, status=status.HTTP_201_CREATED)
+            valid_statuses = dict(JobLinkEntry.APPLICATION_STATUS_CHOICES)
+            created_entries = []
+            
+            for jl in job_links:
+                if not isinstance(jl, dict):
+                    continue
+
+                raw_url = str(jl.get('job_url', '') or '').strip()
+                if raw_url and not (raw_url.startswith('http://') or raw_url.startswith('https://')):
+                    raw_url = 'https://' + raw_url
+                
+                raw_resume = str(jl.get('resume_used', '') or '').strip()
+                if raw_resume and not (raw_resume.startswith('http://') or raw_resume.startswith('https://')):
+                    if '.' in raw_resume or 'drive.google.com' in raw_resume or 'docs.google.com' in raw_resume:
+                        raw_resume = 'https://' + raw_resume
+
+                raw_status = jl.get('status')
+                if not raw_status or not isinstance(raw_status, str):
+                    app_status = 'applied'
+                else:
+                    app_status = raw_status.strip().lower().replace(' ', '_')
+
+                if app_status not in valid_statuses:
+                    app_status = 'applied'
+
+                entry = JobLinkEntry.objects.create(
+                    submission_log=log,
+                    candidate_id=candidate_id,
+                    company_name=str(jl.get('company_name', '') or '').strip(),
+                    role_title=str(jl.get('role_title', '') or '').strip(),
+                    job_url=raw_url,
+                    job_description=str(jl.get('job_description', '') or ''),
+                    resume_used=raw_resume,
+                    application_status=app_status,
+                    submitted_by=request.user
+                )
+                created_entries.append(entry)
+
+            log.save()
+            candidate_obj.save() # Touch candidate to trigger updated_at refresh
+
+            return Response(JobLinkEntrySerializer(created_entries, many=True).data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': f"Failed to submit job applications: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
