@@ -58,3 +58,22 @@ class UserAuthAuditTests(TestCase):
         self.assertEqual(logout_log.target_id, str(self.user.id))
         self.assertEqual(logout_log.target_type, 'user')
         self.assertEqual(logout_log.details.get('role'), 'candidate')
+
+    def test_auto_logout_inactivity_audit_logging(self):
+        """Test that passing reason: 'auto_logout_inactivity' logs an auto_logout_inactivity audit event."""
+        recruiter = User.objects.create_user(
+            email='recruiter_inactivity@hyrind.com',
+            password='password123',
+            role='recruiter',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=recruiter, full_name='Recruiter User')
+        
+        self.client.force_authenticate(user=recruiter)
+        response = self.client.post(self.logout_url, {'reason': 'auto_logout_inactivity'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log_entry = AuditLog.objects.filter(actor=recruiter, action='auto_logout_inactivity').first()
+        self.assertIsNotNone(log_entry)
+        self.assertEqual(log_entry.details.get('role'), 'recruiter')
+        self.assertEqual(log_entry.details.get('reason'), 'auto_logout_inactivity')

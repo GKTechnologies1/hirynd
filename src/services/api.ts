@@ -290,9 +290,9 @@ export const authApi = {
     api.post('/auth/register/', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   login: (email: string, password: string) =>
     api.post('/auth/login/', { email, password }),
-  logout: () => {
+  logout: (reason?: string) => {
     const refresh = localStorage.getItem('refresh_token');
-    return api.post('/auth/logout/', { refresh });
+    return api.post('/auth/logout/', { refresh, reason: reason || 'user_logout' });
   },
   me: () => api.get('/auth/me/'),
   updateProfile: (data: Record<string, any>) => api.patch('/auth/profile/', data),

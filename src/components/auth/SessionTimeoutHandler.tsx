@@ -12,16 +12,35 @@ import {
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock } from "lucide-react";
 
-// Inactivity timeouts in milliseconds
-const WARNING_TIMEOUT = 50 * 60 * 1000; // 50 minutes of inactivity triggers warning
-const MAX_TIMEOUT = 60 * 60 * 1000;     // 60 minutes (1 hour) of inactivity forces logout
-const CHECK_INTERVAL = 1000;            // Check state every second
+// Helper to read timeout configuration from environment variables with safe defaults
+const getTimeoutConfig = (role?: string) => {
+  const isRecruiter = role === "recruiter";
+  const env = import.meta.env || {};
+
+  const timeoutMins = isRecruiter
+    ? Number(env.VITE_RECRUITER_SESSION_TIMEOUT_MINUTES) || 15
+    : Number(env.VITE_DEFAULT_SESSION_TIMEOUT_MINUTES) || 60;
+
+  const warningMins = isRecruiter
+    ? Number(env.VITE_RECRUITER_WARNING_MINUTES) || 2
+    : Number(env.VITE_DEFAULT_WARNING_MINUTES) || 10;
+
+  const maxTimeoutMs = timeoutMins * 60 * 1000;
+  const warningTimeoutMs = Math.max(0, (timeoutMins - warningMins) * 60 * 1000);
+  const warningWindowSeconds = warningMins * 60;
+
+  return { maxTimeoutMs, warningTimeoutMs, warningWindowSeconds };
+};
+
+const CHECK_INTERVAL = 1000;
 
 export const SessionTimeoutHandler = () => {
   const { user, signOut } = useAuth();
   const [showWarning, setShowWarning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes warning window (600 seconds)
+  const [timeLeft, setTimeLeft] = useState(120);
   const isLoggingOutRef = useRef(false);
+
+  const { maxTimeoutMs, warningTimeoutMs, warningWindowSeconds } = getTimeoutConfig(user?.role);
 
   useEffect(() => {
     if (!user) {
@@ -29,12 +48,10 @@ export const SessionTimeoutHandler = () => {
       return;
     }
 
-    // Set initial activity timestamp if not set
     if (!localStorage.getItem("last_activity_timestamp")) {
       localStorage.setItem("last_activity_timestamp", Date.now().toString());
     }
 
-    // Throttle activity updates (max once every 5 seconds)
     let lastUpdate = 0;
     const updateActivity = () => {
       const now = Date.now();
@@ -44,44 +61,29 @@ export const SessionTimeoutHandler = () => {
       }
     };
 
-    // User interaction events to track activity
-    const activityEvents = [
-      "mousedown",
-      "mousemove",
-      "keydown",
-      "scroll",
-      "touchstart",
-      "click",
-    ];
+    const activityEvents = ["mousedown", "mousemove", "keydown", "scroll", "touchstart", "click"];
+    activityEvents.forEach((evt) => window.addEventListener(evt, updateActivity, { passive: true }));
 
-    activityEvents.forEach((event) => {
-      window.addEventListener(event, updateActivity, { passive: true });
-    });
-
-    // Main interval logic to verify session validity
     const interval = setInterval(() => {
       if (isLoggingOutRef.current) return;
 
       const lastActivity = Number(localStorage.getItem("last_activity_timestamp") || Date.now());
-      const now = Date.now();
-      const elapsed = now - lastActivity;
+      const elapsed = Date.now() - lastActivity;
 
-      if (elapsed >= MAX_TIMEOUT) {
+      if (elapsed >= maxTimeoutMs) {
         isLoggingOutRef.current = true;
         clearInterval(interval);
-        signOut().then(() => {
+        signOut("auto_logout_inactivity").then(() => {
           isLoggingOutRef.current = false;
         });
-      } else if (elapsed >= WARNING_TIMEOUT) {
+      } else if (elapsed >= warningTimeoutMs) {
         setShowWarning(true);
-        const secondsRemaining = Math.max(0, Math.ceil((MAX_TIMEOUT - elapsed) / 1000));
-        setTimeLeft(secondsRemaining);
+        setTimeLeft(Math.max(0, Math.ceil((maxTimeoutMs - elapsed) / 1000)));
       } else {
         setShowWarning(false);
       }
     }, CHECK_INTERVAL);
 
-    // Sync state: if access_token is removed (e.g. by logging out on another tab), log out this tab too
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "access_token" && !e.newValue) {
         signOut();
@@ -90,43 +92,24 @@ export const SessionTimeoutHandler = () => {
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
-      activityEvents.forEach((event) => {
-        window.removeEventListener(event, updateActivity);
-      });
+      activityEvents.forEach((evt) => window.removeEventListener(evt, updateActivity));
       clearInterval(interval);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [user, signOut]);
+  }, [user, signOut, maxTimeoutMs, warningTimeoutMs]);
 
   const handleExtendSession = async () => {
-    // Reset activity timer
     localStorage.setItem("last_activity_timestamp", Date.now().toString());
     setShowWarning(false);
     try {
-      // Ping backend to reset backend last_activity timestamp & refresh token if near expiry
       await authApi.me();
     } catch (err) {
-      console.error("Failed to extend session via API ping", err);
+      console.error("Failed to extend session", err);
     }
   };
 
-  const handleLogout = () => {
-    signOut();
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
   return (
-    <Dialog open={showWarning} onOpenChange={(open) => {
-      if (!open) {
-        // Prevent closing the modal on overlay click or Escape key
-        return;
-      }
-    }}>
+    <Dialog open={showWarning} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-[420px] bg-background/95 backdrop-blur-md border-border/80 shadow-2xl rounded-xl">
         <DialogHeader className="space-y-3 flex flex-col items-center text-center">
           <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center animate-pulse border border-amber-500/20">
@@ -143,14 +126,13 @@ export const SessionTimeoutHandler = () => {
         <div className="py-6 flex flex-col items-center justify-center space-y-4">
           <div className="flex items-center space-x-2 text-3xl font-mono font-bold tracking-widest text-amber-500 bg-amber-500/5 px-6 py-3 rounded-lg border border-amber-500/10 w-fit">
             <Clock className="h-6 w-6 animate-spin-slow text-amber-500" />
-            <span>{formatTime(timeLeft)}</span>
+            <span>{Math.floor(timeLeft / 60)}:{timeLeft % 60 < 10 ? "0" : ""}{timeLeft % 60}</span>
           </div>
-          
-          {/* Visual Progress Bar */}
+
           <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-            <div 
+            <div
               className="bg-amber-500 h-1.5 rounded-full transition-all duration-1000 ease-linear"
-              style={{ width: `${(timeLeft / 600) * 100}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, (timeLeft / (warningWindowSeconds || 1)) * 100))}%` }}
             />
           </div>
         </div>
@@ -159,7 +141,7 @@ export const SessionTimeoutHandler = () => {
           <Button
             type="button"
             variant="outline"
-            onClick={handleLogout}
+            onClick={() => signOut("user_logout")}
             className="w-full sm:w-auto hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-all"
           >
             Logout

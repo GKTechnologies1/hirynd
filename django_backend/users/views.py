@@ -109,7 +109,15 @@ def login(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout(request):
-    log_action(request.user, 'user_logout', str(request.user.id), 'user', {'role': request.user.role})
+    reason = request.data.get('reason', 'user_logout')
+    event_type = 'auto_logout_inactivity' if reason == 'auto_logout_inactivity' else 'user_logout'
+    log_action(
+        request.user,
+        event_type,
+        str(request.user.id),
+        'user',
+        {'role': request.user.role, 'reason': reason}
+    )
     try:
         refresh_token = request.data.get('refresh')
         token = RefreshToken(refresh_token)
