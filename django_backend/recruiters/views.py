@@ -264,6 +264,14 @@ def job_applications(request, candidate_id):
                     job_description=str(jl.get('job_description', '') or ''),
                     resume_used=raw_resume,
                     application_status=app_status,
+                    employment_type=str(jl.get('employment_type', '') or '').strip(),
+                    experience_required=str(jl.get('experience_required', '') or '').strip(),
+                    work_mode=str(jl.get('work_mode', '') or '').strip(),
+                    city=str(jl.get('city', '') or '').strip(),
+                    state=str(jl.get('state', '') or '').strip(),
+                    country=str(jl.get('country', '') or '').strip(),
+                    salary=str(jl.get('salary', 'Not Disclosed') or 'Not Disclosed').strip(),
+                    visa_eligibility=str(jl.get('visa_eligibility', '') or '').strip(),
                     submitted_by=request.user
                 )
                 created_entries.append(entry)
@@ -276,7 +284,7 @@ def job_applications(request, candidate_id):
         return Response({'error': f"Failed to submit job applications: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
+@api_view(['POST', 'PATCH'])
 @permission_classes([IsApproved])
 def update_job_status(request, job_id):
     try:
@@ -288,8 +296,18 @@ def update_job_status(request, job_id):
     if new_status:
         job.application_status = new_status
         job.candidate_response_status = new_status
-        job.save()
-        job.candidate.save()
+
+    fields_to_update = [
+        'employment_type', 'experience_required', 'work_mode',
+        'city', 'state', 'country', 'salary', 'visa_eligibility',
+        'company_name', 'role_title', 'notes'
+    ]
+    for field_name in fields_to_update:
+        if field_name in request.data:
+            setattr(job, field_name, request.data[field_name])
+
+    job.save()
+    job.candidate.save()
     return Response(JobLinkEntrySerializer(job).data)
 
 

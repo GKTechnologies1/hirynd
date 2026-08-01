@@ -378,6 +378,7 @@ export const recruitersApi = {
   getJobApplications: (candidateId: string, config?: any) => api.get(`/recruiters/${candidateId}/job-applications/`, config),
   submitJobApplications: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/job-applications/`, data),
   updateJobStatus: (jobId: string, status: string) => api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
+  updateJobField: (jobId: string, data: Record<string, any>) => api.post(`/recruiters/jobs/${jobId}/status/`, data),
   fetchJobDetails: (url: string) => api.post(`/recruiters/fetch-job-details/`, { url }),
   stats: (params?: { user_id?: string }) => api.get('/recruiters/stats/', { params }),
   getProfile: () => api.get('/recruiters/profile/'),

@@ -212,12 +212,14 @@ const JobDescriptionCell = ({
   company, 
   role, 
   description, 
+  job,
   onReadMore 
 }: { 
   company: string; 
   role: string; 
   description?: string; 
-  onReadMore: (company: string, role: string, desc: string) => void; 
+  job?: any;
+  onReadMore: (jobOrCompany: any, role?: string, desc?: string) => void; 
 }) => {
   if (!description) return <span className="text-muted-foreground">—</span>;
   
@@ -234,7 +236,7 @@ const JobDescriptionCell = ({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          onReadMore(company, role, description);
+          onReadMore(job || { company_name: company, role_title: role, job_description: description });
         }}
         className="text-primary hover:underline font-semibold ml-1 cursor-pointer"
       >
@@ -283,7 +285,17 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     sessionStorage.setItem(`recruiter_candidate_active_tab_${candidateId}`, val);
   };
 
-  const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
+  const [activeJobDesc, setActiveJobDesc] = useState<{
+    company: string;
+    role: string;
+    description: string;
+    employment_type?: string;
+    experience_required?: string;
+    work_mode?: string;
+    location?: string;
+    salary?: string;
+    visa_eligibility?: string;
+  } | null>(null);
 
   const [appSearchRole, setAppSearchRole] = useState("");
   const [appSearchCompany, setAppSearchCompany] = useState("");
@@ -333,8 +345,29 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     });
   }, [jobPostings, appSearchRole, appSearchCompany, appFromDate, appToDate, appActionFilter]);
 
-  const handleOpenDescription = (company: string, role: string, description: string) => {
-    setActiveJobDesc({ company, role, description });
+  const handleOpenDescription = (jobOrCompany: any, role?: string, description?: string) => {
+    if (typeof jobOrCompany === "string") {
+      setActiveJobDesc({
+        company: jobOrCompany,
+        role: role || "",
+        description: description || "",
+        salary: "Not Disclosed",
+      });
+    } else {
+      const j = jobOrCompany;
+      const locationParts = [j.city, j.state, j.country].filter(Boolean).join(", ");
+      setActiveJobDesc({
+        company: j.company_name || "",
+        role: j.role_title || "",
+        description: j.job_description || "",
+        employment_type: j.employment_type,
+        experience_required: j.experience_required,
+        work_mode: j.work_mode,
+        location: locationParts || j.location,
+        salary: j.salary || "Not Disclosed",
+        visa_eligibility: j.visa_eligibility,
+      });
+    }
   };
 
   // Credential form
@@ -355,7 +388,22 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   // Daily log form
   const [logCount, setLogCount] = useState("");
   const [logNotes, setLogNotes] = useState("");
-  const [jobLinks, setJobLinks] = useState<Array<{ company_name: string; role_title: string; job_url: string; job_description: string; resume_used: string; status: string; }>>([]);
+  const [jobLinks, setJobLinks] = useState<Array<{
+    company_name: string;
+    role_title: string;
+    job_url: string;
+    job_description: string;
+    resume_used: string;
+    status: string;
+    employment_type?: string;
+    experience_required?: string;
+    work_mode?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    salary?: string;
+    visa_eligibility?: string;
+  }>>([]);
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
 
@@ -590,8 +638,34 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     }
   };
 
+  const handleUpdateJobField = async (jobId: string, field: string, value: any) => {
+    try {
+      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, [field]: value } : j));
+      await recruitersApi.updateJobField(jobId, { [field]: value });
+      toast({ title: "Job detail updated" });
+    } catch (err: any) {
+      toast({ title: "Update failed", variant: "destructive" });
+      fetchAll(false);
+    }
+  };
+
   const addJobLink = () => {
-    setJobLinks([...jobLinks, { company_name: "", role_title: "", job_url: "", job_description: "", resume_used: "", status: "Applied" }]);
+    setJobLinks([...jobLinks, {
+      company_name: "",
+      role_title: "",
+      job_url: "",
+      job_description: "",
+      resume_used: "",
+      status: "Applied",
+      employment_type: "",
+      experience_required: "",
+      work_mode: "",
+      city: "",
+      state: "",
+      country: "",
+      salary: "",
+      visa_eligibility: "",
+    }]);
   };
 
   const updateJobLink = (idx: number, field: string, value: string) => {
@@ -652,7 +726,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       toast({ title: "Add at least one job link", variant: "destructive" }); return;
     }
 
-    // Validate that all fields in all added forms are filled
+    // Validate that all required fields in all added forms are filled
     for (let i = 0; i < jobLinks.length; i++) {
       const j = jobLinks[i];
       if (!j.company_name.trim()) {
@@ -699,6 +773,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
             job_description: (j.job_description || "").trim(),
             resume_used: resume,
             status: formattedStatus || "applied",
+            employment_type: j.employment_type || undefined,
+            experience_required: j.experience_required || undefined,
+            work_mode: j.work_mode || undefined,
+            city: j.city || undefined,
+            state: j.state || undefined,
+            country: j.country || undefined,
+            salary: j.salary?.trim() ? j.salary.trim() : "Not Disclosed",
+            visa_eligibility: j.visa_eligibility || undefined,
           };
         }),
       });
@@ -1890,6 +1972,61 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Job Details (Optional) */}
+                      <div className="pt-2 border-t border-border/30 space-y-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Job Details (Optional)</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Select value={job.employment_type || ""} onValueChange={v => updateJobLink(idx, "employment_type", v)}>
+                            <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Employment Type" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
+                              <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
+                              <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
+                              <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
+                              <SelectItem value="W2" className="text-xs">W2</SelectItem>
+                              <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select value={job.experience_required || ""} onValueChange={v => updateJobLink(idx, "experience_required", v)}>
+                            <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Experience Required" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0–2 Years" className="text-xs">0–2 Years</SelectItem>
+                              <SelectItem value="2–5 Years" className="text-xs">2–5 Years</SelectItem>
+                              <SelectItem value="5+ Years" className="text-xs">5+ Years</SelectItem>
+                              <SelectItem value="Senior Level" className="text-xs">Senior Level</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select value={job.work_mode || ""} onValueChange={v => updateJobLink(idx, "work_mode", v)}>
+                            <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Work Mode" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Remote" className="text-xs">Remote</SelectItem>
+                              <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
+                              <SelectItem value="Onsite" className="text-xs">Onsite</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input placeholder="City" className="h-8 text-[10px] bg-background/50" value={job.city || ""} onChange={e => updateJobLink(idx, "city", e.target.value)} />
+                          <Input placeholder="State" className="h-8 text-[10px] bg-background/50" value={job.state || ""} onChange={e => updateJobLink(idx, "state", e.target.value)} />
+                          <Input placeholder="Country" className="h-8 text-[10px] bg-background/50" value={job.country || ""} onChange={e => updateJobLink(idx, "country", e.target.value)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input placeholder="Salary (e.g. $100k or Not Disclosed)" className="h-8 text-[10px] bg-background/50" value={job.salary || ""} onChange={e => updateJobLink(idx, "salary", e.target.value)} />
+                          <Select value={job.visa_eligibility || ""} onValueChange={v => updateJobLink(idx, "visa_eligibility", v)}>
+                            <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Visa Eligibility" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
+                              <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
+                              <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
+                              <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
+                              <SelectItem value="USC" className="text-xs">USC</SelectItem>
+                              <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
+                              <SelectItem value="All Work Authorization" className="text-xs">All Work Authorization</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                       {jobLinks.length > 3 && (
                         <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
                           <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
@@ -2031,6 +2168,170 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     )
                   },
                   {
+                    header: "Employment Type",
+                    className: "px-2 py-3 whitespace-nowrap",
+                    render: (j: any) => (
+                      <Select value={j.employment_type || ""} onValueChange={(val) => handleUpdateJobField(j.id, "employment_type", val)}>
+                        <SelectTrigger className="w-32 h-8 text-[11px] font-semibold border border-blue-200/80 bg-blue-50/60 text-blue-700 hover:bg-blue-100/80 focus-visible:ring-0">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
+                          <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
+                          <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
+                          <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
+                          <SelectItem value="W2" className="text-xs">W2</SelectItem>
+                          <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )
+                  },
+                  {
+                    header: "Experience Required",
+                    className: "px-2 py-3 whitespace-nowrap",
+                    render: (j: any) => (
+                      <Select value={j.experience_required || ""} onValueChange={(val) => handleUpdateJobField(j.id, "experience_required", val)}>
+                        <SelectTrigger className="w-32 h-8 text-[11px] font-semibold border border-purple-200/80 bg-purple-50/60 text-purple-700 hover:bg-purple-100/80 focus-visible:ring-0">
+                          <SelectValue placeholder="Select exp" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0–2 Years" className="text-xs">0–2 Years</SelectItem>
+                          <SelectItem value="2–5 Years" className="text-xs">2–5 Years</SelectItem>
+                          <SelectItem value="5+ Years" className="text-xs">5+ Years</SelectItem>
+                          <SelectItem value="Senior Level" className="text-xs">Senior Level</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )
+                  },
+                  {
+                    header: "Work Mode",
+                    className: "px-2 py-3 whitespace-nowrap",
+                    render: (j: any) => (
+                      <Select value={j.work_mode || ""} onValueChange={(val) => handleUpdateJobField(j.id, "work_mode", val)}>
+                        <SelectTrigger className="w-28 h-8 text-[11px] font-semibold border border-emerald-200/80 bg-emerald-50/60 text-emerald-700 hover:bg-emerald-100/80 focus-visible:ring-0">
+                          <SelectValue placeholder="Select mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Remote" className="text-xs">Remote</SelectItem>
+                          <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
+                          <SelectItem value="Onsite" className="text-xs">Onsite</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )
+                  },
+                  {
+                    header: "City",
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium",
+                    render: (j: any) => (
+                      <Input
+                        key={`city-${j.id}-${j.city}`}
+                        defaultValue={j.city || ""}
+                        placeholder="City..."
+                        className="w-28 h-8 text-xs bg-muted/30 border border-border/40 focus:border-primary focus:bg-background transition-colors"
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          if (val !== (j.city || "")) {
+                            handleUpdateJobField(j.id, "city", val);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                      />
+                    )
+                  },
+                  {
+                    header: "State",
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium",
+                    render: (j: any) => (
+                      <Input
+                        key={`state-${j.id}-${j.state}`}
+                        defaultValue={j.state || ""}
+                        placeholder="State..."
+                        className="w-24 h-8 text-xs bg-muted/30 border border-border/40 focus:border-primary focus:bg-background transition-colors"
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          if (val !== (j.state || "")) {
+                            handleUpdateJobField(j.id, "state", val);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                      />
+                    )
+                  },
+                  {
+                    header: "Country",
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium",
+                    render: (j: any) => (
+                      <Input
+                        key={`country-${j.id}-${j.country}`}
+                        defaultValue={j.country || ""}
+                        placeholder="Country..."
+                        className="w-28 h-8 text-xs bg-muted/30 border border-border/40 focus:border-primary focus:bg-background transition-colors"
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          if (val !== (j.country || "")) {
+                            handleUpdateJobField(j.id, "country", val);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                      />
+                    )
+                  },
+                  {
+                    header: "Salary",
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-semibold text-slate-700",
+                    render: (j: any) => (
+                      <Input
+                        key={`salary-${j.id}-${j.salary}`}
+                        defaultValue={j.salary || "Not Disclosed"}
+                        placeholder="Salary..."
+                        className="w-32 h-8 text-xs font-semibold bg-muted/30 border border-border/40 focus:border-primary focus:bg-background transition-colors"
+                        onBlur={(e) => {
+                          const val = e.target.value.trim() || "Not Disclosed";
+                          if (val !== (j.salary || "Not Disclosed")) {
+                            handleUpdateJobField(j.id, "salary", val);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                      />
+                    )
+                  },
+                  {
+                    header: "Visa Eligibility",
+                    className: "px-2 py-3 whitespace-nowrap",
+                    render: (j: any) => (
+                      <Select value={j.visa_eligibility || ""} onValueChange={(val) => handleUpdateJobField(j.id, "visa_eligibility", val)}>
+                        <SelectTrigger className="w-36 h-8 text-[11px] font-semibold border border-amber-200/80 bg-amber-50/60 text-amber-800 hover:bg-amber-100/80 focus-visible:ring-0">
+                          <SelectValue placeholder="Select visa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
+                          <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
+                          <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
+                          <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
+                          <SelectItem value="USC" className="text-xs">USC</SelectItem>
+                          <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
+                          <SelectItem value="All Work Authorization" className="text-xs">All Work Authorization</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )
+                  },
+                  {
                     header: "Job Description",
                     className: "px-6 py-4",
                     render: (j: any) => (
@@ -2038,6 +2339,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         company={j.company_name} 
                         role={j.role_title} 
                         description={j.job_description} 
+                        job={j}
                         onReadMore={handleOpenDescription} 
                       />
                     )
@@ -2120,13 +2422,45 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-card rounded-2xl p-6 shadow-2xl border border-border/50">
           <DialogHeader className="border-b border-border/10 pb-4">
             <DialogTitle className="text-lg font-bold flex flex-col gap-1 text-left">
-              <span className="text-muted-foreground text-xs uppercase tracking-wider">Job Description</span>
+              <span className="text-muted-foreground text-xs uppercase tracking-wider">Job Details</span>
               <span className="text-card-foreground">{activeJobDesc?.role}</span>
               <span className="text-primary text-sm font-medium">{activeJobDesc?.company}</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-4 text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground max-h-[55vh] overflow-y-auto pr-2">
-            {activeJobDesc?.description}
+
+          {/* Job Details Meta Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 py-3 border-b border-border/10 text-xs">
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Employment Type</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.employment_type || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Experience Required</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.experience_required || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Work Mode</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.work_mode || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Location</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.location || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Salary</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.salary || "Not Disclosed"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Eligibility</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "—"}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-1">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Job Description</p>
+            <div className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground max-h-[45vh] overflow-y-auto pr-2">
+              {activeJobDesc?.description}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
