@@ -14,6 +14,7 @@ import AdminBillingRunPage from "@/pages/admin/AdminBillingRunPage";
 import AdminSubscriptionPlansPage from "@/pages/admin/AdminSubscriptionPlansPage";
 import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminJobsPage from "@/pages/admin/AdminJobsPage";
+import AdminJobBoard from "@/pages/admin/AdminJobBoard";
 import AdminCandidatesPage from "@/pages/admin/AdminCandidatesPage";
 import AdminRecruitersPage from "@/pages/admin/AdminRecruitersPage";
 import AdminRecruiterDetail from "@/pages/admin/AdminRecruiterDetail";
@@ -47,6 +48,7 @@ const navItems = [
   { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Users className="h-4 w-4" /> },
   { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
   { label: "Jobs", path: "/admin-dashboard/jobs", icon: <Briefcase className="h-4 w-4" /> },
+  { label: "Job Board", path: "/admin-dashboard/job-board", icon: <Briefcase className="h-4 w-4" /> },
   { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
   { label: "Subscriptions", path: "/admin-dashboard/subscriptions", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <AlertTriangle className="h-4 w-4" /> },
@@ -199,6 +201,8 @@ const AdminDashboard = () => {
       case "subscriptions": return <AdminSubscriptionPlansPage />;
       case "users": return <AdminUsersPage />;
       case "jobs": return <AdminJobsPage />;
+      case "job-board":
+      case "jobboard": return <AdminJobBoard />;
       case "candidates": return <AdminCandidatesPage />;
       case "interested-candidates": return <AdminInterestedCandidatesPage />;
       case "general-enquiries": return <AdminGeneralEnquiriesPage />;
