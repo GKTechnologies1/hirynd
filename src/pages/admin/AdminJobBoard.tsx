@@ -2,18 +2,19 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { recruitersApi, jobsApi } from "@/services/api";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Search, Globe, X, ExternalLink, LayoutGrid, Table, Share2, MapPin,
   Briefcase, DollarSign, Clock, MoreHorizontal, Home, Award, Ban, Heart,
-  Sparkles, Filter, ChevronDown, Plus, Pencil, Trash2, RefreshCw, XCircle, Building
+  Sparkles, Filter, ChevronDown, Plus, Pencil, Trash2, RefreshCw, XCircle, Building, History
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -67,12 +68,13 @@ const JobDescriptionCell = ({
   );
 };
 
-// ── Job Card Component with Edit, Reject, and Delete Action Buttons ──
+// ── Job Card Component with Edit, Mark Expired, Reject, and Delete Action Controls ──
 const JobCardItem = ({
   job,
   onReadMore,
   onSocialShare,
   onEdit,
+  onMarkExpired,
   onReject,
   onDelete,
 }: {
@@ -80,6 +82,7 @@ const JobCardItem = ({
   onReadMore: (jobOrCompany: any, role?: string, desc?: string) => void;
   onSocialShare: (platform: string, job: any) => void;
   onEdit: (job: any) => void;
+  onMarkExpired: (job: any) => void;
   onReject: (job: any) => void;
   onDelete: (job: any) => void;
 }) => {
@@ -139,7 +142,8 @@ const JobCardItem = ({
                 Rejected
               </span>
             ) : isExpired ? (
-              <span className="bg-rose-100 text-rose-800 border border-rose-200 px-2.5 py-0.5 rounded-md font-bold">
+              <span className="bg-rose-100 text-rose-800 border border-rose-200 px-2.5 py-0.5 rounded-md font-bold flex items-center gap-1">
+                <Ban className="h-3 w-3 text-rose-600" />
                 Expired
               </span>
             ) : (
@@ -236,13 +240,13 @@ const JobCardItem = ({
         </div>
       </div>
 
-      {/* Footer Row with Admin Actions (Edit, Reject, Delete) */}
+      {/* Footer Row with Admin Actions (Edit, Mark Expired, Reject, Delete) */}
       <div className="pt-3 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <span className="text-xs text-muted-foreground font-medium">
           {applicantsCount}
         </span>
 
-        {/* Action Buttons: Edit, Reject, Delete */}
+        {/* Action Buttons: Edit, Mark Expired, Reject, Delete */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
@@ -253,6 +257,18 @@ const JobCardItem = ({
             <Pencil className="h-3.5 w-3.5" />
             Edit
           </Button>
+
+          {!isExpired && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onMarkExpired(job)}
+              className="h-8 text-xs font-semibold text-rose-700 border-rose-200 bg-rose-50/80 hover:bg-rose-100 flex items-center gap-1.5 cursor-pointer"
+            >
+              <Ban className="h-3.5 w-3.5" />
+              Expire
+            </Button>
+          )}
 
           {!isRejected && (
             <Button
@@ -270,7 +286,7 @@ const JobCardItem = ({
             variant="outline"
             size="sm"
             onClick={() => onDelete(job)}
-            className="h-8 text-xs font-semibold text-rose-700 border-rose-200 bg-rose-50/80 hover:bg-rose-100 flex items-center gap-1.5 cursor-pointer"
+            className="h-8 text-xs font-semibold text-rose-800 border-rose-300 bg-rose-100/80 hover:bg-rose-200 flex items-center gap-1.5 cursor-pointer"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Delete
@@ -309,6 +325,7 @@ const emptyJobAlertForm = {
 const AdminJobBoard = () => {
   const { toast } = useToast();
   const [jobPostings, setJobPostings] = useState<any[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Active Job Description Modal
@@ -320,6 +337,8 @@ const AdminJobBoard = () => {
   const [searchCompany, setSearchCompany] = useState("");
   const [searchSkills, setSearchSkills] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [subSearchQuery, setSubSearchQuery] = useState("");
+  const [subStatusFilter, setSubStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   // Pagination states
@@ -349,8 +368,12 @@ const AdminJobBoard = () => {
   const fetchAlerts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await recruitersApi.getPublicJobAlerts();
+      const [res, subRes] = await Promise.all([
+        recruitersApi.getPublicJobAlerts(),
+        jobsApi.listSubmissions().catch(() => ({ data: { results: [] } })),
+      ]);
       setJobPostings(res.data || []);
+      setSubmissions(subRes.data?.results || []);
     } catch (err: any) {
       console.error("Error fetching job openings:", err);
       toast({
@@ -523,6 +546,23 @@ const AdminJobBoard = () => {
     filterIndustry, searchSkills, filterDate, sortOrder
   ]);
 
+  const filteredSubmissions = useMemo(() => {
+    return submissions.filter((s) => {
+      if (subStatusFilter !== "all" && s.status !== subStatusFilter) return false;
+      if (subSearchQuery.trim()) {
+        const q = subSearchQuery.toLowerCase();
+        return (
+          s.candidate_name?.toLowerCase().includes(q) ||
+          s.candidate_email?.toLowerCase().includes(q) ||
+          s.job_title?.toLowerCase().includes(q) ||
+          s.job_company?.toLowerCase().includes(q) ||
+          s.submitted_by_name?.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [submissions, subStatusFilter, subSearchQuery]);
+
   const totalPages = Math.ceil(filteredJobs.length / pageSize) || 1;
   const paginatedJobs = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -596,7 +636,7 @@ const AdminJobBoard = () => {
     }
   };
 
-  // Admin Actions: Edit, Reject, Delete
+  // Admin Actions: Create, Edit, Mark Expired, Reject, Delete
   const handleOpenCreate = () => {
     setEditingJob(null);
     setJobForm({ ...emptyJobAlertForm });
@@ -623,6 +663,19 @@ const AdminJobBoard = () => {
     setJobDialogOpen(true);
   };
 
+  const handleMarkExpired = async (job: any) => {
+    try {
+      await recruitersApi.updateJobField(job.id, { status: "expired", application_status: "expired" });
+      toast({
+        title: "Job Marked Expired",
+        description: `Marked "${job.role_title || job.title}" as expired.`,
+      });
+      fetchAlerts();
+    } catch (e: any) {
+      toast({ title: "Expiration failed", description: e.response?.data?.error || e.message, variant: "destructive" });
+    }
+  };
+
   const handleRejectJob = async (job: any) => {
     try {
       await recruitersApi.updateJobField(job.id, { status: "rejected" });
@@ -632,7 +685,7 @@ const AdminJobBoard = () => {
       });
       fetchAlerts();
     } catch (e: any) {
-      toast({ title: "Rejection failed", description: e.message, variant: "destructive" });
+      toast({ title: "Rejection failed", description: e.response?.data?.error || e.message, variant: "destructive" });
     }
   };
 
@@ -644,7 +697,7 @@ const AdminJobBoard = () => {
       setDeleteJobTarget(null);
       fetchAlerts();
     } catch (e: any) {
-      toast({ title: "Delete failed", description: e.message, variant: "destructive" });
+      toast({ title: "Delete failed", description: e.response?.data?.error || e.message, variant: "destructive" });
     }
   };
 
@@ -680,7 +733,7 @@ const AdminJobBoard = () => {
             Admin Job Board
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage live job postings, search, edit, reject, and delete job openings.
+            Manage live job postings, search, edit, expire, reject, delete, and view candidate submission histories.
           </p>
         </div>
 
@@ -696,396 +749,521 @@ const AdminJobBoard = () => {
         </div>
       </div>
 
-      <div className="space-y-6">
-        {/* Admin Standard Filter Card */}
-        <Card className="border border-border/60 shadow-xs">
-          <CardHeader className="pb-3 border-b border-border/40">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Filter className="h-4 w-4 text-primary" /> Search & Filter Jobs
-            </CardTitle>
-          </CardHeader>
+      <Tabs defaultValue="board" className="space-y-4">
+        <TabsList className="bg-muted/60 p-1 rounded-xl">
+          <TabsTrigger value="board" className="gap-2 rounded-lg font-medium text-xs sm:text-sm">
+            <Globe className="h-4 w-4" />
+            Live Job Board ({filteredJobs.length})
+          </TabsTrigger>
+          <TabsTrigger value="submissions" className="gap-2 rounded-lg font-medium text-xs sm:text-sm">
+            <History className="h-4 w-4" />
+            Submission History ({filteredSubmissions.length})
+          </TabsTrigger>
+        </TabsList>
 
-          <CardContent className="p-4 space-y-3">
-            {/* Search Inputs Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search Keyword..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9 text-xs"
-                />
-              </div>
+        <TabsContent value="board" className="space-y-6">
+          {/* Admin Standard Filter Card */}
+          <Card className="border border-border/60 shadow-xs">
+            <CardHeader className="pb-3 border-b border-border/40">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Filter className="h-4 w-4 text-primary" /> Search & Filter Jobs
+              </CardTitle>
+            </CardHeader>
 
-              <div className="relative">
-                <Briefcase className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Job Title..."
-                  value={searchTitle}
-                  onChange={(e) => setSearchTitle(e.target.value)}
-                  className="pl-9 h-9 text-xs"
-                />
-              </div>
-
-              <div className="relative">
-                <Building className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Company..."
-                  value={searchCompany}
-                  onChange={(e) => setSearchCompany(e.target.value)}
-                  className="pl-9 h-9 text-xs"
-                />
-              </div>
-
-              <div className="relative">
-                <Sparkles className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Skills (React, Python)..."
-                  value={searchSkills}
-                  onChange={(e) => setSearchSkills(e.target.value)}
-                  className="pl-9 h-9 text-xs"
-                />
-              </div>
-            </div>
-
-            {/* Select Dropdown Filters Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 pt-1">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="applied">Applied / Open</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterLocation} onValueChange={setFilterLocation}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Location" /></SelectTrigger>
-                <SelectContent>
-                  {["All Locations", "United States", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA"].map((loc) => (
-                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={filterWorkMode} onValueChange={setFilterWorkMode}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Work Mode" /></SelectTrigger>
-                <SelectContent>
-                  {["All Work Modes", "Remote", "Hybrid", "Onsite"].map((wm) => (
-                    <SelectItem key={wm} value={wm}>{wm}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Employment Type" /></SelectTrigger>
-                <SelectContent>
-                  {["All Types", "Full-Time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"].map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={filterVisa} onValueChange={setFilterVisa}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Visa Type" /></SelectTrigger>
-                <SelectContent>
-                  {["All Visa Types", "OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"].map((v) => (
-                    <SelectItem key={v} value={v}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={sortOrder} onValueChange={setSortOrder}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Sort Order" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Newest First">Newest First</SelectItem>
-                  <SelectItem value="Oldest First">Oldest First</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button variant="outline" size="sm" onClick={handleResetFilters} className="h-9 text-xs font-semibold text-muted-foreground hover:text-foreground">
-                <X className="h-3.5 w-3.5 mr-1" /> Reset
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Job Listings Panel */}
-        <Card className="border border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
-          <CardHeader className="bg-muted/40 border-b border-border/40 p-5 md:p-6 flex flex-row items-center justify-between gap-4 flex-wrap">
-            <CardTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
-              <Globe className="h-5 w-5 text-primary" />
-              Live Job Postings ({filteredJobs.length})
-            </CardTitle>
-
-            {/* View Mode Switcher */}
-            <div className="flex items-center bg-muted/80 p-1 rounded-xl gap-1">
-              <button
-                onClick={() => setViewMode("cards")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "cards"
-                  ? "bg-background text-primary shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-                  }`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Cards
-              </button>
-              <button
-                onClick={() => setViewMode("table")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "table"
-                  ? "bg-background text-primary shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-                  }`}
-              >
-                <Table className="h-3.5 w-3.5" />
-                Table
-              </button>
-            </div>
-          </CardHeader>
-
-          <CardContent className={viewMode === "cards" ? "p-5 md:p-6" : "p-0"}>
-            {viewMode === "cards" ? (
-              loading ? (
-                <div className="flex flex-col gap-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-52 rounded-2xl bg-muted animate-pulse p-6 space-y-4">
-                      <div className="h-8 w-1/3 bg-muted-foreground/20 rounded-lg" />
-                      <div className="h-5 w-2/3 bg-muted-foreground/20 rounded-lg" />
-                      <div className="h-4 w-full bg-muted-foreground/20 rounded-lg" />
-                    </div>
-                  ))}
+            <CardContent className="p-4 space-y-3">
+              {/* Search Inputs Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search Keyword..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9 text-xs"
+                  />
                 </div>
-              ) : filteredJobs.length === 0 ? (
-                <div className="text-center py-12 space-y-4">
-                  <Search className="h-10 w-10 text-muted-foreground/50 mx-auto" />
-                  <p className="text-foreground font-bold text-base">No jobs matched your search.</p>
-                  <p className="text-xs text-muted-foreground">Try adjusting your keywords or clearing the search filters.</p>
-                  <Button onClick={handleResetFilters} size="sm" variant="outline" className="gap-1.5">
-                    <X className="h-3.5 w-3.5" /> Clear Filters
-                  </Button>
+
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Job Title..."
+                    value={searchTitle}
+                    onChange={(e) => setSearchTitle(e.target.value)}
+                    className="pl-9 h-9 text-xs"
+                  />
                 </div>
-              ) : (
-                <div className="flex flex-col gap-6">
+
+                <div className="relative">
+                  <Building className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Company..."
+                    value={searchCompany}
+                    onChange={(e) => setSearchCompany(e.target.value)}
+                    className="pl-9 h-9 text-xs"
+                  />
+                </div>
+
+                <div className="relative">
+                  <Sparkles className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Skills (React, Python)..."
+                    value={searchSkills}
+                    onChange={(e) => setSearchSkills(e.target.value)}
+                    className="pl-9 h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Select Dropdown Filters Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 pt-1">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="applied">Applied / Open</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterLocation} onValueChange={setFilterLocation}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Location" /></SelectTrigger>
+                  <SelectContent>
+                    {["All Locations", "United States", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA"].map((loc) => (
+                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterWorkMode} onValueChange={setFilterWorkMode}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Work Mode" /></SelectTrigger>
+                  <SelectContent>
+                    {["All Work Modes", "Remote", "Hybrid", "Onsite"].map((wm) => (
+                      <SelectItem key={wm} value={wm}>{wm}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Employment Type" /></SelectTrigger>
+                  <SelectContent>
+                    {["All Types", "Full-Time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"].map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterVisa} onValueChange={setFilterVisa}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Visa Type" /></SelectTrigger>
+                  <SelectContent>
+                    {["All Visa Types", "OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"].map((v) => (
+                      <SelectItem key={v} value={v}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Sort Order" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Newest First">Newest First</SelectItem>
+                    <SelectItem value="Oldest First">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button variant="outline" size="sm" onClick={handleResetFilters} className="h-9 text-xs font-semibold text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5 mr-1" /> Reset
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Job Listings Panel */}
+          <Card className="border border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
+            <CardHeader className="bg-muted/40 border-b border-border/40 p-5 md:p-6 flex flex-row items-center justify-between gap-4 flex-wrap">
+              <CardTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+                <Globe className="h-5 w-5 text-primary" />
+                Live Job Postings ({filteredJobs.length})
+              </CardTitle>
+
+              {/* View Mode Switcher */}
+              <div className="flex items-center bg-muted/80 p-1 rounded-xl gap-1">
+                <button
+                  onClick={() => setViewMode("cards")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "cards"
+                    ? "bg-background text-primary shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Cards
+                </button>
+                <button
+                  onClick={() => setViewMode("table")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "table"
+                    ? "bg-background text-primary shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  <Table className="h-3.5 w-3.5" />
+                  Table
+                </button>
+              </div>
+            </CardHeader>
+
+            <CardContent className={viewMode === "cards" ? "p-5 md:p-6" : "p-0"}>
+              {viewMode === "cards" ? (
+                loading ? (
                   <div className="flex flex-col gap-4">
-                    {paginatedJobs.map((job, idx) => (
-                      <JobCardItem
-                        key={job.id || idx}
-                        job={job}
-                        onReadMore={handleOpenDescription}
-                        onSocialShare={handleSocialShare}
-                        onEdit={handleOpenEdit}
-                        onReject={handleRejectJob}
-                        onDelete={(j) => setDeleteJobTarget(j)}
-                      />
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-52 rounded-2xl bg-muted animate-pulse p-6 space-y-4">
+                        <div className="h-8 w-1/3 bg-muted-foreground/20 rounded-lg" />
+                        <div className="h-5 w-2/3 bg-muted-foreground/20 rounded-lg" />
+                        <div className="h-4 w-full bg-muted-foreground/20 rounded-lg" />
+                      </div>
                     ))}
                   </div>
-
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-border/40">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                      <span>Show</span>
-                      <select
-                        value={pageSize}
-                        onChange={(e) => setPageSize(Number(e.target.value))}
-                        className="px-2.5 py-1 rounded-lg border border-border bg-background font-bold text-foreground cursor-pointer focus:ring-2 focus:ring-primary"
-                      >
-                        <option value={10}>10</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
-                      <span>jobs per page</span>
+                ) : filteredJobs.length === 0 ? (
+                  <div className="text-center py-12 space-y-4">
+                    <Search className="h-10 w-10 text-muted-foreground/50 mx-auto" />
+                    <p className="text-foreground font-bold text-base">No jobs matched your search.</p>
+                    <p className="text-xs text-muted-foreground">Try adjusting your keywords or clearing the search filters.</p>
+                    <Button onClick={handleResetFilters} size="sm" variant="outline" className="gap-1.5">
+                      <X className="h-3.5 w-3.5" /> Clear Filters
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-4">
+                      {paginatedJobs.map((job, idx) => (
+                        <JobCardItem
+                          key={job.id || idx}
+                          job={job}
+                          onReadMore={handleOpenDescription}
+                          onSocialShare={handleSocialShare}
+                          onEdit={handleOpenEdit}
+                          onMarkExpired={handleMarkExpired}
+                          onReject={handleRejectJob}
+                          onDelete={(j) => setDeleteJobTarget(j)}
+                        />
+                      ))}
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs font-semibold">
-                      <button
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                        className="px-3.5 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
-                      >
-                        Previous
-                      </button>
-                      <span className="px-3 py-1.5 text-muted-foreground font-bold">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        disabled={currentPage >= totalPages}
-                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                        className="px-3.5 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
-                      >
-                        Next
-                      </button>
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-border/40">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                        <span>Show</span>
+                        <select
+                          value={pageSize}
+                          onChange={(e) => setPageSize(Number(e.target.value))}
+                          className="px-2.5 py-1 rounded-lg border border-border bg-background font-bold text-foreground cursor-pointer focus:ring-2 focus:ring-primary"
+                        >
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                        <span>jobs per page</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-xs font-semibold">
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                          className="px-3.5 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                        >
+                          Previous
+                        </button>
+                        <span className="px-3 py-1.5 text-muted-foreground font-bold">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <button
+                          disabled={currentPage >= totalPages}
+                          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                          className="px-3.5 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                        >
+                          Next
+                        </button>
+                      </div>
                     </div>
                   </div>
+                )
+              ) : (
+                /* Table View */
+                <DataTable
+                  data={filteredJobs}
+                  isLoading={loading}
+                  emptyMessage="No jobs matched your search."
+                  pageSize={pageSize}
+                  columns={[
+                    {
+                      header: "Company Name",
+                      accessorKey: "company_name",
+                      sortable: true,
+                      className: "font-semibold text-foreground text-sm py-4",
+                    },
+                    {
+                      header: "Role Title",
+                      accessorKey: "role_title",
+                      sortable: true,
+                      className: "text-foreground font-bold text-sm py-4",
+                    },
+                    {
+                      header: "Employment Type",
+                      accessorKey: "employment_type",
+                      sortable: true,
+                      className: "py-4 text-xs font-semibold",
+                      render: (job: any) => job.employment_type ? (
+                        <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold">
+                          {job.employment_type}
+                        </span>
+                      ) : <span className="text-muted-foreground">—</span>
+                    },
+                    {
+                      header: "Experience Required",
+                      accessorKey: "experience_required",
+                      sortable: true,
+                      className: "py-4 text-xs font-semibold",
+                      render: (job: any) => job.experience_required ? (
+                        <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold">
+                          {job.experience_required}
+                        </span>
+                      ) : <span className="text-muted-foreground">—</span>
+                    },
+                    {
+                      header: "Work Mode",
+                      accessorKey: "work_mode",
+                      sortable: true,
+                      className: "py-4 text-xs font-semibold",
+                      render: (job: any) => job.work_mode ? (
+                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold">
+                          {job.work_mode}
+                        </span>
+                      ) : <span className="text-muted-foreground">—</span>
+                    },
+                    {
+                      header: "City",
+                      accessorKey: "city",
+                      sortable: true,
+                      className: "py-4 text-xs font-medium text-foreground",
+                      render: (job: any) => job.city || <span className="text-muted-foreground">—</span>
+                    },
+                    {
+                      header: "State",
+                      accessorKey: "state",
+                      sortable: true,
+                      className: "py-4 text-xs font-medium text-foreground",
+                      render: (job: any) => job.state || <span className="text-muted-foreground">—</span>
+                    },
+                    {
+                      header: "Country",
+                      accessorKey: "country",
+                      sortable: true,
+                      className: "py-4 text-xs font-medium text-foreground",
+                      render: (job: any) => job.country || <span className="text-muted-foreground">—</span>
+                    },
+                    {
+                      header: "Salary",
+                      accessorKey: "salary",
+                      sortable: true,
+                      className: "py-4 text-xs font-bold text-foreground",
+                      render: (job: any) => job.salary || "Not Disclosed"
+                    },
+                    {
+                      header: "Visa Eligibility",
+                      accessorKey: "visa_eligibility",
+                      sortable: true,
+                      className: "py-4 text-xs font-semibold",
+                      render: (job: any) => job.visa_eligibility ? (
+                        <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold">
+                          {job.visa_eligibility}
+                        </span>
+                      ) : <span className="text-muted-foreground">—</span>
+                    },
+                    {
+                      header: "Job Description",
+                      render: (job: any) => (
+                        <JobDescriptionCell
+                          company={job.company_name}
+                          role={job.role_title}
+                          description={job.job_description}
+                          job={job}
+                          onReadMore={handleOpenDescription}
+                        />
+                      ),
+                      className: "max-w-md py-4",
+                    },
+                    {
+                      header: "Job Link",
+                      render: (job: any) => (
+                        job.job_url ? (
+                          <a
+                            href={job.job_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-primary text-primary-foreground rounded-xl inline-flex items-center gap-1 transition-all text-xs font-semibold"
+                          >
+                            Apply Now
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )
+                      ),
+                      className: "py-4",
+                    },
+                    {
+                      header: "Admin Actions",
+                      className: "py-4 text-right pr-4",
+                      render: (job: any) => (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => handleOpenEdit(job)}
+                            title="Edit Job"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                            onClick={() => handleMarkExpired(job)}
+                            title="Mark Expired"
+                          >
+                            <Ban className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                            onClick={() => handleRejectJob(job)}
+                            title="Reject Job"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-rose-700 hover:text-rose-800 hover:bg-rose-100"
+                            onClick={() => setDeleteJobTarget(job)}
+                            title="Delete Job"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )
+                    }
+                  ]}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* View Submission History Tab */}
+        <TabsContent value="submissions" className="space-y-4">
+          <Card className="border border-border/60 shadow-xs">
+            <CardHeader className="pb-3 border-b border-border/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-semibold">Candidate Submission History Log</CardTitle>
+                <CardDescription className="text-xs">History of all candidate applications submitted across all job openings</CardDescription>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[220px] flex-1">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search candidate, job, email..."
+                    className="pl-9 h-9 text-xs"
+                    value={subSearchQuery}
+                    onChange={(e) => setSubSearchQuery(e.target.value)}
+                  />
                 </div>
-              )
-            ) : (
-              /* Table View */
+
+                <Select value={subStatusFilter} onValueChange={setSubStatusFilter}>
+                  <SelectTrigger className="w-[140px] h-9 text-xs">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="screening">Screening</SelectItem>
+                    <SelectItem value="interviewing">Interviewing</SelectItem>
+                    <SelectItem value="offered">Offered</SelectItem>
+                    <SelectItem value="placed">Placed</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
               <DataTable
-                data={filteredJobs}
+                data={filteredSubmissions}
                 isLoading={loading}
-                emptyMessage="No jobs matched your search."
-                pageSize={pageSize}
+                searchPlaceholder="Search submissions..."
+                searchKey="candidate_name"
+                emptyMessage="No candidate submission history found."
                 columns={[
                   {
-                    header: "Company Name",
-                    accessorKey: "company_name",
+                    header: "Candidate",
                     sortable: true,
-                    className: "font-semibold text-foreground text-sm py-4",
-                  },
-                  {
-                    header: "Role Title",
-                    accessorKey: "role_title",
-                    sortable: true,
-                    className: "text-foreground font-bold text-sm py-4",
-                  },
-                  {
-                    header: "Employment Type",
-                    accessorKey: "employment_type",
-                    sortable: true,
-                    className: "py-4 text-xs font-semibold",
-                    render: (job: any) => job.employment_type ? (
-                      <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold">
-                        {job.employment_type}
-                      </span>
-                    ) : <span className="text-muted-foreground">—</span>
-                  },
-                  {
-                    header: "Experience Required",
-                    accessorKey: "experience_required",
-                    sortable: true,
-                    className: "py-4 text-xs font-semibold",
-                    render: (job: any) => job.experience_required ? (
-                      <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold">
-                        {job.experience_required}
-                      </span>
-                    ) : <span className="text-muted-foreground">—</span>
-                  },
-                  {
-                    header: "Work Mode",
-                    accessorKey: "work_mode",
-                    sortable: true,
-                    className: "py-4 text-xs font-semibold",
-                    render: (job: any) => job.work_mode ? (
-                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold">
-                        {job.work_mode}
-                      </span>
-                    ) : <span className="text-muted-foreground">—</span>
-                  },
-                  {
-                    header: "City",
-                    accessorKey: "city",
-                    sortable: true,
-                    className: "py-4 text-xs font-medium text-foreground",
-                    render: (job: any) => job.city || <span className="text-muted-foreground">—</span>
-                  },
-                  {
-                    header: "State",
-                    accessorKey: "state",
-                    sortable: true,
-                    className: "py-4 text-xs font-medium text-foreground",
-                    render: (job: any) => job.state || <span className="text-muted-foreground">—</span>
-                  },
-                  {
-                    header: "Country",
-                    accessorKey: "country",
-                    sortable: true,
-                    className: "py-4 text-xs font-medium text-foreground",
-                    render: (job: any) => job.country || <span className="text-muted-foreground">—</span>
-                  },
-                  {
-                    header: "Salary",
-                    accessorKey: "salary",
-                    sortable: true,
-                    className: "py-4 text-xs font-bold text-foreground",
-                    render: (job: any) => job.salary || "Not Disclosed"
-                  },
-                  {
-                    header: "Visa Eligibility",
-                    accessorKey: "visa_eligibility",
-                    sortable: true,
-                    className: "py-4 text-xs font-semibold",
-                    render: (job: any) => job.visa_eligibility ? (
-                      <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold">
-                        {job.visa_eligibility}
-                      </span>
-                    ) : <span className="text-muted-foreground">—</span>
-                  },
-                  {
-                    header: "Job Description",
-                    render: (job: any) => (
-                      <JobDescriptionCell
-                        company={job.company_name}
-                        role={job.role_title}
-                        description={job.job_description}
-                        job={job}
-                        onReadMore={handleOpenDescription}
-                      />
-                    ),
-                    className: "max-w-md py-4",
-                  },
-                  {
-                    header: "Job Link",
-                    render: (job: any) => (
-                      job.job_url ? (
-                        <a
-                          href={job.job_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 bg-primary text-primary-foreground rounded-xl inline-flex items-center gap-1 transition-all text-xs font-semibold"
-                        >
-                          Apply Now
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )
-                    ),
-                    className: "py-4",
-                  },
-                  {
-                    header: "Admin Actions",
-                    className: "py-4 text-right pr-4",
-                    render: (job: any) => (
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          onClick={() => handleOpenEdit(job)}
-                          title="Edit Job"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                          onClick={() => handleRejectJob(job)}
-                          title="Reject Job"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                          onClick={() => setDeleteJobTarget(job)}
-                          title="Delete Job"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                    accessorKey: "candidate_name",
+                    render: (sub: any) => (
+                      <div className="py-1">
+                        <p className="font-semibold text-sm text-foreground">{sub.candidate_name || "Unknown Candidate"}</p>
+                        <p className="text-xs text-muted-foreground">{sub.candidate_email}</p>
                       </div>
-                    )
-                  }
+                    ),
+                  },
+                  {
+                    header: "Job Opening & Company",
+                    sortable: true,
+                    accessorKey: "job_title",
+                    render: (sub: any) => (
+                      <div className="space-y-0.5 text-xs">
+                        <p className="font-bold text-foreground">{sub.job_title || "Untitled Job"}</p>
+                        <p className="text-muted-foreground">{sub.job_company || "—"}</p>
+                      </div>
+                    ),
+                  },
+                  {
+                    header: "Submitted By",
+                    accessorKey: "submitted_by_name",
+                    render: (sub: any) => (
+                      <span className="text-xs font-medium text-foreground">
+                        {sub.submitted_by_name || "System Admin"}
+                      </span>
+                    ),
+                  },
+                  {
+                    header: "Submission Status",
+                    sortable: true,
+                    accessorKey: "status",
+                    render: (sub: any) => (
+                      <span className="text-xs px-2.5 py-1 rounded-full font-semibold border bg-blue-50 text-blue-800 border-blue-200">
+                        {sub.status || "Submitted"}
+                      </span>
+                    ),
+                  },
+                  {
+                    header: "Date Submitted",
+                    sortable: true,
+                    accessorKey: "created_at",
+                    render: (sub: any) => (
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(sub.created_at)}
+                      </span>
+                    ),
+                  },
                 ]}
               />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* READ MORE / JOB DETAILS MODAL */}
       <Dialog open={!!activeJobDesc} onOpenChange={(open) => !open && setActiveJobDesc(null)}>

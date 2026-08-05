@@ -130,6 +130,7 @@ class JobLinkEntry(models.Model):
         ('interview', 'Interview'),
         ('interview_scheduled', 'Interview Scheduled'),
         ('rejected', 'Rejected'),
+        ('expired', 'Expired'),
         ('offer', 'Offer'),
         ('no_response', 'No Response'),
     ]

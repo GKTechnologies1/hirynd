@@ -296,7 +296,7 @@ def update_job_status(request, job_id):
         job.delete()
         return Response({'message': 'Deleted successfully'})
 
-    new_status = request.data.get('status')
+    new_status = request.data.get('status') or request.data.get('application_status')
     if new_status:
         job.application_status = new_status
         job.candidate_response_status = new_status
