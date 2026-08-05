@@ -284,7 +284,7 @@ def job_applications(request, candidate_id):
         return Response({'error': f"Failed to submit job applications: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST', 'PATCH'])
+@api_view(['POST', 'PATCH', 'DELETE'])
 @permission_classes([IsApproved])
 def update_job_status(request, job_id):
     try:
@@ -292,7 +292,11 @@ def update_job_status(request, job_id):
     except JobLinkEntry.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    new_status = request.data.get('status')
+    if request.method == 'DELETE':
+        job.delete()
+        return Response({'message': 'Deleted successfully'})
+
+    new_status = request.data.get('status') or request.data.get('application_status')
     if new_status:
         job.application_status = new_status
         job.candidate_response_status = new_status
@@ -300,14 +304,15 @@ def update_job_status(request, job_id):
     fields_to_update = [
         'employment_type', 'experience_required', 'work_mode',
         'city', 'state', 'country', 'salary', 'visa_eligibility',
-        'company_name', 'role_title', 'notes'
+        'company_name', 'role_title', 'notes', 'job_description', 'job_url', 'is_public'
     ]
     for field_name in fields_to_update:
         if field_name in request.data:
             setattr(job, field_name, request.data[field_name])
 
     job.save()
-    job.candidate.save()
+    if job.candidate:
+        job.candidate.save()
     return Response(JobLinkEntrySerializer(job).data)
 
 
@@ -542,9 +547,17 @@ def admin_productivity_report(request):
     return Response(report_data)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def public_job_alerts(request):
+    if request.method == 'POST':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        serializer = JobLinkEntrySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        job = serializer.save(submitted_by=request.user, is_public=True)
+        return Response(JobLinkEntrySerializer(job).data, status=status.HTTP_201_CREATED)
+
     jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log').order_by('-created_at')
     return Response(JobLinkEntrySerializer(jobs, many=True).data)
 

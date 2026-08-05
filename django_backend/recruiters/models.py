@@ -130,13 +130,14 @@ class JobLinkEntry(models.Model):
         ('interview', 'Interview'),
         ('interview_scheduled', 'Interview Scheduled'),
         ('rejected', 'Rejected'),
+        ('expired', 'Expired'),
         ('offer', 'Offer'),
         ('no_response', 'No Response'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    submission_log = models.ForeignKey(DailySubmissionLog, on_delete=models.CASCADE, related_name='job_entries')
-    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='job_postings')
+    submission_log = models.ForeignKey(DailySubmissionLog, on_delete=models.CASCADE, related_name='job_entries', null=True, blank=True)
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='job_postings', null=True, blank=True)
     company_name = models.CharField(max_length=255)
     role_title = models.CharField(max_length=255)
     job_url = models.TextField(blank=True, null=True)
