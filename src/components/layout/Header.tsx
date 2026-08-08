@@ -101,7 +101,7 @@ export default function Header() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          height: 80px;
+          height: 58px;
           transition: all 0.3s ease;
         }
         .navbar-logo {
@@ -109,24 +109,24 @@ export default function Header() {
           left: 2%;
         }
         .navbar-logo img {
-          width: 70px;
-          height: 70px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
           object-fit: contain;
           background: white;
-          border: 3px solid rgba(255, 255, 255, 0.3);
+          border: 2px solid rgba(255, 255, 255, 0.3);
           transition: transform 0.3s ease, border-color 0.3s ease;
         }
 
         .navbar-logo img:hover {
-          transform: scale(1.1) rotate(5deg);
+          transform: scale(1.08) rotate(5deg);
           border-color: rgba(255, 255, 255, 0.8);
         }
 
         .navbar-desktop {
           display: none;
           align-items: center;
-          gap: 1.75rem;
+          gap: 1.25rem;
           margin-left: auto;
         }
 
@@ -141,9 +141,9 @@ export default function Header() {
         .nav-link {
           color: white;
           text-decoration: none;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 500;
-          padding: 10px 18px;
+          padding: 6px 14px;
           border-radius: 8px;
           transition: all 0.3s ease;
           position: relative;
@@ -183,10 +183,10 @@ export default function Header() {
           background: white;
           color: #0d47a1;
           border: none;
-          padding: 10px 24px;
+          padding: 6px 18px;
           border-radius: 8px;
           font-weight: 600;
-          font-size: 15px;
+          font-size: 14px;
           cursor: pointer;
           transition: all 0.3s ease;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -206,10 +206,10 @@ export default function Header() {
         .profile-button, .services-button, .login-button {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 10px 18px;
+          gap: 6px;
+          padding: 6px 14px;
           border-radius: 8px;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 500;
           color: white;
           background: none;
@@ -225,15 +225,15 @@ export default function Header() {
         }
 
         .profile-icon {
-          width: 38px;
-          height: 38px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           background: white;
           display: flex;
           align-items: center;
           justify-content: center;
           color: #0d47a1;
-          font-size: 1.25rem;
+          font-size: 1rem;
           border: 2px solid rgba(255, 255, 255, 0.5);
         }
 

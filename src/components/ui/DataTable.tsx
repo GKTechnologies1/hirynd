@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Pagination,
   PaginationContent,
@@ -210,17 +211,23 @@ export function DataTable<T>({
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: currentPageSize || 5 }).map((_, rowIndex) => (
+                <TableRow key={`skeleton-row-${rowIndex}`} className="border-b last:border-0 hover:bg-transparent">
+                  {columns.map((col, colIndex) => (
+                    <TableCell key={`skeleton-col-${colIndex}`} className={cn("px-4 py-3.5 text-center align-middle", col.className)}>
+                      <div className="flex items-center justify-center">
+                        <Skeleton className={cn(
+                          "h-4 rounded-md bg-slate-200/80 animate-pulse",
+                          colIndex === 0 ? "w-28" :
+                          colIndex === 1 ? "w-36" :
+                          colIndex === 10 ? "w-44" :
+                          colIndex === 11 ? "w-20" : "w-16"
+                        )} />
+                      </div>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : paginatedData.length === 0 ? (
               <TableRow>
                 <TableCell

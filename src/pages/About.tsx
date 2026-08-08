@@ -11,7 +11,7 @@ const About = () => {
     link.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
     document.head.appendChild(link);
     
-    document.body.style.paddingTop = '80px';
+    document.body.style.paddingTop = '58px';
     return () => {
       document.body.style.paddingTop = '0px';
     };

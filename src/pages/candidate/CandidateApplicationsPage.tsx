@@ -13,9 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X, Search, Plus, Trash2, Loader2, Save, Sparkles } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X, Search, Plus, Trash2, Loader2, Save, Sparkles, Pencil, Ban, XCircle, MoreHorizontal } from "lucide-react";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -210,6 +212,38 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
         toast({ title: "Validation Error", description: `Google Drive link of resume is required for job #${i + 1}`, variant: "destructive" });
         return;
       }
+      if (!j.employment_type?.trim()) {
+        toast({ title: "Validation Error", description: `Employment Type in Job Details is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.experience_required?.trim()) {
+        toast({ title: "Validation Error", description: `Experience Required in Job Details is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.work_mode?.trim()) {
+        toast({ title: "Validation Error", description: `Work Mode in Job Details is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.city?.trim()) {
+        toast({ title: "Validation Error", description: `City in Job Details is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.state?.trim()) {
+        toast({ title: "Validation Error", description: `State in Job Details is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.country?.trim()) {
+        toast({ title: "Validation Error", description: `Country in Job Details is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.salary?.trim()) {
+        toast({ title: "Validation Error", description: `Salary in Job Details is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
+      if (!j.visa_eligibility?.trim()) {
+        toast({ title: "Validation Error", description: `Visa Eligibility in Job Details is required for job #${i + 1}`, variant: "destructive" });
+        return;
+      }
     }
 
     setSavingLog(true);
@@ -262,6 +296,126 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       toast({ title: "Job detail updated" });
     } catch (err: any) {
       toast({ title: "Update failed", variant: "destructive" });
+    }
+  };
+
+  // Edit & Delete Application states
+  const [editJobDialogOpen, setEditJobDialogOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState<any>(null);
+  const [savingEditJob, setSavingEditJob] = useState(false);
+  const [deleteJobTarget, setDeleteJobTarget] = useState<any>(null);
+
+  const [editJobForm, setEditJobForm] = useState({
+    company_name: "",
+    role_title: "",
+    job_url: "",
+    job_description: "",
+    resume_used: "",
+    employment_type: "",
+    experience_required: "",
+    work_mode: "",
+    city: "",
+    state: "",
+    country: "",
+    salary: "",
+    visa_eligibility: "",
+    status: "applied",
+  });
+
+  const handleOpenEditJob = (job: any) => {
+    setEditingJob(job);
+    setEditJobForm({
+      company_name: job.company_name || "",
+      role_title: job.role_title || job.title || "",
+      job_url: job.job_url || job.job_link || "",
+      job_description: job.job_description || "",
+      resume_used: job.resume_used || "",
+      employment_type: job.employment_type || "",
+      experience_required: job.experience_required || "",
+      work_mode: job.work_mode || "",
+      city: job.city || "",
+      state: job.state || "",
+      country: job.country || "",
+      salary: job.salary || "",
+      visa_eligibility: job.visa_eligibility || "",
+      status: (job.candidate_response_status || job.application_status || job.status || "applied").toLowerCase().replace(/ /g, "_"),
+    });
+    setEditJobDialogOpen(true);
+  };
+
+  const handleSaveEditJob = async () => {
+    if (!editJobForm.role_title || !editJobForm.company_name) {
+      toast({ title: "Role Title and Company Name are required", variant: "destructive" });
+      return;
+    }
+    if (!editingJob?.id) return;
+    const jobId = editingJob.id;
+    const updatedPayload = {
+      ...editJobForm,
+      status: editJobForm.status,
+      application_status: editJobForm.status,
+      candidate_response_status: editJobForm.status,
+    };
+
+    setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, ...updatedPayload } : j));
+    setEditJobDialogOpen(false);
+    setSavingEditJob(true);
+
+    try {
+      await recruitersApi.updateJobField(jobId, updatedPayload);
+      toast({ title: "Application updated successfully" });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.response?.data?.error || e.message, variant: "destructive" });
+    } finally {
+      setSavingEditJob(false);
+    }
+  };
+
+  const handleMarkExpired = async (job: any) => {
+    if (!job?.id) return;
+    const jobId = job.id;
+    setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "expired", application_status: "expired", candidate_response_status: "expired" } : j));
+    toast({
+      title: "Application Marked Expired",
+      description: `Marked "${job.role_title || job.title || "Job"}" as expired.`,
+    });
+
+    try {
+      await recruitersApi.updateJobStatus(jobId, "expired");
+    } catch (e: any) {
+      toast({ title: "Expiration failed", description: e.response?.data?.error || e.message, variant: "destructive" });
+    }
+  };
+
+  const handleRejectJob = async (job: any) => {
+    if (!job?.id) return;
+    const jobId = job.id;
+    setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "rejected", application_status: "rejected", candidate_response_status: "rejected" } : j));
+    toast({
+      title: "Application Rejected",
+      description: `Marked "${job.role_title || job.title || "Job"}" as rejected.`,
+    });
+
+    try {
+      await recruitersApi.updateJobStatus(jobId, "rejected");
+    } catch (e: any) {
+      toast({ title: "Rejection failed", description: e.response?.data?.error || e.message, variant: "destructive" });
+    }
+  };
+
+  const handleConfirmDeleteJob = async () => {
+    if (!deleteJobTarget?.id) return;
+    const targetId = deleteJobTarget.id;
+    const targetTitle = deleteJobTarget.role_title || deleteJobTarget.title || "Job";
+
+    setJobPostings(prev => prev.filter(j => j.id !== targetId));
+    setDeleteJobTarget(null);
+    toast({ title: "Application Deleted", description: `Deleted "${targetTitle}".` });
+
+    try {
+      await recruitersApi.deleteJobAlert(targetId);
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e.response?.data?.error || e.message, variant: "destructive" });
     }
   };
 
@@ -503,9 +657,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                           </Select>
                         </div>
 
-                        {/* Job Details (Optional) */}
+                        {/* Job Details (Mandatory) */}
                         <div className="pt-2 border-t border-border/30 space-y-2.5">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Job Details (Optional)</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
+                            Job Details <span className="text-rose-500 font-extrabold text-xs">* (Mandatory)</span>
+                          </p>
                           <div className="grid grid-cols-3 gap-2">
                             <Select value={job.employment_type || ""} onValueChange={v => updateJobLink(idx, "employment_type", v)}>
                               <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Employment Type" /></SelectTrigger>
@@ -950,25 +1106,108 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   },
                   {
                     header: "Actions",
-                    className: "pr-6 text-right",
-                    render: (j: any) => (
-                      <div className="flex items-center justify-end gap-2">
-                        <Select
-                          value={j.candidate_response_status || j.application_status || ""}
-                          onValueChange={(val) => handleStatusUpdate(j.id, val)}
-                          disabled={updatingJob === j.id}
-                        >
-                          <SelectTrigger className="w-32 h-8 text-[10px] font-bold border-none bg-muted-50">
-                            <SelectValue placeholder="Update..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CANDIDATE_STATUSES.map(s => (
-                              <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )
+                    className: "pr-6 text-right whitespace-nowrap",
+                    render: (j: any) => {
+                      const status = (j.candidate_response_status || j.application_status || j.status || "").toLowerCase();
+                      const isExpired = status === "expired";
+                      const isRejected = status === "rejected";
+                      return (
+                        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <Select
+                            value={j.candidate_response_status || j.application_status || ""}
+                            onValueChange={(val) => handleStatusUpdate(j.id, val)}
+                            disabled={updatingJob === j.id}
+                          >
+                            <SelectTrigger className="w-28 h-7 text-[10px] font-bold border-none bg-muted-50">
+                              <SelectValue placeholder="Update..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CANDIDATE_STATUSES.map(s => (
+                                <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleOpenEditJob(j);
+                            }}
+                            className="h-7 px-2 text-[11px] font-semibold text-blue-700 border-blue-200 bg-blue-50/80 hover:bg-blue-100 flex items-center gap-1 cursor-pointer"
+                            title="Edit application details"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Edit
+                          </Button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground border-border/60 bg-muted/20 hover:bg-muted/60 cursor-pointer"
+                                title="More actions"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover rounded-xl shadow-lg border border-border p-1 min-w-[160px] z-50">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditJob(j);
+                                }}
+                                className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                Edit Details
+                              </DropdownMenuItem>
+
+                              {!isExpired && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMarkExpired(j);
+                                  }}
+                                  className="text-xs font-medium text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                >
+                                  <Ban className="h-3.5 w-3.5 text-rose-600" />
+                                  Mark Expired
+                                </DropdownMenuItem>
+                              )}
+
+                              {!isRejected && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRejectJob(j);
+                                  }}
+                                  className="text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                >
+                                  <XCircle className="h-3.5 w-3.5 text-amber-600" />
+                                  Reject Application
+                                </DropdownMenuItem>
+                              )}
+
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteJobTarget(j);
+                                }}
+                                className="text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                Delete Application
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      );
+                    }
                   }
                 ]}
               />
@@ -1069,6 +1308,213 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Job Details Modal */}
+      <Dialog open={editJobDialogOpen} onOpenChange={setEditJobDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-background border border-border p-6 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <Pencil className="h-4 w-4 text-blue-600" />
+              Edit Job Application Details
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Role Title *</Label>
+                <Input
+                  value={editJobForm.role_title}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, role_title: e.target.value })}
+                  placeholder="e.g. Software Engineer"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Company Name *</Label>
+                <Input
+                  value={editJobForm.company_name}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, company_name: e.target.value })}
+                  placeholder="e.g. Google"
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Job Link URL *</Label>
+                <Input
+                  value={editJobForm.job_url}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, job_url: e.target.value })}
+                  placeholder="https://..."
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Status</Label>
+                <Select value={editJobForm.status} onValueChange={(v) => setEditJobForm({ ...editJobForm, status: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CANDIDATE_STATUSES.map((s) => (
+                      <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Employment Type</Label>
+                <Select value={editJobForm.employment_type} onValueChange={(v) => setEditJobForm({ ...editJobForm, employment_type: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select type..." /></SelectTrigger>
+                  <SelectContent>
+                    {["Full-Time", "Part-Time", "Contract", "Contract-to-Hire", "Internship", "C2C", "W2"].map(t => (
+                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Experience Required</Label>
+                <Select value={editJobForm.experience_required} onValueChange={(v) => setEditJobForm({ ...editJobForm, experience_required: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select exp..." /></SelectTrigger>
+                  <SelectContent>
+                    {["0–2 Years", "2–5 Years", "5+ Years", "Senior Level", "Lead / Staff"].map(e => (
+                      <SelectItem key={e} value={e} className="text-xs">{e}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Work Mode</Label>
+                <Select value={editJobForm.work_mode} onValueChange={(v) => setEditJobForm({ ...editJobForm, work_mode: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select mode..." /></SelectTrigger>
+                  <SelectContent>
+                    {["Onsite", "Hybrid", "Remote"].map(wm => (
+                      <SelectItem key={wm} value={wm} className="text-xs">{wm}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">City</Label>
+                <Input
+                  value={editJobForm.city}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, city: e.target.value })}
+                  placeholder="e.g. Austin"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">State</Label>
+                <Input
+                  value={editJobForm.state}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, state: e.target.value })}
+                  placeholder="e.g. TX"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Country</Label>
+                <Input
+                  value={editJobForm.country}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, country: e.target.value })}
+                  placeholder="e.g. USA"
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Salary</Label>
+                <Input
+                  value={editJobForm.salary}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, salary: e.target.value })}
+                  placeholder="e.g. $120,000/yr"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Visa Eligibility</Label>
+                <Select value={editJobForm.visa_eligibility} onValueChange={(v) => setEditJobForm({ ...editJobForm, visa_eligibility: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select visa..." /></SelectTrigger>
+                  <SelectContent>
+                    {["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"].map(ve => (
+                      <SelectItem key={ve} value={ve} className="text-xs">{ve}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Resume Link / Used *</Label>
+              <Input
+                value={editJobForm.resume_used}
+                onChange={(e) => setEditJobForm({ ...editJobForm, resume_used: e.target.value })}
+                placeholder="Google Drive link of resume"
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Job Description</Label>
+              <Textarea
+                value={editJobForm.job_description}
+                onChange={(e) => setEditJobForm({ ...editJobForm, job_description: e.target.value })}
+                placeholder="Enter job description..."
+                className="min-h-[90px] text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
+            <Button variant="outline" size="sm" onClick={() => setEditJobDialogOpen(false)} disabled={savingEditJob}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSaveEditJob} disabled={savingEditJob} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">
+              {savingEditJob ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Job Confirmation Dialog */}
+      <AlertDialog open={!!deleteJobTarget} onOpenChange={(open) => !open && setDeleteJobTarget(null)}>
+        <AlertDialogContent className="bg-background rounded-2xl border border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" /> Delete Job Application
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground pt-2">
+              Are you sure you want to delete the job application for{" "}
+              <strong className="text-foreground">
+                {deleteJobTarget?.role_title || deleteJobTarget?.title || "this role"}
+              </strong>{" "}
+              at <strong className="text-foreground">{deleteJobTarget?.company_name || deleteJobTarget?.company}</strong>?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 pt-4">
+            <AlertDialogCancel className="h-8 px-3 text-xs font-semibold">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteJob}
+              className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-white text-xs font-bold"
+            >
+              Delete Application
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
