@@ -8,10 +8,12 @@ import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { DatePicker } from "@/components/ui/DatePicker";
 import {
   Search, Globe, X, ExternalLink, Calendar, LayoutGrid, Table, Share2, MapPin,
   Briefcase, DollarSign, Clock, UserCheck, MoreHorizontal, Home, Award, Ban, Heart,
-  Sparkles, Lock, Filter, ChevronDown
+  Sparkles, Lock, Filter, ChevronDown, Check
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -20,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 
 const JobDescriptionCell = ({
@@ -69,9 +72,6 @@ const JobCardItem = ({
   onReadMore: (jobOrCompany: any, role?: string, desc?: string) => void;
   onSocialShare: (platform: string, job: any) => void;
 }) => {
-  const [isSaved, setIsSaved] = useState(false);
-  const { toast } = useToast();
-
   const companyName = job.company_name || job.company || "Company";
   const roleTitle = job.role_title || job.title || job.role || "Job Opening";
   const tagline = job.company_tagline || job.industry || "Job Opening";
@@ -87,37 +87,29 @@ const JobCardItem = ({
 
   const postedDate = formatDate(job.log_date || job.created_at);
 
-  const handleToggleSave = () => {
-    setIsSaved(!isSaved);
-    toast({
-      title: !isSaved ? "Job Saved!" : "Job Removed",
-      description: !isSaved ? `Saved ${roleTitle} to your bookmarks.` : `Removed ${roleTitle} from saved jobs.`,
-    });
-  };
-
   return (
-    <div className="bg-white border border-slate-200/90 rounded-2xl p-5 md:p-6 shadow-xs hover:shadow-md transition-all duration-300 space-y-4 group">
+    <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 md:p-4 shadow-2xs hover:shadow-md transition-all duration-300 space-y-2.5 group">
       {/* Top Header Row */}
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-3">
         {/* Company Logo Container */}
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 text-white flex items-center justify-center font-black text-2xl shadow-xs shrink-0 mt-0.5">
+        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 text-white flex items-center justify-center font-extrabold text-lg shadow-2xs shrink-0 mt-0.5">
           {companyName.charAt(0).toUpperCase()}
         </div>
 
         {/* Info Column */}
         <div className="flex-1 min-w-0">
           {/* Badge Row */}
-          <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-            <span className="bg-blue-50 text-blue-800 border border-blue-200/60 px-2.5 py-0.5 rounded-md flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
+            <span className="bg-blue-50 text-blue-800 border border-blue-200/60 px-2 py-0.5 rounded-md flex items-center gap-1">
               <Clock className="h-3 w-3 text-blue-600" />
               {postedDate}
             </span>
             {visaEligibility && (
-              <span className="bg-amber-50 text-amber-800 border border-amber-200/60 px-2.5 py-0.5 rounded-md">
+              <span className="bg-amber-50 text-amber-800 border border-amber-200/60 px-2 py-0.5 rounded-md">
                 Visa: {visaEligibility}
               </span>
             )}
-            <span className="bg-indigo-50 text-indigo-800 border border-indigo-200/60 px-2.5 py-0.5 rounded-md">
+            <span className="bg-indigo-50 text-indigo-800 border border-indigo-200/60 px-2 py-0.5 rounded-md">
               Verified Opening
             </span>
           </div>
@@ -125,26 +117,26 @@ const JobCardItem = ({
           {/* Job Title */}
           <h3
             onClick={() => onReadMore(job)}
-            className="text-lg md:text-xl font-extrabold text-slate-900 hover:text-primary transition-colors cursor-pointer mt-1.5 leading-snug"
+            className="text-base md:text-lg font-extrabold text-slate-900 hover:text-primary transition-colors cursor-pointer mt-1 leading-snug truncate"
           >
             {roleTitle}
           </h3>
 
           {/* Company Name */}
-          <p className="text-xs md:text-sm text-slate-500 font-medium mt-0.5 truncate">
+          <p className="text-xs text-slate-500 font-medium truncate">
             <span className="font-bold text-slate-700">{companyName}</span>
           </p>
         </div>
 
         {/* Far Right Action Menu */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                 title="Share job"
               >
-                <Share2 className="h-4 w-4" />
+                <Share2 className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[160px] z-50">
@@ -171,80 +163,68 @@ const JobCardItem = ({
 
           <button
             onClick={() => onReadMore(job)}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
             title="More options"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
       {/* Middle Grid Row - 3 Columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs md:text-sm text-slate-600 font-medium border-t border-slate-100">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1.5 text-xs text-slate-600 font-medium border-t border-slate-100">
         {/* Column 1 */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
-            <span>{location}</span>
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 truncate">
+            <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <span className="truncate">{location}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Home className="h-4 w-4 text-slate-400 shrink-0" />
-            <span className="font-semibold text-slate-800">{workType}</span>
+          <div className="flex items-center gap-1.5 truncate">
+            <Home className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <span className="font-semibold text-slate-800 truncate">{workType}</span>
           </div>
         </div>
 
         {/* Column 2 */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-slate-400 shrink-0" />
-            <span>{employmentType}</span>
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 truncate">
+            <Briefcase className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <span className="truncate">{employmentType}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Award className="h-4 w-4 text-slate-400 shrink-0" />
-            <span>{expLevel}</span>
+          <div className="flex items-center gap-1.5 truncate">
+            <Award className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <span className="truncate">{expLevel}</span>
           </div>
         </div>
 
         {/* Column 3 */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-blue-600 shrink-0" />
-            <span className="font-bold text-blue-700">{salary}</span>
+        <div className="space-y-1 col-span-2 sm:col-span-1">
+          <div className="flex items-center gap-1.5 truncate">
+            <DollarSign className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+            <span className="font-bold text-blue-700 truncate">{salary}</span>
           </div>
           {visaEligibility && (
-            <div className="flex items-center gap-2 text-xs text-amber-700 font-semibold">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              <span>{visaEligibility}</span>
+            <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-semibold truncate">
+              <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
+              <span className="truncate">{visaEligibility}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Footer Row */}
-      <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         {/* Left Applicant Info */}
-        <span className="text-xs text-slate-400 font-medium">
+        <span className="text-[11px] text-slate-400 font-medium">
           {applicantsCount}
         </span>
 
         {/* Right Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Bookmark / Heart Button */}
-          <button
-            onClick={handleToggleSave}
-            className={`p-2 border border-slate-200/90 rounded-full transition-colors cursor-pointer ${isSaved
-              ? "bg-rose-50 border-rose-200 text-rose-600"
-              : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-              }`}
-            title={isSaved ? "Saved" : "Save job"}
-          >
-            <Heart className={`h-4 w-4 ${isSaved ? "fill-rose-500 text-rose-500" : ""}`} />
-          </button>
-
-          {/* Ask Hyrind / Read More */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Read Details */}
           <button
             onClick={() => onReadMore(job)}
-            className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200/80 rounded-full text-xs font-bold tracking-wide transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200/80 rounded-full text-xs font-bold tracking-wide transition-all flex items-center gap-1 cursor-pointer"
           >
             Read Details
           </button>
@@ -255,22 +235,176 @@ const JobCardItem = ({
               href={job.job_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-5 py-2.5 bg-gradient-to-r from-[#0d47a1] to-[#1565c0] hover:from-[#1565c0] hover:to-[#1e40af] text-white font-black rounded-full text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-1 cursor-pointer"
+              className="px-4 py-1.5 bg-gradient-to-r from-[#0d47a1] to-[#1565c0] hover:from-[#1565c0] hover:to-[#1e40af] text-white font-extrabold rounded-full text-xs uppercase tracking-wider transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
             >
               APPLY NOW
-              <ExternalLink className="h-3.5 w-3.5 ml-0.5" />
+              <ExternalLink className="h-3 w-3 ml-0.5" />
             </a>
           ) : (
             <button
               onClick={() => onReadMore(job)}
-              className="px-5 py-2.5 bg-gradient-to-r from-[#0d47a1] to-[#1565c0] hover:from-[#1565c0] hover:to-[#1e40af] text-white font-black rounded-full text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-1 cursor-pointer"
+              className="px-4 py-1.5 bg-gradient-to-r from-[#0d47a1] to-[#1565c0] hover:from-[#1565c0] hover:to-[#1e40af] text-white font-extrabold rounded-full text-xs uppercase tracking-wider transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
             >
-              APPLY WITH AUTOFILL
+              AUTOFILL APPLY
             </button>
           )}
         </div>
       </div>
     </div>
+  );
+};
+
+interface MultiSelectFilterPopoverProps {
+  label: string;
+  categoryTitle?: string;
+  icon?: React.ReactNode;
+  options: string[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  searchPlaceholder?: string;
+  activeColorClass?: string;
+}
+
+const MultiSelectFilterPopover: React.FC<MultiSelectFilterPopoverProps> = ({
+  label,
+  categoryTitle,
+  icon,
+  options,
+  selected,
+  onChange,
+  searchPlaceholder = "Enter keyword to search...",
+  activeColorClass = "bg-blue-50 text-[#0d47a1] border-blue-200 font-extrabold shadow-2xs",
+}) => {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const q = searchTerm.toLowerCase().trim();
+    return options.filter((opt) => opt.toLowerCase().includes(q));
+  }, [options, searchTerm]);
+
+  const handleToggle = (opt: string) => {
+    if (selected.includes(opt)) {
+      onChange(selected.filter((item) => item !== opt));
+    } else {
+      onChange([...selected, opt]);
+    }
+  };
+
+  const handleReset = () => {
+    onChange([]);
+    setSearchTerm("");
+  };
+
+  const isSelected = selected.length > 0;
+  const displayLabel = useMemo(() => {
+    if (selected.length === 0) return label;
+    if (selected.length === 1) return selected[0];
+    return `${selected[0]} (+${selected.length - 1})`;
+  }, [selected, label]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-2xs ${isSelected
+            ? activeColorClass
+            : "bg-slate-100/90 hover:bg-slate-200/80 text-slate-700 border-slate-200 font-medium"
+            }`}
+        >
+          {icon}
+          <span>{displayLabel}</span>
+          <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent align="start" sideOffset={6} className="w-78 p-4 rounded-2xl bg-white shadow-xl border border-slate-200/90 space-y-3 z-50">
+        {/* Category Header */}
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold text-slate-900 tracking-tight">
+            {categoryTitle || label}
+          </h4>
+          {selected.length > 0 && (
+            <span className="text-[10px] font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+              {selected.length} selected
+            </span>
+          )}
+        </div>
+
+        {/* Small Search Option Input inside Dropdown */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder={searchPlaceholder}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-400 font-medium"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Scrollable Options List */}
+        <div className="max-h-52 overflow-y-auto space-y-1 my-1 pr-1 custom-scrollbar">
+          {filteredOptions.length === 0 ? (
+            <div className="py-4 text-center text-xs text-slate-400 font-medium">
+              No options match "{searchTerm}"
+            </div>
+          ) : (
+            filteredOptions.map((option) => {
+              const checked = selected.includes(option);
+              return (
+                <div
+                  key={option}
+                  onClick={() => handleToggle(option)}
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${checked
+                    ? "bg-blue-50/80 text-blue-950 font-semibold"
+                    : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${checked
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-300 bg-white"
+                        }`}
+                    >
+                      {checked && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                    </div>
+                    <span className="truncate">{option}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Action Buttons: Reset & Confirm */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+          <button
+            onClick={handleReset}
+            disabled={selected.length === 0 && !searchTerm}
+            className="text-xs font-bold text-slate-500 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors px-1 py-0.5"
+          >
+            Reset
+          </button>
+          <button
+            onClick={() => setOpen(false)}
+            className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all shadow-xs cursor-pointer"
+          >
+            Confirm
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -298,26 +432,53 @@ export default function JobAlert() {
   const [searchTitle, setSearchTitle] = useState("");
   const [searchCompany, setSearchCompany] = useState("");
   const [searchSkills, setSearchSkills] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   // Pagination states
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Filter states
-  const [filterLocation, setFilterLocation] = useState("All Locations");
-  const [filterWorkMode, setFilterWorkMode] = useState("All Work Modes");
-  const [filterType, setFilterType] = useState("All Types");
-  const [filterExp, setFilterExp] = useState("All Experience");
-  const [filterVisa, setFilterVisa] = useState("All Visa Types");
-  const [filterSalary, setFilterSalary] = useState("All Salaries");
-  const [filterIndustry, setFilterIndustry] = useState("All Industries");
-  const [filterDate, setFilterDate] = useState("All Time");
+  // Multi-Select Filter states
+  const [filterLocation, setFilterLocation] = useState<string[]>([]);
+  const [filterRole, setFilterRole] = useState<string[]>([]);
+  const [filterWorkMode, setFilterWorkMode] = useState<string[]>([]);
+  const [filterType, setFilterType] = useState<string[]>([]);
+  const [filterExp, setFilterExp] = useState<string[]>([]);
+  const [filterVisa, setFilterVisa] = useState<string[]>([]);
+  const [filterSalary, setFilterSalary] = useState<string[]>([]);
+  const [filterIndustry, setFilterIndustry] = useState<string[]>([]);
+  const [filterDate, setFilterDate] = useState<string[]>([]);
+  const [filterHiddenJobs, setFilterHiddenJobs] = useState(false);
   const [sortOrder, setSortOrder] = useState("Newest First");
+
+  // Dynamic Locations extracted from job postings + popular defaults
+  const dynamicLocations = useMemo(() => {
+    const defaults = ["United States", "Canada", "United Kingdom", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA", "Los Angeles, CA", "Chicago, IL", "Boston, MA", "Atlanta, GA"];
+    const set = new Set<string>(defaults);
+    jobPostings.forEach((j) => {
+      if (j.country) set.add(j.country);
+      if (j.city) set.add(j.city);
+      if (j.location) set.add(j.location);
+    });
+    return Array.from(set).filter(Boolean);
+  }, [jobPostings]);
+
+  // Dynamic Job Roles extracted from job postings + popular defaults
+  const dynamicRoles = useMemo(() => {
+    const defaults = ["Python Engineer", "Software Engineer", "Frontend Engineer", "Backend Developer", "Full Stack Developer", "Data Scientist", "DevOps Engineer", "Product Manager", "AI / ML Engineer", "QA Engineer"];
+    const set = new Set<string>(defaults);
+    jobPostings.forEach((j) => {
+      const role = j.role_title || j.title || j.role;
+      if (role) set.add(role);
+    });
+    return Array.from(set).filter(Boolean);
+  }, [jobPostings]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.body.style.paddingTop = '80px';
+    document.body.style.paddingTop = '58px';
     return () => {
       document.body.style.paddingTop = '0px';
     };
@@ -346,43 +507,144 @@ export default function JobAlert() {
   // Reset pagination on filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, searchTitle, searchCompany, searchSkills, filterLocation, filterWorkMode, filterType, filterExp, filterVisa, filterSalary, filterIndustry, filterDate, sortOrder, pageSize]);
+  }, [
+    searchQuery, searchTitle, searchCompany, searchSkills, fromDate, toDate,
+    filterLocation, filterRole, filterWorkMode, filterType,
+    filterExp, filterVisa, filterSalary, filterIndustry,
+    filterDate, filterHiddenJobs, sortOrder, pageSize
+  ]);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (searchTitle.trim()) count++;
+    if (searchCompany.trim()) count++;
+    if (searchSkills.trim()) count++;
+    if (fromDate) count++;
+    if (toDate) count++;
+    if (filterLocation.length > 0) count += filterLocation.length;
+    if (filterRole.length > 0) count += filterRole.length;
+    if (filterWorkMode.length > 0) count += filterWorkMode.length;
+    if (filterType.length > 0) count += filterType.length;
+    if (filterExp.length > 0) count += filterExp.length;
+    if (filterVisa.length > 0) count += filterVisa.length;
+    if (filterSalary.length > 0) count += filterSalary.length;
+    if (filterIndustry.length > 0) count += filterIndustry.length;
+    if (filterDate.length > 0) count += filterDate.length;
+    if (filterHiddenJobs) count++;
+    return count;
+  }, [
+    searchQuery, searchTitle, searchCompany, searchSkills, fromDate, toDate,
+    filterLocation, filterRole, filterWorkMode, filterType,
+    filterExp, filterVisa, filterSalary, filterIndustry,
+    filterDate, filterHiddenJobs
+  ]);
 
   const handleResetFilters = () => {
     setSearchQuery("");
     setSearchTitle("");
     setSearchCompany("");
     setSearchSkills("");
-    setFilterLocation("All Locations");
-    setFilterWorkMode("All Work Modes");
-    setFilterType("All Types");
-    setFilterExp("All Experience");
-    setFilterVisa("All Visa Types");
-    setFilterSalary("All Salaries");
-    setFilterIndustry("All Industries");
-    setFilterDate("All Time");
+    setFromDate("");
+    setToDate("");
+    setFilterLocation([]);
+    setFilterRole([]);
+    setFilterWorkMode([]);
+    setFilterType([]);
+    setFilterExp([]);
+    setFilterVisa([]);
+    setFilterSalary([]);
+    setFilterIndustry([]);
+    setFilterDate([]);
+    setFilterHiddenJobs(false);
     setSortOrder("Newest First");
     setCurrentPage(1);
-    toast({ title: "Filters Reset", description: "All search and dropdown filters have been cleared." });
+    toast({ title: "Filters Reset", description: "All search and date filters have been cleared." });
+  };
+
+  const getJobTimestamp = (job: any): number | null => {
+    const raw = job.log_date || job.created_at || job.createdAt || job.date_posted || job.posted_date || job.date || job.posting_date || job.submitted_at;
+    if (!raw) return null;
+    let d: Date;
+    if (typeof raw === "string" && raw.includes("-")) {
+      const clean = raw.split("T")[0];
+      const parts = clean.split("-").map(n => parseInt(n, 10));
+      if (parts[0] > 1000) {
+        d = new Date(parts[0], parts[1] - 1, parts[2]);
+      } else {
+        d = new Date(parts[2], parts[0] - 1, parts[1]);
+      }
+    } else {
+      d = new Date(raw);
+    }
+    if (isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+
+  const getFilterTimestamp = (dateStr: string, isEndOfDay = false): number | null => {
+    if (!dateStr || !dateStr.trim()) return null;
+    const s = dateStr.trim();
+    let y: number, m: number, d: number;
+    if (s.includes("-")) {
+      const parts = s.split("-").map((n) => parseInt(n, 10));
+      if (parts[0] > 1000) {
+        [y, m, d] = parts;
+      } else {
+        [m, d, y] = parts;
+      }
+    } else if (s.includes("/")) {
+      const parts = s.split("/").map((n) => parseInt(n, 10));
+      if (parts[0] > 1000) {
+        [y, m, d] = parts;
+      } else {
+        [m, d, y] = parts;
+      }
+    } else {
+      const dt = new Date(s);
+      if (isNaN(dt.getTime())) return null;
+      y = dt.getFullYear();
+      m = dt.getMonth() + 1;
+      d = dt.getDate();
+    }
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+    const dt = new Date(y, m - 1, d, isEndOfDay ? 23 : 0, isEndOfDay ? 59 : 0, isEndOfDay ? 59 : 0, isEndOfDay ? 999 : 0);
+    return dt.getTime();
   };
 
   const filteredJobs = useMemo(() => {
     let result = jobPostings.filter((job) => {
-      // 1. Job Title Filter
+      // From Date & To Date Filter
+      if (fromDate || toDate) {
+        const jobTs = getJobTimestamp(job);
+        if (!jobTs) return false;
+
+        if (fromDate) {
+          const fromTs = getFilterTimestamp(fromDate, false);
+          if (fromTs && jobTs < fromTs) return false;
+        }
+
+        if (toDate) {
+          const toTs = getFilterTimestamp(toDate, true);
+          if (toTs && jobTs > toTs) return false;
+        }
+      }
+
+      // 1. Job Title Text Input Filter
       if (searchTitle.trim()) {
         const q = searchTitle.toLowerCase().trim();
         const roleStr = (job.role_title || job.title || job.role || "").toLowerCase();
         if (!roleStr.includes(q)) return false;
       }
 
-      // 2. Company Filter
+      // 2. Company Text Input Filter
       if (searchCompany.trim()) {
         const q = searchCompany.toLowerCase().trim();
         const companyStr = (job.company_name || job.company || "").toLowerCase();
         if (!companyStr.includes(q)) return false;
       }
 
-      // 3. Global Search Query
+      // 3. Global Search Query Filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchTitle = (job.role_title && job.role_title.toLowerCase().includes(q)) ||
@@ -407,49 +669,64 @@ export default function JobAlert() {
         if (!(matchTitle || matchCompany || matchSkill || matchKeyword)) return false;
       }
 
-      // 4. Location Filter
-      if (filterLocation && filterLocation !== "All Locations") {
+      // 4. Location Multi-Select Filter
+      if (filterLocation.length > 0) {
         const locParts = [job.city, job.state, job.country, job.location].filter(Boolean).join(" ").toLowerCase();
-        if (!locParts.includes(filterLocation.toLowerCase())) return false;
+        const match = filterLocation.some((loc) => locParts.includes(loc.toLowerCase()));
+        if (!match) return false;
       }
 
-      // 5. Remote / Hybrid / Onsite (Work Mode) Filter
-      if (filterWorkMode && filterWorkMode !== "All Work Modes") {
+      // 5. Job Title Multi-Select Filter
+      if (filterRole.length > 0) {
+        const roleStr = (job.role_title || job.title || job.role || "").toLowerCase();
+        const match = filterRole.some((r) => roleStr.includes(r.toLowerCase()));
+        if (!match) return false;
+      }
+
+      // 6. Work Mode Multi-Select Filter
+      if (filterWorkMode.length > 0) {
         const workStr = (job.work_mode || job.work_type || job.remote_type || "").toLowerCase();
-        if (!workStr.includes(filterWorkMode.toLowerCase())) return false;
+        const match = filterWorkMode.some((wm) => workStr.includes(wm.toLowerCase()));
+        if (!match) return false;
       }
 
-      // 6. Employment Type Filter
-      if (filterType && filterType !== "All Types") {
+      // 7. Employment Type Multi-Select Filter
+      if (filterType.length > 0) {
         const typeStr = (job.employment_type || job.job_type || "").toLowerCase();
-        if (!typeStr.includes(filterType.toLowerCase())) return false;
+        const match = filterType.some((t) => typeStr.includes(t.toLowerCase()));
+        if (!match) return false;
       }
 
-      // 7. Experience Filter
-      if (filterExp && filterExp !== "All Experience") {
+      // 8. Experience Level Multi-Select Filter
+      if (filterExp.length > 0) {
         const expStr = (job.experience_required || job.experience_level || job.level || "").toLowerCase();
-        if (!expStr.includes(filterExp.toLowerCase())) return false;
+        const match = filterExp.some((e) => expStr.includes(e.toLowerCase()));
+        if (!match) return false;
       }
 
-      // 8. Visa Type Filter
-      if (filterVisa && filterVisa !== "All Visa Types") {
+      // 9. Visa Type Multi-Select Filter
+      if (filterVisa.length > 0) {
         const visaStr = (job.visa_eligibility || "").toLowerCase();
-        if (!visaStr.includes(filterVisa.toLowerCase())) return false;
+        const match = filterVisa.some((v) => visaStr.includes(v.toLowerCase()));
+        if (!match) return false;
       }
 
-      // 9. Salary Filter
-      if (filterSalary === "Disclosed Only") {
-        const sal = (job.salary || "").trim();
-        if (!sal || sal === "Not Disclosed" || sal === "-") return false;
+      // 10. Salary Multi-Select Filter
+      if (filterSalary.length > 0) {
+        if (filterSalary.includes("Disclosed Only")) {
+          const sal = (job.salary || "").trim();
+          if (!sal || sal === "Not Disclosed" || sal === "-") return false;
+        }
       }
 
-      // 10. Industry Filter
-      if (filterIndustry && filterIndustry !== "All Industries") {
+      // 11. Industry Multi-Select Filter
+      if (filterIndustry.length > 0) {
         const indStr = (job.industry || job.company_tagline || "").toLowerCase();
-        if (!indStr.includes(filterIndustry.toLowerCase())) return false;
+        const match = filterIndustry.some((ind) => indStr.includes(ind.toLowerCase()));
+        if (!match) return false;
       }
 
-      // 11. Skills Filter
+      // 12. Skills Text Input Filter
       if (searchSkills.trim()) {
         const q = searchSkills.toLowerCase().trim();
         let match = false;
@@ -466,33 +743,37 @@ export default function JobAlert() {
         if (!match) return false;
       }
 
-      // 12. Date Posted Filter
-      if (filterDate && filterDate !== "All Time") {
-        const logDateStr = job.log_date || job.created_at;
-        if (logDateStr) {
-          const cleanDateStr = logDateStr.split("T")[0];
-          const [y, m, d] = cleanDateStr.split("-").map((s: string) => parseInt(s, 10));
-          const itemDate = new Date(y, m - 1, d);
-          itemDate.setHours(0, 0, 0, 0);
-
+      // 13. Date Posted Multi-Select Filter
+      if (filterDate.length > 0) {
+        const jobTs = getJobTimestamp(job);
+        if (jobTs) {
           const now = new Date();
           now.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor((now.getTime() - itemDate.getTime()) / (1000 * 3600 * 24));
+          const diffDays = Math.floor((now.getTime() - jobTs) / (1000 * 3600 * 24));
 
-          if (filterDate === "Posted Today" && diffDays > 0) return false;
-          if (filterDate === "Past 3 Days" && diffDays > 3) return false;
-          if (filterDate === "Past Week" && diffDays > 7) return false;
-          if (filterDate === "Past Month" && diffDays > 30) return false;
+          const matchDate = filterDate.some((dVal) => {
+            if (dVal === "Posted Today") return diffDays === 0;
+            if (dVal === "Past 3 Days") return diffDays <= 3;
+            if (dVal === "Past Week") return diffDays <= 7;
+            if (dVal === "Past Month") return diffDays <= 30;
+            return true;
+          });
+          if (!matchDate) return false;
         }
+      }
+
+      // 14. Hidden Jobs Filter
+      if (filterHiddenJobs) {
+        if (!job.is_hidden && job.status !== "hidden") return false;
       }
 
       return true;
     });
 
-    // 13 & 14. Sort Order (Newest First / Oldest First)
+    // Sort Order
     result.sort((a, b) => {
-      const dateA = new Date(a.log_date || a.created_at || 0).getTime();
-      const dateB = new Date(b.log_date || b.created_at || 0).getTime();
+      const dateA = new Date(a.log_date || a.created_at || a.createdAt || 0).getTime();
+      const dateB = new Date(b.log_date || b.created_at || b.createdAt || 0).getTime();
       if (sortOrder === "Oldest First") {
         return dateA - dateB;
       }
@@ -501,9 +782,9 @@ export default function JobAlert() {
 
     return result;
   }, [
-    jobPostings, searchTitle, searchCompany, searchQuery, filterLocation,
-    filterWorkMode, filterType, filterExp, filterVisa, filterSalary,
-    filterIndustry, searchSkills, filterDate, sortOrder
+    jobPostings, searchTitle, searchCompany, searchQuery, fromDate, toDate, filterLocation,
+    filterRole, filterWorkMode, filterType, filterExp, filterVisa,
+    filterSalary, filterIndustry, searchSkills, filterDate, filterHiddenJobs, sortOrder
   ]);
 
   const totalPages = Math.ceil(filteredJobs.length / pageSize) || 1;
@@ -574,7 +855,7 @@ export default function JobAlert() {
         break;
       default:
         if (navigator.share && job.job_url) {
-          navigator.share({ title: `${role} at ${company}`, text, url }).catch(() => {});
+          navigator.share({ title: `${role} at ${company}`, text, url }).catch(() => { });
         } else {
           navigator.clipboard.writeText(url);
           toast({ title: "Link Copied!", description: `Job link copied to clipboard.` });
@@ -605,7 +886,7 @@ export default function JobAlert() {
         .hero-section {
           background: radial-gradient(circle at top right, #1e40af, #0d47a1);
           color: white;
-          padding: 120px 24px 45px;
+          padding: 60px 20px 20px;
           text-align: center;
           clip-path: ellipse(150% 100% at 50% 0%);
           position: relative;
@@ -629,30 +910,30 @@ export default function JobAlert() {
         }
 
         .hero-title {
-          font-size: clamp(2.25rem, 5vw, 3.25rem);
+          font-size: clamp(1.75rem, 4vw, 2.5rem);
           font-weight: 800;
-          margin-bottom: 12px;
+          margin-bottom: 8px;
           letter-spacing: -0.04em;
           line-height: 1.1;
         }
 
         .hero-subtitle {
-          font-size: 1.125rem;
+          font-size: 1rem;
           opacity: 0.9;
           font-weight: 300;
           max-width: 700px;
           margin: 0 auto;
-          line-height: 1.6;
+          line-height: 1.5;
         }
 
         .job-alerts-main {
-          padding: 80px 24px;
+          padding: 20px 16px;
           background-color: #f8fafc;
           flex-grow: 1;
         }
 
         .job-alerts-container {
-          max-width: 1200px;
+          max-width: 1400px;
           width: 100%;
           margin: 0 auto;
         }
@@ -702,13 +983,13 @@ export default function JobAlert() {
 
       {/* Main Content */}
       <main className="job-alerts-main">
-        <div className="job-alerts-container space-y-8">
+        <div className="job-alerts-container space-y-3.5">
           {/* Single Unified Search & Filter Panel */}
           {/* Search & Filter Panel */}
           <Card className="filter-card border border-slate-200/80 shadow-xs rounded-2xl overflow-hidden bg-white">
-            <CardContent className="p-5 md:p-6 space-y-4">
+            <CardContent className="p-3.5 md:p-4 space-y-3">
               {/* Top Search Inputs Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {/* Global Search */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
@@ -761,7 +1042,7 @@ export default function JobAlert() {
                 <div className="relative">
                   <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <Input
-                    placeholder="Skills (e.g. React, Python)..."
+                    placeholder="Skills (React, Python)..."
                     value={searchSkills}
                     onChange={(e) => setSearchSkills(e.target.value)}
                     className="pl-9 pr-7 h-9 text-xs bg-slate-50/50 border-slate-200 focus:bg-white"
@@ -772,216 +1053,149 @@ export default function JobAlert() {
                     </button>
                   )}
                 </div>
+
+                {/* From Date Filter */}
+                <div>
+                  <DatePicker
+                    value={fromDate}
+                    onChange={(d) => setFromDate(d)}
+                    placeholder="From Date"
+                    formatStr="yyyy-MM-dd"
+                    className="h-9 text-xs bg-slate-50/50 border-slate-200 focus:bg-white font-normal"
+                  />
+                </div>
+
+                {/* To Date Filter */}
+                <div>
+                  <DatePicker
+                    value={toDate}
+                    onChange={(d) => setToDate(d)}
+                    placeholder="To Date"
+                    formatStr="yyyy-MM-dd"
+                    className="h-9 text-xs bg-slate-50/50 border-slate-200 focus:bg-white font-normal"
+                  />
+                </div>
               </div>
 
               {/* Filter Pills Bar BELOW Search Bar */}
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-medium text-slate-700">
-                {/* 1. Location Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${filterLocation !== "All Locations"
-                      ? "bg-blue-600 text-white border-blue-600 font-bold shadow-xs"
-                      : "bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200/80"
-                      }`}>
-                      <MapPin className="h-3 w-3" />
-                      {filterLocation}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[170px] z-50">
-                    {["All Locations", "United States", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA"].map((loc) => (
-                      <DropdownMenuItem
-                        key={loc}
-                        onClick={() => setFilterLocation(loc)}
-                        className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-3 py-2"
-                      >
-                        {loc}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* 1. Location Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Location"
+                  categoryTitle="Country & Location"
+                  icon={<MapPin className="h-3 w-3 text-[#0d47a1]" />}
+                  options={dynamicLocations}
+                  selected={filterLocation}
+                  onChange={setFilterLocation}
+                  searchPlaceholder="Enter city or state/province..."
+                />
 
-                {/* 2. Remote / Hybrid / Onsite Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${filterWorkMode !== "All Work Modes"
-                      ? "bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs"
-                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-200/80"
-                      }`}>
-                      <Home className="h-3 w-3" />
-                      {filterWorkMode}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[160px] z-50">
-                    {["All Work Modes", "Remote", "Hybrid", "Onsite"].map((wm) => (
-                      <DropdownMenuItem
-                        key={wm}
-                        onClick={() => setFilterWorkMode(wm)}
-                        className="text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 rounded-lg cursor-pointer px-3 py-2"
-                      >
-                        {wm}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* 2. Job Title Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Job Title"
+                  categoryTitle="Role / Job Title"
+                  icon={<Briefcase className="h-3 w-3 text-[#0d47a1]" />}
+                  options={dynamicRoles}
+                  selected={filterRole}
+                  onChange={setFilterRole}
+                  searchPlaceholder="Search role title..."
+                />
 
-                {/* 3. Employment Type Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${filterType !== "All Types"
-                      ? "bg-blue-600 text-white border-blue-600 font-bold shadow-xs"
-                      : "bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200/80"
-                      }`}>
-                      <Briefcase className="h-3 w-3" />
-                      {filterType}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[170px] z-50">
-                    {["All Types", "Full-Time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"].map((t) => (
-                      <DropdownMenuItem
-                        key={t}
-                        onClick={() => setFilterType(t)}
-                        className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-3 py-2"
-                      >
-                        {t}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* 3. Experience Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Experience"
+                  categoryTitle="Experience Required"
+                  icon={<Award className="h-3 w-3 text-[#0d47a1]" />}
+                  options={["Intern/New Grad", "0–2 Years", "2–5 Years", "5+ Years", "Senior Level", "Lead / Staff"]}
+                  selected={filterExp}
+                  onChange={setFilterExp}
+                  searchPlaceholder="Search experience..."
+                />
 
-                {/* 4. Experience Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${filterExp !== "All Experience"
-                      ? "bg-purple-600 text-white border-purple-600 font-bold shadow-xs"
-                      : "bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-200/80"
-                      }`}>
-                      <Award className="h-3 w-3" />
-                      {filterExp}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[170px] z-50">
-                    {["All Experience", "0–2 Years", "2–5 Years", "5+ Years", "Senior Level"].map((y) => (
-                      <DropdownMenuItem
-                        key={y}
-                        onClick={() => setFilterExp(y)}
-                        className="text-xs font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-900 rounded-lg cursor-pointer px-3 py-2"
-                      >
-                        {y}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* 4. Employment Type Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Employment Type"
+                  categoryTitle="Employment Type"
+                  icon={<Briefcase className="h-3 w-3 text-[#0d47a1]" />}
+                  options={["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"]}
+                  selected={filterType}
+                  onChange={setFilterType}
+                  searchPlaceholder="Search type..."
+                />
 
-                {/* 5. Visa Type Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${filterVisa !== "All Visa Types"
-                      ? "bg-amber-600 text-white border-amber-600 font-bold shadow-xs"
-                      : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200/80"
-                      }`}>
-                      <Sparkles className="h-3 w-3" />
-                      {filterVisa}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[190px] z-50">
-                    {["All Visa Types", "OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"].map((v) => (
-                      <DropdownMenuItem
-                        key={v}
-                        onClick={() => setFilterVisa(v)}
-                        className="text-xs font-medium text-slate-700 hover:bg-amber-50 hover:text-amber-900 rounded-lg cursor-pointer px-3 py-2"
-                      >
-                        {v}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* 5. Work Mode Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Work Mode"
+                  categoryTitle="Work Mode"
+                  icon={<Home className="h-3 w-3 text-[#0d47a1]" />}
+                  options={["Onsite", "Hybrid", "Remote"]}
+                  selected={filterWorkMode}
+                  onChange={setFilterWorkMode}
+                  searchPlaceholder="Search work mode..."
+                />
 
-                {/* 6. Salary Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${filterSalary !== "All Salaries"
-                      ? "bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs"
-                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-200/80"
-                      }`}>
-                      <DollarSign className="h-3 w-3" />
-                      {filterSalary}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[160px] z-50">
-                    {["All Salaries", "Disclosed Only"].map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() => setFilterSalary(s)}
-                        className="text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 rounded-lg cursor-pointer px-3 py-2"
-                      >
-                        {s}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* 6. Visa Type Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Visa Type"
+                  categoryTitle="Visa Eligibility"
+                  icon={<Sparkles className="h-3 w-3 text-[#0d47a1]" />}
+                  options={["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"]}
+                  selected={filterVisa}
+                  onChange={setFilterVisa}
+                  searchPlaceholder="Search visa..."
+                />
 
-                {/* 7. Industry Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${filterIndustry !== "All Industries"
-                      ? "bg-indigo-600 text-white border-indigo-600 font-bold shadow-xs"
-                      : "bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200/80"
-                      }`}>
-                      <Globe className="h-3 w-3" />
-                      {filterIndustry}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[170px] z-50">
-                    {["All Industries", "Technology", "Healthcare", "Finance", "Cybersecurity", "Education"].map((ind) => (
-                      <DropdownMenuItem
-                        key={ind}
-                        onClick={() => setFilterIndustry(ind)}
-                        className="text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-900 rounded-lg cursor-pointer px-3 py-2"
-                      >
-                        {ind}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* 7. Salary Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Salary"
+                  categoryTitle="Salary Range"
+                  icon={<DollarSign className="h-3 w-3 text-[#0d47a1]" />}
+                  options={["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"]}
+                  selected={filterSalary}
+                  onChange={setFilterSalary}
+                  searchPlaceholder="Search salary..."
+                />
 
-                {/* 8. Date Posted Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer ${filterDate !== "All Time"
-                      ? "bg-blue-600 text-white border-blue-600 font-bold shadow-xs"
-                      : "bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-200/80"
-                      }`}>
-                      <Clock className="h-3 w-3" />
-                      {filterDate}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white rounded-xl shadow-lg border border-slate-200 p-1 min-w-[160px] z-50">
-                    {["All Time", "Posted Today", "Past 3 Days", "Past Week", "Past Month"].map((d) => (
-                      <DropdownMenuItem
-                        key={d}
-                        onClick={() => setFilterDate(d)}
-                        className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-3 py-2"
-                      >
-                        {d}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* 8. Industry Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Industry"
+                  categoryTitle="Industry Sector"
+                  icon={<Globe className="h-3 w-3 text-[#0d47a1]" />}
+                  options={["Technology", "Healthcare", "Finance", "Cybersecurity", "Education", "E-commerce"]}
+                  selected={filterIndustry}
+                  onChange={setFilterIndustry}
+                  searchPlaceholder="Search industry..."
+                />
 
-                {/* 9. Sort Order Dropdown */}
+                {/* 9. Date Posted Multi-Select Dropdown */}
+                <MultiSelectFilterPopover
+                  label="Date Posted"
+                  categoryTitle="Timeframe"
+                  icon={<Clock className="h-3 w-3 text-[#0d47a1]" />}
+                  options={["Posted Today", "Past 3 Days", "Past Week", "Past Month"]}
+                  selected={filterDate}
+                  onChange={setFilterDate}
+                  searchPlaceholder="Search timeframe..."
+                />
+
+                {/* 10. Hidden Jobs Toggle Pill */}
+                <button
+                  onClick={() => setFilterHiddenJobs(!filterHiddenJobs)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${filterHiddenJobs
+                    ? "bg-[#0d47a1] text-white border-blue-700 font-extrabold shadow-xs"
+                    : "bg-blue-50/80 hover:bg-blue-100 text-[#0d47a1] border-blue-200/80 font-semibold"
+                    }`}
+                >
+                  <Lock className="h-3 w-3" />
+                  Hidden Jobs
+                </button>
+
+                {/* 11. Sort Order Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-semibold bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200 transition-colors cursor-pointer">
+                    <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold bg-white text-slate-800 border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs">
                       <Filter className="h-3 w-3 text-slate-500" />
-                      {sortOrder}
+                      <span>{sortOrder === "Newest First" ? "Recommended" : sortOrder}</span>
                       <ChevronDown className="h-3 w-3" />
                     </button>
                   </DropdownMenuTrigger>
@@ -992,19 +1206,19 @@ export default function JobAlert() {
                         onClick={() => setSortOrder(so)}
                         className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-3 py-2"
                       >
-                        {so}
+                        {so === "Newest First" ? "Recommended" : so}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Reset Filters Button */}
+                {/* 12. Reset Filters Button */}
                 <button
                   onClick={handleResetFilters}
-                  className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#0d47a1] to-[#1565c0] text-white font-bold hover:from-[#1565c0] hover:to-[#1e40af] transition-all whitespace-nowrap cursor-pointer text-xs shadow-xs"
+                  className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-[#0d47a1] hover:bg-[#1565c0] text-white font-bold transition-all whitespace-nowrap cursor-pointer text-xs shadow-xs"
                 >
                   <X className="h-3 w-3" />
-                  Reset Filters
+                  All Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}
                 </button>
               </div>
             </CardContent>
@@ -1012,9 +1226,9 @@ export default function JobAlert() {
 
           {/* Job Listings Panel */}
           <Card className="table-card border border-slate-200/80 shadow-xs rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-5 md:p-6 flex flex-row items-center justify-between gap-4 flex-wrap">
-              <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
-                <Globe className="h-5 w-5 text-primary" />
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-2.5 md:px-5 md:py-3 flex flex-row items-center justify-between gap-3 flex-wrap">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg font-bold text-slate-800">
+                <Globe className="h-4.5 w-4.5 text-primary" />
                 All Available Job Openings ({filteredJobs.length})
               </CardTitle>
 
@@ -1022,7 +1236,7 @@ export default function JobAlert() {
               <div className="flex items-center bg-slate-200/70 p-1 rounded-xl gap-1">
                 <button
                   onClick={() => setViewMode("cards")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "cards"
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "cards"
                     ? "bg-white text-primary shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                     }`}
@@ -1032,7 +1246,7 @@ export default function JobAlert() {
                 </button>
                 <button
                   onClick={() => setViewMode("table")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "table"
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "table"
                     ? "bg-white text-primary shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                     }`}
@@ -1043,15 +1257,35 @@ export default function JobAlert() {
               </div>
             </CardHeader>
 
-            <CardContent className={viewMode === "cards" ? "p-5 md:p-6" : "p-0"}>
+            <CardContent className={viewMode === "cards" ? "p-3.5 md:p-4" : "p-0"}>
               {viewMode === "cards" ? (
                 loading ? (
-                  <div className="flex flex-col gap-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-52 rounded-2xl bg-slate-100 animate-pulse p-6 space-y-4">
-                        <div className="h-8 w-1/3 bg-slate-200 rounded-lg" />
-                        <div className="h-5 w-2/3 bg-slate-200 rounded-lg" />
-                        <div className="h-4 w-full bg-slate-200 rounded-lg" />
+                  <div className="flex flex-col gap-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="bg-white border border-slate-200/80 rounded-xl p-3.5 md:p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <Skeleton className="w-11 h-11 rounded-xl shrink-0" />
+                          <div className="flex-1 space-y-2">
+                            <div className="flex gap-2">
+                              <Skeleton className="h-4 w-20 rounded-md" />
+                              <Skeleton className="h-4 w-24 rounded-md" />
+                            </div>
+                            <Skeleton className="h-5 w-2/3 rounded-md" />
+                            <Skeleton className="h-3.5 w-1/3 rounded-md" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                          <Skeleton className="h-4 w-full rounded-md" />
+                          <Skeleton className="h-4 w-full rounded-md" />
+                          <Skeleton className="h-4 w-full rounded-md" />
+                        </div>
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <Skeleton className="h-3.5 w-24 rounded-md" />
+                          <div className="flex gap-2">
+                            <Skeleton className="h-7 w-20 rounded-full" />
+                            <Skeleton className="h-7 w-28 rounded-full" />
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1070,8 +1304,8 @@ export default function JobAlert() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-6">
-                    <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2.5">
                       {paginatedJobs.map((job, idx) => (
                         <JobCardItem
                           key={job.id || idx}

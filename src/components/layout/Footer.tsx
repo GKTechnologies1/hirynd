@@ -24,7 +24,7 @@ const Footer = () => {
           .footer-custom {
             background-color: #0d47a1;
             color: white;
-            padding: 80px 30px 40px;
+            padding: 36px 24px 20px;
             font-family: Arial, sans-serif;
           }
 
@@ -32,21 +32,21 @@ const Footer = () => {
             max-width: 1200px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 50px;
-            margin-bottom: 50px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
           }
 
           .footer-title-custom {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 700;
-            margin-bottom: 25px;
+            margin-bottom: 12px;
             color: white;
           }
 
           .footer-link-custom {
-            margin-bottom: 15px;
-            font-size: 15px;
+            margin-bottom: 8px;
+            font-size: 14px;
           }
 
           .footer-link-custom a {
@@ -61,20 +61,20 @@ const Footer = () => {
           }
 
           .qr-box-custom {
-            width: 150px;
-            height: 150px;
+            width: 110px;
+            height: 110px;
             background: white;
-            padding: 10px;
-            border-radius: 12px;
+            padding: 8px;
+            border-radius: 10px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.1);
           }
 
           .contact-item-custom {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 15px;
-            font-size: 15px;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 14px;
             color: #e0e8ff;
           }
 
@@ -85,15 +85,15 @@ const Footer = () => {
 
           .social-icons-custom {
             display: flex;
-            gap: 20px;
-            margin-top: 20px;
+            gap: 12px;
+            margin-top: 12px;
           }
 
           .social-icon-btn {
-            width: 40px;
-            height: 40px;
+            width: 34px;
+            height: 34px;
             background: rgba(255,255,255,0.1);
-            border-radius: 10px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -104,14 +104,14 @@ const Footer = () => {
           .social-icon-btn:hover {
             background: #ffeb3b;
             color: #0d47a1;
-            transform: translateY(-5px);
+            transform: translateY(-3px);
           }
 
           .footer-bottom-custom {
             text-align: center;
             border-top: 1px solid rgba(255,255,255,0.1);
-            padding-top: 30px;
-            font-size: 14px;
+            padding-top: 16px;
+            font-size: 13px;
             color: #dce6ff;
             max-width: 1200px;
             margin: 0 auto;
@@ -165,7 +165,7 @@ const Footer = () => {
               <Mail size={18} /> <a href="mailto:support@hyrind.com">support@hyrind.com</a>
             </div>
             <div className="contact-item-custom">
-              <Phone size={18} /> <a href="tel:3143540634">314-354-0634</a>
+              <Phone size={18} /> <a href="tel:3143540634">+1 (314) 319-7982</a>
             </div>
 
             <h3 className="footer-title-custom" style={{ marginTop: "30px" }}>Social Media</h3>
@@ -176,7 +176,7 @@ const Footer = () => {
               <a href="https://linkedin.com/company/hyrind" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
                 <Linkedin size={20} />
               </a>
-              <a href="https://Wa.me/+13143540634/" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
+              <a href="https://wa.me/13143540634" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
                 <WhatsAppIcon size={20} />
               </a>
             </div>

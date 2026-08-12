@@ -154,7 +154,7 @@ const Reviews = () => {
       <SEO title="Reviews" description="Hear from candidates who landed jobs through HYRIND's recruiter-led profile marketing and interview support." path="/reviews" />
       <Header />
       <main className="flex-1">
-        <section className="bg-white border-b border-neutral-200 pt-32 pb-10 lg:pt-40 lg:pb-12">
+        <section className="bg-white border-b border-neutral-200 pt-20 pb-8 lg:pt-24 lg:pb-10">
           <div className="container px-4 md:px-6">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-3xl text-center">
               <h1 className="text-4xl font-bold tracking-tight text-[#0d47a1] sm:text-5xl">What Our Candidates Say</h1>

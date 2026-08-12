@@ -28,7 +28,7 @@ const Services = () => {
     } else {
       window.scrollTo(0, 0);
     }
-    document.body.style.paddingTop = '80px';
+    document.body.style.paddingTop = '58px';
     return () => {
       document.body.style.paddingTop = '0px';
     };
