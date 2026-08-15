@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import RecruiterProfile, RecruiterAssignment, DailySubmissionLog, JobLinkEntry, RecruiterBankDetails
 from users.serializers import ProfileSerializer
 from files.models import UploadedFile
+from users.models import User
 
 
 class RecruiterProfileSerializer(serializers.ModelSerializer):
@@ -350,3 +351,96 @@ class DailySubmissionLogSerializer(serializers.ModelSerializer):
         model = DailySubmissionLog
         fields = '__all__'
         read_only_fields = ['id', 'recruiter', 'created_at', 'updated_at']
+
+
+class TeamMemberDetailSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
+    # RecruiterProfile fields
+    city = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    state = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    country = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    university = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    degree = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    major = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    graduation_date = serializers.DateField(required=False, allow_null=True)
+    linkedin_url = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    social_profile_url = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    company_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    employee_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    date_of_joining = serializers.DateField(required=False, allow_null=True)
+    department = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    specialization = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    max_clients = serializers.IntegerField(required=False)
+    prior_recruitment_experience = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    work_type_preference = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    referral_source = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    referral_friend_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'display_id', 'email', 'role', 'approval_status', 'is_active', 'created_at',
+            'full_name', 'phone',
+            'city', 'state', 'country',
+            'university', 'degree', 'major', 'graduation_date',
+            'linkedin_url', 'social_profile_url',
+            'company_name', 'employee_id', 'date_of_joining',
+            'department', 'specialization', 'max_clients',
+            'prior_recruitment_experience', 'work_type_preference',
+            'referral_source', 'referral_friend_name'
+        ]
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        profile = getattr(instance, 'profile', None)
+        ret['full_name'] = getattr(profile, 'full_name', '') or ''
+        ret['phone'] = getattr(profile, 'phone', '') or ''
+        
+        rec_profile = getattr(instance, 'recruiter_profile', None)
+        for field in [
+            'city', 'state', 'country', 'university', 'degree', 'major',
+            'linkedin_url', 'social_profile_url', 'company_name', 'employee_id',
+            'department', 'specialization', 'prior_recruitment_experience',
+            'work_type_preference', 'referral_source', 'referral_friend_name'
+        ]:
+            ret[field] = getattr(rec_profile, field, '') or ''
+            
+        ret['max_clients'] = getattr(rec_profile, 'max_clients', 3) or 3
+        
+        grad_date = getattr(rec_profile, 'graduation_date', None)
+        ret['graduation_date'] = grad_date.isoformat() if grad_date else None
+        
+        doj = getattr(rec_profile, 'date_of_joining', None)
+        ret['date_of_joining'] = doj.isoformat() if doj else None
+        
+        return ret
+
+    def update(self, instance, validated_data):
+        from users.models import Profile
+        from recruiters.models import RecruiterProfile
+        
+        profile, _ = Profile.objects.get_or_create(user=instance)
+        rec_profile, _ = RecruiterProfile.objects.get_or_create(user=instance)
+        
+        full_name = validated_data.get('full_name')
+        if full_name is not None:
+            profile.full_name = full_name
+        phone = validated_data.get('phone')
+        if phone is not None:
+            profile.phone = phone
+        profile.save()
+        
+        for field in [
+            'city', 'state', 'country', 'university', 'degree', 'major',
+            'linkedin_url', 'social_profile_url', 'company_name', 'employee_id',
+            'department', 'specialization', 'max_clients', 'prior_recruitment_experience',
+            'work_type_preference', 'referral_source', 'referral_friend_name',
+            'graduation_date', 'date_of_joining'
+        ]:
+            if field in validated_data:
+                setattr(rec_profile, field, validated_data[field])
+        rec_profile.save()
+        
+        return instance
