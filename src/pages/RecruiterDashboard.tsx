@@ -9,6 +9,8 @@ import DailyLogPage from "@/pages/recruiter/DailyLogPage";
 import RecruiterProfilePage from "@/pages/recruiter/RecruiterProfilePage";
 import RecruiterSettingsPage from "@/pages/recruiter/RecruiterSettingsPage";
 import RecruiterAssignedToPage from "@/pages/recruiter/RecruiterAssignedToPage";
+import RecruiterTeamPage from "@/pages/recruiter/RecruiterTeamPage";
+import RecruiterTeamMemberDetailPage from "@/pages/recruiter/RecruiterTeamMemberDetailPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
@@ -287,13 +289,29 @@ const CandidateDetailWrapper = () => {
 };
 
 const RecruiterDashboard = () => {
+  const { user } = useAuth();
+
+  const dynamicNavItems = [
+    { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
+    { label: "Assigned To", path: "/recruiter-dashboard/assigned-to", icon: <UserCheck className="h-4 w-4" /> },
+    { label: "Daily Log", path: "/recruiter-dashboard/daily-log", icon: <ClipboardList className="h-4 w-4" /> },
+    ...(user?.role === "team_lead" || user?.role === "team_manager" || user?.role === "admin"
+      ? [{ label: "My Team", path: "/recruiter-dashboard/team", icon: <Users className="h-4 w-4" /> }]
+      : []
+    ),
+    { label: "My Profile", path: "/recruiter-dashboard/profile", icon: <User className="h-4 w-4" /> },
+    { label: "Settings", path: "/recruiter-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
+  ];
+
   return (
-    <DashboardLayout title="Recruiter Dashboard" navItems={navItems}>
+    <DashboardLayout title="Recruiter Dashboard" navItems={dynamicNavItems}>
       <Routes>
         <Route path="/" element={<RecruiterHome />} />
         <Route path="/candidates/:candidateId" element={<CandidateDetailWrapper />} />
         <Route path="/assigned-to" element={<RecruiterAssignedToPage />} />
         <Route path="/daily-log" element={<DailyLogPage />} />
+        <Route path="/team" element={<RecruiterTeamPage />} />
+        <Route path="/team/:teamMemberId" element={<RecruiterTeamMemberDetailPage />} />
         <Route path="/profile" element={<RecruiterProfilePage />} />
         <Route path="/settings" element={<RecruiterSettingsPage />} />
       </Routes>

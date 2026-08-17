@@ -8,7 +8,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-from users.permissions import IsAdmin, IsApproved, IsRecruiter
+from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsAdminOrTeamLead
 from candidates.models import Candidate
 from audit.utils import log_action
 from notifications.utils import send_email, get_styled_email_html, create_notification
@@ -17,6 +17,7 @@ from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
     RecruiterProfileSerializer, RecruiterBankDetailsSerializer,
     AdminRecruiterFullSerializer, MyAssignmentSerializer, DailyJournalSerializer,
+    TeamMemberDetailSerializer,
 )
 
 
@@ -560,4 +561,128 @@ def public_job_alerts(request):
 
     jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log').order_by('-created_at')
     return Response(JobLinkEntrySerializer(jobs, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrTeamLead])
+def my_team(request):
+    from users.models import User
+    from recruiters.models import RecruiterAssignment
+    
+    user = request.user
+    if user.role == 'admin':
+        queryset = User.objects.filter(role__in=['recruiter', 'team_lead', 'team_manager']).select_related('profile', 'recruiter_profile')
+    elif user.role == 'team_manager':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_manager', is_active=True
+        ).values_list('candidate_id', flat=True)
+        assigned_user_ids = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, is_active=True
+        ).exclude(recruiter=user).values_list('recruiter_id', flat=True)
+        queryset = User.objects.filter(
+            id__in=assigned_user_ids, role__in=['recruiter', 'team_lead']
+        ).select_related('profile', 'recruiter_profile')
+    elif user.role == 'team_lead':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_lead', is_active=True
+        ).values_list('candidate_id', flat=True)
+        assigned_user_ids = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, is_active=True
+        ).exclude(recruiter=user).values_list('recruiter_id', flat=True)
+        queryset = User.objects.filter(
+            id__in=assigned_user_ids, role='recruiter'
+        ).select_related('profile', 'recruiter_profile')
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+        
+    queryset = queryset.order_by('profile__full_name', 'email').distinct()
+    serializer = TeamMemberDetailSerializer(queryset, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAdminOrTeamLead])
+def my_team_detail(request, user_id):
+    from users.models import User
+    from recruiters.models import RecruiterAssignment
+    from django.shortcuts import get_object_or_404
+    
+    target_user = get_object_or_404(User, id=user_id)
+    user = request.user
+    
+    is_in_team = False
+    if user.role == 'admin':
+        is_in_team = target_user.role in ['recruiter', 'team_lead', 'team_manager']
+    elif user.role == 'team_manager':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_manager', is_active=True
+        ).values_list('candidate_id', flat=True)
+        is_in_team = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, recruiter=target_user, is_active=True
+        ).exists() and target_user.role in ['recruiter', 'team_lead']
+    elif user.role == 'team_lead':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_lead', is_active=True
+        ).values_list('candidate_id', flat=True)
+        is_in_team = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, recruiter=target_user, is_active=True
+        ).exists() and target_user.role == 'recruiter'
+        
+    if not is_in_team:
+        return Response({'error': 'Permission denied or user not in your team'}, status=403)
+        
+    if request.method == 'PATCH':
+        serializer = TeamMemberDetailSerializer(target_user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_action(user, 'team_member_profile_updated', str(target_user.id), 'user', serializer.data)
+        return Response(serializer.data)
+        
+    serializer = TeamMemberDetailSerializer(target_user)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrTeamLead])
+def my_team_assignments(request, user_id):
+    from users.models import User
+    from recruiters.models import RecruiterAssignment
+    from django.shortcuts import get_object_or_404
+    
+    target_user = get_object_or_404(User, id=user_id)
+    user = request.user
+    
+    is_in_team = False
+    candidate_ids = []
+    if user.role == 'admin':
+        is_in_team = target_user.role in ['recruiter', 'team_lead', 'team_manager']
+    elif user.role == 'team_manager':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_manager', is_active=True
+        ).values_list('candidate_id', flat=True)
+        is_in_team = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, recruiter=target_user, is_active=True
+        ).exists() and target_user.role in ['recruiter', 'team_lead']
+    elif user.role == 'team_lead':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_lead', is_active=True
+        ).values_list('candidate_id', flat=True)
+        is_in_team = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, recruiter=target_user, is_active=True
+        ).exists() and target_user.role == 'recruiter'
+        
+    if not is_in_team:
+        return Response({'error': 'Permission denied or user not in your team'}, status=403)
+        
+    if user.role == 'admin':
+        qs = RecruiterAssignment.objects.filter(recruiter=target_user, is_active=True)
+    else:
+        qs = RecruiterAssignment.objects.filter(
+            recruiter=target_user,
+            candidate_id__in=candidate_ids,
+            is_active=True
+        )
+    qs = qs.select_related('candidate__user__profile').order_by('-assigned_at')
+    
+    return Response(MyAssignmentSerializer(qs, many=True).data)
 
