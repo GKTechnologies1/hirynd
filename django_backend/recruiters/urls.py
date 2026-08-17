@@ -25,5 +25,6 @@ urlpatterns = [
     path('admin/profile/<uuid:user_id>/assignments/', views.admin_get_assignments, name='admin_get_assignments'),
     path('admin/productivity-report/', views.admin_productivity_report, name='admin_productivity_report'),
     path('bank-details/', views.bank_details, name='bank_details'),
+    path('public-job-alerts/filter-options/', views.public_job_alert_filter_options, name='public_job_alert_filter_options'),
     path('public-job-alerts/', views.public_job_alerts, name='public_job_alerts'),
 ]

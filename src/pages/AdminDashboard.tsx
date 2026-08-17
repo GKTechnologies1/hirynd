@@ -27,7 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star, PauseCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
@@ -223,7 +223,7 @@ const AdminDashboard = () => {
       { key: "credentials_submitted", label: "Credentials Ready", count: pipelineCounts["credentials_submitted"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "credentials_submitted", color: "bg-secondary/30" },
       { key: "active_marketing", label: "Active Marketing", count: pipelineCounts["active_marketing"] || 0, icon: <Activity className="h-4 w-4" />, filter: "active_marketing", color: "bg-secondary/40" },
       { key: "placed_closed", label: "Placed", count: pipelineCounts["placed_closed"] || 0, icon: <Users className="h-4 w-4" />, filter: "placed_closed", color: "bg-secondary text-secondary-foreground" },
-      { key: "billing_alerts", label: "Billing Alerts", count: billingAlerts, icon: <AlertTriangle className="h-4 w-4" />, link: "/admin-dashboard/billing-run", color: billingAlerts > 0 ? "bg-destructive/10 text-destructive" : "bg-muted" },
+      { key: "paused", label: "Paused", count: pipelineCounts["paused"] || 0, icon: <PauseCircle className="h-4 w-4" />, filter: "paused", color: "bg-amber-100 text-amber-800" },
       { key: "on_hold", label: "On Hold", count: pipelineCounts["on_hold"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "on_hold", color: "bg-accent/30" },
       { key: "past_due", label: "Past Due", count: pipelineCounts["past_due"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "past_due", color: "bg-destructive/10 text-destructive" },
     ];

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
@@ -63,6 +63,21 @@ const JobDescriptionCell = ({
   );
 };
 
+const formatSalaryDisplay = (rawSalary: any): string => {
+  if (!rawSalary) return "Not Disclosed";
+  const s = String(rawSalary).trim();
+  if (!s || s === "-" || s.toLowerCase() === "not disclosed" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") {
+    return "Not Disclosed";
+  }
+  // Strip all leading dollar signs, then add a single '$'
+  const cleaned = s.replace(/^\$+/, '').trim();
+  if (!cleaned) return "Not Disclosed";
+  if (/^[€£₹]/.test(cleaned)) {
+    return cleaned;
+  }
+  return `$${cleaned}`;
+};
+
 const JobCardItem = ({
   job,
   onReadMore,
@@ -81,7 +96,7 @@ const JobCardItem = ({
   const workType = job.work_mode || job.work_type || job.remote_type || "-";
   const employmentType = job.employment_type || job.job_type || "-";
   const expLevel = job.experience_required || job.experience_level || job.level || "-";
-  const salary = job.salary || job.salary_range || job.pay_range || "-";
+  const salary = formatSalaryDisplay(job.salary || job.salary_range || job.pay_range);
   const visaEligibility = job.visa_eligibility || null;
   const applicantsCount = job.applicants_count || "-";
 
@@ -436,9 +451,28 @@ export default function JobAlert() {
   const [toDate, setToDate] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
-  // Pagination states
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [totalUnfilteredJobs, setTotalUnfilteredJobs] = useState(0);
+
+  // Backend Filter Options
+  const [filterOptions, setFilterOptions] = useState<{
+    roles: string[];
+    locations: string[];
+    employment_types: string[];
+    work_modes: string[];
+    experience_levels: string[];
+    visa_eligibilities: string[];
+    total_count?: number;
+  }>({
+    roles: [],
+    locations: [],
+    employment_types: [],
+    work_modes: [],
+    experience_levels: [],
+    visa_eligibilities: [],
+  });
 
   // Multi-Select Filter states
   const [filterLocation, setFilterLocation] = useState<string[]>([]);
@@ -448,33 +482,96 @@ export default function JobAlert() {
   const [filterExp, setFilterExp] = useState<string[]>([]);
   const [filterVisa, setFilterVisa] = useState<string[]>([]);
   const [filterSalary, setFilterSalary] = useState<string[]>([]);
-  const [filterIndustry, setFilterIndustry] = useState<string[]>([]);
   const [filterDate, setFilterDate] = useState<string[]>([]);
-  const [filterHiddenJobs, setFilterHiddenJobs] = useState(false);
   const [sortOrder, setSortOrder] = useState("Newest First");
 
-  // Dynamic Locations extracted from job postings + popular defaults
-  const dynamicLocations = useMemo(() => {
-    const defaults = ["United States", "Canada", "United Kingdom", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA", "Los Angeles, CA", "Chicago, IL", "Boston, MA", "Atlanta, GA"];
-    const set = new Set<string>(defaults);
-    jobPostings.forEach((j) => {
-      if (j.country) set.add(j.country);
-      if (j.city) set.add(j.city);
-      if (j.location) set.add(j.location);
-    });
-    return Array.from(set).filter(Boolean);
-  }, [jobPostings]);
+  // Debounced search queries for smooth typing
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  const [debouncedSearchTitle, setDebouncedSearchTitle] = useState(searchTitle);
+  const [debouncedSearchCompany, setDebouncedSearchCompany] = useState(searchCompany);
+  const [debouncedSearchSkills, setDebouncedSearchSkills] = useState(searchSkills);
 
-  // Dynamic Job Roles extracted from job postings + popular defaults
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTitle(searchTitle), 300);
+    return () => clearTimeout(timer);
+  }, [searchTitle]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchCompany(searchCompany), 300);
+    return () => clearTimeout(timer);
+  }, [searchCompany]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchSkills(searchSkills), 300);
+    return () => clearTimeout(timer);
+  }, [searchSkills]);
+
+  // Load distinct filter options from backend
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const res = await recruitersApi.getJobAlertFilterOptions();
+        if (res.data) {
+          setFilterOptions(res.data);
+          if (typeof res.data.total_count === "number") {
+            setTotalUnfilteredJobs(res.data.total_count);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load filter options:", err);
+      }
+    };
+    loadFilterOptions();
+  }, []);
+
+  // Distinct locations from backend or fallback defaults
+  const dynamicLocations = useMemo(() => {
+    if (filterOptions.locations && filterOptions.locations.length > 0) {
+      return filterOptions.locations;
+    }
+    return ["United States", "Canada", "United Kingdom", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA", "Los Angeles, CA", "Chicago, IL", "Boston, MA", "Atlanta, GA"];
+  }, [filterOptions.locations]);
+
+  // Distinct roles from backend or fallback defaults
   const dynamicRoles = useMemo(() => {
-    const defaults = ["Python Engineer", "Software Engineer", "Frontend Engineer", "Backend Developer", "Full Stack Developer", "Data Scientist", "DevOps Engineer", "Product Manager", "AI / ML Engineer", "QA Engineer"];
-    const set = new Set<string>(defaults);
-    jobPostings.forEach((j) => {
-      const role = j.role_title || j.title || j.role;
-      if (role) set.add(role);
-    });
-    return Array.from(set).filter(Boolean);
-  }, [jobPostings]);
+    if (filterOptions.roles && filterOptions.roles.length > 0) {
+      return filterOptions.roles;
+    }
+    return ["Python Engineer", "Software Engineer", "Frontend Engineer", "Backend Developer", "Full Stack Developer", "Data Scientist", "DevOps Engineer", "Product Manager", "AI / ML Engineer", "QA Engineer"];
+  }, [filterOptions.roles]);
+
+  const dynamicEmploymentTypes = useMemo(() => {
+    if (filterOptions.employment_types && filterOptions.employment_types.length > 0) {
+      return filterOptions.employment_types;
+    }
+    return ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"];
+  }, [filterOptions.employment_types]);
+
+  const dynamicWorkModes = useMemo(() => {
+    if (filterOptions.work_modes && filterOptions.work_modes.length > 0) {
+      return filterOptions.work_modes;
+    }
+    return ["Onsite", "Hybrid", "Remote"];
+  }, [filterOptions.work_modes]);
+
+  const dynamicExperienceLevels = useMemo(() => {
+    if (filterOptions.experience_levels && filterOptions.experience_levels.length > 0) {
+      return filterOptions.experience_levels;
+    }
+    return ["Intern/New Grad", "0–2 Years", "2–5 Years", "5+ Years", "Senior Level", "Lead / Staff"];
+  }, [filterOptions.experience_levels]);
+
+  const dynamicVisaEligibilities = useMemo(() => {
+    if (filterOptions.visa_eligibilities && filterOptions.visa_eligibilities.length > 0) {
+      return filterOptions.visa_eligibilities;
+    }
+    return ["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"];
+  }, [filterOptions.visa_eligibilities]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -484,34 +581,71 @@ export default function JobAlert() {
     };
   }, []);
 
-  useEffect(() => {
-    const fetchAlerts = async () => {
-      setLoading(true);
-      try {
-        const res = await recruitersApi.getPublicJobAlerts();
-        setJobPostings(res.data || []);
-      } catch (err: any) {
-        console.error("Error fetching job openings:", err);
-        toast({
-          title: "Error loading job openings",
-          description: "Could not fetch job openings. Please try again later.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
+  // Fetch alerts from backend with pagination and filters
+  const fetchAlerts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, any> = {
+        page: currentPage,
+        page_size: pageSize,
+      };
+
+      if (debouncedSearchQuery.trim()) params.search = debouncedSearchQuery.trim();
+      if (debouncedSearchTitle.trim()) params.title = debouncedSearchTitle.trim();
+      if (debouncedSearchCompany.trim()) params.company = debouncedSearchCompany.trim();
+      if (debouncedSearchSkills.trim()) params.skills = debouncedSearchSkills.trim();
+      if (fromDate) params.from_date = fromDate;
+      if (toDate) params.to_date = toDate;
+      if (filterLocation.length > 0) params.location = filterLocation.join(",");
+      if (filterRole.length > 0) params.role = filterRole.join(",");
+      if (filterWorkMode.length > 0) params.work_mode = filterWorkMode.join(",");
+      if (filterType.length > 0) params.employment_type = filterType.join(",");
+      if (filterExp.length > 0) params.experience_required = filterExp.join(",");
+      if (filterVisa.length > 0) params.visa_eligibility = filterVisa.join(",");
+      if (filterDate.length > 0) params.date_preset = filterDate.join(",");
+      if (sortOrder === "Oldest First") params.ordering = "created_at";
+
+      const res = await recruitersApi.getPublicJobAlerts(params);
+      if (Array.isArray(res.data)) {
+        setJobPostings(res.data);
+        setTotalJobs(res.data.length);
+      } else if (res.data && Array.isArray(res.data.results)) {
+        setJobPostings(res.data.results);
+        setTotalJobs(typeof res.data.total === "number" ? res.data.total : res.data.results.length);
+        if (typeof res.data.unfiltered_total === "number") {
+          setTotalUnfilteredJobs(res.data.unfiltered_total);
+        }
+      } else {
+        setJobPostings([]);
+        setTotalJobs(0);
       }
-    };
+    } catch (err: any) {
+      console.error("Error fetching job openings:", err);
+      toast({
+        title: "Error loading job openings",
+        description: "Could not fetch job openings. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    currentPage, pageSize, debouncedSearchQuery, debouncedSearchTitle, debouncedSearchCompany,
+    debouncedSearchSkills, fromDate, toDate, filterLocation, filterRole, filterWorkMode,
+    filterType, filterExp, filterVisa, filterDate, sortOrder, toast
+  ]);
+
+  useEffect(() => {
     fetchAlerts();
-  }, [toast]);
+  }, [fetchAlerts]);
 
   // Reset pagination on filter change
   useEffect(() => {
     setCurrentPage(1);
   }, [
-    searchQuery, searchTitle, searchCompany, searchSkills, fromDate, toDate,
-    filterLocation, filterRole, filterWorkMode, filterType,
-    filterExp, filterVisa, filterSalary, filterIndustry,
-    filterDate, filterHiddenJobs, sortOrder, pageSize
+    debouncedSearchQuery, debouncedSearchTitle, debouncedSearchCompany, debouncedSearchSkills,
+    fromDate, toDate, filterLocation, filterRole, filterWorkMode, filterType,
+    filterExp, filterVisa, filterSalary, filterDate, sortOrder, pageSize
   ]);
 
   const activeFiltersCount = useMemo(() => {
@@ -529,15 +663,12 @@ export default function JobAlert() {
     if (filterExp.length > 0) count += filterExp.length;
     if (filterVisa.length > 0) count += filterVisa.length;
     if (filterSalary.length > 0) count += filterSalary.length;
-    if (filterIndustry.length > 0) count += filterIndustry.length;
     if (filterDate.length > 0) count += filterDate.length;
-    if (filterHiddenJobs) count++;
     return count;
   }, [
     searchQuery, searchTitle, searchCompany, searchSkills, fromDate, toDate,
     filterLocation, filterRole, filterWorkMode, filterType,
-    filterExp, filterVisa, filterSalary, filterIndustry,
-    filterDate, filterHiddenJobs
+    filterExp, filterVisa, filterSalary, filterDate
   ]);
 
   const handleResetFilters = () => {
@@ -554,244 +685,14 @@ export default function JobAlert() {
     setFilterExp([]);
     setFilterVisa([]);
     setFilterSalary([]);
-    setFilterIndustry([]);
     setFilterDate([]);
-    setFilterHiddenJobs(false);
     setSortOrder("Newest First");
     setCurrentPage(1);
     toast({ title: "Filters Reset", description: "All search and date filters have been cleared." });
   };
 
-  const getJobTimestamp = (job: any): number | null => {
-    const raw = job.log_date || job.created_at || job.createdAt || job.date_posted || job.posted_date || job.date || job.posting_date || job.submitted_at;
-    if (!raw) return null;
-    let d: Date;
-    if (typeof raw === "string" && raw.includes("-")) {
-      const clean = raw.split("T")[0];
-      const parts = clean.split("-").map(n => parseInt(n, 10));
-      if (parts[0] > 1000) {
-        d = new Date(parts[0], parts[1] - 1, parts[2]);
-      } else {
-        d = new Date(parts[2], parts[0] - 1, parts[1]);
-      }
-    } else {
-      d = new Date(raw);
-    }
-    if (isNaN(d.getTime())) return null;
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  };
-
-  const getFilterTimestamp = (dateStr: string, isEndOfDay = false): number | null => {
-    if (!dateStr || !dateStr.trim()) return null;
-    const s = dateStr.trim();
-    let y: number, m: number, d: number;
-    if (s.includes("-")) {
-      const parts = s.split("-").map((n) => parseInt(n, 10));
-      if (parts[0] > 1000) {
-        [y, m, d] = parts;
-      } else {
-        [m, d, y] = parts;
-      }
-    } else if (s.includes("/")) {
-      const parts = s.split("/").map((n) => parseInt(n, 10));
-      if (parts[0] > 1000) {
-        [y, m, d] = parts;
-      } else {
-        [m, d, y] = parts;
-      }
-    } else {
-      const dt = new Date(s);
-      if (isNaN(dt.getTime())) return null;
-      y = dt.getFullYear();
-      m = dt.getMonth() + 1;
-      d = dt.getDate();
-    }
-    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
-    const dt = new Date(y, m - 1, d, isEndOfDay ? 23 : 0, isEndOfDay ? 59 : 0, isEndOfDay ? 59 : 0, isEndOfDay ? 999 : 0);
-    return dt.getTime();
-  };
-
-  const filteredJobs = useMemo(() => {
-    let result = jobPostings.filter((job) => {
-      // From Date & To Date Filter
-      if (fromDate || toDate) {
-        const jobTs = getJobTimestamp(job);
-        if (!jobTs) return false;
-
-        if (fromDate) {
-          const fromTs = getFilterTimestamp(fromDate, false);
-          if (fromTs && jobTs < fromTs) return false;
-        }
-
-        if (toDate) {
-          const toTs = getFilterTimestamp(toDate, true);
-          if (toTs && jobTs > toTs) return false;
-        }
-      }
-
-      // 1. Job Title Text Input Filter
-      if (searchTitle.trim()) {
-        const q = searchTitle.toLowerCase().trim();
-        const roleStr = (job.role_title || job.title || job.role || "").toLowerCase();
-        if (!roleStr.includes(q)) return false;
-      }
-
-      // 2. Company Text Input Filter
-      if (searchCompany.trim()) {
-        const q = searchCompany.toLowerCase().trim();
-        const companyStr = (job.company_name || job.company || "").toLowerCase();
-        if (!companyStr.includes(q)) return false;
-      }
-
-      // 3. Global Search Query Filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchTitle = (job.role_title && job.role_title.toLowerCase().includes(q)) ||
-          (job.title && job.title.toLowerCase().includes(q)) ||
-          (job.role && job.role.toLowerCase().includes(q));
-
-        const matchCompany = (job.company_name && job.company_name.toLowerCase().includes(q)) ||
-          (job.company && job.company.toLowerCase().includes(q));
-
-        let matchSkill = false;
-        if (job.skills) {
-          if (Array.isArray(job.skills)) {
-            matchSkill = job.skills.some((s: any) => String(s).toLowerCase().includes(q));
-          } else if (typeof job.skills === "string") {
-            matchSkill = job.skills.toLowerCase().includes(q);
-          }
-        }
-
-        const matchKeyword = (job.job_description && job.job_description.toLowerCase().includes(q)) ||
-          Object.values(job).some((val) => typeof val === "string" && val.toLowerCase().includes(q));
-
-        if (!(matchTitle || matchCompany || matchSkill || matchKeyword)) return false;
-      }
-
-      // 4. Location Multi-Select Filter
-      if (filterLocation.length > 0) {
-        const locParts = [job.city, job.state, job.country, job.location].filter(Boolean).join(" ").toLowerCase();
-        const match = filterLocation.some((loc) => locParts.includes(loc.toLowerCase()));
-        if (!match) return false;
-      }
-
-      // 5. Job Title Multi-Select Filter
-      if (filterRole.length > 0) {
-        const roleStr = (job.role_title || job.title || job.role || "").toLowerCase();
-        const match = filterRole.some((r) => roleStr.includes(r.toLowerCase()));
-        if (!match) return false;
-      }
-
-      // 6. Work Mode Multi-Select Filter
-      if (filterWorkMode.length > 0) {
-        const workStr = (job.work_mode || job.work_type || job.remote_type || "").toLowerCase();
-        const match = filterWorkMode.some((wm) => workStr.includes(wm.toLowerCase()));
-        if (!match) return false;
-      }
-
-      // 7. Employment Type Multi-Select Filter
-      if (filterType.length > 0) {
-        const typeStr = (job.employment_type || job.job_type || "").toLowerCase();
-        const match = filterType.some((t) => typeStr.includes(t.toLowerCase()));
-        if (!match) return false;
-      }
-
-      // 8. Experience Level Multi-Select Filter
-      if (filterExp.length > 0) {
-        const expStr = (job.experience_required || job.experience_level || job.level || "").toLowerCase();
-        const match = filterExp.some((e) => expStr.includes(e.toLowerCase()));
-        if (!match) return false;
-      }
-
-      // 9. Visa Type Multi-Select Filter
-      if (filterVisa.length > 0) {
-        const visaStr = (job.visa_eligibility || "").toLowerCase();
-        const match = filterVisa.some((v) => visaStr.includes(v.toLowerCase()));
-        if (!match) return false;
-      }
-
-      // 10. Salary Multi-Select Filter
-      if (filterSalary.length > 0) {
-        if (filterSalary.includes("Disclosed Only")) {
-          const sal = (job.salary || "").trim();
-          if (!sal || sal === "Not Disclosed" || sal === "-") return false;
-        }
-      }
-
-      // 11. Industry Multi-Select Filter
-      if (filterIndustry.length > 0) {
-        const indStr = (job.industry || job.company_tagline || "").toLowerCase();
-        const match = filterIndustry.some((ind) => indStr.includes(ind.toLowerCase()));
-        if (!match) return false;
-      }
-
-      // 12. Skills Text Input Filter
-      if (searchSkills.trim()) {
-        const q = searchSkills.toLowerCase().trim();
-        let match = false;
-        if (job.skills) {
-          if (Array.isArray(job.skills)) {
-            match = job.skills.some((s: any) => String(s).toLowerCase().includes(q));
-          } else if (typeof job.skills === "string") {
-            match = job.skills.toLowerCase().includes(q);
-          }
-        }
-        if (!match && job.job_description) {
-          match = job.job_description.toLowerCase().includes(q);
-        }
-        if (!match) return false;
-      }
-
-      // 13. Date Posted Multi-Select Filter
-      if (filterDate.length > 0) {
-        const jobTs = getJobTimestamp(job);
-        if (jobTs) {
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor((now.getTime() - jobTs) / (1000 * 3600 * 24));
-
-          const matchDate = filterDate.some((dVal) => {
-            if (dVal === "Posted Today") return diffDays === 0;
-            if (dVal === "Past 3 Days") return diffDays <= 3;
-            if (dVal === "Past Week") return diffDays <= 7;
-            if (dVal === "Past Month") return diffDays <= 30;
-            return true;
-          });
-          if (!matchDate) return false;
-        }
-      }
-
-      // 14. Hidden Jobs Filter
-      if (filterHiddenJobs) {
-        if (!job.is_hidden && job.status !== "hidden") return false;
-      }
-
-      return true;
-    });
-
-    // Sort Order
-    result.sort((a, b) => {
-      const dateA = new Date(a.log_date || a.created_at || a.createdAt || 0).getTime();
-      const dateB = new Date(b.log_date || b.created_at || b.createdAt || 0).getTime();
-      if (sortOrder === "Oldest First") {
-        return dateA - dateB;
-      }
-      return dateB - dateA; // Newest First
-    });
-
-    return result;
-  }, [
-    jobPostings, searchTitle, searchCompany, searchQuery, fromDate, toDate, filterLocation,
-    filterRole, filterWorkMode, filterType, filterExp, filterVisa,
-    filterSalary, filterIndustry, searchSkills, filterDate, filterHiddenJobs, sortOrder
-  ]);
-
-  const totalPages = Math.ceil(filteredJobs.length / pageSize) || 1;
-  const paginatedJobs = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredJobs.slice(start, start + pageSize);
-  }, [filteredJobs, currentPage, pageSize]);
+  const totalPages = Math.max(1, Math.ceil(totalJobs / pageSize));
+  const paginatedJobs = jobPostings;
 
   const handleOpenDescription = (jobOrCompany: any, role?: string, description?: string) => {
     if (typeof jobOrCompany === "string") {
@@ -815,7 +716,7 @@ export default function JobAlert() {
         experience_required: j.experience_required || j.experience_level,
         work_mode: j.work_mode || j.work_type || j.remote_type,
         location: locationParts || j.location,
-        salary: j.salary || j.salary_range || "Not Disclosed",
+        salary: formatSalaryDisplay(j.salary || j.salary_range || j.pay_range),
         visa_eligibility: j.visa_eligibility,
         skills: skillsStr,
         job_url: j.job_url,
@@ -1106,7 +1007,7 @@ export default function JobAlert() {
                   label="Experience"
                   categoryTitle="Experience Required"
                   icon={<Award className="h-3 w-3 text-[#0d47a1]" />}
-                  options={["Intern/New Grad", "0–2 Years", "2–5 Years", "5+ Years", "Senior Level", "Lead / Staff"]}
+                  options={dynamicExperienceLevels}
                   selected={filterExp}
                   onChange={setFilterExp}
                   searchPlaceholder="Search experience..."
@@ -1117,7 +1018,7 @@ export default function JobAlert() {
                   label="Employment Type"
                   categoryTitle="Employment Type"
                   icon={<Briefcase className="h-3 w-3 text-[#0d47a1]" />}
-                  options={["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"]}
+                  options={dynamicEmploymentTypes}
                   selected={filterType}
                   onChange={setFilterType}
                   searchPlaceholder="Search type..."
@@ -1128,7 +1029,7 @@ export default function JobAlert() {
                   label="Work Mode"
                   categoryTitle="Work Mode"
                   icon={<Home className="h-3 w-3 text-[#0d47a1]" />}
-                  options={["Onsite", "Hybrid", "Remote"]}
+                  options={dynamicWorkModes}
                   selected={filterWorkMode}
                   onChange={setFilterWorkMode}
                   searchPlaceholder="Search work mode..."
@@ -1139,7 +1040,7 @@ export default function JobAlert() {
                   label="Visa Type"
                   categoryTitle="Visa Eligibility"
                   icon={<Sparkles className="h-3 w-3 text-[#0d47a1]" />}
-                  options={["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"]}
+                  options={dynamicVisaEligibilities}
                   selected={filterVisa}
                   onChange={setFilterVisa}
                   searchPlaceholder="Search visa..."
@@ -1156,18 +1057,7 @@ export default function JobAlert() {
                   searchPlaceholder="Search salary..."
                 />
 
-                {/* 8. Industry Multi-Select Dropdown */}
-                <MultiSelectFilterPopover
-                  label="Industry"
-                  categoryTitle="Industry Sector"
-                  icon={<Globe className="h-3 w-3 text-[#0d47a1]" />}
-                  options={["Technology", "Healthcare", "Finance", "Cybersecurity", "Education", "E-commerce"]}
-                  selected={filterIndustry}
-                  onChange={setFilterIndustry}
-                  searchPlaceholder="Search industry..."
-                />
-
-                {/* 9. Date Posted Multi-Select Dropdown */}
+                {/* 8. Date Posted Multi-Select Dropdown */}
                 <MultiSelectFilterPopover
                   label="Date Posted"
                   categoryTitle="Timeframe"
@@ -1178,19 +1068,7 @@ export default function JobAlert() {
                   searchPlaceholder="Search timeframe..."
                 />
 
-                {/* 10. Hidden Jobs Toggle Pill */}
-                <button
-                  onClick={() => setFilterHiddenJobs(!filterHiddenJobs)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${filterHiddenJobs
-                    ? "bg-[#0d47a1] text-white border-blue-700 font-extrabold shadow-xs"
-                    : "bg-blue-50/80 hover:bg-blue-100 text-[#0d47a1] border-blue-200/80 font-semibold"
-                    }`}
-                >
-                  <Lock className="h-3 w-3" />
-                  Hidden Jobs
-                </button>
-
-                {/* 11. Sort Order Dropdown */}
+                {/* 10. Sort Order Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold bg-white text-slate-800 border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs">
@@ -1212,7 +1090,7 @@ export default function JobAlert() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* 12. Reset Filters Button */}
+                {/* 11. Reset Filters Button */}
                 <button
                   onClick={handleResetFilters}
                   className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-[#0d47a1] hover:bg-[#1565c0] text-white font-bold transition-all whitespace-nowrap cursor-pointer text-xs shadow-xs"
@@ -1229,7 +1107,7 @@ export default function JobAlert() {
             <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-2.5 md:px-5 md:py-3 flex flex-row items-center justify-between gap-3 flex-wrap">
               <CardTitle className="flex items-center gap-2 text-base md:text-lg font-bold text-slate-800">
                 <Globe className="h-4.5 w-4.5 text-primary" />
-                All Available Job Openings ({filteredJobs.length})
+                All Available Job Openings ({activeFiltersCount > 0 ? `${totalJobs} of ${totalUnfilteredJobs}` : (totalUnfilteredJobs || totalJobs)})
               </CardTitle>
 
               {/* View Mode Switcher */}
@@ -1289,7 +1167,7 @@ export default function JobAlert() {
                       </div>
                     ))}
                   </div>
-                ) : filteredJobs.length === 0 ? (
+                ) : jobPostings.length === 0 ? (
                   /* Empty Search State */
                   <div className="text-center py-12 space-y-4">
                     <Search className="h-10 w-10 text-slate-300 mx-auto" />
@@ -1322,7 +1200,10 @@ export default function JobAlert() {
                         <span>Show</span>
                         <select
                           value={pageSize}
-                          onChange={(e) => setPageSize(Number(e.target.value))}
+                          onChange={(e) => {
+                            setPageSize(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
                           className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-bold text-slate-800 cursor-pointer focus:ring-2 focus:ring-primary"
                         >
                           <option value={10}>10</option>
@@ -1357,10 +1238,17 @@ export default function JobAlert() {
                 )
               ) : (
                 <DataTable
-                  data={filteredJobs}
+                  data={jobPostings}
                   isLoading={loading}
                   emptyMessage="No jobs matched your search."
                   pageSize={pageSize}
+                  serverPagination={{
+                    page: currentPage,
+                    pageSize: pageSize,
+                    totalCount: totalJobs,
+                    onPageChange: (p) => setCurrentPage(p),
+                    onPageSizeChange: (s) => setPageSize(s),
+                  }}
                   columns={[
                     {
                       header: "Company Name",
@@ -1433,7 +1321,7 @@ export default function JobAlert() {
                       accessorKey: "salary",
                       sortable: true,
                       className: "py-4 text-xs font-bold text-slate-800",
-                      render: (job: any) => job.salary || "Not Disclosed"
+                      render: (job: any) => formatSalaryDisplay(job.salary || job.salary_range || job.pay_range)
                     },
                     {
                       header: "Visa Eligibility",

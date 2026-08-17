@@ -72,6 +72,21 @@ const JobDescriptionCell = ({
 };
 
 // ── Job Card Component with Edit, Mark Expired, Reject, and Delete Action Controls ──
+const formatSalaryDisplay = (rawSalary: any): string => {
+  if (!rawSalary) return "Not Disclosed";
+  const s = String(rawSalary).trim();
+  if (!s || s === "-" || s.toLowerCase() === "not disclosed" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") {
+    return "Not Disclosed";
+  }
+  // Strip all leading dollar signs, then add a single '$'
+  const cleaned = s.replace(/^\$+/, '').trim();
+  if (!cleaned) return "Not Disclosed";
+  if (/^[€£₹]/.test(cleaned)) {
+    return cleaned;
+  }
+  return `$${cleaned}`;
+};
+
 const JobCardItem = ({
   job,
   onReadMore,
@@ -99,7 +114,7 @@ const JobCardItem = ({
   const workType = job.work_mode || job.work_type || job.remote_type || "-";
   const employmentType = job.employment_type || job.job_type || "-";
   const expLevel = job.experience_required || job.experience_level || job.level || "-";
-  const salary = job.salary || job.salary_range || job.pay_range || "-";
+  const salary = formatSalaryDisplay(job.salary || job.salary_range || job.pay_range);
   const visaEligibility = job.visa_eligibility || null;
   const applicantsCount = job.applicants_count || "-";
 
@@ -494,6 +509,26 @@ const AdminJobBoard = () => {
   // Pagination states
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [totalUnfilteredJobs, setTotalUnfilteredJobs] = useState(0);
+
+  // Backend Filter Options
+  const [filterOptions, setFilterOptions] = useState<{
+    roles: string[];
+    locations: string[];
+    employment_types: string[];
+    work_modes: string[];
+    experience_levels: string[];
+    visa_eligibilities: string[];
+    total_count?: number;
+  }>({
+    roles: [],
+    locations: [],
+    employment_types: [],
+    work_modes: [],
+    experience_levels: [],
+    visa_eligibilities: [],
+  });
 
   // Multi-select Filter states
   const [filterLocation, setFilterLocation] = useState<string[]>([]);
@@ -503,32 +538,95 @@ const AdminJobBoard = () => {
   const [filterExp, setFilterExp] = useState<string[]>([]);
   const [filterVisa, setFilterVisa] = useState<string[]>([]);
   const [filterSalary, setFilterSalary] = useState<string[]>([]);
-  const [filterIndustry, setFilterIndustry] = useState<string[]>([]);
   const [filterDate, setFilterDate] = useState<string[]>([]);
-  const [filterHiddenJobs, setFilterHiddenJobs] = useState(false);
   const [sortOrder, setSortOrder] = useState("Newest First");
 
-  // Dynamic Options derived from API data
+  // Debounced search queries
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  const [debouncedSearchTitle, setDebouncedSearchTitle] = useState(searchTitle);
+  const [debouncedSearchCompany, setDebouncedSearchCompany] = useState(searchCompany);
+  const [debouncedSearchSkills, setDebouncedSearchSkills] = useState(searchSkills);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTitle(searchTitle), 300);
+    return () => clearTimeout(timer);
+  }, [searchTitle]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchCompany(searchCompany), 300);
+    return () => clearTimeout(timer);
+  }, [searchCompany]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchSkills(searchSkills), 300);
+    return () => clearTimeout(timer);
+  }, [searchSkills]);
+
+  // Load distinct filter options from backend
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const res = await recruitersApi.getJobAlertFilterOptions();
+        if (res.data) {
+          setFilterOptions(res.data);
+          if (typeof res.data.total_count === "number") {
+            setTotalUnfilteredJobs(res.data.total_count);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load filter options in Admin Job Board:", err);
+      }
+    };
+    loadFilterOptions();
+  }, []);
+
+  // Dynamic Options derived from backend API data + defaults
   const dynamicLocations = useMemo(() => {
-    const locSet = new Set<string>();
-    jobPostings.forEach((j) => {
-      const parts = [j.city, j.state, j.country].filter(Boolean).join(", ");
-      if (parts) locSet.add(parts);
-      if (j.location) locSet.add(j.location);
-    });
-    const list = Array.from(locSet).filter(Boolean).sort();
-    return list.length > 0 ? list : ["United States", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA"];
-  }, [jobPostings]);
+    if (filterOptions.locations && filterOptions.locations.length > 0) {
+      return filterOptions.locations;
+    }
+    return ["United States", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA"];
+  }, [filterOptions.locations]);
 
   const dynamicRoles = useMemo(() => {
-    const roleSet = new Set<string>();
-    jobPostings.forEach((j) => {
-      const r = j.role_title || j.title || j.role;
-      if (r) roleSet.add(r);
-    });
-    const list = Array.from(roleSet).filter(Boolean).sort();
-    return list.length > 0 ? list : ["Software Engineer", "Frontend Engineer", "Backend Developer", "Full Stack Developer", "Data Scientist", "DevOps Engineer", "Product Manager"];
-  }, [jobPostings]);
+    if (filterOptions.roles && filterOptions.roles.length > 0) {
+      return filterOptions.roles;
+    }
+    return ["Software Engineer", "Frontend Engineer", "Backend Developer", "Full Stack Developer", "Data Scientist", "DevOps Engineer", "Product Manager"];
+  }, [filterOptions.roles]);
+
+  const dynamicEmploymentTypes = useMemo(() => {
+    if (filterOptions.employment_types && filterOptions.employment_types.length > 0) {
+      return filterOptions.employment_types;
+    }
+    return ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"];
+  }, [filterOptions.employment_types]);
+
+  const dynamicWorkModes = useMemo(() => {
+    if (filterOptions.work_modes && filterOptions.work_modes.length > 0) {
+      return filterOptions.work_modes;
+    }
+    return ["Onsite", "Hybrid", "Remote"];
+  }, [filterOptions.work_modes]);
+
+  const dynamicExperienceLevels = useMemo(() => {
+    if (filterOptions.experience_levels && filterOptions.experience_levels.length > 0) {
+      return filterOptions.experience_levels;
+    }
+    return ["Intern/New Grad", "0–2 Years", "2–5 Years", "5+ Years", "Senior Level", "Lead / Staff"];
+  }, [filterOptions.experience_levels]);
+
+  const dynamicVisaEligibilities = useMemo(() => {
+    if (filterOptions.visa_eligibilities && filterOptions.visa_eligibilities.length > 0) {
+      return filterOptions.visa_eligibilities;
+    }
+    return ["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"];
+  }, [filterOptions.visa_eligibilities]);
 
   // Admin Modal States
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
@@ -542,11 +640,46 @@ const AdminJobBoard = () => {
   const fetchAlerts = useCallback(async () => {
     setLoading(true);
     try {
+      const params: Record<string, any> = {
+        page: currentPage,
+        page_size: pageSize,
+      };
+
+      if (debouncedSearchQuery.trim()) params.search = debouncedSearchQuery.trim();
+      if (debouncedSearchTitle.trim()) params.title = debouncedSearchTitle.trim();
+      if (debouncedSearchCompany.trim()) params.company = debouncedSearchCompany.trim();
+      if (debouncedSearchSkills.trim()) params.skills = debouncedSearchSkills.trim();
+      if (fromDate) params.from_date = fromDate;
+      if (toDate) params.to_date = toDate;
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (filterLocation.length > 0) params.location = filterLocation.join(",");
+      if (filterRole.length > 0) params.role = filterRole.join(",");
+      if (filterWorkMode.length > 0) params.work_mode = filterWorkMode.join(",");
+      if (filterType.length > 0) params.employment_type = filterType.join(",");
+      if (filterExp.length > 0) params.experience_required = filterExp.join(",");
+      if (filterVisa.length > 0) params.visa_eligibility = filterVisa.join(",");
+      if (filterDate.length > 0) params.date_preset = filterDate.join(",");
+      if (sortOrder === "Oldest First") params.ordering = "created_at";
+
       const [res, subRes] = await Promise.all([
-        recruitersApi.getPublicJobAlerts(),
+        recruitersApi.getPublicJobAlerts(params),
         jobsApi.listSubmissions().catch(() => ({ data: { results: [] } })),
       ]);
-      setJobPostings(res.data || []);
+
+      if (Array.isArray(res.data)) {
+        setJobPostings(res.data);
+        setTotalJobs(res.data.length);
+      } else if (res.data && Array.isArray(res.data.results)) {
+        setJobPostings(res.data.results);
+        setTotalJobs(typeof res.data.total === "number" ? res.data.total : res.data.results.length);
+        if (typeof res.data.unfiltered_total === "number") {
+          setTotalUnfilteredJobs(res.data.unfiltered_total);
+        }
+      } else {
+        setJobPostings([]);
+        setTotalJobs(0);
+      }
+
       setSubmissions(subRes.data?.results || []);
     } catch (err: any) {
       console.error("Error fetching job openings:", err);
@@ -558,7 +691,11 @@ const AdminJobBoard = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [
+    currentPage, pageSize, debouncedSearchQuery, debouncedSearchTitle, debouncedSearchCompany,
+    debouncedSearchSkills, fromDate, toDate, statusFilter, filterLocation, filterRole,
+    filterWorkMode, filterType, filterExp, filterVisa, filterDate, sortOrder, toast
+  ]);
 
   useEffect(() => {
     fetchAlerts();
@@ -566,7 +703,12 @@ const AdminJobBoard = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, searchTitle, searchCompany, searchSkills, fromDate, toDate, statusFilter, filterLocation, filterRole, filterWorkMode, filterType, filterExp, filterVisa, filterSalary, filterIndustry, filterDate, filterHiddenJobs, sortOrder, pageSize]);
+  }, [
+    debouncedSearchQuery, debouncedSearchTitle, debouncedSearchCompany, debouncedSearchSkills,
+    fromDate, toDate, statusFilter, filterLocation, filterRole, filterWorkMode,
+    filterType, filterExp, filterVisa, filterSalary, filterDate,
+    sortOrder, pageSize
+  ]);
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -584,14 +726,12 @@ const AdminJobBoard = () => {
     if (filterExp.length > 0) count += filterExp.length;
     if (filterVisa.length > 0) count += filterVisa.length;
     if (filterSalary.length > 0) count += filterSalary.length;
-    if (filterIndustry.length > 0) count += filterIndustry.length;
     if (filterDate.length > 0) count += filterDate.length;
-    if (filterHiddenJobs) count++;
     return count;
   }, [
     searchQuery, searchTitle, searchCompany, searchSkills, fromDate, toDate, statusFilter,
     filterLocation, filterRole, filterWorkMode, filterType, filterExp,
-    filterVisa, filterSalary, filterIndustry, filterDate, filterHiddenJobs
+    filterVisa, filterSalary, filterDate
   ]);
 
   const handleResetFilters = () => {
@@ -609,235 +749,11 @@ const AdminJobBoard = () => {
     setFilterExp([]);
     setFilterVisa([]);
     setFilterSalary([]);
-    setFilterIndustry([]);
     setFilterDate([]);
-    setFilterHiddenJobs(false);
     setSortOrder("Newest First");
     setCurrentPage(1);
     toast({ title: "Filters Reset", description: "All search and date filters have been cleared." });
   };
-
-  const getJobTimestamp = (job: any): number | null => {
-    const raw = job.log_date || job.created_at || job.createdAt || job.date_posted || job.posted_date || job.date || job.posting_date || job.submitted_at;
-    if (!raw) return null;
-    let d: Date;
-    if (typeof raw === "string" && raw.includes("-")) {
-      const clean = raw.split("T")[0];
-      const parts = clean.split("-").map(n => parseInt(n, 10));
-      if (parts[0] > 1000) {
-        d = new Date(parts[0], parts[1] - 1, parts[2]);
-      } else {
-        d = new Date(parts[2], parts[0] - 1, parts[1]);
-      }
-    } else {
-      d = new Date(raw);
-    }
-    if (isNaN(d.getTime())) return null;
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  };
-
-  const getFilterTimestamp = (dateStr: string, isEndOfDay = false): number | null => {
-    if (!dateStr || !dateStr.trim()) return null;
-    const s = dateStr.trim();
-    let y: number, m: number, d: number;
-    if (s.includes("-")) {
-      const parts = s.split("-").map((n) => parseInt(n, 10));
-      if (parts[0] > 1000) {
-        [y, m, d] = parts;
-      } else {
-        [m, d, y] = parts;
-      }
-    } else if (s.includes("/")) {
-      const parts = s.split("/").map((n) => parseInt(n, 10));
-      if (parts[0] > 1000) {
-        [y, m, d] = parts;
-      } else {
-        [m, d, y] = parts;
-      }
-    } else {
-      const dt = new Date(s);
-      if (isNaN(dt.getTime())) return null;
-      y = dt.getFullYear();
-      m = dt.getMonth() + 1;
-      d = dt.getDate();
-    }
-    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
-    const dt = new Date(y, m - 1, d, isEndOfDay ? 23 : 0, isEndOfDay ? 59 : 0, isEndOfDay ? 59 : 0, isEndOfDay ? 999 : 0);
-    return dt.getTime();
-  };
-
-  const filteredJobs = useMemo(() => {
-    let result = jobPostings.filter((job) => {
-      // From Date & To Date Filter
-      if (fromDate || toDate) {
-        const jobTs = getJobTimestamp(job);
-        if (!jobTs) return false;
-
-        if (fromDate) {
-          const fromTs = getFilterTimestamp(fromDate, false);
-          if (fromTs && jobTs < fromTs) return false;
-        }
-
-        if (toDate) {
-          const toTs = getFilterTimestamp(toDate, true);
-          if (toTs && jobTs > toTs) return false;
-        }
-      }
-      // Status Filter
-      if (statusFilter !== "all") {
-        const appStatus = (job.application_status || job.status || "").toLowerCase();
-        if (statusFilter === "applied" && appStatus && appStatus !== "applied" && appStatus !== "open") return false;
-        if (statusFilter === "rejected" && appStatus !== "rejected") return false;
-        if (statusFilter === "expired" && appStatus !== "expired") return false;
-        if (statusFilter === "closed" && appStatus !== "closed") return false;
-      }
-
-      if (searchTitle.trim()) {
-        const q = searchTitle.toLowerCase().trim();
-        const roleStr = (job.role_title || job.title || job.role || "").toLowerCase();
-        if (!roleStr.includes(q)) return false;
-      }
-
-      if (searchCompany.trim()) {
-        const q = searchCompany.toLowerCase().trim();
-        const companyStr = (job.company_name || job.company || "").toLowerCase();
-        if (!companyStr.includes(q)) return false;
-      }
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchTitle = (job.role_title && job.role_title.toLowerCase().includes(q)) ||
-          (job.title && job.title.toLowerCase().includes(q)) ||
-          (job.role && job.role.toLowerCase().includes(q));
-
-        const matchCompany = (job.company_name && job.company_name.toLowerCase().includes(q)) ||
-          (job.company && job.company.toLowerCase().includes(q));
-
-        let matchSkill = false;
-        if (job.skills) {
-          if (Array.isArray(job.skills)) {
-            matchSkill = job.skills.some((s: any) => String(s).toLowerCase().includes(q));
-          } else if (typeof job.skills === "string") {
-            matchSkill = job.skills.toLowerCase().includes(q);
-          }
-        }
-
-        const matchKeyword = (job.job_description && job.job_description.toLowerCase().includes(q)) ||
-          Object.values(job).some((val) => typeof val === "string" && val.toLowerCase().includes(q));
-
-        if (!(matchTitle || matchCompany || matchSkill || matchKeyword)) return false;
-      }
-
-      if (filterLocation.length > 0) {
-        const locParts = [job.city, job.state, job.country, job.location].filter(Boolean).join(" ").toLowerCase();
-        const match = filterLocation.some((loc) => locParts.includes(loc.toLowerCase()));
-        if (!match) return false;
-      }
-
-      if (filterRole.length > 0) {
-        const roleStr = (job.role_title || job.title || job.role || "").toLowerCase();
-        const match = filterRole.some((r) => roleStr.includes(r.toLowerCase()));
-        if (!match) return false;
-      }
-
-      if (filterWorkMode.length > 0) {
-        const workStr = (job.work_mode || job.work_type || job.remote_type || "").toLowerCase();
-        const match = filterWorkMode.some((wm) => workStr.includes(wm.toLowerCase()));
-        if (!match) return false;
-      }
-
-      if (filterType.length > 0) {
-        const typeStr = (job.employment_type || job.job_type || "").toLowerCase();
-        const match = filterType.some((t) => typeStr.includes(t.toLowerCase()));
-        if (!match) return false;
-      }
-
-      if (filterExp.length > 0) {
-        const expStr = (job.experience_required || job.experience_level || job.level || "").toLowerCase();
-        const match = filterExp.some((e) => expStr.includes(e.toLowerCase()));
-        if (!match) return false;
-      }
-
-      if (filterVisa.length > 0) {
-        const visaStr = (job.visa_eligibility || "").toLowerCase();
-        const match = filterVisa.some((v) => visaStr.includes(v.toLowerCase()));
-        if (!match) return false;
-      }
-
-      if (filterSalary.length > 0) {
-        const salStr = (job.salary || job.salary_range || "").toLowerCase();
-        const match = filterSalary.some((s) => {
-          if (s === "Disclosed Only") {
-            return salStr && salStr !== "not disclosed" && salStr !== "-";
-          }
-          return salStr.includes(s.toLowerCase());
-        });
-        if (!match) return false;
-      }
-
-      if (filterIndustry.length > 0) {
-        const indStr = (job.industry || job.company_tagline || "").toLowerCase();
-        const match = filterIndustry.some((ind) => indStr.includes(ind.toLowerCase()));
-        if (!match) return false;
-      }
-
-      if (searchSkills.trim()) {
-        const q = searchSkills.toLowerCase().trim();
-        let match = false;
-        if (job.skills) {
-          if (Array.isArray(job.skills)) {
-            match = job.skills.some((s: any) => String(s).toLowerCase().includes(q));
-          } else if (typeof job.skills === "string") {
-            match = job.skills.toLowerCase().includes(q);
-          }
-        }
-        if (!match && job.job_description) {
-          match = job.job_description.toLowerCase().includes(q);
-        }
-        if (!match) return false;
-      }
-
-      if (filterDate.length > 0) {
-        const jobTs = getJobTimestamp(job);
-        if (jobTs) {
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor((now.getTime() - jobTs) / (1000 * 3600 * 24));
-
-          const match = filterDate.some((df) => {
-            if (df === "Posted Today" && diffDays === 0) return true;
-            if (df === "Past 3 Days" && diffDays <= 3) return true;
-            if (df === "Past Week" && diffDays <= 7) return true;
-            if (df === "Past Month" && diffDays <= 30) return true;
-            return false;
-          });
-          if (!match) return false;
-        }
-      }
-
-      if (filterHiddenJobs && !job.is_hidden && job.is_public !== false) {
-        return false;
-      }
-
-      return true;
-    });
-
-    result.sort((a, b) => {
-      const dateA = new Date(a.log_date || a.created_at || a.createdAt || 0).getTime();
-      const dateB = new Date(b.log_date || b.created_at || b.createdAt || 0).getTime();
-      if (sortOrder === "Oldest First") {
-        return dateA - dateB;
-      }
-      return dateB - dateA;
-    });
-
-    return result;
-  }, [
-    jobPostings, statusFilter, searchTitle, searchCompany, searchQuery, fromDate, toDate,
-    filterLocation, filterRole, filterWorkMode, filterType, filterExp, filterVisa,
-    filterSalary, filterIndustry, searchSkills, filterDate, filterHiddenJobs, sortOrder
-  ]);
 
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((s) => {
@@ -856,11 +772,8 @@ const AdminJobBoard = () => {
     });
   }, [submissions, subStatusFilter, subSearchQuery]);
 
-  const totalPages = Math.ceil(filteredJobs.length / pageSize) || 1;
-  const paginatedJobs = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredJobs.slice(start, start + pageSize);
-  }, [filteredJobs, currentPage, pageSize]);
+  const totalPages = Math.max(1, Math.ceil(totalJobs / pageSize));
+  const paginatedJobs = jobPostings;
 
   const handleOpenDescription = (jobOrCompany: any, role?: string, description?: string) => {
     if (typeof jobOrCompany === "string") {
@@ -884,7 +797,7 @@ const AdminJobBoard = () => {
         experience_required: j.experience_required || j.experience_level,
         work_mode: j.work_mode || j.work_type || j.remote_type,
         location: locationParts || j.location,
-        salary: j.salary || j.salary_range || "Not Disclosed",
+        salary: formatSalaryDisplay(j.salary || j.salary_range || j.pay_range),
         visa_eligibility: j.visa_eligibility,
         skills: skillsStr,
         job_url: j.job_url,
@@ -1046,7 +959,7 @@ const AdminJobBoard = () => {
         <TabsList className="bg-muted/60 p-1 rounded-xl">
           <TabsTrigger value="board" className="gap-2 rounded-lg font-medium text-xs sm:text-sm">
             <Globe className="h-4 w-4" />
-            Live Job Board ({filteredJobs.length})
+            Live Job Board ({activeFiltersCount > 0 ? `${totalJobs} of ${totalUnfilteredJobs}` : (totalUnfilteredJobs || totalJobs)})
           </TabsTrigger>
           <TabsTrigger value="submissions" className="gap-2 rounded-lg font-medium text-xs sm:text-sm">
             <History className="h-4 w-4" />
@@ -1178,7 +1091,7 @@ const AdminJobBoard = () => {
                   label="Experience"
                   categoryTitle="Experience Required"
                   icon={<Award className="h-3 w-3 text-primary" />}
-                  options={["Intern/New Grad", "0–2 Years", "2–5 Years", "5+ Years", "Senior Level", "Lead / Staff"]}
+                  options={dynamicExperienceLevels}
                   selected={filterExp}
                   onChange={setFilterExp}
                   searchPlaceholder="Search experience..."
@@ -1189,7 +1102,7 @@ const AdminJobBoard = () => {
                   label="Employment Type"
                   categoryTitle="Employment Type"
                   icon={<Briefcase className="h-3 w-3 text-primary" />}
-                  options={["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"]}
+                  options={dynamicEmploymentTypes}
                   selected={filterType}
                   onChange={setFilterType}
                   searchPlaceholder="Search type..."
@@ -1200,7 +1113,7 @@ const AdminJobBoard = () => {
                   label="Work Mode"
                   categoryTitle="Work Mode"
                   icon={<Home className="h-3 w-3 text-primary" />}
-                  options={["Onsite", "Hybrid", "Remote"]}
+                  options={dynamicWorkModes}
                   selected={filterWorkMode}
                   onChange={setFilterWorkMode}
                   searchPlaceholder="Search work mode..."
@@ -1211,7 +1124,7 @@ const AdminJobBoard = () => {
                   label="Visa Type"
                   categoryTitle="Visa Eligibility"
                   icon={<Sparkles className="h-3 w-3 text-primary" />}
-                  options={["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"]}
+                  options={dynamicVisaEligibilities}
                   selected={filterVisa}
                   onChange={setFilterVisa}
                   searchPlaceholder="Search visa..."
@@ -1228,18 +1141,7 @@ const AdminJobBoard = () => {
                   searchPlaceholder="Search salary..."
                 />
 
-                {/* 8. Industry Multi-Select Dropdown */}
-                <MultiSelectFilterPopover
-                  label="Industry"
-                  categoryTitle="Industry Sector"
-                  icon={<Globe className="h-3 w-3 text-primary" />}
-                  options={["Technology", "Healthcare", "Finance", "Cybersecurity", "Education", "E-commerce"]}
-                  selected={filterIndustry}
-                  onChange={setFilterIndustry}
-                  searchPlaceholder="Search industry..."
-                />
-
-                {/* 9. Status Filter */}
+                {/* 8. Status Filter */}
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="h-7 text-xs rounded-full px-3.5 bg-slate-100/90 border-slate-200 text-slate-700 font-semibold w-auto hover:bg-slate-200/80 transition-colors">
                     <SelectValue placeholder="Status" />
@@ -1253,19 +1155,7 @@ const AdminJobBoard = () => {
                   </SelectContent>
                 </Select>
 
-                {/* 10. Hidden Jobs Toggle Pill */}
-                <button
-                  onClick={() => setFilterHiddenJobs(!filterHiddenJobs)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${filterHiddenJobs
-                    ? "bg-[#0d47a1] text-white border-blue-700 font-extrabold shadow-xs"
-                    : "bg-blue-50/80 hover:bg-blue-100 text-[#0d47a1] border-blue-200/80 font-semibold"
-                    }`}
-                >
-                  <Lock className="h-3 w-3" />
-                  Hidden Jobs
-                </button>
-
-                {/* 11. Sort Order Dropdown */}
+                {/* 10. Sort Order Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold bg-background text-foreground border-border hover:bg-muted transition-colors cursor-pointer shadow-2xs">
@@ -1287,7 +1177,7 @@ const AdminJobBoard = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* 12. All Filters Reset Button */}
+                {/* 11. All Filters Reset Button */}
                 <button
                   onClick={handleResetFilters}
                   className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-[#0d47a1] hover:bg-[#1565c0] text-white font-bold transition-all whitespace-nowrap cursor-pointer text-xs shadow-xs"
@@ -1304,7 +1194,7 @@ const AdminJobBoard = () => {
             <CardHeader className="bg-muted/40 border-b border-border/40 px-4 py-2.5 md:px-5 md:py-3 flex flex-row items-center justify-between gap-3 flex-wrap">
               <CardTitle className="flex items-center gap-2 text-base md:text-lg font-bold text-foreground">
                 <Globe className="h-5 w-5 text-primary" />
-                Live Job Postings ({filteredJobs.length})
+                Live Job Postings ({activeFiltersCount > 0 ? `${totalJobs} of ${totalUnfilteredJobs}` : (totalUnfilteredJobs || totalJobs)})
               </CardTitle>
 
               {/* View Mode Switcher */}
@@ -1357,7 +1247,7 @@ const AdminJobBoard = () => {
                       </div>
                     ))}
                   </div>
-                ) : filteredJobs.length === 0 ? (
+                ) : jobPostings.length === 0 ? (
                   <div className="text-center py-12 space-y-4">
                     <Search className="h-10 w-10 text-muted-foreground/50 mx-auto" />
                     <p className="text-foreground font-bold text-base">No jobs matched your search.</p>
@@ -1388,7 +1278,10 @@ const AdminJobBoard = () => {
                         <span>Show</span>
                         <select
                           value={pageSize}
-                          onChange={(e) => setPageSize(Number(e.target.value))}
+                          onChange={(e) => {
+                            setPageSize(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
                           className="px-2.5 py-1 rounded-lg border border-border bg-background font-bold text-foreground cursor-pointer focus:ring-2 focus:ring-primary"
                         >
                           <option value={10}>10</option>
@@ -1424,10 +1317,17 @@ const AdminJobBoard = () => {
               ) : (
                 /* Table View */
                 <DataTable
-                  data={filteredJobs}
+                  data={jobPostings}
                   isLoading={loading}
                   emptyMessage="No jobs matched your search."
                   pageSize={pageSize}
+                  serverPagination={{
+                    page: currentPage,
+                    pageSize: pageSize,
+                    totalCount: totalJobs,
+                    onPageChange: (p) => setCurrentPage(p),
+                    onPageSizeChange: (s) => setPageSize(s),
+                  }}
                   columns={[
                     {
                       header: "Company Name",
@@ -1500,7 +1400,7 @@ const AdminJobBoard = () => {
                       accessorKey: "salary",
                       sortable: true,
                       className: "py-4 text-xs font-bold text-foreground",
-                      render: (job: any) => job.salary || "Not Disclosed"
+                      render: (job: any) => formatSalaryDisplay(job.salary || job.salary_range || job.pay_range)
                     },
                     {
                       header: "Visa Eligibility",

@@ -551,6 +551,9 @@ def admin_productivity_report(request):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def public_job_alerts(request):
+    from django.db.models import Q
+    import datetime
+
     if request.method == 'POST':
         if not request.user or not request.user.is_authenticated:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -559,8 +562,246 @@ def public_job_alerts(request):
         job = serializer.save(submitted_by=request.user, is_public=True)
         return Response(JobLinkEntrySerializer(job).data, status=status.HTTP_201_CREATED)
 
-    jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log').order_by('-created_at')
+    # 1. Base queryset
+    include_hidden = request.query_params.get('include_hidden', '').lower() in ('true', '1') or request.query_params.get('is_hidden', '').lower() in ('true', '1')
+    if include_hidden:
+        jobs = JobLinkEntry.objects.all().select_related('submission_log')
+    else:
+        jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log')
+
+    # 2. Status filter
+    status_param = request.query_params.get('status')
+    if status_param and status_param != 'all':
+        if status_param == 'applied':
+            jobs = jobs.filter(Q(application_status='applied') | Q(application_status__isnull=True) | Q(application_status=''))
+        else:
+            jobs = jobs.filter(application_status=status_param)
+
+    # 3. Global search
+    search = request.query_params.get('search', '').strip()
+    if search:
+        jobs = jobs.filter(
+            Q(role_title__icontains=search) |
+            Q(company_name__icontains=search) |
+            Q(job_description__icontains=search) |
+            Q(city__icontains=search) |
+            Q(state__icontains=search) |
+            Q(country__icontains=search) |
+            Q(notes__icontains=search)
+        )
+
+    # 4. Title / Role filter
+    title = request.query_params.get('title') or request.query_params.get('role')
+    if title:
+        title_list = [t.strip() for t in title.split(',') if t.strip()]
+        if title_list:
+            q_title = Q()
+            for t in title_list:
+                q_title |= Q(role_title__icontains=t)
+            jobs = jobs.filter(q_title)
+
+    # 5. Company filter
+    company = request.query_params.get('company')
+    if company:
+        jobs = jobs.filter(company_name__icontains=company)
+
+    # 6. Skills filter
+    skills = request.query_params.get('skills', '').strip()
+    if skills:
+        jobs = jobs.filter(Q(job_description__icontains=skills) | Q(notes__icontains=skills))
+
+    # 7. Location filter (handles comma-separated multi-select values)
+    location = request.query_params.get('location')
+    if location:
+        loc_list = [l.strip() for l in location.split(',') if l.strip()]
+        if loc_list:
+            q_loc = Q()
+            for l in loc_list:
+                q_loc |= Q(city__icontains=l) | Q(state__icontains=l) | Q(country__icontains=l)
+            jobs = jobs.filter(q_loc)
+
+    # 8. Work mode filter
+    work_mode = request.query_params.get('work_mode')
+    if work_mode:
+        wm_list = [w.strip() for w in work_mode.split(',') if w.strip()]
+        if wm_list:
+            q_wm = Q()
+            for w in wm_list:
+                q_wm |= Q(work_mode__icontains=w)
+            jobs = jobs.filter(q_wm)
+
+    # 9. Employment type filter
+    employment_type = request.query_params.get('employment_type')
+    if employment_type:
+        et_list = [e.strip() for e in employment_type.split(',') if e.strip()]
+        if et_list:
+            q_et = Q()
+            for e in et_list:
+                q_et |= Q(employment_type__icontains=e)
+            jobs = jobs.filter(q_et)
+
+    # 10. Experience filter
+    experience_required = request.query_params.get('experience_required') or request.query_params.get('experience')
+    if experience_required:
+        exp_list = [x.strip() for x in experience_required.split(',') if x.strip()]
+        if exp_list:
+            q_exp = Q()
+            for x in exp_list:
+                q_exp |= Q(experience_required__icontains=x)
+            jobs = jobs.filter(q_exp)
+
+    # 11. Visa eligibility filter
+    visa_eligibility = request.query_params.get('visa_eligibility') or request.query_params.get('visa')
+    if visa_eligibility:
+        visa_list = [v.strip() for v in visa_eligibility.split(',') if v.strip()]
+        if visa_list:
+            q_visa = Q()
+            for v in visa_list:
+                q_visa |= Q(visa_eligibility__icontains=v)
+            jobs = jobs.filter(q_visa)
+
+    # 12. Date Range filter
+    from_date = request.query_params.get('from_date') or request.query_params.get('date_from')
+    if from_date:
+        try:
+            from_dt = datetime.datetime.strptime(from_date.strip(), '%Y-%m-%d').date()
+            jobs = jobs.filter(Q(created_at__date__gte=from_dt) | Q(submission_log__log_date__gte=from_dt))
+        except (ValueError, TypeError):
+            pass
+
+    to_date = request.query_params.get('to_date') or request.query_params.get('date_to')
+    if to_date:
+        try:
+            to_dt = datetime.datetime.strptime(to_date.strip(), '%Y-%m-%d').date()
+            jobs = jobs.filter(Q(created_at__date__lte=to_dt) | Q(submission_log__log_date__lte=to_dt))
+        except (ValueError, TypeError):
+            pass
+
+    # 13. Date timeframe filter (e.g. Posted Today, Past 3 Days, Past Week, Past Month)
+    date_preset = request.query_params.get('date_preset')
+    if date_preset:
+        today = timezone.now().date()
+        if 'today' in date_preset.lower():
+            jobs = jobs.filter(Q(created_at__date=today) | Q(submission_log__log_date=today))
+        elif '3' in date_preset:
+            cutoff = today - datetime.timedelta(days=3)
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+        elif 'week' in date_preset.lower() or '7' in date_preset:
+            cutoff = today - datetime.timedelta(days=7)
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+        elif 'month' in date_preset.lower() or '30' in date_preset:
+            cutoff = today - datetime.timedelta(days=30)
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+
+    # 14. Ordering
+    ordering = request.query_params.get('ordering') or request.query_params.get('sort')
+    if ordering in ('created_at', 'oldest', 'Oldest First'):
+        jobs = jobs.order_by('created_at')
+    else:
+        jobs = jobs.order_by('-created_at')
+
+    # 15. Pagination
+    total = jobs.count()
+    unfiltered_total = JobLinkEntry.objects.filter(is_public=True).count()
+    try:
+        page = int(request.query_params.get('page', 0))
+    except (ValueError, TypeError):
+        page = 0
+
+    try:
+        page_size = int(request.query_params.get('page_size', 0))
+    except (ValueError, TypeError):
+        page_size = 0
+
+    if page > 0 and page_size > 0:
+        start = (page - 1) * page_size
+        sliced_jobs = jobs[start:start + page_size]
+        return Response({
+            'total': total,
+            'unfiltered_total': unfiltered_total,
+            'results': JobLinkEntrySerializer(sliced_jobs, many=True).data,
+        })
+
     return Response(JobLinkEntrySerializer(jobs, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_job_alert_filter_options(request):
+    """
+    Returns distinct filter options derived from all live jobs in the database.
+    """
+    base_qs = JobLinkEntry.objects.filter(is_public=True)
+
+    # Distinct Roles
+    roles = list(
+        base_qs.exclude(role_title__isnull=True)
+        .exclude(role_title='')
+        .values_list('role_title', flat=True)
+        .distinct()
+        .order_by('role_title')
+    )
+
+    # Distinct Locations
+    locations_set = set()
+    for entry in base_qs.values('city', 'state', 'country'):
+        parts = [entry.get('city'), entry.get('state'), entry.get('country')]
+        filtered_parts = [p.strip() for p in parts if p and p.strip()]
+        if filtered_parts:
+            locations_set.add(", ".join(filtered_parts))
+        if entry.get('country') and entry['country'].strip():
+            locations_set.add(entry['country'].strip())
+        if entry.get('city') and entry['city'].strip():
+            locations_set.add(entry['city'].strip())
+    locations = sorted(list(locations_set))
+
+    # Distinct Employment Types
+    employment_types = list(
+        base_qs.exclude(employment_type__isnull=True)
+        .exclude(employment_type='')
+        .values_list('employment_type', flat=True)
+        .distinct()
+        .order_by('employment_type')
+    )
+
+    # Distinct Work Modes
+    work_modes = list(
+        base_qs.exclude(work_mode__isnull=True)
+        .exclude(work_mode='')
+        .values_list('work_mode', flat=True)
+        .distinct()
+        .order_by('work_mode')
+    )
+
+    # Distinct Experience Requirements
+    experience_levels = list(
+        base_qs.exclude(experience_required__isnull=True)
+        .exclude(experience_required='')
+        .values_list('experience_required', flat=True)
+        .distinct()
+        .order_by('experience_required')
+    )
+
+    # Distinct Visa Eligibilities
+    visa_eligibilities = list(
+        base_qs.exclude(visa_eligibility__isnull=True)
+        .exclude(visa_eligibility='')
+        .values_list('visa_eligibility', flat=True)
+        .distinct()
+        .order_by('visa_eligibility')
+    )
+
+    total_count = base_qs.count()
+
+    return Response({
+        'roles': roles,
+        'locations': locations,
+        'employment_types': employment_types,
+        'work_modes': work_modes,
+        'experience_levels': experience_levels,
+        'visa_eligibilities': visa_eligibilities,
+        'total_count': total_count,
+    })
 
 
 @api_view(['GET'])

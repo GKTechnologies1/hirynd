@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Activity, CheckCircle, FileText, ClipboardList, DollarSign, Briefcase, Users, AlertTriangle, MousePointer, ChevronDown } from "lucide-react";
+import { Eye, Activity, CheckCircle, FileText, ClipboardList, DollarSign, Briefcase, Users, AlertTriangle, MousePointer, ChevronDown, PauseCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
@@ -67,6 +67,7 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
     { key: "payment_completed", label: "Payment Completed", count: pipelineCounts["payment_completed"] || 0, icon: <DollarSign className="h-4 w-4" />, filter: "payment_completed", color: "bg-secondary/20" },
     { key: "credentials_submitted", label: "Credentials Ready", count: pipelineCounts["credentials_submitted"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "credentials_submitted", color: "bg-secondary/30" },
     { key: "active_marketing", label: "Active Marketing", count: pipelineCounts["active_marketing"] || 0, icon: <Activity className="h-4 w-4" />, filter: "active_marketing", color: "bg-secondary/40" },
+    { key: "paused", label: "Paused", count: pipelineCounts["paused"] || 0, icon: <PauseCircle className="h-4 w-4" />, filter: "paused", color: "bg-amber-100 text-amber-800" },
     { key: "placed_closed", label: "Placed", count: pipelineCounts["placed_closed"] || 0, icon: <Users className="h-4 w-4" />, filter: "placed_closed", color: "bg-secondary text-secondary-foreground" },
   ];
 
