@@ -402,8 +402,13 @@ export const recruitersApi = {
     api.patch('/recruiters/profile/', { pan_card_id: fileId }),
   uploadBankPassbook: (fileId: string) =>
     api.patch('/recruiters/profile/', { bank_passbook_id: fileId }),
-  productivityReport: () => api.get('/recruiters/admin/productivity-report/'),
-  getPublicJobAlerts: (config?: any) => api.get('/recruiters/public-job-alerts/', config),
+  getPublicJobAlerts: (params?: Record<string, any>, config?: any) => {
+    if (params && (params.params || params.headers || params.cancelToken)) {
+      return api.get('/recruiters/public-job-alerts/', params);
+    }
+    return api.get('/recruiters/public-job-alerts/', { params, ...config });
+  },
+  getJobAlertFilterOptions: () => api.get('/recruiters/public-job-alerts/filter-options/'),
 };
 
 // ─── Billing ───

@@ -165,7 +165,10 @@ const Footer = () => {
               <Mail size={18} /> <a href="mailto:support@hyrind.com">support@hyrind.com</a>
             </div>
             <div className="contact-item-custom">
-              <Phone size={18} /> <a href="tel:3143540634">+1 (314) 319-7982</a>
+              <Phone size={18} /> <a href="tel:3143540634">+1 (314) 354-0634</a>
+            </div>
+            <div className="contact-item-custom">
+              <Phone size={18} /> <a href="tel:3143197982">+1 (314) 319-7982</a>
             </div>
 
             <h3 className="footer-title-custom" style={{ marginTop: "30px" }}>Social Media</h3>
@@ -176,7 +179,10 @@ const Footer = () => {
               <a href="https://linkedin.com/company/hyrind" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
                 <Linkedin size={20} />
               </a>
-              <a href="https://wa.me/13143540634" target="_blank" rel="noopener noreferrer" className="social-icon-btn">
+              <a href="https://wa.me/13143540634" target="_blank" rel="noopener noreferrer" className="social-icon-btn" title="WhatsApp +1 (314) 354-0634">
+                <WhatsAppIcon size={20} />
+              </a>
+              <a href="https://wa.me/13143197982" target="_blank" rel="noopener noreferrer" className="social-icon-btn" title="WhatsApp +1 (314) 319-7982">
                 <WhatsAppIcon size={20} />
               </a>
             </div>

@@ -13,7 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/DataTable";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 
@@ -401,10 +401,10 @@ const AdminJobsPage = () => {
                     )
                   },
                   { 
-                    header: "Date", 
+                    header: "Date & Time", 
                     sortable: true,
                     accessorKey: "created_at",
-                    render: (sub: any) => <span className="text-xs text-muted-foreground">{formatDate(sub.created_at)}</span>
+                    render: (sub: any) => <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDateTime(sub.created_at)}</span>
                   },
                   { 
                     header: "Actions", 

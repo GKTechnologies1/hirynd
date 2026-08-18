@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DataTable } from "@/components/ui/DataTable";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload, Search, Ban, XCircle, MoreHorizontal } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -218,6 +218,20 @@ const DUPLICATE_PAIRS: [string, string][] = [
   ["opt_offer_letter_url", "offer_letter_url"],
 ];
 
+const formatSalaryDisplay = (rawSalary: any): string => {
+  if (!rawSalary) return "Not Disclosed";
+  const s = String(rawSalary).trim();
+  if (!s || s === "-" || s.toLowerCase() === "not disclosed" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") {
+    return "Not Disclosed";
+  }
+  const cleaned = s.replace(/^\$+/, '').trim();
+  if (!cleaned) return "Not Disclosed";
+  if (/^[€£₹]/.test(cleaned)) {
+    return cleaned;
+  }
+  return `$${cleaned}`;
+};
+
 const JobDescriptionCell = ({
   company,
   role,
@@ -374,7 +388,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         experience_required: j.experience_required,
         work_mode: j.work_mode,
         location: locationParts || j.location,
-        salary: j.salary || "Not Disclosed",
+        salary: formatSalaryDisplay(j.salary),
         visa_eligibility: j.visa_eligibility,
       });
     }
@@ -414,6 +428,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     salary?: string;
     visa_eligibility?: string;
   }>>([]);
+  const [jobLinkErrors, setJobLinkErrors] = useState<Record<number, Record<string, string>>>({});
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
 
@@ -808,10 +823,107 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     const updated = [...jobLinks];
     (updated[idx] as any)[field] = value;
     setJobLinks(updated);
+
+    // Clear inline error on change
+    if (jobLinkErrors[idx]?.[field]) {
+      setJobLinkErrors(prev => {
+        const copy = { ...prev };
+        if (copy[idx]) {
+          const fieldErrors = { ...copy[idx] };
+          delete fieldErrors[field];
+          if (Object.keys(fieldErrors).length === 0) {
+            delete copy[idx];
+          } else {
+            copy[idx] = fieldErrors;
+          }
+        }
+        return copy;
+      });
+    }
   };
 
   const removeJobLink = (idx: number) => {
     setJobLinks(jobLinks.filter((_, i) => i !== idx));
+    setJobLinkErrors(prev => {
+      const next: Record<number, Record<string, string>> = {};
+      Object.keys(prev).forEach(k => {
+        const i = parseInt(k, 10);
+        if (i < idx) next[i] = prev[i];
+        else if (i > idx) next[i - 1] = prev[i];
+      });
+      return next;
+    });
+  };
+
+  const validateJobLinks = () => {
+    const newErrors: Record<number, Record<string, string>> = {};
+    let hasError = false;
+
+    jobLinks.forEach((j, idx) => {
+      const errs: Record<string, string> = {};
+      if (!j.company_name?.trim()) {
+        errs.company_name = "Company Name is required";
+        hasError = true;
+      }
+      if (!j.role_title?.trim()) {
+        errs.role_title = "Role Title is required";
+        hasError = true;
+      }
+      if (!j.job_description?.trim()) {
+        errs.job_description = "Job Description is required";
+        hasError = true;
+      }
+      if (!j.job_url?.trim()) {
+        errs.job_url = "Job Application Link is required";
+        hasError = true;
+      } else if (!/^(https?:\/\/|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i.test(j.job_url.trim())) {
+        errs.job_url = "Valid URL is required";
+        hasError = true;
+      }
+      if (!j.resume_used?.trim()) {
+        errs.resume_used = "Resume link is required";
+        hasError = true;
+      }
+      if (!j.employment_type?.trim()) {
+        errs.employment_type = "Employment Type is required";
+        hasError = true;
+      }
+      if (!j.experience_required?.trim()) {
+        errs.experience_required = "Experience is required";
+        hasError = true;
+      }
+      if (!j.work_mode?.trim()) {
+        errs.work_mode = "Work Mode is required";
+        hasError = true;
+      }
+      if (!j.city?.trim()) {
+        errs.city = "City is required";
+        hasError = true;
+      }
+      if (!j.state?.trim()) {
+        errs.state = "State is required";
+        hasError = true;
+      }
+      if (!j.country?.trim()) {
+        errs.country = "Country is required";
+        hasError = true;
+      }
+      if (!j.salary?.trim()) {
+        errs.salary = "Salary is required (e.g. $100k or Not Disclosed)";
+        hasError = true;
+      }
+      if (!j.visa_eligibility?.trim()) {
+        errs.visa_eligibility = "Visa Eligibility is required";
+        hasError = true;
+      }
+
+      if (Object.keys(errs).length > 0) {
+        newErrors[idx] = errs;
+      }
+    });
+
+    setJobLinkErrors(newErrors);
+    return !hasError;
   };
 
   const handleFetchJobDetails = async (idx: number) => {
@@ -862,61 +974,13 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       toast({ title: "Add at least one job link", variant: "destructive" }); return;
     }
 
-    // Validate that all required fields in all added forms are filled
-    for (let i = 0; i < jobLinks.length; i++) {
-      const j = jobLinks[i];
-      if (!j.company_name.trim()) {
-        toast({ title: "Validation Error", description: `Company Name is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.role_title.trim()) {
-        toast({ title: "Validation Error", description: `Role Title is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.job_description.trim()) {
-        toast({ title: "Validation Error", description: `Job Description is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.job_url.trim()) {
-        toast({ title: "Validation Error", description: `Job Application Link is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.resume_used.trim()) {
-        toast({ title: "Validation Error", description: `Google Drive link of resume is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.employment_type?.trim()) {
-        toast({ title: "Validation Error", description: `Employment Type in Job Details is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.experience_required?.trim()) {
-        toast({ title: "Validation Error", description: `Experience Required in Job Details is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.work_mode?.trim()) {
-        toast({ title: "Validation Error", description: `Work Mode in Job Details is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.city?.trim()) {
-        toast({ title: "Validation Error", description: `City in Job Details is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.state?.trim()) {
-        toast({ title: "Validation Error", description: `State in Job Details is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.country?.trim()) {
-        toast({ title: "Validation Error", description: `Country in Job Details is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.salary?.trim()) {
-        toast({ title: "Validation Error", description: `Salary in Job Details is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
-      if (!j.visa_eligibility?.trim()) {
-        toast({ title: "Validation Error", description: `Visa Eligibility in Job Details is required for job #${i + 1}`, variant: "destructive" });
-        return;
-      }
+    if (!validateJobLinks()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields marked in red.",
+        variant: "destructive",
+      });
+      return;
     }
 
     setSavingLog(true);
@@ -954,6 +1018,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       });
       toast({ title: "Job applications submitted" });
       setJobLinks([]);
+      setJobLinkErrors({});
       fetchAll();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -2070,7 +2135,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     {dailyLogs.map((log: any, idx: number) => (
                       <div key={idx} className="bg-muted/10 p-4 rounded-xl border border-border/40">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">{formatDate(log.log_date || log.created_at)}</span>
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">{formatDateTime(log.created_at || log.log_date)}</span>
                           <Badge variant="secondary" className="text-[9px] font-bold py-0.5 px-2">Total Applications Submitted Today: {log.total_applications_submitted_today}</Badge>
                         </div>
                         <div className="space-y-1">
@@ -2116,23 +2181,78 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                       <div className="grid gap-3 grid-cols-2">
-                        <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
-                        <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
+                        <div className="space-y-1">
+                          <Input
+                            placeholder="Company Name *"
+                            className={cn("h-9 text-xs bg-background/50", jobLinkErrors[idx]?.company_name && "border-destructive focus-visible:ring-destructive")}
+                            value={job.company_name}
+                            onChange={e => updateJobLink(idx, "company_name", e.target.value)}
+                          />
+                          {jobLinkErrors[idx]?.company_name && (
+                            <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                              {jobLinkErrors[idx].company_name}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <Input
+                            placeholder="Role Title *"
+                            className={cn("h-9 text-xs bg-background/50", jobLinkErrors[idx]?.role_title && "border-destructive focus-visible:ring-destructive")}
+                            value={job.role_title}
+                            onChange={e => updateJobLink(idx, "role_title", e.target.value)}
+                          />
+                          {jobLinkErrors[idx]?.role_title && (
+                            <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                              {jobLinkErrors[idx].role_title}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <Textarea placeholder="Job Description" className="text-xs bg-background/50 min-h-[80px]" value={job.job_description} onChange={e => updateJobLink(idx, "job_description", e.target.value)} />
-                      <div className="relative">
-                        <Input placeholder="Job Application Link" className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
-                          {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Input
-                          placeholder="Add google drive link of resume"
-                          className="flex-1 h-9 text-[10px] font-bold bg-background/50"
-                          value={job.resume_used}
-                          onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
+                      <div className="space-y-1">
+                        <Textarea
+                          placeholder="Job Description *"
+                          className={cn("text-xs bg-background/50 min-h-[80px]", jobLinkErrors[idx]?.job_description && "border-destructive focus-visible:ring-destructive")}
+                          value={job.job_description}
+                          onChange={e => updateJobLink(idx, "job_description", e.target.value)}
                         />
+                        {jobLinkErrors[idx]?.job_description && (
+                          <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                            {jobLinkErrors[idx].job_description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="relative">
+                          <Input
+                            placeholder="Job Application Link *"
+                            className={cn("h-9 text-xs bg-background/50 pr-8", jobLinkErrors[idx]?.job_url && "border-destructive focus-visible:ring-destructive")}
+                            value={job.job_url}
+                            onChange={e => updateJobLink(idx, "job_url", e.target.value)}
+                          />
+                          <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
+                            {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                          </Button>
+                        </div>
+                        {jobLinkErrors[idx]?.job_url && (
+                          <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                            {jobLinkErrors[idx].job_url}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="space-y-1 flex-1">
+                          <Input
+                            placeholder="Add google drive link of resume *"
+                            className={cn("h-9 text-[10px] font-bold bg-background/50", jobLinkErrors[idx]?.resume_used && "border-destructive focus-visible:ring-destructive")}
+                            value={job.resume_used}
+                            onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
+                          />
+                          {jobLinkErrors[idx]?.resume_used && (
+                            <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                              {jobLinkErrors[idx].resume_used}
+                            </p>
+                          )}
+                        </div>
                         <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
                           <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -2147,54 +2267,122 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           Job Details
                         </p>
                         <div className="grid grid-cols-3 gap-2">
-                          <Select value={job.employment_type || ""} onValueChange={v => updateJobLink(idx, "employment_type", v)}>
-                            <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Employment Type" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
-                              <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
-                              <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
-                              <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
-                              <SelectItem value="W2" className="text-xs">W2</SelectItem>
-                              <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Select value={job.experience_required || ""} onValueChange={v => updateJobLink(idx, "experience_required", v)}>
-                            <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Experience Required" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0–2 Years" className="text-xs">0–2 Years</SelectItem>
-                              <SelectItem value="2–5 Years" className="text-xs">2–5 Years</SelectItem>
-                              <SelectItem value="5+ Years" className="text-xs">5+ Years</SelectItem>
-                              <SelectItem value="Senior Level" className="text-xs">Senior Level</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Select value={job.work_mode || ""} onValueChange={v => updateJobLink(idx, "work_mode", v)}>
-                            <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Work Mode" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Remote" className="text-xs">Remote</SelectItem>
-                              <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
-                              <SelectItem value="Onsite" className="text-xs">Onsite</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="space-y-1">
+                            <Select value={job.employment_type || ""} onValueChange={v => updateJobLink(idx, "employment_type", v)}>
+                              <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.employment_type && "border-destructive text-destructive")}>
+                                <SelectValue placeholder="Employment Type *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
+                                <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
+                                <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
+                                <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
+                                <SelectItem value="W2" className="text-xs">W2</SelectItem>
+                                <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {jobLinkErrors[idx]?.employment_type && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].employment_type}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Select value={job.experience_required || ""} onValueChange={v => updateJobLink(idx, "experience_required", v)}>
+                              <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.experience_required && "border-destructive text-destructive")}>
+                                <SelectValue placeholder="Experience Required *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0–2 Years" className="text-xs">0–2 Years</SelectItem>
+                                <SelectItem value="2–5 Years" className="text-xs">2–5 Years</SelectItem>
+                                <SelectItem value="5+ Years" className="text-xs">5+ Years</SelectItem>
+                                <SelectItem value="Senior Level" className="text-xs">Senior Level</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {jobLinkErrors[idx]?.experience_required && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].experience_required}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Select value={job.work_mode || ""} onValueChange={v => updateJobLink(idx, "work_mode", v)}>
+                              <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.work_mode && "border-destructive text-destructive")}>
+                                <SelectValue placeholder="Work Mode *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Remote" className="text-xs">Remote</SelectItem>
+                                <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
+                                <SelectItem value="Onsite" className="text-xs">Onsite</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {jobLinkErrors[idx]?.work_mode && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].work_mode}</p>
+                            )}
+                          </div>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
-                          <Input placeholder="City" className="h-8 text-[10px] bg-background/50" value={job.city || ""} onChange={e => updateJobLink(idx, "city", e.target.value)} />
-                          <Input placeholder="State" className="h-8 text-[10px] bg-background/50" value={job.state || ""} onChange={e => updateJobLink(idx, "state", e.target.value)} />
-                          <Input placeholder="Country" className="h-8 text-[10px] bg-background/50" value={job.country || ""} onChange={e => updateJobLink(idx, "country", e.target.value)} />
+                          <div className="space-y-1">
+                            <Input
+                              placeholder="City *"
+                              className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.city && "border-destructive focus-visible:ring-destructive")}
+                              value={job.city || ""}
+                              onChange={e => updateJobLink(idx, "city", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.city && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].city}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Input
+                              placeholder="State *"
+                              className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.state && "border-destructive focus-visible:ring-destructive")}
+                              value={job.state || ""}
+                              onChange={e => updateJobLink(idx, "state", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.state && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].state}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Input
+                              placeholder="Country *"
+                              className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.country && "border-destructive focus-visible:ring-destructive")}
+                              value={job.country || ""}
+                              onChange={e => updateJobLink(idx, "country", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.country && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].country}</p>
+                            )}
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <Input placeholder="Salary (e.g. $100k or Not Disclosed)" className="h-8 text-[10px] bg-background/50" value={job.salary || ""} onChange={e => updateJobLink(idx, "salary", e.target.value)} />
-                          <Select value={job.visa_eligibility || ""} onValueChange={v => updateJobLink(idx, "visa_eligibility", v)}>
-                            <SelectTrigger className="h-8 text-[10px] bg-background/50"><SelectValue placeholder="Visa Eligibility" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
-                              <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
-                              <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
-                              <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
-                              <SelectItem value="USC" className="text-xs">USC</SelectItem>
-                              <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
-                              <SelectItem value="All Work Authorization" className="text-xs">All Work Authorization</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="space-y-1">
+                            <Input
+                              placeholder="Salary (e.g. $100k or Not Disclosed) *"
+                              className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.salary && "border-destructive focus-visible:ring-destructive")}
+                              value={job.salary || ""}
+                              onChange={e => updateJobLink(idx, "salary", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.salary && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].salary}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Select value={job.visa_eligibility || ""} onValueChange={v => updateJobLink(idx, "visa_eligibility", v)}>
+                              <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.visa_eligibility && "border-destructive text-destructive")}>
+                                <SelectValue placeholder="Visa Eligibility *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
+                                <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
+                                <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
+                                <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
+                                <SelectItem value="USC" className="text-xs">USC</SelectItem>
+                                <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
+                                <SelectItem value="All Work Authorization" className="text-xs">All Work Authorization</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {jobLinkErrors[idx]?.visa_eligibility && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].visa_eligibility}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                       {jobLinks.length > 3 && (
@@ -2340,166 +2528,58 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   {
                     header: "Employment Type",
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => (
-                      <Select value={j.employment_type || ""} onValueChange={(val) => handleUpdateJobField(j.id, "employment_type", val)}>
-                        <SelectTrigger className="w-32 h-8 text-[11px] font-semibold border border-blue-200/80 bg-blue-50/60 text-blue-700 hover:bg-blue-100/80 focus-visible:ring-0">
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
-                          <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
-                          <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
-                          <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
-                          <SelectItem value="W2" className="text-xs">W2</SelectItem>
-                          <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )
+                    render: (j: any) => j.employment_type ? (
+                      <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold text-xs">
+                        {j.employment_type}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>
                   },
                   {
                     header: "Experience Required",
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => (
-                      <Select value={j.experience_required || ""} onValueChange={(val) => handleUpdateJobField(j.id, "experience_required", val)}>
-                        <SelectTrigger className="w-32 h-8 text-[11px] font-semibold border border-purple-200/80 bg-purple-50/60 text-purple-700 hover:bg-purple-100/80 focus-visible:ring-0">
-                          <SelectValue placeholder="Select exp" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0–2 Years" className="text-xs">0–2 Years</SelectItem>
-                          <SelectItem value="2–5 Years" className="text-xs">2–5 Years</SelectItem>
-                          <SelectItem value="5+ Years" className="text-xs">5+ Years</SelectItem>
-                          <SelectItem value="Senior Level" className="text-xs">Senior Level</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )
+                    render: (j: any) => j.experience_required ? (
+                      <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold text-xs">
+                        {j.experience_required}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>
                   },
                   {
                     header: "Work Mode",
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => (
-                      <Select value={j.work_mode || ""} onValueChange={(val) => handleUpdateJobField(j.id, "work_mode", val)}>
-                        <SelectTrigger className="w-28 h-8 text-[11px] font-semibold border border-emerald-200/80 bg-emerald-50/60 text-emerald-700 hover:bg-emerald-100/80 focus-visible:ring-0">
-                          <SelectValue placeholder="Select mode" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Remote" className="text-xs">Remote</SelectItem>
-                          <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
-                          <SelectItem value="Onsite" className="text-xs">Onsite</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )
+                    render: (j: any) => j.work_mode ? (
+                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold text-xs">
+                        {j.work_mode}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>
                   },
                   {
                     header: "City",
-                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium",
-                    render: (j: any) => (
-                      <Input
-                        key={`city-${j.id}-${j.city}`}
-                        defaultValue={j.city || ""}
-                        placeholder="City..."
-                        className="w-28 h-8 text-xs bg-muted/30 border border-border/40 focus:border-primary focus:bg-background transition-colors"
-                        onBlur={(e) => {
-                          const val = e.target.value.trim();
-                          if (val !== (j.city || "")) {
-                            handleUpdateJobField(j.id, "city", val);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            (e.target as HTMLInputElement).blur();
-                          }
-                        }}
-                      />
-                    )
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium text-foreground",
+                    render: (j: any) => j.city || <span className="text-muted-foreground">—</span>
                   },
                   {
                     header: "State",
-                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium",
-                    render: (j: any) => (
-                      <Input
-                        key={`state-${j.id}-${j.state}`}
-                        defaultValue={j.state || ""}
-                        placeholder="State..."
-                        className="w-24 h-8 text-xs bg-muted/30 border border-border/40 focus:border-primary focus:bg-background transition-colors"
-                        onBlur={(e) => {
-                          const val = e.target.value.trim();
-                          if (val !== (j.state || "")) {
-                            handleUpdateJobField(j.id, "state", val);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            (e.target as HTMLInputElement).blur();
-                          }
-                        }}
-                      />
-                    )
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium text-foreground",
+                    render: (j: any) => j.state || <span className="text-muted-foreground">—</span>
                   },
                   {
                     header: "Country",
-                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium",
-                    render: (j: any) => (
-                      <Input
-                        key={`country-${j.id}-${j.country}`}
-                        defaultValue={j.country || ""}
-                        placeholder="Country..."
-                        className="w-28 h-8 text-xs bg-muted/30 border border-border/40 focus:border-primary focus:bg-background transition-colors"
-                        onBlur={(e) => {
-                          const val = e.target.value.trim();
-                          if (val !== (j.country || "")) {
-                            handleUpdateJobField(j.id, "country", val);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            (e.target as HTMLInputElement).blur();
-                          }
-                        }}
-                      />
-                    )
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium text-foreground",
+                    render: (j: any) => j.country || <span className="text-muted-foreground">—</span>
                   },
                   {
                     header: "Salary",
-                    className: "px-2 py-3 whitespace-nowrap text-xs font-semibold text-slate-700",
-                    render: (j: any) => (
-                      <Input
-                        key={`salary-${j.id}-${j.salary}`}
-                        defaultValue={j.salary || "Not Disclosed"}
-                        placeholder="Salary..."
-                        className="w-32 h-8 text-xs font-semibold bg-muted/30 border border-border/40 focus:border-primary focus:bg-background transition-colors"
-                        onBlur={(e) => {
-                          const val = e.target.value.trim() || "Not Disclosed";
-                          if (val !== (j.salary || "Not Disclosed")) {
-                            handleUpdateJobField(j.id, "salary", val);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            (e.target as HTMLInputElement).blur();
-                          }
-                        }}
-                      />
-                    )
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-bold text-foreground",
+                    render: (j: any) => formatSalaryDisplay(j.salary)
                   },
                   {
                     header: "Visa Eligibility",
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => (
-                      <Select value={j.visa_eligibility || ""} onValueChange={(val) => handleUpdateJobField(j.id, "visa_eligibility", val)}>
-                        <SelectTrigger className="w-36 h-8 text-[11px] font-semibold border border-amber-200/80 bg-amber-50/60 text-amber-800 hover:bg-amber-100/80 focus-visible:ring-0">
-                          <SelectValue placeholder="Select visa" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
-                          <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
-                          <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
-                          <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
-                          <SelectItem value="USC" className="text-xs">USC</SelectItem>
-                          <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
-                          <SelectItem value="All Work Authorization" className="text-xs">All Work Authorization</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )
+                    render: (j: any) => j.visa_eligibility ? (
+                      <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold text-xs">
+                        {j.visa_eligibility}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>
                   },
                   {
                     header: "Job Description",
@@ -2555,9 +2635,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     }
                   },
                   {
-                    header: "Logged Date",
-                    className: "px-6 py-4 text-right pr-6",
-                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{formatDate(j.log_date || j.created_at)}</span>
+                    header: "Logged Date & Time",
+                    className: "px-6 py-4 text-right pr-6 whitespace-nowrap",
+                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{formatDateTime(j.created_at || j.log_date)}</span>
                   },
                   {
                     header: "Actions",
