@@ -560,10 +560,21 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   useEffect(() => {
     setCandidate(null);
     fetchAll(true, false);
+
+    // 45s background interval
     const interval = setInterval(() => {
       fetchAll(false, true);
-    }, 8000);
-    return () => clearInterval(interval);
+    }, 45000);
+
+    const onFocus = () => {
+      fetchAll(false, false);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [candidateId, user]);
 
   const handleCredChange = (field: string, value: any) => {

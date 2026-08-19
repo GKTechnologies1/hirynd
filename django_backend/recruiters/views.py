@@ -182,7 +182,28 @@ def daily_logs(request, candidate_id):
         logs = DailySubmissionLog.objects.filter(
             candidate_id=candidate_id,
             is_manual=True
-        ).order_by('-log_date', '-created_at')
+        ).select_related('recruiter').order_by('-log_date', '-created_at')
+
+        try:
+            page = int(request.query_params.get('page', 0))
+        except (ValueError, TypeError):
+            page = 0
+        try:
+            page_size = int(request.query_params.get('page_size', 0))
+        except (ValueError, TypeError):
+            page_size = 0
+
+        if page > 0 and page_size > 0:
+            total = logs.count()
+            start = (page - 1) * page_size
+            sliced = logs[start:start + page_size]
+            return Response({
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'results': DailyJournalSerializer(sliced, many=True).data,
+            })
+
         return Response(DailyJournalSerializer(logs, many=True).data)
 
     log = DailySubmissionLog.objects.create(
@@ -213,7 +234,31 @@ def job_applications(request, candidate_id):
         return Response({'error': 'Forbidden'}, status=403)
 
     if request.method == 'GET':
-        jobs = JobLinkEntry.objects.filter(candidate_id=candidate_id).order_by('-created_at')
+        jobs = JobLinkEntry.objects.filter(
+            candidate_id=candidate_id
+        ).select_related('submission_log').order_by('-created_at')
+
+        # Optional server-side pagination (backward-compatible: old clients get full list)
+        try:
+            page = int(request.query_params.get('page', 0))
+        except (ValueError, TypeError):
+            page = 0
+        try:
+            page_size = int(request.query_params.get('page_size', 0))
+        except (ValueError, TypeError):
+            page_size = 0
+
+        if page > 0 and page_size > 0:
+            total = jobs.count()
+            start = (page - 1) * page_size
+            sliced = jobs[start:start + page_size]
+            return Response({
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'results': JobLinkEntrySerializer(sliced, many=True).data,
+            })
+
         return Response(JobLinkEntrySerializer(jobs, many=True).data)
 
     # POST: Create new job entries atomically with defensive validation & fallback logic
@@ -280,6 +325,14 @@ def job_applications(request, candidate_id):
             log.save()
             candidate_obj.save() # Touch candidate to trigger updated_at refresh
 
+            # Invalidate public job alerts cache when new applications are created
+            try:
+                from django.core.cache import cache
+                cache.delete('public_job_alerts_total')
+                cache.delete('job_alert_filter_options')
+            except Exception:
+                pass
+
             return Response(JobLinkEntrySerializer(created_entries, many=True).data, status=status.HTTP_201_CREATED)
     except Exception as e:
         return Response({'error': f"Failed to submit job applications: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -295,6 +348,12 @@ def update_job_status(request, job_id):
 
     if request.method == 'DELETE':
         job.delete()
+        try:
+            from django.core.cache import cache
+            cache.delete('public_job_alerts_total')
+            cache.delete('job_alert_filter_options')
+        except Exception:
+            pass
         return Response({'message': 'Deleted successfully'})
 
     new_status = request.data.get('status') or request.data.get('application_status')
@@ -314,6 +373,15 @@ def update_job_status(request, job_id):
     job.save()
     if job.candidate:
         job.candidate.save()
+
+    # Invalidate public job alerts cache when a job is modified
+    try:
+        from django.core.cache import cache
+        cache.delete('public_job_alerts_total')
+        cache.delete('job_alert_filter_options')
+    except Exception:
+        pass
+
     return Response(JobLinkEntrySerializer(job).data)
 
 
@@ -560,6 +628,15 @@ def public_job_alerts(request):
         serializer = JobLinkEntrySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         job = serializer.save(submitted_by=request.user, is_public=True)
+
+        # Invalidate cached totals/filter options when a new public job is posted
+        try:
+            from django.core.cache import cache
+            cache.delete('public_job_alerts_total')
+            cache.delete('job_alert_filter_options')
+        except Exception:
+            pass
+
         return Response(JobLinkEntrySerializer(job).data, status=status.HTTP_201_CREATED)
 
     # 1. Base queryset
@@ -702,7 +779,14 @@ def public_job_alerts(request):
 
     # 15. Pagination
     total = jobs.count()
-    unfiltered_total = JobLinkEntry.objects.filter(is_public=True).count()
+
+    # Cache unfiltered_total to avoid an expensive full-table COUNT(*) on every request
+    from django.core.cache import cache as django_cache
+    unfiltered_total = django_cache.get('public_job_alerts_total')
+    if unfiltered_total is None:
+        unfiltered_total = JobLinkEntry.objects.filter(is_public=True).count()
+        django_cache.set('public_job_alerts_total', unfiltered_total, 300)  # 5 min
+
     try:
         page = int(request.query_params.get('page', 0))
     except (ValueError, TypeError):
@@ -730,7 +814,14 @@ def public_job_alerts(request):
 def public_job_alert_filter_options(request):
     """
     Returns distinct filter options derived from all live jobs in the database.
+    Response is cached for 5 minutes to avoid 7+ distinct queries on every page load.
     """
+    from django.core.cache import cache as django_cache
+
+    cached_result = django_cache.get('job_alert_filter_options')
+    if cached_result is not None:
+        return Response(cached_result)
+
     base_qs = JobLinkEntry.objects.filter(is_public=True)
 
     # Distinct Roles
@@ -793,7 +884,7 @@ def public_job_alert_filter_options(request):
 
     total_count = base_qs.count()
 
-    return Response({
+    result = {
         'roles': roles,
         'locations': locations,
         'employment_types': employment_types,
@@ -801,7 +892,12 @@ def public_job_alert_filter_options(request):
         'experience_levels': experience_levels,
         'visa_eligibilities': visa_eligibilities,
         'total_count': total_count,
-    })
+    }
+
+    # Cache for 5 minutes — invalidated on job create/update/delete
+    django_cache.set('job_alert_filter_options', result, 300)
+
+    return Response(result)
 
 
 @api_view(['GET'])

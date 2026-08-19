@@ -185,7 +185,7 @@ const CandidateDashboard = () => {
 
     const interval = setInterval(() => {
       fetchData(false, true);
-    }, 8000);
+    }, 45000);
     return () => clearInterval(interval);
   }, [user, location.pathname]);
 

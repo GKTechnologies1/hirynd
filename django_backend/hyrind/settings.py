@@ -103,6 +103,19 @@ else:
 
 AUTH_USER_MODEL = 'users.User'
 
+# Cache — in-process memory cache (no external service required)
+# Swap to django-redis when scaling to multiple server instances
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'hyrind-perf-cache',
+        'TIMEOUT': 300,  # 5 minutes default
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        },
+    }
+}
+
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

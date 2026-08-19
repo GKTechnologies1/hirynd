@@ -117,6 +117,10 @@ class DailySubmissionLog(models.Model):
 
     class Meta:
         db_table = 'daily_submission_logs'
+        indexes = [
+            models.Index(fields=['candidate_id', '-log_date'], name='idx_dsl_candidate_logdate'),
+            models.Index(fields=['recruiter_id', '-log_date'], name='idx_dsl_recruiter_logdate'),
+        ]
 
     def __str__(self):
         return f"Log {self.log_date} - {self.recruiter.email}"
@@ -162,6 +166,18 @@ class JobLinkEntry(models.Model):
 
     class Meta:
         db_table = 'job_link_entries'
+        indexes = [
+            # Candidate applications page: filter by candidate + order by created_at
+            models.Index(fields=['candidate_id', '-created_at'], name='idx_jle_candidate_created'),
+            # Public job alerts page: filter is_public + order by created_at
+            models.Index(fields=['is_public', '-created_at'], name='idx_jle_public_created'),
+            # Status filtering (used in multiple views)
+            models.Index(fields=['application_status'], name='idx_jle_app_status'),
+            # Date-based filtering and ordering
+            models.Index(fields=['-created_at'], name='idx_jle_created_desc'),
+            # Recruiter stats: submitted_by + date lookups
+            models.Index(fields=['submitted_by_id', '-created_at'], name='idx_jle_submitted_created'),
+        ]
 
     def __str__(self):
         return f"{self.company_name} - {self.role_title} ({self.candidate.user.email})"

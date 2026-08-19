@@ -348,7 +348,8 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       setJobLinks([]);
       setJobLinkErrors({});
       const jobsRes = await recruitersApi.getJobApplications(candidate.id).catch(() => ({ data: [] }));
-      setJobPostings(jobsRes.data || []);
+      const jobsData = Array.isArray(jobsRes.data) ? jobsRes.data : (jobsRes.data?.results || []);
+      setJobPostings(jobsData);
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
@@ -569,17 +570,18 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           recruitersApi.getDailyLogs(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
           recruitersApi.getJobApplications(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
         ]);
-        const logs = logsRes.data || [];
-        setDailyLogs(logs);
+        const logsData = Array.isArray(logsRes.data) ? logsRes.data : (logsRes.data?.results || []);
+        setDailyLogs(logsData);
 
         // Merge daily-log job entries + recruiter-submitted job applications
-        const logJobs = logs.flatMap((l: any) =>
+        const logJobs = logsData.flatMap((l: any) =>
           (l.job_entries || []).map((j: any) => ({
             ...j,
             log_date: l.log_date || l.created_at
           }))
         );
-        const recruiterJobs = (jobsRes.data || []).map((j: any) => ({
+        const rawJobs = Array.isArray(jobsRes.data) ? jobsRes.data : (jobsRes.data?.results || []);
+        const recruiterJobs = rawJobs.map((j: any) => ({
           ...j,
           log_date: j.log_date || j.created_at,
         }));
@@ -614,8 +616,19 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     };
     fetchData();
 
-    const interval = setInterval(fetchData, 8000);
-    return () => clearInterval(interval);
+    // 45s background polling to significantly reduce server & DB load
+    const interval = setInterval(fetchData, 45000);
+
+    // Refresh immediately when candidate switches back to this tab
+    const handleFocus = () => {
+      fetchData();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [candidate?.id, candidate?.updated_at]); // Depend on updated_at to refresh when parent refreshes
 
   const handleStatusUpdate = async (jobId: string, newStatus: string) => {
