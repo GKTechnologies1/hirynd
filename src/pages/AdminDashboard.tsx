@@ -14,6 +14,7 @@ import AdminBillingRunPage from "@/pages/admin/AdminBillingRunPage";
 import AdminSubscriptionPlansPage from "@/pages/admin/AdminSubscriptionPlansPage";
 import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminJobsPage from "@/pages/admin/AdminJobsPage";
+import AdminJobBoard from "@/pages/admin/AdminJobBoard";
 import AdminCandidatesPage from "@/pages/admin/AdminCandidatesPage";
 import AdminRecruitersPage from "@/pages/admin/AdminRecruitersPage";
 import AdminRecruiterDetail from "@/pages/admin/AdminRecruiterDetail";
@@ -21,11 +22,12 @@ import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminInterestedCandidatesPage from "@/pages/admin/AdminInterestedCandidatesPage";
 import AdminInterestedCandidateDetail from "@/pages/admin/AdminInterestedCandidateDetail";
 import AdminGeneralEnquiriesPage from "@/pages/admin/AdminGeneralEnquiriesPage";
+import AdminReviewsPage from "@/pages/admin/AdminReviewsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, MousePointer } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star, PauseCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
@@ -46,11 +48,13 @@ const navItems = [
   { label: "Candidates", path: "/admin-dashboard/candidates", icon: <Users className="h-4 w-4" /> },
   { label: "Recruiters", path: "/admin-dashboard/recruiters", icon: <UserPlus className="h-4 w-4" /> },
   { label: "Jobs", path: "/admin-dashboard/jobs", icon: <Briefcase className="h-4 w-4" /> },
+  { label: "Job Board", path: "/admin-dashboard/job-board", icon: <Briefcase className="h-4 w-4" /> },
   { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
   { label: "Subscriptions", path: "/admin-dashboard/subscriptions", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <AlertTriangle className="h-4 w-4" /> },
   { label: "Referrals", path: "/admin-dashboard/referrals", icon: <Users className="h-4 w-4" /> },
   { label: "General Enquiries", path: "/admin-dashboard/general-enquiries", icon: <ClipboardList className="h-4 w-4" /> },
+  { label: "Reviews", path: "/admin-dashboard/reviews", icon: <Star className="h-4 w-4" /> },
   { label: "Notifications", path: "/admin-dashboard/notifications", icon: <Bell className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
@@ -77,8 +81,6 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [billingAlerts, setBillingAlerts] = useState(0);
-  const [trainingClicks7d, setTrainingClicks7d] = useState(0);
-  const [trainingClicks30d, setTrainingClicks30d] = useState(0);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [revenueData, setRevenueData] = useState<any[]>([]);
@@ -197,12 +199,15 @@ const AdminDashboard = () => {
       case "subscriptions": return <AdminSubscriptionPlansPage />;
       case "users": return <AdminUsersPage />;
       case "jobs": return <AdminJobsPage />;
+      case "job-board":
+      case "jobboard": return <AdminJobBoard />;
       case "candidates": return <AdminCandidatesPage />;
       case "interested-candidates": return <AdminInterestedCandidatesPage />;
       case "general-enquiries": return <AdminGeneralEnquiriesPage />;
       case "recruiters": return <AdminRecruitersPage />;
       case "payments": return <AdminPaymentsPage />;
       case "notifications": return <AdminNotificationsPage />;
+      case "reviews": return <AdminReviewsPage />;
       case "settings": return <AdminSettingsPage />;
       default: break;
     }
@@ -218,10 +223,9 @@ const AdminDashboard = () => {
       { key: "credentials_submitted", label: "Credentials Ready", count: pipelineCounts["credentials_submitted"] || 0, icon: <Briefcase className="h-4 w-4" />, filter: "credentials_submitted", color: "bg-secondary/30" },
       { key: "active_marketing", label: "Active Marketing", count: pipelineCounts["active_marketing"] || 0, icon: <Activity className="h-4 w-4" />, filter: "active_marketing", color: "bg-secondary/40" },
       { key: "placed_closed", label: "Placed", count: pipelineCounts["placed_closed"] || 0, icon: <Users className="h-4 w-4" />, filter: "placed_closed", color: "bg-secondary text-secondary-foreground" },
-      { key: "billing_alerts", label: "Billing Alerts", count: billingAlerts, icon: <AlertTriangle className="h-4 w-4" />, link: "/admin-dashboard/billing-run", color: billingAlerts > 0 ? "bg-destructive/10 text-destructive" : "bg-muted" },
-      { key: "paused", label: "Paused", count: pipelineCounts["paused"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "paused", color: "bg-accent/30" },
+      { key: "paused", label: "Paused", count: pipelineCounts["paused"] || 0, icon: <PauseCircle className="h-4 w-4" />, filter: "paused", color: "bg-amber-100 text-amber-800" },
+      { key: "on_hold", label: "On Hold", count: pipelineCounts["on_hold"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "on_hold", color: "bg-accent/30" },
       { key: "past_due", label: "Past Due", count: pipelineCounts["past_due"] || 0, icon: <AlertTriangle className="h-4 w-4" />, filter: "past_due", color: "bg-destructive/10 text-destructive" },
-      { key: "training_clicks", label: "Training Clicks (7d / 30d)", count: trainingClicks7d, icon: <MousePointer className="h-4 w-4" />, link: "/admin-dashboard/config", color: "bg-muted", subtitle: `${trainingClicks7d} / ${trainingClicks30d}` },
     ];
 
     // Support multi-status filters (e.g. "roles_confirmed,roles_candidate_responded")

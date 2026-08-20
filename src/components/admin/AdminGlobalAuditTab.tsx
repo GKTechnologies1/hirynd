@@ -34,31 +34,34 @@ const AdminGlobalAuditTab = () => {
     const fetchLogs = async () => {
       setLoading(true);
       try {
-        const { data: allLogs } = await auditApi.globalLogs(actionFilter !== "all" ? actionFilter : undefined);
-        let filtered = allLogs || [];
-        
+        let dFrom = "";
         if (dateFrom) {
-          let dFrom = dateFrom.replace(/\//g, "-");
+          dFrom = dateFrom.replace(/\//g, "-");
           if (dFrom.includes("-") && dFrom.split("-")[0].length === 2) {
             try {
               const parsed = parse(dFrom, "MM-dd-yyyy", new Date());
               if (!isNaN(parsed.getTime())) dFrom = format(parsed, "yyyy-MM-dd");
             } catch(e) {}
           }
-          filtered = filtered.filter((l: any) => l.created_at >= dFrom);
         }
         
+        let dTo = "";
         if (dateTo) {
-          let dTo = dateTo.replace(/\//g, "-");
+          dTo = dateTo.replace(/\//g, "-");
           if (dTo.includes("-") && dTo.split("-")[0].length === 2) {
             try {
               const parsed = parse(dTo, "MM-dd-yyyy", new Date());
               if (!isNaN(parsed.getTime())) dTo = format(parsed, "yyyy-MM-dd");
             } catch(e) {}
           }
-          filtered = filtered.filter((l: any) => l.created_at <= dTo + "T23:59:59");
         }
-        setLogs(filtered);
+
+        const { data: allLogs } = await auditApi.globalLogs({
+          action: actionFilter !== "all" ? actionFilter : undefined,
+          date_from: dFrom || undefined,
+          date_to: dTo || undefined,
+        });
+        setLogs(allLogs || []);
       } catch {
         setLogs([]);
       }

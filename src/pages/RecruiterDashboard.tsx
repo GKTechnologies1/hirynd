@@ -9,6 +9,8 @@ import DailyLogPage from "@/pages/recruiter/DailyLogPage";
 import RecruiterProfilePage from "@/pages/recruiter/RecruiterProfilePage";
 import RecruiterSettingsPage from "@/pages/recruiter/RecruiterSettingsPage";
 import RecruiterAssignedToPage from "@/pages/recruiter/RecruiterAssignedToPage";
+import RecruiterTeamPage from "@/pages/recruiter/RecruiterTeamPage";
+import RecruiterTeamMemberDetailPage from "@/pages/recruiter/RecruiterTeamMemberDetailPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
@@ -195,6 +197,8 @@ const RecruiterHome = () => {
             columns={[
               {
                 header: "ID",
+                accessorKey: "display_id",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
@@ -204,6 +208,8 @@ const RecruiterHome = () => {
               },
               {
                 header: "Candidate",
+                accessorKey: "full_name",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => (
                   <div className="flex flex-col">
@@ -214,6 +220,8 @@ const RecruiterHome = () => {
               },
               {
                 header: "Visa Status",
+                accessorKey: "visa_status",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/10 text-secondary border border-secondary/20 uppercase tracking-tighter">
@@ -223,11 +231,15 @@ const RecruiterHome = () => {
               },
               {
                 header: "Pipeline Status",
+                accessorKey: "status",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => <StatusBadge status={c.status} />
               },
               {
                 header: "Total Apps",
+                accessorKey: "total_applications",
+                sortable: true,
                 className: "px-6 text-center",
                 render: (c: any) => (
                   <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
@@ -237,6 +249,8 @@ const RecruiterHome = () => {
               },
               {
                 header: "Total Interviews",
+                accessorKey: "total_interviews",
+                sortable: true,
                 className: "px-6 text-center",
                 render: (c: any) => (
                   <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-secondary/10 text-secondary">
@@ -246,6 +260,8 @@ const RecruiterHome = () => {
               },
               {
                 header: "Last Updated",
+                accessorKey: "updated_at",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => (
                   <span className="text-xs text-muted-foreground">
@@ -287,13 +303,29 @@ const CandidateDetailWrapper = () => {
 };
 
 const RecruiterDashboard = () => {
+  const { user } = useAuth();
+
+  const dynamicNavItems = [
+    { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
+    { label: "Assigned To", path: "/recruiter-dashboard/assigned-to", icon: <UserCheck className="h-4 w-4" /> },
+    { label: "Daily Log", path: "/recruiter-dashboard/daily-log", icon: <ClipboardList className="h-4 w-4" /> },
+    ...(user?.role === "team_lead" || user?.role === "team_manager" || user?.role === "admin"
+      ? [{ label: "My Team", path: "/recruiter-dashboard/team", icon: <Users className="h-4 w-4" /> }]
+      : []
+    ),
+    { label: "My Profile", path: "/recruiter-dashboard/profile", icon: <User className="h-4 w-4" /> },
+    { label: "Settings", path: "/recruiter-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
+  ];
+
   return (
-    <DashboardLayout title="Recruiter Dashboard" navItems={navItems}>
+    <DashboardLayout title="Recruiter Dashboard" navItems={dynamicNavItems}>
       <Routes>
         <Route path="/" element={<RecruiterHome />} />
         <Route path="/candidates/:candidateId" element={<CandidateDetailWrapper />} />
         <Route path="/assigned-to" element={<RecruiterAssignedToPage />} />
         <Route path="/daily-log" element={<DailyLogPage />} />
+        <Route path="/team" element={<RecruiterTeamPage />} />
+        <Route path="/team/:teamMemberId" element={<RecruiterTeamMemberDetailPage />} />
         <Route path="/profile" element={<RecruiterProfilePage />} />
         <Route path="/settings" element={<RecruiterSettingsPage />} />
       </Routes>

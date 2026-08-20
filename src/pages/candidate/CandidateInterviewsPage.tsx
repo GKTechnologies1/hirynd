@@ -31,6 +31,7 @@ const navItems = [
 
 const LOG_TYPES = [
   { value: "screening_call", label: "Screening Call" },
+  { value: "assessment", label: "Assessment" },
   { value: "technical_interview", label: "Technical Interview" },
   { value: "hr_interview", label: "HR Interview" },
   { value: "client_round", label: "Client Round" },

@@ -101,7 +101,7 @@ export default function Header() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          height: 80px;
+          height: 58px;
           transition: all 0.3s ease;
         }
         .navbar-logo {
@@ -109,24 +109,24 @@ export default function Header() {
           left: 2%;
         }
         .navbar-logo img {
-          width: 70px;
-          height: 70px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
           object-fit: contain;
           background: white;
-          border: 3px solid rgba(255, 255, 255, 0.3);
+          border: 2px solid rgba(255, 255, 255, 0.3);
           transition: transform 0.3s ease, border-color 0.3s ease;
         }
 
         .navbar-logo img:hover {
-          transform: scale(1.1) rotate(5deg);
+          transform: scale(1.08) rotate(5deg);
           border-color: rgba(255, 255, 255, 0.8);
         }
 
         .navbar-desktop {
           display: none;
           align-items: center;
-          gap: 1.75rem;
+          gap: 1.25rem;
           margin-left: auto;
         }
 
@@ -141,9 +141,9 @@ export default function Header() {
         .nav-link {
           color: white;
           text-decoration: none;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 500;
-          padding: 10px 18px;
+          padding: 6px 14px;
           border-radius: 8px;
           transition: all 0.3s ease;
           position: relative;
@@ -183,10 +183,10 @@ export default function Header() {
           background: white;
           color: #0d47a1;
           border: none;
-          padding: 10px 24px;
+          padding: 6px 18px;
           border-radius: 8px;
           font-weight: 600;
-          font-size: 15px;
+          font-size: 14px;
           cursor: pointer;
           transition: all 0.3s ease;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -206,10 +206,10 @@ export default function Header() {
         .profile-button, .services-button, .login-button {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 10px 18px;
+          gap: 6px;
+          padding: 6px 14px;
           border-radius: 8px;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 500;
           color: white;
           background: none;
@@ -225,15 +225,15 @@ export default function Header() {
         }
 
         .profile-icon {
-          width: 38px;
-          height: 38px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           background: white;
           display: flex;
           align-items: center;
           justify-content: center;
           color: #0d47a1;
-          font-size: 1.25rem;
+          font-size: 1rem;
           border: 2px solid rgba(255, 255, 255, 0.5);
         }
 
@@ -424,7 +424,7 @@ export default function Header() {
               <Link to="/about" className={`nav-link ${isActive("/about") ? "active" : ""}`}>
                 About Us
               </Link>
-              
+
               {/* Services Dropdown */}
               <div className="services-container">
                 <button onClick={toggleServicesDropdown} className="services-button">
@@ -465,7 +465,7 @@ export default function Header() {
               </div>
 
               <Link to="/job-alert" className={`nav-link ${isActive("/job-alert") ? "active" : ""}`}>
-                Job Alert
+                Job Board
               </Link>
 
               <Link to="/how-it-works" className={`nav-link ${isActive("/how-it-works") ? "active" : ""}`}>
@@ -480,40 +480,40 @@ export default function Header() {
 
               {!user ? (
                 <>
-                <div className="login-container">
-                  <button onClick={toggleLoginDropdown} className="register-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>Login / Register</span>
-                    <svg
-                      className={`dropdown-arrow ${loginDropdownOpen ? "rotate" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      width="16"
-                      height="16"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
+                  <div className="login-container">
+                    <button onClick={toggleLoginDropdown} className="register-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>Login / Register</span>
+                      <svg
+                        className={`dropdown-arrow ${loginDropdownOpen ? "rotate" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
 
-                  {loginDropdownOpen && (
-                    <div className="login-dropdown">
-                      <div className="dropdown-header">
-                        Portal Access
+                    {loginDropdownOpen && (
+                      <div className="login-dropdown">
+                        <div className="dropdown-header">
+                          Portal Access
+                        </div>
+                        <Link to="/candidate-login" onClick={closeLoginDropdown} className="dropdown-item">
+                          Candidate Login / Register
+                        </Link>
+                        <Link to="/recruiter-login" onClick={closeLoginDropdown} className="dropdown-item">
+                          Recruiter Login / Register
+                        </Link>
                       </div>
-                      <Link to="/candidate-login" onClick={closeLoginDropdown} className="dropdown-item">
-                        Candidate Login / Register
-                      </Link>
-                      <Link to="/recruiter-login" onClick={closeLoginDropdown} className="dropdown-item">
-                        Recruiter Login / Register
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="profile-container">
@@ -567,9 +567,9 @@ export default function Header() {
 
             {/* Mobile Toggle */}
             <div className="mobile-controls">
-               <button onClick={toggleMenu} className="mobile-menu-button">
-                 {open ? "✕" : "☰"}
-               </button>
+              <button onClick={toggleMenu} className="mobile-menu-button">
+                {open ? "✕" : "☰"}
+              </button>
             </div>
           </div>
         </div>
@@ -577,24 +577,24 @@ export default function Header() {
         {/* Mobile Sidebar */}
         <div className={`mobile-sidebar ${open ? "open" : ""}`}>
           <div className="mobile-sidebar-content">
-             <Link to="/" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Home</Link>
-             <Link to="/about" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>About Us</Link>
-             <Link to="/services" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Services</Link>
-             <Link to="/job-alert" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Job Alert</Link>
-             <Link to="/how-it-works" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>How It Works</Link>
-             <Link to="/reviews" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Reviews</Link>
-             <Link to="/contact?type=general" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Contact Us</Link>
-             
-              {!user ? (
-                <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
-                   <Link to="/candidate-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Candidate Login</Link>
-                   <Link to="/recruiter-login" onClick={closeMenu} className="nav-link" style={{color: '#0d47a1', marginBottom: '10px'}}>Recruiter Login</Link>
-                </div>
-             ) : (
-               <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
-                  <button onClick={handleLogout} className="nav-link" style={{color: '#dc2626', background: 'none', border: 'none', width: '100%', textAlign: 'left'}}>Logout</button>
-               </div>
-             )}
+            <Link to="/" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>Home</Link>
+            <Link to="/about" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>About Us</Link>
+            <Link to="/services" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>Services</Link>
+            <Link to="/job-alert" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>Job Board</Link>
+            <Link to="/how-it-works" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>How It Works</Link>
+            <Link to="/reviews" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>Reviews</Link>
+            <Link to="/contact?type=general" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>Contact Us</Link>
+
+            {!user ? (
+              <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+                <Link to="/candidate-login" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>Candidate Login</Link>
+                <Link to="/recruiter-login" onClick={closeMenu} className="nav-link" style={{ color: '#0d47a1', marginBottom: '10px' }}>Recruiter Login</Link>
+              </div>
+            ) : (
+              <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+                <button onClick={handleLogout} className="nav-link" style={{ color: '#dc2626', background: 'none', border: 'none', width: '100%', textAlign: 'left' }}>Logout</button>
+              </div>
+            )}
           </div>
         </div>
       </nav>

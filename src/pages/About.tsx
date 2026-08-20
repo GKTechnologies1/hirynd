@@ -11,7 +11,7 @@ const About = () => {
     link.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
     document.head.appendChild(link);
     
-    document.body.style.paddingTop = '80px';
+    document.body.style.paddingTop = '58px';
     return () => {
       document.body.style.paddingTop = '0px';
     };
@@ -29,11 +29,11 @@ const About = () => {
 
         /* Hero Section */
         .hero-section-about {
-          padding: 100px 0 80px;
+          padding: 50px 0 45px;
           text-align: center;
           position: relative;
           overflow: hidden;
-          min-height: 500px;
+          min-height: 240px;
           display: flex;
           align-items: center;
         }
@@ -68,16 +68,16 @@ const About = () => {
         }
 
         .hero-title-about {
-          font-size: 3.5rem;
+          font-size: clamp(2.25rem, 5vw, 3.25rem);
           font-weight: 800;
-          margin-bottom: 20px;
+          margin-bottom: 12px;
           color: #ffffff;
           animation: fadeInDown 0.8s ease-out;
         }
 
         .hero-description {
-          font-size: 1.25rem;
-          line-height: 1.8;
+          font-size: 1.125rem;
+          line-height: 1.6;
           color: #ffffff;
           max-width: 800px;
           margin: 0 auto;

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/DataTable";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -179,10 +179,12 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
 
 
   const [payAmount, setPayAmount] = useState("");
-  const [payType, setPayType] = useState("subscription");
-  const [payStatus, setPayStatus] = useState("pending");
+  const [payType, setPayType] = useState("");
+  const [payStatus, setPayStatus] = useState("completed");
   const [payNotes, setPayNotes] = useState("");
   const [addingPayment, setAddingPayment] = useState(false);
+  const [manualPayPlans, setManualPayPlans] = useState<any[]>([]);
+  const [manualPayAddons, setManualPayAddons] = useState<any[]>([]);
 
   const [isEditingCreds, setIsEditingCreds] = useState(false);
   const isEditingCredsRef = useRef(isEditingCreds);
@@ -228,7 +230,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
           const name = cand.full_name || cand.profile?.full_name || cand.email || "Candidate";
           onLoaded(name);
         }
-        const [intakeRes, roleRes, credRes, payRes, subRes, interviewRes, proposedRoleRes] = await Promise.all([
+        const [intakeRes, roleRes, credRes, payRes, subRes, interviewRes, proposedRoleRes, plansRes, addonsRes] = await Promise.all([
           candidatesApi.getIntake(candidateId, backgroundConfig).catch(() => ({ data: null })),
           candidatesApi.getRoles(candidateId, backgroundConfig).catch(() => ({ data: [] })),
           candidatesApi.getCredentials(candidateId, backgroundConfig).catch(() => ({ data: [] })),
@@ -236,11 +238,15 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
           billingApi.subscription(candidateId, backgroundConfig).catch(() => ({ data: null })),
           candidatesApi.getInterviews(candidateId, backgroundConfig).catch(() => ({ data: [] })),
           candidatesApi.getProposedRoles(candidateId, backgroundConfig).catch(() => ({ data: [] })),
+          billingApi.listPlans().catch(() => ({ data: [] })),
+          billingApi.listAddons().catch(() => ({ data: [] })),
         ]);
         setIntake(intakeRes.data || null);
         setRoles(roleRes.data || []);
         setProposedRoles(proposedRoleRes.data || []);
         setCredentials(credRes.data || []);
+        setManualPayPlans(plansRes.data || []);
+        setManualPayAddons(addonsRes.data || []);
         if (!isEditingCredsRef.current) {
           if (credRes.data && credRes.data.length > 0 && credRes.data[0].data) {
             const data = credRes.data[0].data;
@@ -407,12 +413,30 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
     }
   };
 
+  const handlePayTypeChange = (val: string) => {
+    setPayType(val);
+    const selectedPlan = manualPayPlans.find(p => p.name === val);
+    if (selectedPlan) {
+      setPayAmount(String(Math.round(selectedPlan.amount)));
+      return;
+    }
+    const selectedAddon = manualPayAddons.find(a => a.name === val);
+    if (selectedAddon) {
+      setPayAmount(String(Math.round(selectedAddon.amount)));
+      return;
+    }
+    setPayAmount("");
+  };
+
   const handleRecordPayment = async () => {
     if (!payAmount || Number(payAmount) <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
     setAddingPayment(true);
     try {
       await billingApi.recordPayment(candidateId, { amount: Number(payAmount), payment_type: payType, status: payStatus, notes: payNotes });
-      setPayAmount(""); setPayNotes("");
+      setPayAmount(""); 
+      setPayNotes("");
+      setPayType("");
+      setPayStatus("completed");
       toast({ title: "Payment recorded" }); fetchAll();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -1978,28 +2002,45 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                     <Label>Amount ($) *</Label>
                     <Input
                       type="number"
-                      step="0.01"
-                      min="0.01"
+                      step="1"
+                      min="1"
                       onKeyDown={(e) => {
                         if (e.key === '-') {
                           e.preventDefault();
                         }
                       }}
+                      onWheel={(e) => e.currentTarget.blur()}
                       value={payAmount}
                       onChange={e => setPayAmount(e.target.value.replace(/-/g, ""))}
-                      placeholder="500.00"
+                      placeholder="500"
                     />
                   </div>
                   <div><Label>Type</Label>
-                    <Select value={payType} onValueChange={setPayType}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Select value={payType} onValueChange={handlePayTypeChange}>
+                      <SelectTrigger><SelectValue placeholder="Select type..." /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="monthly_service">Marketing Service Fee</SelectItem>
-                        <SelectItem value="mock_practice">Mock Practice Fee</SelectItem>
-                        <SelectItem value="interview_support">Interview Support Fee</SelectItem>
-                        <SelectItem value="operations_support">Operations Support Fee</SelectItem>
-                        <SelectItem value="manual">Manual / Other</SelectItem>
-                        <SelectItem value="refund">Refund</SelectItem>
+                        {manualPayPlans && manualPayPlans.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Subscription Plans</SelectLabel>
+                            {manualPayPlans.map((plan: any) => (
+                              <SelectItem key={plan.id} value={plan.name}>
+                                {plan.name} (${Number(plan.amount).toLocaleString()})
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+
+                        {manualPayAddons && manualPayAddons.length > 0 && (
+                          <SelectGroup>
+                            {manualPayPlans && manualPayPlans.length > 0 && <SelectSeparator />}
+                            <SelectLabel>Add-on Services</SelectLabel>
+                            {manualPayAddons.map((addon: any) => (
+                              <SelectItem key={addon.id} value={addon.name}>
+                                {addon.name} (+${Number(addon.amount).toLocaleString()})
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

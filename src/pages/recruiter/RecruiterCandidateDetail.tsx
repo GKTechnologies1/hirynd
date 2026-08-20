@@ -13,9 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DataTable } from "@/components/ui/DataTable";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload, Search } from "lucide-react";
+import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload, Search, Ban, XCircle, MoreHorizontal } from "lucide-react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
@@ -24,6 +24,16 @@ import ChatTab from "@/components/recruiter/ChatTab";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import CustomCredentialsDialog from "@/components/dashboard/CustomCredentialsDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const formatToMMDDYYYY = (date: string | Date | null | undefined): string => {
   if (!date) return "—";
@@ -55,11 +65,11 @@ const formatToMMDDYYYY = (date: string | Date | null | undefined): string => {
 
   const d = new Date(date);
   if (isNaN(d.getTime())) return typeof date === "string" ? date : "—";
-  
+
   const month = String(d.getUTCMonth() + 1).padStart(2, '0');
   const day = String(d.getUTCDate()).padStart(2, '0');
   const year = d.getUTCFullYear();
-  
+
   return `${month}-${day}-${year}`;
 };
 
@@ -72,11 +82,11 @@ const COUNTRY_CODES = [
 ];
 
 const SENSITIVE_FIELDS = [
-  "gmail_password", 
-  "linkedin_password", 
-  "indeed_password", 
-  "dice_password", 
-  "monster_password", 
+  "gmail_password",
+  "linkedin_password",
+  "indeed_password",
+  "dice_password",
+  "monster_password",
   "ziprecruiter_password",
   "linkedin_pass",
   "indeed_pass",
@@ -208,24 +218,40 @@ const DUPLICATE_PAIRS: [string, string][] = [
   ["opt_offer_letter_url", "offer_letter_url"],
 ];
 
-const JobDescriptionCell = ({ 
-  company, 
-  role, 
-  description, 
-  onReadMore 
-}: { 
-  company: string; 
-  role: string; 
-  description?: string; 
-  onReadMore: (company: string, role: string, desc: string) => void; 
+const formatSalaryDisplay = (rawSalary: any): string => {
+  if (!rawSalary) return "Not Disclosed";
+  const s = String(rawSalary).trim();
+  if (!s || s === "-" || s.toLowerCase() === "not disclosed" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") {
+    return "Not Disclosed";
+  }
+  const cleaned = s.replace(/^\$+/, '').trim();
+  if (!cleaned) return "Not Disclosed";
+  if (/^[€£₹]/.test(cleaned)) {
+    return cleaned;
+  }
+  return `$${cleaned}`;
+};
+
+const JobDescriptionCell = ({
+  company,
+  role,
+  description,
+  job,
+  onReadMore
+}: {
+  company: string;
+  role: string;
+  description?: string;
+  job?: any;
+  onReadMore: (jobOrCompany: any, role?: string, desc?: string) => void;
 }) => {
   if (!description) return <span className="text-muted-foreground">—</span>;
-  
+
   const isLengthy = description.length > 100;
   if (!isLengthy) {
     return <span className="text-xs whitespace-pre-wrap">{description}</span>;
   }
-  
+
   const preview = description.slice(0, 100) + "...";
   return (
     <div className="text-xs">
@@ -234,7 +260,7 @@ const JobDescriptionCell = ({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          onReadMore(company, role, description);
+          onReadMore(job || { company_name: company, role_title: role, job_description: description });
         }}
         className="text-primary hover:underline font-semibold ml-1 cursor-pointer"
       >
@@ -283,7 +309,17 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     sessionStorage.setItem(`recruiter_candidate_active_tab_${candidateId}`, val);
   };
 
-  const [activeJobDesc, setActiveJobDesc] = useState<{ company: string; role: string; description: string } | null>(null);
+  const [activeJobDesc, setActiveJobDesc] = useState<{
+    company: string;
+    role: string;
+    description: string;
+    employment_type?: string;
+    experience_required?: string;
+    work_mode?: string;
+    location?: string;
+    salary?: string;
+    visa_eligibility?: string;
+  } | null>(null);
 
   const [appSearchRole, setAppSearchRole] = useState("");
   const [appSearchCompany, setAppSearchCompany] = useState("");
@@ -295,7 +331,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     return jobPostings.filter(j => {
       const matchRole = !appSearchRole || j.role_title?.toLowerCase().includes(appSearchRole.toLowerCase());
       const matchCompany = !appSearchCompany || j.company_name?.toLowerCase().includes(appSearchCompany.toLowerCase());
-      
+
       let matchDate = true;
       const logDateStr = j.log_date || j.created_at;
       if (logDateStr) {
@@ -313,7 +349,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
             if (itemDate < fd) matchDate = false;
           }
         }
-        
+
         if (appToDate) {
           const tParts = appToDate.split(/[-\/]/);
           if (tParts.length === 3) {
@@ -328,13 +364,34 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
       const currentStatus = j.candidate_response_status || j.status || j.application_status;
       const matchAction = appActionFilter === "all" || currentStatus?.toLowerCase() === appActionFilter.toLowerCase();
-      
+
       return matchRole && matchCompany && matchDate && matchAction;
     });
   }, [jobPostings, appSearchRole, appSearchCompany, appFromDate, appToDate, appActionFilter]);
 
-  const handleOpenDescription = (company: string, role: string, description: string) => {
-    setActiveJobDesc({ company, role, description });
+  const handleOpenDescription = (jobOrCompany: any, role?: string, description?: string) => {
+    if (typeof jobOrCompany === "string") {
+      setActiveJobDesc({
+        company: jobOrCompany,
+        role: role || "",
+        description: description || "",
+        salary: "Not Disclosed",
+      });
+    } else {
+      const j = jobOrCompany;
+      const locationParts = [j.city, j.state, j.country].filter(Boolean).join(", ");
+      setActiveJobDesc({
+        company: j.company_name || "",
+        role: j.role_title || "",
+        description: j.job_description || "",
+        employment_type: j.employment_type,
+        experience_required: j.experience_required,
+        work_mode: j.work_mode,
+        location: locationParts || j.location,
+        salary: formatSalaryDisplay(j.salary),
+        visa_eligibility: j.visa_eligibility,
+      });
+    }
   };
 
   // Credential form
@@ -355,9 +412,47 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   // Daily log form
   const [logCount, setLogCount] = useState("");
   const [logNotes, setLogNotes] = useState("");
-  const [jobLinks, setJobLinks] = useState<Array<{ company_name: string; role_title: string; job_url: string; job_description: string; resume_used: string; status: string; }>>([]);
+  const [jobLinks, setJobLinks] = useState<Array<{
+    company_name: string;
+    role_title: string;
+    job_url: string;
+    job_description: string;
+    resume_used: string;
+    status: string;
+    employment_type?: string;
+    experience_required?: string;
+    work_mode?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    salary?: string;
+    visa_eligibility?: string;
+  }>>([]);
+  const [jobLinkErrors, setJobLinkErrors] = useState<Record<number, Record<string, string>>>({});
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
+
+  // Edit & Delete Job Application States
+  const [editJobDialogOpen, setEditJobDialogOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState<any | null>(null);
+  const [deleteJobTarget, setDeleteJobTarget] = useState<any | null>(null);
+  const [savingEditJob, setSavingEditJob] = useState(false);
+  const [editJobForm, setEditJobForm] = useState({
+    role_title: "",
+    company_name: "",
+    employment_type: "Full-Time",
+    experience_required: "2–5 Years",
+    work_mode: "Remote",
+    city: "",
+    state: "",
+    country: "United States",
+    salary: "$120,000 / yr",
+    visa_eligibility: "H1B",
+    job_description: "",
+    job_url: "",
+    resume_used: "",
+    status: "applied",
+  });
 
   const fetchAll = async (showLoading = true, isPolling = false) => {
     if (!user) return;
@@ -465,10 +560,21 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   useEffect(() => {
     setCandidate(null);
     fetchAll(true, false);
+
+    // 45s background interval
     const interval = setInterval(() => {
       fetchAll(false, true);
-    }, 8000);
-    return () => clearInterval(interval);
+    }, 45000);
+
+    const onFocus = () => {
+      fetchAll(false, false);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [candidateId, user]);
 
   const handleCredChange = (field: string, value: any) => {
@@ -590,18 +696,245 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     }
   };
 
+  const handleUpdateJobField = async (jobId: string, field: string, value: any) => {
+    try {
+      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, [field]: value } : j));
+      await recruitersApi.updateJobField(jobId, { [field]: value });
+      toast({ title: "Job detail updated" });
+    } catch (err: any) {
+      toast({ title: "Update failed", variant: "destructive" });
+      fetchAll(false);
+    }
+  };
+
+  const handleOpenEditJob = (job: any) => {
+    setEditingJob(job);
+    setEditJobForm({
+      role_title: job.role_title || job.title || "",
+      company_name: job.company_name || job.company || "",
+      employment_type: job.employment_type || "Full-Time",
+      experience_required: job.experience_required || "2–5 Years",
+      work_mode: job.work_mode || "Remote",
+      city: job.city || "",
+      state: job.state || "",
+      country: job.country || "United States",
+      salary: job.salary || "$120,000 / yr",
+      visa_eligibility: job.visa_eligibility || "H1B",
+      job_description: job.job_description || job.description || "",
+      job_url: job.job_url || "",
+      resume_used: job.resume_used || "",
+      status: (job.application_status || job.status || "applied").toLowerCase().replace(/ /g, "_"),
+    });
+    setEditJobDialogOpen(true);
+  };
+
+  const handleSaveEditJob = async () => {
+    if (!editJobForm.role_title || !editJobForm.company_name) {
+      toast({ title: "Role Title and Company Name are required", variant: "destructive" });
+      return;
+    }
+    if (!editingJob?.id) return;
+    const jobId = editingJob.id;
+    const updatedPayload = { ...editJobForm, status: editJobForm.status, application_status: editJobForm.status };
+
+    // Optimistic UI update
+    setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, ...updatedPayload } : j));
+    setEditJobDialogOpen(false);
+    setSavingEditJob(true);
+
+    try {
+      await recruitersApi.updateJobField(jobId, updatedPayload);
+      toast({ title: "Application updated successfully" });
+      fetchAll(false, true);
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.response?.data?.error || e.message, variant: "destructive" });
+      fetchAll(false);
+    } finally {
+      setSavingEditJob(false);
+    }
+  };
+
+  const handleMarkExpired = async (job: any) => {
+    if (!job?.id) return;
+    const jobId = job.id;
+    // Optimistic UI update
+    setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "expired", application_status: "expired" } : j));
+    toast({
+      title: "Application Marked Expired",
+      description: `Marked "${job.role_title || job.title || "Job"}" as expired.`,
+    });
+
+    try {
+      await recruitersApi.updateJobStatus(jobId, "expired");
+      fetchAll(false, true);
+    } catch (e: any) {
+      toast({ title: "Expiration failed", description: e.response?.data?.error || e.message, variant: "destructive" });
+      fetchAll(false);
+    }
+  };
+
+  const handleRejectJob = async (job: any) => {
+    if (!job?.id) return;
+    const jobId = job.id;
+    // Optimistic UI update
+    setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "rejected", application_status: "rejected" } : j));
+    toast({
+      title: "Application Rejected",
+      description: `Marked "${job.role_title || job.title || "Job"}" as rejected.`,
+    });
+
+    try {
+      await recruitersApi.updateJobStatus(jobId, "rejected");
+      fetchAll(false, true);
+    } catch (e: any) {
+      toast({ title: "Rejection failed", description: e.response?.data?.error || e.message, variant: "destructive" });
+      fetchAll(false);
+    }
+  };
+
+  const handleConfirmDeleteJob = async () => {
+    if (!deleteJobTarget?.id) return;
+    const targetId = deleteJobTarget.id;
+    const targetTitle = deleteJobTarget.role_title || deleteJobTarget.title || "Job";
+
+    // Optimistic UI update
+    setJobPostings(prev => prev.filter(j => j.id !== targetId));
+    setDeleteJobTarget(null);
+    toast({ title: "Application Deleted", description: `Deleted "${targetTitle}".` });
+
+    try {
+      await recruitersApi.deleteJobAlert(targetId);
+      fetchAll(false, true);
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e.response?.data?.error || e.message, variant: "destructive" });
+      fetchAll(false);
+    }
+  };
+
   const addJobLink = () => {
-    setJobLinks([...jobLinks, { company_name: "", role_title: "", job_url: "", job_description: "", resume_used: "", status: "Applied" }]);
+    setJobLinks([...jobLinks, {
+      company_name: "",
+      role_title: "",
+      job_url: "",
+      job_description: "",
+      resume_used: "",
+      status: "Applied",
+      employment_type: "",
+      experience_required: "",
+      work_mode: "",
+      city: "",
+      state: "",
+      country: "",
+      salary: "",
+      visa_eligibility: "",
+    }]);
   };
 
   const updateJobLink = (idx: number, field: string, value: string) => {
     const updated = [...jobLinks];
     (updated[idx] as any)[field] = value;
     setJobLinks(updated);
+
+    // Clear inline error on change
+    if (jobLinkErrors[idx]?.[field]) {
+      setJobLinkErrors(prev => {
+        const copy = { ...prev };
+        if (copy[idx]) {
+          const fieldErrors = { ...copy[idx] };
+          delete fieldErrors[field];
+          if (Object.keys(fieldErrors).length === 0) {
+            delete copy[idx];
+          } else {
+            copy[idx] = fieldErrors;
+          }
+        }
+        return copy;
+      });
+    }
   };
 
   const removeJobLink = (idx: number) => {
     setJobLinks(jobLinks.filter((_, i) => i !== idx));
+    setJobLinkErrors(prev => {
+      const next: Record<number, Record<string, string>> = {};
+      Object.keys(prev).forEach(k => {
+        const i = parseInt(k, 10);
+        if (i < idx) next[i] = prev[i];
+        else if (i > idx) next[i - 1] = prev[i];
+      });
+      return next;
+    });
+  };
+
+  const validateJobLinks = () => {
+    const newErrors: Record<number, Record<string, string>> = {};
+    let hasError = false;
+
+    jobLinks.forEach((j, idx) => {
+      const errs: Record<string, string> = {};
+      if (!j.company_name?.trim()) {
+        errs.company_name = "Company Name is required";
+        hasError = true;
+      }
+      if (!j.role_title?.trim()) {
+        errs.role_title = "Role Title is required";
+        hasError = true;
+      }
+      if (!j.job_description?.trim()) {
+        errs.job_description = "Job Description is required";
+        hasError = true;
+      }
+      if (!j.job_url?.trim()) {
+        errs.job_url = "Job Application Link is required";
+        hasError = true;
+      } else if (!/^(https?:\/\/|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i.test(j.job_url.trim())) {
+        errs.job_url = "Valid URL is required";
+        hasError = true;
+      }
+      if (!j.resume_used?.trim()) {
+        errs.resume_used = "Resume link is required";
+        hasError = true;
+      }
+      if (!j.employment_type?.trim()) {
+        errs.employment_type = "Employment Type is required";
+        hasError = true;
+      }
+      if (!j.experience_required?.trim()) {
+        errs.experience_required = "Experience is required";
+        hasError = true;
+      }
+      if (!j.work_mode?.trim()) {
+        errs.work_mode = "Work Mode is required";
+        hasError = true;
+      }
+      if (!j.city?.trim()) {
+        errs.city = "City is required";
+        hasError = true;
+      }
+      if (!j.state?.trim()) {
+        errs.state = "State is required";
+        hasError = true;
+      }
+      if (!j.country?.trim()) {
+        errs.country = "Country is required";
+        hasError = true;
+      }
+      if (!j.salary?.trim()) {
+        errs.salary = "Salary is required (e.g. $100k or Not Disclosed)";
+        hasError = true;
+      }
+      if (!j.visa_eligibility?.trim()) {
+        errs.visa_eligibility = "Visa Eligibility is required";
+        hasError = true;
+      }
+
+      if (Object.keys(errs).length > 0) {
+        newErrors[idx] = errs;
+      }
+    });
+
+    setJobLinkErrors(newErrors);
+    return !hasError;
   };
 
   const handleFetchJobDetails = async (idx: number) => {
@@ -648,24 +981,55 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   };
 
   const handleSubmitJobApplication = async () => {
-    const validLinks = jobLinks.filter(j => j.job_url.trim() || j.company_name.trim());
-    if (validLinks.length === 0) {
+    if (jobLinks.length === 0) {
       toast({ title: "Add at least one job link", variant: "destructive" }); return;
     }
+
+    if (!validateJobLinks()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields marked in red.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSavingLog(true);
     try {
       await recruitersApi.submitJobApplications(candidateId, {
-        job_links: validLinks.map(j => ({
-          company_name: j.company_name,
-          role_title: j.role_title,
-          job_url: j.job_url,
-          job_description: j.job_description,
-          resume_used: j.resume_used,
-          status: j.status.toLowerCase().replace(/ /g, "_"),
-        })),
+        job_links: jobLinks.map(j => {
+          let url = (j.job_url || "").trim();
+          if (url && !/^https?:\/\//i.test(url)) {
+            url = "https://" + url;
+          }
+          let resume = (j.resume_used || "").trim();
+          if (resume && !/^https?:\/\//i.test(resume) && (resume.includes(".") || resume.includes("google.com"))) {
+            resume = "https://" + resume;
+          }
+          const rawStatus = (j.status || "applied").toString().trim();
+          const formattedStatus = rawStatus.toLowerCase().replace(/ /g, "_");
+
+          return {
+            company_name: (j.company_name || "").trim(),
+            role_title: (j.role_title || "").trim(),
+            job_url: url,
+            job_description: (j.job_description || "").trim(),
+            resume_used: resume,
+            status: formattedStatus || "applied",
+            employment_type: j.employment_type || undefined,
+            experience_required: j.experience_required || undefined,
+            work_mode: j.work_mode || undefined,
+            city: j.city || undefined,
+            state: j.state || undefined,
+            country: j.country || undefined,
+            salary: j.salary?.trim() ? j.salary.trim() : "Not Disclosed",
+            visa_eligibility: j.visa_eligibility || undefined,
+          };
+        }),
       });
       toast({ title: "Job applications submitted" });
       setJobLinks([]);
+      setJobLinkErrors({});
       fetchAll();
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -974,7 +1338,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
                       <Award className="h-4 w-4" /> Educational Background
                     </h4>
-                    
+
                     <div className="grid gap-6 md:grid-cols-2">
                       {/* Highest / Master's */}
                       <div className="bg-neutral-50/50 p-4 rounded-xl border space-y-3 text-xs">
@@ -1354,10 +1718,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
                       {credForm.opt_offer_submitted === "yes" && (
                         <div className="sm:col-span-2 p-5 border-2 border-dashed rounded-lg bg-neutral-50 border-neutral-300 hover:border-primary/40 transition-all text-center">
-                          <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            className="hidden" 
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
                             onChange={e => setCredForm(p => ({ ...p, offer_letter_file: e.target.files?.[0] || null }))}
                             accept=".pdf,.doc,.docx"
                           />
@@ -1368,11 +1732,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                               </Label>
                             </div>
                             <div className="flex flex-col items-center gap-2 mt-2">
-                              <Button 
-                                type="button" 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => fileInputRef.current?.click()} 
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => fileInputRef.current?.click()}
                                 className="bg-white border-neutral-300"
                               >
                                 <Upload className="h-4 w-4 mr-2" /> Choose Document File
@@ -1381,15 +1745,15 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                 <div className="flex items-center gap-1.5 mt-2">
                                   <CheckCircle className="h-4 w-4 text-green-600" />
                                   <span className="text-xs font-bold text-green-700">
-                                    {typeof credForm.offer_letter_file === "string" 
-                                      ? "Previously uploaded offer letter" 
+                                    {typeof credForm.offer_letter_file === "string"
+                                      ? "Previously uploaded offer letter"
                                       : (credForm.offer_letter_file as File).name}
                                   </span>
                                   {typeof credForm.offer_letter_file === "string" && (
-                                    <DocumentPreview 
-                                      url={credForm.offer_letter_file} 
-                                      label="Preview" 
-                                      className="text-xs font-semibold text-green-700 hover:underline ml-1" 
+                                    <DocumentPreview
+                                      url={credForm.offer_letter_file}
+                                      label="Preview"
+                                      className="text-xs font-semibold text-green-700 hover:underline ml-1"
                                     />
                                   )}
                                 </div>
@@ -1436,10 +1800,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                               ))}
                             </SelectContent>
                           </Select>
-                          <Input 
-                            value={credForm.phone_number || ""} 
-                            onChange={e => setCredForm(p => ({ ...p, phone_number: e.target.value }))} 
-                            placeholder="1234567890" 
+                          <Input
+                            value={credForm.phone_number || ""}
+                            onChange={e => setCredForm(p => ({ ...p, phone_number: e.target.value }))}
+                            placeholder="1234567890"
                             className="flex-1 h-10 bg-muted/30 text-sm"
                           />
                         </div>
@@ -1506,8 +1870,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
                       <div className="sm:col-span-2 space-y-1.5">
                         <Label className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Mention other Platform accounts (Optional)</Label>
-                        <Textarea 
-                          value={credForm.other_platforms || ""} 
+                        <Textarea
+                          value={credForm.other_platforms || ""}
                           onChange={e => setCredForm(p => ({ ...p, other_platforms: e.target.value }))}
                           placeholder="Mention N/A if none."
                           className="bg-white border-amber-200 min-h-[100px]"
@@ -1782,7 +2146,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     {dailyLogs.map((log: any, idx: number) => (
                       <div key={idx} className="bg-muted/10 p-4 rounded-xl border border-border/40">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">{formatDate(log.log_date || log.created_at)}</span>
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">{formatDateTime(log.created_at || log.log_date)}</span>
                           <Badge variant="secondary" className="text-[9px] font-bold py-0.5 px-2">Total Applications Submitted Today: {log.total_applications_submitted_today}</Badge>
                         </div>
                         <div className="space-y-1">
@@ -1828,29 +2192,209 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                       <div className="grid gap-3 grid-cols-2">
-                        <Input placeholder="Company Name" className="h-9 text-xs bg-background/50" value={job.company_name} onChange={e => updateJobLink(idx, "company_name", e.target.value)} />
-                        <Input placeholder="Role Title" className="h-9 text-xs bg-background/50" value={job.role_title} onChange={e => updateJobLink(idx, "role_title", e.target.value)} />
+                        <div className="space-y-1">
+                          <Input
+                            placeholder="Company Name *"
+                            className={cn("h-9 text-xs bg-background/50", jobLinkErrors[idx]?.company_name && "border-destructive focus-visible:ring-destructive")}
+                            value={job.company_name}
+                            onChange={e => updateJobLink(idx, "company_name", e.target.value)}
+                          />
+                          {jobLinkErrors[idx]?.company_name && (
+                            <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                              {jobLinkErrors[idx].company_name}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <Input
+                            placeholder="Role Title *"
+                            className={cn("h-9 text-xs bg-background/50", jobLinkErrors[idx]?.role_title && "border-destructive focus-visible:ring-destructive")}
+                            value={job.role_title}
+                            onChange={e => updateJobLink(idx, "role_title", e.target.value)}
+                          />
+                          {jobLinkErrors[idx]?.role_title && (
+                            <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                              {jobLinkErrors[idx].role_title}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <Textarea placeholder="Job Description (Optional)" className="text-xs bg-background/50 min-h-[80px]" value={job.job_description} onChange={e => updateJobLink(idx, "job_description", e.target.value)} />
-                      <div className="relative">
-                        <Input placeholder="Job Application Link" className="h-9 text-xs bg-background/50 pr-8" value={job.job_url} onChange={e => updateJobLink(idx, "job_url", e.target.value)} />
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
-                          {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Input
-                          placeholder="Add google drive link of resume"
-                          className="flex-1 h-9 text-[10px] font-bold bg-background/50"
-                          value={job.resume_used}
-                          onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
+                      <div className="space-y-1">
+                        <Textarea
+                          placeholder="Job Description *"
+                          className={cn("text-xs bg-background/50 min-h-[80px]", jobLinkErrors[idx]?.job_description && "border-destructive focus-visible:ring-destructive")}
+                          value={job.job_description}
+                          onChange={e => updateJobLink(idx, "job_description", e.target.value)}
                         />
+                        {jobLinkErrors[idx]?.job_description && (
+                          <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                            {jobLinkErrors[idx].job_description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="relative">
+                          <Input
+                            placeholder="Job Application Link *"
+                            className={cn("h-9 text-xs bg-background/50 pr-8", jobLinkErrors[idx]?.job_url && "border-destructive focus-visible:ring-destructive")}
+                            value={job.job_url}
+                            onChange={e => updateJobLink(idx, "job_url", e.target.value)}
+                          />
+                          <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-secondary" onClick={() => handleFetchJobDetails(idx)} disabled={fetchingJob[idx]}>
+                            {fetchingJob[idx] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                          </Button>
+                        </div>
+                        {jobLinkErrors[idx]?.job_url && (
+                          <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                            {jobLinkErrors[idx].job_url}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="space-y-1 flex-1">
+                          <Input
+                            placeholder="Add google drive link of resume *"
+                            className={cn("h-9 text-[10px] font-bold bg-background/50", jobLinkErrors[idx]?.resume_used && "border-destructive focus-visible:ring-destructive")}
+                            value={job.resume_used}
+                            onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
+                          />
+                          {jobLinkErrors[idx]?.resume_used && (
+                            <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                              {jobLinkErrors[idx].resume_used}
+                            </p>
+                          )}
+                        </div>
                         <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
                           <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {JOB_STATUSES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      {/* Job Details (Mandatory) */}
+                      <div className="pt-2 border-t border-border/30 space-y-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
+                          Job Details
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Select value={job.employment_type || ""} onValueChange={v => updateJobLink(idx, "employment_type", v)}>
+                              <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.employment_type && "border-destructive text-destructive")}>
+                                <SelectValue placeholder="Employment Type *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
+                                <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
+                                <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
+                                <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
+                                <SelectItem value="W2" className="text-xs">W2</SelectItem>
+                                <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {jobLinkErrors[idx]?.employment_type && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].employment_type}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Select value={job.experience_required || ""} onValueChange={v => updateJobLink(idx, "experience_required", v)}>
+                              <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.experience_required && "border-destructive text-destructive")}>
+                                <SelectValue placeholder="Experience Required *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0–2 Years" className="text-xs">0–2 Years</SelectItem>
+                                <SelectItem value="2–5 Years" className="text-xs">2–5 Years</SelectItem>
+                                <SelectItem value="5+ Years" className="text-xs">5+ Years</SelectItem>
+                                <SelectItem value="Senior Level" className="text-xs">Senior Level</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {jobLinkErrors[idx]?.experience_required && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].experience_required}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Select value={job.work_mode || ""} onValueChange={v => updateJobLink(idx, "work_mode", v)}>
+                              <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.work_mode && "border-destructive text-destructive")}>
+                                <SelectValue placeholder="Work Mode *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Remote" className="text-xs">Remote</SelectItem>
+                                <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
+                                <SelectItem value="Onsite" className="text-xs">Onsite</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {jobLinkErrors[idx]?.work_mode && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].work_mode}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Input
+                              placeholder="City *"
+                              className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.city && "border-destructive focus-visible:ring-destructive")}
+                              value={job.city || ""}
+                              onChange={e => updateJobLink(idx, "city", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.city && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].city}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Input
+                              placeholder="State *"
+                              className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.state && "border-destructive focus-visible:ring-destructive")}
+                              value={job.state || ""}
+                              onChange={e => updateJobLink(idx, "state", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.state && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].state}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Input
+                              placeholder="Country *"
+                              className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.country && "border-destructive focus-visible:ring-destructive")}
+                              value={job.country || ""}
+                              onChange={e => updateJobLink(idx, "country", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.country && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].country}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Input
+                              placeholder="Salary (e.g. $100k or Not Disclosed) *"
+                              className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.salary && "border-destructive focus-visible:ring-destructive")}
+                              value={job.salary || ""}
+                              onChange={e => updateJobLink(idx, "salary", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.salary && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].salary}</p>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Select value={job.visa_eligibility || ""} onValueChange={v => updateJobLink(idx, "visa_eligibility", v)}>
+                              <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.visa_eligibility && "border-destructive text-destructive")}>
+                                <SelectValue placeholder="Visa Eligibility *" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
+                                <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
+                                <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
+                                <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
+                                <SelectItem value="USC" className="text-xs">USC</SelectItem>
+                                <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
+                                <SelectItem value="All Work Authorization" className="text-xs">All Work Authorization</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {jobLinkErrors[idx]?.visa_eligibility && (
+                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].visa_eligibility}</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       {jobLinks.length > 3 && (
                         <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
@@ -1993,14 +2537,71 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     )
                   },
                   {
+                    header: "Employment Type",
+                    className: "px-2 py-3 whitespace-nowrap",
+                    render: (j: any) => j.employment_type ? (
+                      <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold text-xs">
+                        {j.employment_type}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>
+                  },
+                  {
+                    header: "Experience Required",
+                    className: "px-2 py-3 whitespace-nowrap",
+                    render: (j: any) => j.experience_required ? (
+                      <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold text-xs">
+                        {j.experience_required}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>
+                  },
+                  {
+                    header: "Work Mode",
+                    className: "px-2 py-3 whitespace-nowrap",
+                    render: (j: any) => j.work_mode ? (
+                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold text-xs">
+                        {j.work_mode}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>
+                  },
+                  {
+                    header: "City",
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium text-foreground",
+                    render: (j: any) => j.city || <span className="text-muted-foreground">—</span>
+                  },
+                  {
+                    header: "State",
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium text-foreground",
+                    render: (j: any) => j.state || <span className="text-muted-foreground">—</span>
+                  },
+                  {
+                    header: "Country",
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-medium text-foreground",
+                    render: (j: any) => j.country || <span className="text-muted-foreground">—</span>
+                  },
+                  {
+                    header: "Salary",
+                    className: "px-2 py-3 whitespace-nowrap text-xs font-bold text-foreground",
+                    render: (j: any) => formatSalaryDisplay(j.salary)
+                  },
+                  {
+                    header: "Visa Eligibility",
+                    className: "px-2 py-3 whitespace-nowrap",
+                    render: (j: any) => j.visa_eligibility ? (
+                      <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold text-xs">
+                        {j.visa_eligibility}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>
+                  },
+                  {
                     header: "Job Description",
                     className: "px-6 py-4",
                     render: (j: any) => (
-                      <JobDescriptionCell 
-                        company={j.company_name} 
-                        role={j.role_title} 
-                        description={j.job_description} 
-                        onReadMore={handleOpenDescription} 
+                      <JobDescriptionCell
+                        company={j.company_name}
+                        role={j.role_title}
+                        description={j.job_description}
+                        job={j}
+                        onReadMore={handleOpenDescription}
                       />
                     )
                   },
@@ -2009,10 +2610,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     className: "px-6 py-4",
                     render: (j: any) => (
                       j.job_url ? (
-                        <DocumentPreview 
-                          url={j.job_url} 
-                          label="View Job" 
-                          className="inline-flex items-center gap-1 text-xs text-secondary hover:underline cursor-pointer font-semibold" 
+                        <DocumentPreview
+                          url={j.job_url}
+                          label="View Job"
+                          className="inline-flex items-center gap-1 text-xs text-secondary hover:underline cursor-pointer font-semibold"
                         />
                       ) : "—"
                     )
@@ -2045,9 +2646,101 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     }
                   },
                   {
-                    header: "Logged Date",
-                    className: "px-6 py-4 text-right pr-6",
-                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{formatDate(j.log_date || j.created_at)}</span>
+                    header: "Logged Date & Time",
+                    className: "px-6 py-4 text-right pr-6 whitespace-nowrap",
+                    render: (j: any) => <span className="text-[11px] text-muted-foreground font-medium">{formatDateTime(j.created_at || j.log_date)}</span>
+                  },
+                  {
+                    header: "Actions",
+                    className: "px-4 py-3 text-center whitespace-nowrap sticky right-0 bg-background shadow-xs",
+                    render: (j: any) => {
+                      const status = (j.application_status || j.status || "").toLowerCase();
+                      const isExpired = status === "expired";
+                      const isRejected = status === "rejected";
+                      return (
+                        <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          {/* Quick Edit Button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleOpenEditJob(j);
+                            }}
+                            className="h-7 px-2.5 text-xs font-semibold text-blue-700 border-blue-200 bg-blue-50/80 hover:bg-blue-100 flex items-center gap-1 cursor-pointer"
+                            title="Edit application details"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Edit
+                          </Button>
+
+                          {/* Dropdown Menu for Expire, Reject, Delete */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground border-border/60 bg-muted/20 hover:bg-muted/60 cursor-pointer"
+                                title="More actions"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover rounded-xl shadow-lg border border-border p-1 min-w-[160px] z-50">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditJob(j);
+                                }}
+                                className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                Edit Details
+                              </DropdownMenuItem>
+
+                              {!isExpired && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMarkExpired(j);
+                                  }}
+                                  className="text-xs font-medium text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                >
+                                  <Ban className="h-3.5 w-3.5 text-rose-600" />
+                                  Mark Expired
+                                </DropdownMenuItem>
+                              )}
+
+                              {!isRejected && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRejectJob(j);
+                                  }}
+                                  className="text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                >
+                                  <XCircle className="h-3.5 w-3.5 text-amber-600" />
+                                  Reject Application
+                                </DropdownMenuItem>
+                              )}
+
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteJobTarget(j);
+                                }}
+                                className="text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                Delete Application
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      );
+                    }
                   }
                 ]}
               />
@@ -2062,10 +2755,10 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         </TabsContent>
 
         <TabsContent value="interviews">
-          <RecruiterInterviewsTab 
-            candidateId={candidateId} 
-            candidateUserId={candidate.user_id} 
-            onRefresh={() => fetchAll(false)} 
+          <RecruiterInterviewsTab
+            candidateId={candidateId}
+            candidateUserId={candidate.user_id}
+            onRefresh={() => fetchAll(false)}
           />
         </TabsContent>
 
@@ -2082,16 +2775,255 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-card rounded-2xl p-6 shadow-2xl border border-border/50">
           <DialogHeader className="border-b border-border/10 pb-4">
             <DialogTitle className="text-lg font-bold flex flex-col gap-1 text-left">
-              <span className="text-muted-foreground text-xs uppercase tracking-wider">Job Description</span>
+              <span className="text-muted-foreground text-xs uppercase tracking-wider">Job Details</span>
               <span className="text-card-foreground">{activeJobDesc?.role}</span>
               <span className="text-primary text-sm font-medium">{activeJobDesc?.company}</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-4 text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground max-h-[55vh] overflow-y-auto pr-2">
-            {activeJobDesc?.description}
+
+          {/* Job Details Meta Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 py-3 border-b border-border/10 text-xs">
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Employment Type</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.employment_type || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Experience Required</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.experience_required || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Work Mode</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.work_mode || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Location</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.location || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Salary</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.salary || "Not Disclosed"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Eligibility</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "—"}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-1">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Job Description</p>
+            <div className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground max-h-[45vh] overflow-y-auto pr-2">
+              {activeJobDesc?.description}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Job Application Modal */}
+      <Dialog open={editJobDialogOpen} onOpenChange={setEditJobDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6 bg-background rounded-2xl border border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-blue-600" />
+              Edit Job Application
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Role Title *</Label>
+                <Input
+                  value={editJobForm.role_title}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, role_title: e.target.value })}
+                  placeholder="e.g. Senior Frontend Engineer"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Company Name *</Label>
+                <Input
+                  value={editJobForm.company_name}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, company_name: e.target.value })}
+                  placeholder="e.g. Google"
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Employment Type</Label>
+                <Select value={editJobForm.employment_type} onValueChange={(v) => setEditJobForm({ ...editJobForm, employment_type: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Full-Time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"].map((t) => (
+                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Experience Required</Label>
+                <Select value={editJobForm.experience_required} onValueChange={(v) => setEditJobForm({ ...editJobForm, experience_required: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["0–2 Years", "2–5 Years", "5+ Years", "Senior Level", "Lead / Staff"].map((e) => (
+                      <SelectItem key={e} value={e} className="text-xs">{e}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Work Mode</Label>
+                <Select value={editJobForm.work_mode} onValueChange={(v) => setEditJobForm({ ...editJobForm, work_mode: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Remote", "Hybrid", "Onsite"].map((w) => (
+                      <SelectItem key={w} value={w} className="text-xs">{w}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">City</Label>
+                <Input
+                  value={editJobForm.city}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, city: e.target.value })}
+                  placeholder="San Francisco"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">State</Label>
+                <Input
+                  value={editJobForm.state}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, state: e.target.value })}
+                  placeholder="CA"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Country</Label>
+                <Input
+                  value={editJobForm.country}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, country: e.target.value })}
+                  placeholder="United States"
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Salary / Pay</Label>
+                <Input
+                  value={editJobForm.salary}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, salary: e.target.value })}
+                  placeholder="$120,000 / yr"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Visa Eligibility</Label>
+                <Select value={editJobForm.visa_eligibility} onValueChange={(v) => setEditJobForm({ ...editJobForm, visa_eligibility: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"].map((v) => (
+                      <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Status</Label>
+                <Select value={editJobForm.status} onValueChange={(v) => setEditJobForm({ ...editJobForm, status: v })}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {JOB_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs">{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Job Link URL</Label>
+              <Input
+                value={editJobForm.job_url}
+                onChange={(e) => setEditJobForm({ ...editJobForm, job_url: e.target.value })}
+                placeholder="https://..."
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Resume Link / Used</Label>
+              <Input
+                value={editJobForm.resume_used}
+                onChange={(e) => setEditJobForm({ ...editJobForm, resume_used: e.target.value })}
+                placeholder="Google drive or resume link"
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Job Description</Label>
+              <Textarea
+                value={editJobForm.job_description}
+                onChange={(e) => setEditJobForm({ ...editJobForm, job_description: e.target.value })}
+                placeholder="Enter job description..."
+                className="min-h-[100px] text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
+            <Button variant="outline" size="sm" onClick={() => setEditJobDialogOpen(false)} disabled={savingEditJob}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSaveEditJob} disabled={savingEditJob} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">
+              {savingEditJob ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Job Confirmation Dialog */}
+      <AlertDialog open={!!deleteJobTarget} onOpenChange={(open) => !open && setDeleteJobTarget(null)}>
+        <AlertDialogContent className="bg-background rounded-2xl border border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" /> Delete Job Application
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground pt-2">
+              Are you sure you want to delete the job application for{" "}
+              <strong className="text-foreground">
+                {deleteJobTarget?.role_title || deleteJobTarget?.title || "this role"}
+              </strong>{" "}
+              at <strong className="text-foreground">{deleteJobTarget?.company_name || deleteJobTarget?.company}</strong>?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 pt-4">
+            <AlertDialogCancel className="h-8 px-3 text-xs font-semibold">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteJob}
+              className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-white text-xs font-bold"
+            >
+              Delete Application
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

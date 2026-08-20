@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Pagination,
   PaginationContent,
@@ -26,6 +27,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+export interface ServerPaginationConfig {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+}
+
 interface DataTableProps<T> {
   data: T[];
   columns: {
@@ -41,6 +50,7 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   isLoading?: boolean;
   emptyMessage?: string;
+  serverPagination?: ServerPaginationConfig;
 }
 
 export function DataTable<T>({
@@ -52,6 +62,7 @@ export function DataTable<T>({
   onRowClick,
   isLoading = false,
   emptyMessage = "No results found.",
+  serverPagination,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -100,15 +111,42 @@ export function DataTable<T>({
     return result;
   }, [data, searchTerm, searchKey, sortConfig]);
 
-  const totalPages = Math.ceil(filteredAndSortedData.length / currentPageSize);
-  const paginatedData = filteredAndSortedData.slice(
-    (currentPage - 1) * currentPageSize,
-    currentPage * currentPageSize
-  );
+  const isServer = Boolean(serverPagination);
+  const activePage = isServer ? serverPagination!.page : currentPage;
+  const activePageSize = isServer ? serverPagination!.pageSize : currentPageSize;
+  const activeTotal = isServer ? serverPagination!.totalCount : filteredAndSortedData.length;
+
+  const totalPages = Math.max(1, Math.ceil(activeTotal / activePageSize));
+  const paginatedData = isServer
+    ? data
+    : filteredAndSortedData.slice(
+        (currentPage - 1) * currentPageSize,
+        currentPage * currentPageSize
+      );
+
+  const handlePageChange = (p: number) => {
+    if (isServer) {
+      serverPagination!.onPageChange(p);
+    } else {
+      setCurrentPage(p);
+    }
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    if (isServer) {
+      serverPagination!.onPageSizeChange?.(size);
+      serverPagination!.onPageChange(1);
+    } else {
+      setCurrentPageSize(size);
+      setCurrentPage(1);
+    }
+  };
 
   React.useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+    if (!isServer) {
+      setCurrentPage(1);
+    }
+  }, [searchTerm, isServer]);
 
   // Generate visible page numbers with ellipsis logic
   const getVisiblePages = () => {
@@ -117,13 +155,13 @@ export function DataTable<T>({
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       pages.push(1);
-      if (currentPage > 3) pages.push('ellipsis-start');
+      if (activePage > 3) pages.push('ellipsis-start');
       
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
+      const start = Math.max(2, activePage - 1);
+      const end = Math.min(totalPages - 1, activePage + 1);
       for (let i = start; i <= end; i++) pages.push(i);
       
-      if (currentPage < totalPages - 2) pages.push('ellipsis-end');
+      if (activePage < totalPages - 2) pages.push('ellipsis-end');
       pages.push(totalPages);
     }
     return pages;
@@ -131,7 +169,7 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-0">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-border/60 bg-muted/10">
         {searchKey ? (
           <div className="relative max-w-sm w-full">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
@@ -139,7 +177,7 @@ export function DataTable<T>({
               placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-8 h-9 text-sm bg-muted/30 border-border/60 focus:bg-background transition-colors"
+              className="pl-9 pr-8 h-9 text-sm bg-background border-border/60 focus:bg-background transition-colors"
             />
             {searchTerm && (
               <button
@@ -152,21 +190,20 @@ export function DataTable<T>({
           </div>
         ) : <div />}
 
-        <div className="flex items-center gap-2">
-          <p className="text-[11px] font-medium text-muted-foreground">Rows per page:</p>
+        <div className="flex items-center gap-2 ml-auto">
+          <p className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Rows per page:</p>
           <Select
-            value={currentPageSize.toString()}
+            value={activePageSize.toString()}
             onValueChange={(value) => {
-              setCurrentPageSize(Number(value));
-              setCurrentPage(1);
+              handlePageSizeChange(Number(value));
             }}
           >
-            <SelectTrigger className="h-8 w-[70px] text-xs">
-              <SelectValue placeholder={currentPageSize.toString()} />
+            <SelectTrigger className="h-8 w-[72px] text-xs px-2.5 py-1 flex items-center justify-between rounded-lg border border-input bg-background shadow-sm focus:ring-1 focus:ring-primary">
+              <SelectValue placeholder={activePageSize.toString()} />
             </SelectTrigger>
-            <SelectContent side="bottom">
-              {[5, 10, 15, 20, 25].map((size) => (
-                <SelectItem key={size} value={size.toString()} className="text-xs">
+            <SelectContent side="bottom" align="end" className="min-w-[72px] z-[10001]">
+              {[5, 10, 15, 20, 25, 50, 100].map((size) => (
+                <SelectItem key={size} value={size.toString()} className="text-xs py-1.5 pl-7 pr-2 cursor-pointer font-medium">
                   {size}
                 </SelectItem>
               ))}
@@ -175,7 +212,7 @@ export function DataTable<T>({
         </div>
       </div>
 
-      <div className="rounded-xl border border-border overflow-hidden">
+      <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40 border-b">
@@ -196,11 +233,11 @@ export function DataTable<T>({
                     <div className="flex items-center justify-center gap-2">
                        {col.header}
                        {isSortable && (
-                         <div className="flex flex-col opacity-40 group-hover:opacity-100">
-                           {isSorted && sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-secondary" /> : 
-                            isSorted && sortConfig.direction === 'desc' ? <ArrowDown className="h-3 w-3 text-secondary" /> :
-                            <ArrowUpDown className="h-3 w-3" />}
-                         </div>
+                          <div className="flex flex-col opacity-40 group-hover:opacity-100">
+                            {isSorted && sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-secondary" /> : 
+                             isSorted && sortConfig.direction === 'desc' ? <ArrowDown className="h-3 w-3 text-secondary" /> :
+                             <ArrowUpDown className="h-3 w-3" />}
+                          </div>
                        )}
                     </div>
                   </TableHead>
@@ -210,17 +247,23 @@ export function DataTable<T>({
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: activePageSize || 5 }).map((_, rowIndex) => (
+                <TableRow key={`skeleton-row-${rowIndex}`} className="border-b last:border-0 hover:bg-transparent">
+                  {columns.map((col, colIndex) => (
+                    <TableCell key={`skeleton-col-${colIndex}`} className={cn("px-4 py-3.5 text-center align-middle", col.className)}>
+                      <div className="flex items-center justify-center">
+                        <Skeleton className={cn(
+                          "h-4 rounded-md bg-slate-200/80 animate-pulse",
+                          colIndex === 0 ? "w-28" :
+                          colIndex === 1 ? "w-36" :
+                          colIndex === 10 ? "w-44" :
+                          colIndex === 11 ? "w-20" : "w-16"
+                        )} />
+                      </div>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : paginatedData.length === 0 ? (
               <TableRow>
                 <TableCell
@@ -244,7 +287,7 @@ export function DataTable<T>({
                     <TableCell key={j} className={cn("px-4 py-3 text-center align-middle", col.className)}>
                       <div className="flex items-center justify-center">
                       {col.render
-                        ? col.render(row, col, (currentPage - 1) * pageSize + i)
+                        ? col.render(row, col, (activePage - 1) * activePageSize + i)
                         : col.accessorKey
                         ? (row[col.accessorKey] as React.ReactNode)
                         : "—"}
@@ -259,28 +302,28 @@ export function DataTable<T>({
       </div>
 
       {/* Pagination Tray */}
-      {(totalPages > 1 || filteredAndSortedData.length > 5) && (
-        <div className="flex items-center justify-between px-1 pt-4">
+      {(totalPages > 1 || activeTotal > 5) && (
+        <div className="flex items-center justify-between px-6 py-3.5 border-t border-border/60 bg-muted/10">
           <p className="text-[11px] font-medium text-muted-foreground tracking-wide">
             Showing{" "}
             <span className="font-bold text-foreground">
-              {Math.min((currentPage - 1) * currentPageSize + 1, filteredAndSortedData.length)}
+              {activeTotal === 0 ? 0 : (activePage - 1) * activePageSize + 1}
             </span>
             –
             <span className="font-bold text-foreground">
-              {Math.min(currentPage * currentPageSize, filteredAndSortedData.length)}
+              {Math.min(activePage * activePageSize, activeTotal)}
             </span>
             {" "}of{" "}
-            <span className="font-bold text-foreground">{filteredAndSortedData.length}</span>
+            <span className="font-bold text-foreground">{activeTotal}</span>
           </p>
           <Pagination className="justify-end w-auto mx-0">
             <PaginationContent className="gap-1">
               <PaginationItem>
                 <PaginationPrevious
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => handlePageChange(Math.max(1, activePage - 1))}
                   className={cn(
                     "cursor-pointer h-8 px-2.5 rounded-lg text-xs font-semibold gap-1 select-none",
-                    currentPage === 1 && "pointer-events-none opacity-40 cursor-not-allowed"
+                    activePage === 1 && "pointer-events-none opacity-40 cursor-not-allowed"
                   )}
                 />
               </PaginationItem>
@@ -298,11 +341,11 @@ export function DataTable<T>({
                 return (
                   <PaginationItem key={page}>
                     <PaginationLink
-                      isActive={currentPage === page}
-                      onClick={() => setCurrentPage(page)}
+                      isActive={activePage === page}
+                      onClick={() => handlePageChange(page)}
                       className={cn(
                         "cursor-pointer h-8 w-8 p-0 rounded-lg text-xs font-bold transition-all select-none flex items-center justify-center",
-                        currentPage === page
+                        activePage === page
                           ? "bg-secondary text-secondary-foreground shadow-sm"
                           : "hover:bg-muted"
                       )}
@@ -315,10 +358,10 @@ export function DataTable<T>({
 
               <PaginationItem>
                 <PaginationNext
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => handlePageChange(Math.min(totalPages, activePage + 1))}
                   className={cn(
                     "cursor-pointer h-8 px-2.5 rounded-lg text-xs font-semibold gap-1 select-none",
-                    currentPage === totalPages && "pointer-events-none opacity-40 cursor-not-allowed"
+                    activePage === totalPages && "pointer-events-none opacity-40 cursor-not-allowed"
                   )}
                 />
               </PaginationItem>

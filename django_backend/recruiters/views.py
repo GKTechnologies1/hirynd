@@ -3,11 +3,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.utils import timezone
+from django.db import transaction
 import requests
 import re
 from bs4 import BeautifulSoup
 
-from users.permissions import IsAdmin, IsApproved, IsRecruiter
+from users.permissions import IsAdmin, IsApproved, IsRecruiter, IsAdminOrTeamLead
 from candidates.models import Candidate
 from audit.utils import log_action
 from notifications.utils import send_email, get_styled_email_html, create_notification
@@ -16,6 +17,7 @@ from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
     RecruiterProfileSerializer, RecruiterBankDetailsSerializer,
     AdminRecruiterFullSerializer, MyAssignmentSerializer, DailyJournalSerializer,
+    TeamMemberDetailSerializer,
 )
 
 
@@ -180,7 +182,28 @@ def daily_logs(request, candidate_id):
         logs = DailySubmissionLog.objects.filter(
             candidate_id=candidate_id,
             is_manual=True
-        ).order_by('-log_date', '-created_at')
+        ).select_related('recruiter').order_by('-log_date', '-created_at')
+
+        try:
+            page = int(request.query_params.get('page', 0))
+        except (ValueError, TypeError):
+            page = 0
+        try:
+            page_size = int(request.query_params.get('page_size', 0))
+        except (ValueError, TypeError):
+            page_size = 0
+
+        if page > 0 and page_size > 0:
+            total = logs.count()
+            start = (page - 1) * page_size
+            sliced = logs[start:start + page_size]
+            return Response({
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'results': DailyJournalSerializer(sliced, many=True).data,
+            })
+
         return Response(DailyJournalSerializer(logs, many=True).data)
 
     log = DailySubmissionLog.objects.create(
@@ -211,43 +234,111 @@ def job_applications(request, candidate_id):
         return Response({'error': 'Forbidden'}, status=403)
 
     if request.method == 'GET':
-        jobs = JobLinkEntry.objects.filter(candidate_id=candidate_id).order_by('-created_at')
+        jobs = JobLinkEntry.objects.filter(
+            candidate_id=candidate_id
+        ).select_related('submission_log').order_by('-created_at')
+
+        # Optional server-side pagination (backward-compatible: old clients get full list)
+        try:
+            page = int(request.query_params.get('page', 0))
+        except (ValueError, TypeError):
+            page = 0
+        try:
+            page_size = int(request.query_params.get('page_size', 0))
+        except (ValueError, TypeError):
+            page_size = 0
+
+        if page > 0 and page_size > 0:
+            total = jobs.count()
+            start = (page - 1) * page_size
+            sliced = jobs[start:start + page_size]
+            return Response({
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'results': JobLinkEntrySerializer(sliced, many=True).data,
+            })
+
         return Response(JobLinkEntrySerializer(jobs, many=True).data)
 
-    # POST: Create new job entries
-    log = DailySubmissionLog.objects.create(
-        candidate_id=candidate_id,
-        recruiter=request.user,
-        log_date=timezone.now().date(),
-        notes="Job application submitted",
-        is_manual=False
-    )
-    
-    job_links = request.data.get('job_links', [])
-    created_entries = []
-    for jl in job_links:
-        entry = JobLinkEntry.objects.create(
-            submission_log=log,
-            candidate_id=candidate_id,
-            company_name=jl.get('company_name', ''),
-            role_title=jl.get('role_title', ''),
-            job_url=jl.get('job_url', ''),
-            job_description=jl.get('job_description', ''),
-            resume_used=jl.get('resume_used', ''),
-            application_status=jl.get('status', 'applied').lower().replace(' ', '_'),
-            submitted_by=request.user
-        )
-        created_entries.append(entry)
-    
-    # We no longer increment applications_count here to keep it strictly for manual journal entries
-    # as requested by the user.
-    log.save()
-    candidate_obj.save() # Touch candidate to trigger updated_at refresh
+    # POST: Create new job entries atomically with defensive validation & fallback logic
+    try:
+        with transaction.atomic():
+            log = DailySubmissionLog.objects.create(
+                candidate_id=candidate_id,
+                recruiter=request.user,
+                log_date=timezone.now().date(),
+                notes="Job application submitted",
+                is_manual=False
+            )
+            
+            job_links = request.data.get('job_links', [])
+            if not isinstance(job_links, list):
+                return Response({'error': 'job_links must be a list'}, status=status.HTTP_400_BAD_REQUEST)
 
-    return Response(JobLinkEntrySerializer(created_entries, many=True).data, status=status.HTTP_201_CREATED)
+            valid_statuses = dict(JobLinkEntry.APPLICATION_STATUS_CHOICES)
+            created_entries = []
+            
+            for jl in job_links:
+                if not isinstance(jl, dict):
+                    continue
+
+                raw_url = str(jl.get('job_url', '') or '').strip()
+                if raw_url and not (raw_url.startswith('http://') or raw_url.startswith('https://')):
+                    raw_url = 'https://' + raw_url
+                
+                raw_resume = str(jl.get('resume_used', '') or '').strip()
+                if raw_resume and not (raw_resume.startswith('http://') or raw_resume.startswith('https://')):
+                    if '.' in raw_resume or 'drive.google.com' in raw_resume or 'docs.google.com' in raw_resume:
+                        raw_resume = 'https://' + raw_resume
+
+                raw_status = jl.get('status')
+                if not raw_status or not isinstance(raw_status, str):
+                    app_status = 'applied'
+                else:
+                    app_status = raw_status.strip().lower().replace(' ', '_')
+
+                if app_status not in valid_statuses:
+                    app_status = 'applied'
+
+                entry = JobLinkEntry.objects.create(
+                    submission_log=log,
+                    candidate_id=candidate_id,
+                    company_name=str(jl.get('company_name', '') or '').strip(),
+                    role_title=str(jl.get('role_title', '') or '').strip(),
+                    job_url=raw_url,
+                    job_description=str(jl.get('job_description', '') or ''),
+                    resume_used=raw_resume,
+                    application_status=app_status,
+                    employment_type=str(jl.get('employment_type', '') or '').strip(),
+                    experience_required=str(jl.get('experience_required', '') or '').strip(),
+                    work_mode=str(jl.get('work_mode', '') or '').strip(),
+                    city=str(jl.get('city', '') or '').strip(),
+                    state=str(jl.get('state', '') or '').strip(),
+                    country=str(jl.get('country', '') or '').strip(),
+                    salary=str(jl.get('salary', 'Not Disclosed') or 'Not Disclosed').strip(),
+                    visa_eligibility=str(jl.get('visa_eligibility', '') or '').strip(),
+                    submitted_by=request.user
+                )
+                created_entries.append(entry)
+
+            log.save()
+            candidate_obj.save() # Touch candidate to trigger updated_at refresh
+
+            # Invalidate public job alerts cache when new applications are created
+            try:
+                from django.core.cache import cache
+                cache.delete('public_job_alerts_total')
+                cache.delete('job_alert_filter_options')
+            except Exception:
+                pass
+
+            return Response(JobLinkEntrySerializer(created_entries, many=True).data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': f"Failed to submit job applications: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
+@api_view(['POST', 'PATCH', 'DELETE'])
 @permission_classes([IsApproved])
 def update_job_status(request, job_id):
     try:
@@ -255,12 +346,42 @@ def update_job_status(request, job_id):
     except JobLinkEntry.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    new_status = request.data.get('status')
+    if request.method == 'DELETE':
+        job.delete()
+        try:
+            from django.core.cache import cache
+            cache.delete('public_job_alerts_total')
+            cache.delete('job_alert_filter_options')
+        except Exception:
+            pass
+        return Response({'message': 'Deleted successfully'})
+
+    new_status = request.data.get('status') or request.data.get('application_status')
     if new_status:
         job.application_status = new_status
         job.candidate_response_status = new_status
-        job.save()
+
+    fields_to_update = [
+        'employment_type', 'experience_required', 'work_mode',
+        'city', 'state', 'country', 'salary', 'visa_eligibility',
+        'company_name', 'role_title', 'notes', 'job_description', 'job_url', 'is_public'
+    ]
+    for field_name in fields_to_update:
+        if field_name in request.data:
+            setattr(job, field_name, request.data[field_name])
+
+    job.save()
+    if job.candidate:
         job.candidate.save()
+
+    # Invalidate public job alerts cache when a job is modified
+    try:
+        from django.core.cache import cache
+        cache.delete('public_job_alerts_total')
+        cache.delete('job_alert_filter_options')
+    except Exception:
+        pass
+
     return Response(JobLinkEntrySerializer(job).data)
 
 
@@ -356,8 +477,8 @@ def admin_update_profile(request, user_id):
     
     try:
         user_obj = User.objects.get(id=user_id)
-        if user_obj.role != 'recruiter':
-            return Response({'error': 'User is not a recruiter'}, status=400)
+        if user_obj.role not in ['recruiter', 'team_lead', 'team_manager']:
+            return Response({'error': 'User is not a recruiter or team lead/manager'}, status=400)
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
 
@@ -495,9 +616,459 @@ def admin_productivity_report(request):
     return Response(report_data)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def public_job_alerts(request):
-    jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log').order_by('-created_at')
+    from django.db.models import Q
+    import datetime
+
+    if request.method == 'POST':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        serializer = JobLinkEntrySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        job = serializer.save(submitted_by=request.user, is_public=True)
+
+        # Invalidate cached totals/filter options when a new public job is posted
+        try:
+            from django.core.cache import cache
+            cache.delete('public_job_alerts_total')
+            cache.delete('job_alert_filter_options')
+        except Exception:
+            pass
+
+        return Response(JobLinkEntrySerializer(job).data, status=status.HTTP_201_CREATED)
+
+    # 1. Base queryset
+    include_hidden = request.query_params.get('include_hidden', '').lower() in ('true', '1') or request.query_params.get('is_hidden', '').lower() in ('true', '1')
+    if include_hidden:
+        jobs = JobLinkEntry.objects.all().select_related('submission_log')
+    else:
+        jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log')
+
+    # 2. Status filter
+    status_param = request.query_params.get('status')
+    if status_param and status_param != 'all':
+        if status_param == 'applied':
+            jobs = jobs.filter(Q(application_status='applied') | Q(application_status__isnull=True) | Q(application_status=''))
+        else:
+            jobs = jobs.filter(application_status=status_param)
+
+    # 3. Global search
+    search = request.query_params.get('search', '').strip()
+    if search:
+        jobs = jobs.filter(
+            Q(role_title__icontains=search) |
+            Q(company_name__icontains=search) |
+            Q(job_description__icontains=search) |
+            Q(city__icontains=search) |
+            Q(state__icontains=search) |
+            Q(country__icontains=search) |
+            Q(notes__icontains=search)
+        )
+
+    # 4. Title / Role filter
+    title = request.query_params.get('title') or request.query_params.get('role')
+    if title:
+        title_list = [t.strip() for t in title.split(',') if t.strip()]
+        if title_list:
+            q_title = Q()
+            for t in title_list:
+                q_title |= Q(role_title__icontains=t)
+            jobs = jobs.filter(q_title)
+
+    # 5. Company filter
+    company = request.query_params.get('company')
+    if company:
+        jobs = jobs.filter(company_name__icontains=company)
+
+    # 6. Skills filter
+    skills = request.query_params.get('skills', '').strip()
+    if skills:
+        jobs = jobs.filter(Q(job_description__icontains=skills) | Q(notes__icontains=skills))
+
+    # 7. Location filter (handles comma-separated multi-select values)
+    location = request.query_params.get('location')
+    if location:
+        loc_list = [l.strip() for l in location.split(',') if l.strip()]
+        if loc_list:
+            q_loc = Q()
+            for l in loc_list:
+                q_loc |= Q(city__icontains=l) | Q(state__icontains=l) | Q(country__icontains=l)
+            jobs = jobs.filter(q_loc)
+
+    # 8. Work mode filter
+    work_mode = request.query_params.get('work_mode')
+    if work_mode:
+        wm_list = [w.strip() for w in work_mode.split(',') if w.strip()]
+        if wm_list:
+            q_wm = Q()
+            for w in wm_list:
+                q_wm |= Q(work_mode__icontains=w)
+            jobs = jobs.filter(q_wm)
+
+    # 9. Employment type filter
+    employment_type = request.query_params.get('employment_type')
+    if employment_type:
+        et_list = [e.strip() for e in employment_type.split(',') if e.strip()]
+        if et_list:
+            q_et = Q()
+            for e in et_list:
+                q_et |= Q(employment_type__icontains=e)
+            jobs = jobs.filter(q_et)
+
+    # 10. Experience filter
+    experience_required = request.query_params.get('experience_required') or request.query_params.get('experience')
+    if experience_required:
+        exp_list = [x.strip() for x in experience_required.split(',') if x.strip()]
+        if exp_list:
+            q_exp = Q()
+            for x in exp_list:
+                q_exp |= Q(experience_required__icontains=x)
+            jobs = jobs.filter(q_exp)
+
+    # 11. Visa eligibility filter
+    visa_eligibility = request.query_params.get('visa_eligibility') or request.query_params.get('visa')
+    if visa_eligibility:
+        visa_list = [v.strip() for v in visa_eligibility.split(',') if v.strip()]
+        if visa_list:
+            q_visa = Q()
+            for v in visa_list:
+                q_visa |= Q(visa_eligibility__icontains=v)
+            jobs = jobs.filter(q_visa)
+
+    # 12. Date Range filter
+    from_date = request.query_params.get('from_date') or request.query_params.get('date_from')
+    if from_date:
+        try:
+            from_dt = datetime.datetime.strptime(from_date.strip(), '%Y-%m-%d').date()
+            jobs = jobs.filter(Q(created_at__date__gte=from_dt) | Q(submission_log__log_date__gte=from_dt))
+        except (ValueError, TypeError):
+            pass
+
+    to_date = request.query_params.get('to_date') or request.query_params.get('date_to')
+    if to_date:
+        try:
+            to_dt = datetime.datetime.strptime(to_date.strip(), '%Y-%m-%d').date()
+            jobs = jobs.filter(Q(created_at__date__lte=to_dt) | Q(submission_log__log_date__lte=to_dt))
+        except (ValueError, TypeError):
+            pass
+
+    # 13. Date timeframe filter (e.g. Posted Today, Past 3 Days, Past Week, Past Month)
+    date_preset = request.query_params.get('date_preset')
+    if date_preset:
+        today = timezone.now().date()
+        if 'today' in date_preset.lower():
+            jobs = jobs.filter(Q(created_at__date=today) | Q(submission_log__log_date=today))
+        elif '3' in date_preset:
+            cutoff = today - datetime.timedelta(days=3)
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+        elif 'week' in date_preset.lower() or '7' in date_preset:
+            cutoff = today - datetime.timedelta(days=7)
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+        elif 'month' in date_preset.lower() or '30' in date_preset:
+            cutoff = today - datetime.timedelta(days=30)
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+
+    # 14. Ordering
+    ordering = request.query_params.get('ordering') or request.query_params.get('sort')
+    if ordering in ('created_at', 'oldest', 'Oldest First'):
+        jobs = jobs.order_by('created_at')
+    else:
+        jobs = jobs.order_by('-created_at')
+
+    # 15. Pagination
+    total = jobs.count()
+
+    # Cache unfiltered_total to avoid an expensive full-table COUNT(*) on every request
+    from django.core.cache import cache as django_cache
+    unfiltered_total = django_cache.get('public_job_alerts_total')
+    if unfiltered_total is None:
+        unfiltered_total = JobLinkEntry.objects.filter(is_public=True).count()
+        django_cache.set('public_job_alerts_total', unfiltered_total, 300)  # 5 min
+
+    try:
+        page = int(request.query_params.get('page', 0))
+    except (ValueError, TypeError):
+        page = 0
+
+    try:
+        page_size = int(request.query_params.get('page_size', 0))
+    except (ValueError, TypeError):
+        page_size = 0
+
+    if page > 0 and page_size > 0:
+        start = (page - 1) * page_size
+        sliced_jobs = jobs[start:start + page_size]
+        return Response({
+            'total': total,
+            'unfiltered_total': unfiltered_total,
+            'results': JobLinkEntrySerializer(sliced_jobs, many=True).data,
+        })
+
     return Response(JobLinkEntrySerializer(jobs, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_job_alert_filter_options(request):
+    """
+    Returns distinct filter options derived from all live jobs in the database.
+    Response is cached for 5 minutes to avoid 7+ distinct queries on every page load.
+    """
+    from django.core.cache import cache as django_cache
+
+    cached_result = django_cache.get('job_alert_filter_options')
+    if cached_result is not None:
+        return Response(cached_result)
+
+    base_qs = JobLinkEntry.objects.filter(is_public=True)
+
+    # Distinct Roles
+    roles = list(
+        base_qs.exclude(role_title__isnull=True)
+        .exclude(role_title='')
+        .values_list('role_title', flat=True)
+        .distinct()
+        .order_by('role_title')
+    )
+
+    # Distinct Structured Locations
+    country_map = {}
+    flat_locations_set = set()
+
+    for entry in base_qs.values('city', 'state', 'country'):
+        c = (entry.get('country') or '').strip()
+        s = (entry.get('state') or '').strip()
+        ci = (entry.get('city') or '').strip()
+
+        if not c and not s and not ci:
+            continue
+
+        # Normalization / Default Country if missing
+        if not c:
+            if "india" in (s + ci).lower():
+                c = "India"
+            elif "canada" in (s + ci).lower():
+                c = "Canada"
+            elif "uk" in (s + ci).lower() or "kingdom" in (s + ci).lower():
+                c = "United Kingdom"
+            else:
+                c = "United States"
+
+        if c not in country_map:
+            country_map[c] = {
+                "states": {},
+                "cities": set()
+            }
+
+        # Flat string representation for legacy queries
+        parts = [p for p in [ci, s, c] if p]
+        if parts:
+            flat_locations_set.add(", ".join(parts))
+
+        if s:
+            if s not in country_map[c]["states"]:
+                country_map[c]["states"][s] = set()
+            if ci:
+                country_map[c]["states"][s].add(ci)
+                country_map[c]["cities"].add(f"{ci}, {s}")
+            else:
+                country_map[c]["cities"].add(f"{s} Province" if c == "Canada" and "Province" not in s else s)
+        elif ci:
+            country_map[c]["cities"].add(ci)
+
+    # Convert sets to sorted lists for JSON serialization
+    formatted_countries = {}
+    for country, data in sorted(country_map.items()):
+        formatted_states = {}
+        for state, cities in sorted(data["states"].items()):
+            formatted_states[state] = sorted(list(cities))
+        formatted_countries[country] = {
+            "states": formatted_states,
+            "cities": sorted(list(data["cities"]))
+        }
+
+    locations_data = {
+        "countries": formatted_countries,
+        "all_countries": sorted(list(country_map.keys())),
+        "flat": sorted(list(flat_locations_set))
+    }
+
+    # Distinct Employment Types
+    employment_types = list(
+        base_qs.exclude(employment_type__isnull=True)
+        .exclude(employment_type='')
+        .values_list('employment_type', flat=True)
+        .distinct()
+        .order_by('employment_type')
+    )
+
+    # Distinct Work Modes
+    work_modes = list(
+        base_qs.exclude(work_mode__isnull=True)
+        .exclude(work_mode='')
+        .values_list('work_mode', flat=True)
+        .distinct()
+        .order_by('work_mode')
+    )
+
+    # Distinct Experience Requirements
+    experience_levels = list(
+        base_qs.exclude(experience_required__isnull=True)
+        .exclude(experience_required='')
+        .values_list('experience_required', flat=True)
+        .distinct()
+        .order_by('experience_required')
+    )
+
+    # Distinct Visa Eligibilities
+    visa_eligibilities = list(
+        base_qs.exclude(visa_eligibility__isnull=True)
+        .exclude(visa_eligibility='')
+        .values_list('visa_eligibility', flat=True)
+        .distinct()
+        .order_by('visa_eligibility')
+    )
+
+    total_count = base_qs.count()
+
+    result = {
+        'roles': roles,
+        'locations': locations_data,
+        'employment_types': employment_types,
+        'work_modes': work_modes,
+        'experience_levels': experience_levels,
+        'visa_eligibilities': visa_eligibilities,
+        'total_count': total_count,
+    }
+
+    # Cache for 5 minutes — invalidated on job create/update/delete
+    django_cache.set('job_alert_filter_options', result, 300)
+
+    return Response(result)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrTeamLead])
+def my_team(request):
+    from users.models import User
+    from recruiters.models import RecruiterAssignment
+    
+    user = request.user
+    if user.role == 'admin':
+        queryset = User.objects.filter(role__in=['recruiter', 'team_lead', 'team_manager']).select_related('profile', 'recruiter_profile')
+    elif user.role == 'team_manager':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_manager', is_active=True
+        ).values_list('candidate_id', flat=True)
+        assigned_user_ids = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, is_active=True
+        ).exclude(recruiter=user).values_list('recruiter_id', flat=True)
+        queryset = User.objects.filter(
+            id__in=assigned_user_ids, role__in=['recruiter', 'team_lead']
+        ).select_related('profile', 'recruiter_profile')
+    elif user.role == 'team_lead':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_lead', is_active=True
+        ).values_list('candidate_id', flat=True)
+        assigned_user_ids = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, is_active=True
+        ).exclude(recruiter=user).values_list('recruiter_id', flat=True)
+        queryset = User.objects.filter(
+            id__in=assigned_user_ids, role='recruiter'
+        ).select_related('profile', 'recruiter_profile')
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+        
+    queryset = queryset.order_by('profile__full_name', 'email').distinct()
+    serializer = TeamMemberDetailSerializer(queryset, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAdminOrTeamLead])
+def my_team_detail(request, user_id):
+    from users.models import User
+    from recruiters.models import RecruiterAssignment
+    from django.shortcuts import get_object_or_404
+    
+    target_user = get_object_or_404(User, id=user_id)
+    user = request.user
+    
+    is_in_team = False
+    if user.role == 'admin':
+        is_in_team = target_user.role in ['recruiter', 'team_lead', 'team_manager']
+    elif user.role == 'team_manager':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_manager', is_active=True
+        ).values_list('candidate_id', flat=True)
+        is_in_team = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, recruiter=target_user, is_active=True
+        ).exists() and target_user.role in ['recruiter', 'team_lead']
+    elif user.role == 'team_lead':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_lead', is_active=True
+        ).values_list('candidate_id', flat=True)
+        is_in_team = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, recruiter=target_user, is_active=True
+        ).exists() and target_user.role == 'recruiter'
+        
+    if not is_in_team:
+        return Response({'error': 'Permission denied or user not in your team'}, status=403)
+        
+    if request.method == 'PATCH':
+        serializer = TeamMemberDetailSerializer(target_user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_action(user, 'team_member_profile_updated', str(target_user.id), 'user', serializer.data)
+        return Response(serializer.data)
+        
+    serializer = TeamMemberDetailSerializer(target_user)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrTeamLead])
+def my_team_assignments(request, user_id):
+    from users.models import User
+    from recruiters.models import RecruiterAssignment
+    from django.shortcuts import get_object_or_404
+    
+    target_user = get_object_or_404(User, id=user_id)
+    user = request.user
+    
+    is_in_team = False
+    candidate_ids = []
+    if user.role == 'admin':
+        is_in_team = target_user.role in ['recruiter', 'team_lead', 'team_manager']
+    elif user.role == 'team_manager':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_manager', is_active=True
+        ).values_list('candidate_id', flat=True)
+        is_in_team = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, recruiter=target_user, is_active=True
+        ).exists() and target_user.role in ['recruiter', 'team_lead']
+    elif user.role == 'team_lead':
+        candidate_ids = RecruiterAssignment.objects.filter(
+            recruiter=user, role_type='team_lead', is_active=True
+        ).values_list('candidate_id', flat=True)
+        is_in_team = RecruiterAssignment.objects.filter(
+            candidate_id__in=candidate_ids, recruiter=target_user, is_active=True
+        ).exists() and target_user.role == 'recruiter'
+        
+    if not is_in_team:
+        return Response({'error': 'Permission denied or user not in your team'}, status=403)
+        
+    if user.role == 'admin':
+        qs = RecruiterAssignment.objects.filter(recruiter=target_user, is_active=True)
+    else:
+        qs = RecruiterAssignment.objects.filter(
+            recruiter=target_user,
+            candidate_id__in=candidate_ids,
+            is_active=True
+        )
+    qs = qs.select_related('candidate__user__profile').order_by('-assigned_at')
+    
+    return Response(MyAssignmentSerializer(qs, many=True).data)
 

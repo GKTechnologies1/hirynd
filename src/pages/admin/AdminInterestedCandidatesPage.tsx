@@ -1,21 +1,31 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { candidatesApi } from "@/services/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { DataTable } from "@/components/ui/DataTable";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
-import { Eye, FileText, Download, Users, Activity, CheckCircle, Clock } from "lucide-react";
+import { Eye, Download, Users, Clock, Search, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
+
+const STATUSES = ["lead", "contacted", "reviewed", "converted", "closed"];
 
 const AdminInterestedCandidatesPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [searchName, setSearchName] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const fetchData = async () => {
     setLoading(true);
@@ -35,39 +45,57 @@ const AdminInterestedCandidatesPage = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  const [activeFilter, setActiveFilter] = useState<string>("all");
-
-  const stats = useMemo(() => {
-    const total = candidates.length;
-    const today = candidates.filter(c => {
-      if (!c.created_at) return false;
-      const date = new Date(c.created_at);
-      return date.toDateString() === new Date().toDateString();
-    }).length;
-    
-    const withResume = candidates.filter(c => c.resume_url || c.resume_file).length;
-
-    return [
-      { key: "all", label: "Total Interest", count: total, icon: <Users className="h-4 w-4" />, color: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300", activeClass: "ring-2 ring-blue-500 dark:ring-blue-400 shadow-md" },
-      { key: "today", label: "Today's Leads", count: today, icon: <Activity className="h-4 w-4" />, color: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300", activeClass: "ring-2 ring-orange-500 dark:ring-orange-400 shadow-md" },
-      { key: "resume", label: "With Resume", count: withResume, icon: <FileText className="h-4 w-4" />, color: "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300", activeClass: "ring-2 ring-teal-500 dark:ring-teal-400 shadow-md" },
-      { key: "conversion", label: "Conversion Rate", count: "—", icon: <CheckCircle className="h-4 w-4" />, color: "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300", activeClass: "" },
-    ];
-  }, [candidates]);
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      await candidatesApi.updateInterested(id, { status: newStatus });
+      toast({ title: "Status updated" });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+  };
 
   const filteredCandidates = useMemo(() => {
     return candidates.filter(c => {
-      if (activeFilter === "today") {
-        if (!c.created_at) return false;
-        const date = new Date(c.created_at);
-        return date.toDateString() === new Date().toDateString();
+      const matchName = !searchName || 
+        c.name?.toLowerCase().includes(searchName.toLowerCase()) ||
+        c.email?.toLowerCase().includes(searchName.toLowerCase());
+
+      let matchDate = true;
+      if (c.created_at) {
+        const cleanDate = c.created_at.split("T")[0];
+        const [y, m, d] = cleanDate.split("-").map((s: string) => parseInt(s, 10));
+        const itemDate = new Date(y, m - 1, d);
+        itemDate.setHours(0, 0, 0, 0);
+
+        if (fromDate) {
+          const fParts = fromDate.split(/[-\/]/);
+          if (fParts.length === 3) {
+            const fd = new Date(parseInt(fParts[2], 10), parseInt(fParts[0], 10) - 1, parseInt(fParts[1], 10));
+            fd.setHours(0, 0, 0, 0);
+            if (itemDate < fd) matchDate = false;
+          }
+        }
+        
+        if (toDate) {
+          const tParts = toDate.split(/[-\/]/);
+          if (tParts.length === 3) {
+            const td = new Date(parseInt(tParts[2], 10), parseInt(tParts[0], 10) - 1, parseInt(tParts[1], 10));
+            td.setHours(23, 59, 59, 999);
+            if (itemDate > td) matchDate = false;
+          }
+        }
+      } else {
+        if (fromDate || toDate) matchDate = false;
       }
-      if (activeFilter === "resume") {
-        return !!(c.resume_url || c.resume_file);
-      }
-      return true;
+
+      const matchStatus = statusFilter === "all" || (c.status || "lead").toLowerCase() === statusFilter.toLowerCase();
+      
+      return matchName && matchDate && matchStatus;
     });
-  }, [candidates, activeFilter]);
+  }, [candidates, searchName, fromDate, toDate, statusFilter]);
+
+  const hasActiveFilters = searchName || fromDate || toDate || statusFilter !== "all";
 
   return (
     <div className="space-y-6">
@@ -81,76 +109,109 @@ const AdminInterestedCandidatesPage = () => {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((w, i) => {
-          const isFilterable = w.key !== "conversion";
-          const isActive = activeFilter === w.key;
-          return (
-            <motion.div
-              key={w.label}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <Card
-                className={`border-0 ${w.color} ${
-                  isFilterable 
-                    ? "cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]" 
-                    : ""
-                } ${isActive ? w.activeClass : isFilterable ? "opacity-75 hover:opacity-100" : ""}`}
-                onClick={() => {
-                  if (isFilterable) {
-                    setActiveFilter(prev => prev === w.key ? "all" : w.key);
-                  }
-                }}
-              >
-                <CardContent className="flex items-center gap-3 p-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/40 dark:bg-black/20">
-                    {w.icon}
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold">{w.count}</p>
-                    <p className="text-xs text-muted-foreground">{w.label}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {activeFilter !== "all" && (
-        <div className="flex items-center gap-2 mb-2 animate-in fade-in duration-200">
-          <span className="text-xs text-muted-foreground font-semibold">
-            Filtered by: {activeFilter === "today" ? "Today's Leads" : "With Resume"}
-          </span>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setActiveFilter("all")} 
-            className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Clear Filter
-          </Button>
-        </div>
-      )}
-
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">
-            {activeFilter === "all" 
-              ? "Interested Candidate Records" 
-              : activeFilter === "today" 
-                ? "Today's Leads" 
-                : "Interested Candidates with Resume"}
-          </CardTitle>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                <Users className="h-5 w-5 text-secondary" /> All Interested Candidates
+              </CardTitle>
+              <CardDescription className="mt-0.5">
+                {filteredCandidates.length} candidate(s)
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 bg-secondary/10 text-secondary px-3.5 py-1.5 rounded-full font-bold text-xs w-fit">
+              <Users className="h-3.5 w-3.5" />
+              <span>Total Interest: <strong>{candidates.length}</strong></span>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
+          <div className="px-6 pt-4 pb-2">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-5 mb-4 items-end">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search by Name</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                  <Input
+                    placeholder="Search candidate name..."
+                    value={searchName}
+                    onChange={(e) => setSearchName(e.target.value)}
+                    className="pl-8 pr-8 h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full"
+                  />
+                  {searchName && (
+                    <button
+                      onClick={() => setSearchName("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From Date</Label>
+                <DatePicker
+                  value={fromDate}
+                  onChange={setFromDate}
+                  placeholder="MM-DD-YYYY"
+                  formatStr="MM-dd-yyyy"
+                  className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors font-semibold w-full"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To Date</Label>
+                <DatePicker
+                  value={toDate}
+                  onChange={setToDate}
+                  placeholder="MM-DD-YYYY"
+                  formatStr="MM-dd-yyyy"
+                  className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors font-semibold w-full"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">All Statuses</SelectItem>
+                    {STATUSES.map((s) => (
+                      <SelectItem key={s} value={s} className="capitalize text-xs">
+                        {s === 'lead' ? 'Lead' : s.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex h-8 items-center">
+                {hasActiveFilters && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      setSearchName("");
+                      setFromDate("");
+                      setToDate("");
+                      setStatusFilter("all");
+                    }}
+                    className="h-8 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
           <DataTable
             data={filteredCandidates}
             isLoading={loading}
-            searchKey="name"
-            searchPlaceholder="Search leads..."
             emptyMessage="No interested candidates found."
             columns={[
               { 
@@ -162,7 +223,7 @@ const AdminInterestedCandidatesPage = () => {
                 ),
                 sortable: true,
                 accessorKey: "id",
-                className: "text-xs pl-4"
+                className: "text-xs pl-6"
               },
               { 
                 header: "Name", 
@@ -221,6 +282,23 @@ const AdminInterestedCandidatesPage = () => {
                   </div>
                 )
               },
+              { 
+                header: "Status", 
+                sortable: true,
+                accessorKey: "status",
+                render: (c: any) => (
+                  <Select value={c.status || "lead"} onValueChange={v => handleStatusChange(c.id, v)}>
+                    <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map(s => (
+                        <SelectItem key={s} value={s} className="capitalize text-xs">
+                          {s === 'lead' ? 'Lead' : s.replace('_', ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              },
               {
                 header: "Resume",
                 className: "text-xs",
@@ -251,7 +329,7 @@ const AdminInterestedCandidatesPage = () => {
                     <Eye className="mr-1.5 h-3.5 w-3.5" /> View Lead
                   </Button>
                 ),
-                className: "text-xs text-right pr-4"
+                className: "text-xs text-right pr-6"
               }
             ]}
           />

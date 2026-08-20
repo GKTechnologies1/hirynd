@@ -108,6 +108,11 @@ def list_plans(request):
 @api_view(['POST'])
 @permission_classes([IsAdmin])
 def create_plan(request):
+    name = request.data.get('name', '').strip()
+    if not name:
+        return Response({'error': 'Plan name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if SubscriptionPlan.objects.filter(name__iexact=name, is_active=True).exists():
+        return Response({'error': f'A subscription plan with the name "{name}" already exists.'}, status=status.HTTP_400_BAD_REQUEST)
     serializer = SubscriptionPlanSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     plan = serializer.save(created_by=request.user)
@@ -126,13 +131,24 @@ def manage_plan(request, plan_id):
         plan.is_active = False
         plan.save(update_fields=['is_active'])
         return Response({'detail': 'Plan deactivated'})
+    
+    name = request.data.get('name')
+    if name is not None:
+        name = name.strip()
+        if not name:
+            return Response({'error': 'Plan name cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
+        if SubscriptionPlan.objects.filter(name__iexact=name, is_active=True).exclude(id=plan_id).exists():
+            return Response({'error': f'A subscription plan with the name "{name}" already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
     serializer = SubscriptionPlanSerializer(plan, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)
 
 
+# ────────────────────────────────────────────────────────────────
 #  Subscription Addon CRUD 
+# ────────────────────────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def list_addons(request):
@@ -143,6 +159,11 @@ def list_addons(request):
 @api_view(['POST'])
 @permission_classes([IsAdmin])
 def create_addon(request):
+    name = request.data.get('name', '').strip()
+    if not name:
+        return Response({'error': 'Add-on name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if SubscriptionAddon.objects.filter(name__iexact=name, is_active=True).exists():
+        return Response({'error': f'An add-on service with the name "{name}" already exists.'}, status=status.HTTP_400_BAD_REQUEST)
     serializer = SubscriptionAddonSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     addon = serializer.save(created_by=request.user)
@@ -161,6 +182,15 @@ def manage_addon(request, addon_id):
         addon.is_active = False
         addon.save(update_fields=['is_active'])
         return Response({'detail': 'Addon deactivated'})
+
+    name = request.data.get('name')
+    if name is not None:
+        name = name.strip()
+        if not name:
+            return Response({'error': 'Add-on name cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
+        if SubscriptionAddon.objects.filter(name__iexact=name, is_active=True).exclude(id=addon_id).exists():
+            return Response({'error': f'An add-on service with the name "{name}" already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
     serializer = SubscriptionAddonSerializer(addon, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
     serializer.save()
@@ -487,7 +517,12 @@ def record_payment(request, candidate_id):
     serializer = PaymentSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     pay = serializer.save(recorded_by=request.user)
-    if pay.payment_type in ('subscription', 'monthly_service'):
+    from .models import SubscriptionPlan
+    is_sub_plan = pay.payment_type in ('subscription', 'monthly_service')
+    if not is_sub_plan:
+        is_sub_plan = SubscriptionPlan.objects.filter(name=pay.payment_type).exists()
+
+    if is_sub_plan:
         # Ensure subscription object exists and is synced with this payment
         sub, created = Subscription.objects.get_or_create(
             candidate_id=candidate_id,
@@ -495,7 +530,7 @@ def record_payment(request, candidate_id):
                 'amount': pay.amount,
                 'currency': pay.currency,
                 'status': 'pending_payment' if pay.status == 'pending' else 'active',
-                'plan_name': 'Marketing Service Fee',
+                'plan_name': pay.payment_type if pay.payment_type != 'subscription' else 'Marketing Service Fee',
                 'assigned_by': request.user,
             }
         )
@@ -505,13 +540,16 @@ def record_payment(request, candidate_id):
             if pay.status == 'completed':
                 sub.amount = pay.amount
                 sub.currency = pay.currency
-                # Note: helper will update status, last_payment_at, start_date, next_billing_at and save sub
+                if pay.payment_type != 'subscription':
+                    sub.plan_name = pay.payment_type
             elif pay.status == 'pending':
                 # If a new pending payment is recorded, make sure the subscription reflects it
                 sub.status = 'pending_payment'
                 sub.amount = pay.amount
                 sub.currency = pay.currency
-                sub.save(update_fields=['status', 'amount', 'currency'])
+                if pay.payment_type != 'subscription':
+                    sub.plan_name = pay.payment_type
+                sub.save(update_fields=['status', 'amount', 'currency', 'plan_name'])
         
         # LINK THE PAYMENT TO THE SUBSCRIPTION FOR CASCADE/SYNC
         pay.subscription = sub

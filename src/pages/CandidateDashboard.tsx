@@ -15,13 +15,14 @@ import CandidateInterviewsPage from "@/pages/candidate/CandidateInterviewsPage";
 import CandidateReferralsPage from "@/pages/candidate/CandidateReferralsPage";
 import CandidateSettingsPage from "@/pages/candidate/CandidateSettingsPage";
 import CandidateMessagesPage from "@/pages/candidate/CandidateMessagesPage";
+import CandidateReviewsPage from "@/pages/candidate/CandidateReviewsPage";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, FileText, Briefcase, Users, Calendar, UserPlus,
   ClipboardList, Bell, DollarSign, KeyRound, Phone, Award, CreditCard,
-  AlertTriangle, MessageSquare, Settings, Lock,
+  AlertTriangle, MessageSquare, Settings, Lock, Star,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -36,6 +37,7 @@ const navItems = [
   { label: "Interviews", path: "/candidate-dashboard/interviews", icon: <Phone className="h-4 w-4" /> },
   { label: "Referrals", path: "/candidate-dashboard/referrals", icon: <UserPlus className="h-4 w-4" /> },
   { label: "Messages", path: "/candidate-dashboard/messages", icon: <MessageSquare className="h-4 w-4" /> },
+  { label: "Reviews", path: "/candidate-dashboard/reviews", icon: <Star className="h-4 w-4" /> },
   { label: "Settings", path: "/candidate-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -183,7 +185,7 @@ const CandidateDashboard = () => {
 
     const interval = setInterval(() => {
       fetchData(false, true);
-    }, 8000);
+    }, 45000);
     return () => clearInterval(interval);
   }, [user, location.pathname]);
 
@@ -200,9 +202,9 @@ const CandidateDashboard = () => {
     "roles_published"
   ].includes(status);
 
-  const allowedTabs = [...(STATUS_TAB_ACCESS[status] || ["overview"])];
+  const allowedTabs = [...(STATUS_TAB_ACCESS[status] || ["overview"]), "reviews"];
   if (candidate?.has_completed_payment) {
-    const allTabs = ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings"];
+    const allTabs = ["overview", "intake", "roles", "payments", "credentials", "billing", "applications", "interviews", "referrals", "messages", "settings", "reviews"];
     allTabs.forEach(t => {
       if (!allowedTabs.includes(t)) allowedTabs.push(t);
     });
@@ -291,6 +293,7 @@ const CandidateDashboard = () => {
       case "referrals": return <CandidateReferralsPage candidate={candidate} />;
       case "settings": return <CandidateSettingsPage />;
       case "messages": return <CandidateMessagesPage />;
+      case "reviews": return <CandidateReviewsPage candidate={candidate} onStatusChange={fetchData} />;
       default: return (
         <div className="space-y-8 animate-in">
           {/* Hero Header */}

@@ -10,9 +10,11 @@ class AuditLogSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_actor_name(self, obj):
-        if obj.actor and hasattr(obj.actor, 'profile'):
-            return obj.actor.profile.full_name
-        return ''
+        if obj.actor:
+            if hasattr(obj.actor, 'profile') and obj.actor.profile and obj.actor.profile.full_name:
+                return obj.actor.profile.full_name
+            return obj.actor.email
+        return 'System'
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)

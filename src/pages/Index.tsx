@@ -79,7 +79,7 @@ const Home = () => {
     }
 
     // Body padding to accommodate fixed navbar
-    document.body.style.paddingTop = '80px';
+    document.body.style.paddingTop = '58px';
     return () => {
       document.body.style.paddingTop = '0px';
     };

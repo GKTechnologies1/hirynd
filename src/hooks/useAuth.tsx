@@ -24,7 +24,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string, role?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any; approval_status?: string; user?: UserData }>;
-  signOut: () => Promise<void>;
+  signOut: (reason?: string) => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   refreshUser: () => Promise<void>;
 }
@@ -85,9 +85,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (reason?: string) => {
     try {
-      await authApi.logout();
+      await authApi.logout(reason);
     } catch { /* ignore */ }
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");

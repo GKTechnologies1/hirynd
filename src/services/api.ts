@@ -149,11 +149,37 @@ export const setupProactiveRefresh = (token: string | null) => {
           }
         }
       }, delay);
+    } else if (currentTime < expiryTime) {
+      // If delay <= 0 but token is still valid (e.g. background tab woke up), refresh immediately
+      const refresh = localStorage.getItem('refresh_token');
+      if (refresh) {
+        axios.post(
+          `${API_BASE_URL}/auth/refresh/`,
+          { refresh },
+          { headers: { 'X-Background-Request': 'true' } }
+        ).then(({ data }) => {
+          localStorage.setItem('access_token', data.access);
+          if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+          setupProactiveRefresh(data.access);
+        }).catch(() => {});
+      }
     }
   } catch (e) {
     console.error("Failed to parse token for proactive refresh", e);
   }
 };
+
+// Also listen for tab focus to handle background tab sleeping
+if (typeof window !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const currentToken = localStorage.getItem('access_token');
+      if (currentToken) {
+        setupProactiveRefresh(currentToken);
+      }
+    }
+  });
+}
 
 // Start proactive refresh on application load if token exists
 const initialToken = localStorage.getItem('access_token');
@@ -264,9 +290,9 @@ export const authApi = {
     api.post('/auth/register/', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   login: (email: string, password: string) =>
     api.post('/auth/login/', { email, password }),
-  logout: () => {
+  logout: (reason?: string) => {
     const refresh = localStorage.getItem('refresh_token');
-    return api.post('/auth/logout/', { refresh });
+    return api.post('/auth/logout/', { refresh, reason: reason || 'user_logout' });
   },
   me: () => api.get('/auth/me/'),
   updateProfile: (data: Record<string, any>) => api.patch('/auth/profile/', data),
@@ -352,12 +378,19 @@ export const recruitersApi = {
   getJobApplications: (candidateId: string, config?: any) => api.get(`/recruiters/${candidateId}/job-applications/`, config),
   submitJobApplications: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/job-applications/`, data),
   updateJobStatus: (jobId: string, status: string) => api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
+  updateJobField: (jobId: string, data: Record<string, any>) => api.post(`/recruiters/jobs/${jobId}/status/`, data),
+  deleteJobAlert: (jobId: string) => api.delete(`/recruiters/jobs/${jobId}/status/`),
+  createJobAlert: (data: Record<string, any>) => api.post('/recruiters/public-job-alerts/', data),
   fetchJobDetails: (url: string) => api.post(`/recruiters/fetch-job-details/`, { url }),
   stats: (params?: { user_id?: string }) => api.get('/recruiters/stats/', { params }),
   getProfile: () => api.get('/recruiters/profile/'),
   updateProfile: (data: any) => api.patch('/recruiters/profile/', data),
   getBankDetails: () => api.get('/recruiters/bank-details/'),
   updateBankDetails: (data: any) => api.post('/recruiters/bank-details/', data),
+  myTeam: () => api.get('/recruiters/my-team/'),
+  getTeamMember: (userId: string) => api.get(`/recruiters/my-team/${userId}/`),
+  updateTeamMember: (userId: string, data: any) => api.patch(`/recruiters/my-team/${userId}/`, data),
+  getTeamMemberAssignments: (userId: string) => api.get(`/recruiters/my-team/${userId}/assignments/`),
   adminGetDetail: (userId: string) => api.get(`/recruiters/admin/profile/${userId}/`),
   adminUpdateProfile: (userId: string, data: any) => api.patch(`/recruiters/admin/profile/${userId}/`, data),
   adminGetAssignments: (userId: string) => api.get(`/recruiters/admin/profile/${userId}/assignments/`),
@@ -369,8 +402,13 @@ export const recruitersApi = {
     api.patch('/recruiters/profile/', { pan_card_id: fileId }),
   uploadBankPassbook: (fileId: string) =>
     api.patch('/recruiters/profile/', { bank_passbook_id: fileId }),
-  productivityReport: () => api.get('/recruiters/admin/productivity-report/'),
-  getPublicJobAlerts: (config?: any) => api.get('/recruiters/public-job-alerts/', config),
+  getPublicJobAlerts: (params?: Record<string, any>, config?: any) => {
+    if (params && (params.params || params.headers || params.cancelToken)) {
+      return api.get('/recruiters/public-job-alerts/', params);
+    }
+    return api.get('/recruiters/public-job-alerts/', { params, ...config });
+  },
+  getJobAlertFilterOptions: () => api.get('/recruiters/public-job-alerts/filter-options/'),
 };
 
 // ─── Billing ───
@@ -444,8 +482,14 @@ export const billingApi = {
 
 // ─── Audit ───
 export const auditApi = {
-  globalLogs: (action?: string) => api.get('/audit/', { params: action ? { action } : {} }),
-  candidateLogs: (candidateId: string) => api.get(`/audit/${candidateId}/`),
+  globalLogs: (params?: string | { action?: string; date_from?: string; date_to?: string }) => {
+    if (typeof params === 'string') {
+      return api.get('/audit/', { params: { action: params } });
+    }
+    return api.get('/audit/', { params });
+  },
+  candidateLogs: (candidateId: string, params?: { action?: string; date_from?: string; date_to?: string }) =>
+    api.get(`/audit/${candidateId}/`, { params }),
 };
 
 // ─── Notifications ───
@@ -492,4 +536,16 @@ export const jobsApi = {
     api.patch(`/jobs/submissions/${submissionId}/`, data),
   deleteSubmission: (submissionId: string) =>
     api.delete(`/jobs/submissions/${submissionId}/`),
+};
+
+// ─── Reviews ───
+export const reviewsApi = {
+  getMine: () => api.get('/reviews/me/'),
+  createOrUpdateMine: (data: { rating: number; review_text: string; job_title?: string; image_url?: string }) =>
+    api.post('/reviews/me/', data),
+  listAdmin: () => api.get('/reviews/admin/'),
+  manageAdmin: (id: string, data: { is_approved?: boolean }) =>
+    api.patch(`/reviews/admin/${id}/`, data),
+  deleteAdmin: (id: string) => api.delete(`/reviews/admin/${id}/`),
+  listPublic: () => api.get('/reviews/public/'),
 };

@@ -95,6 +95,22 @@ const AdminSubscriptionPlansPage = () => {
     setPlanDialogOpen(true);
   };
   const savePlan = async () => {
+    const trimmedName = planForm.name.trim();
+    if (!trimmedName) {
+      toast({ title: "Validation Error", description: "Plan name is required.", variant: "destructive" });
+      return;
+    }
+    const isDuplicate = plans.some(
+      (p) => p.name.trim().toLowerCase() === trimmedName.toLowerCase() && (!editingPlan || p.id !== editingPlan.id)
+    );
+    if (isDuplicate) {
+      toast({
+        title: "Duplicate Subscription Plan",
+        description: `A plan named "${trimmedName}" already exists. Duplicate plan names are not allowed.`,
+        variant: "destructive",
+      });
+      return;
+    }
     setSavingPlan(true);
     try {
       if (editingPlan) {
@@ -107,7 +123,7 @@ const AdminSubscriptionPlansPage = () => {
       setPlanDialogOpen(false);
       fetchAll();
     } catch (e: any) {
-      toast({ title: "Error", description: e.response?.data?.detail || e.message, variant: "destructive" });
+      toast({ title: "Error", description: e.response?.data?.error || e.response?.data?.detail || e.message, variant: "destructive" });
     }
     setSavingPlan(false);
   };
@@ -125,14 +141,30 @@ const AdminSubscriptionPlansPage = () => {
     setAddonDialogOpen(true);
   };
   const saveAddon = async () => {
+    const trimmedName = addonForm.name.trim();
+    if (!trimmedName) {
+      toast({ title: "Validation Error", description: "Add-on name is required.", variant: "destructive" });
+      return;
+    }
+    const isDuplicate = addons.some(
+      (a) => a.name.trim().toLowerCase() === trimmedName.toLowerCase() && (!editingAddon || a.id !== editingAddon.id)
+    );
+    if (isDuplicate) {
+      toast({
+        title: "Duplicate Add-on Service",
+        description: `An add-on service named "${trimmedName}" already exists. Duplicate add-on names are not allowed.`,
+        variant: "destructive",
+      });
+      return;
+    }
     setSavingAddon(true);
     try {
-      if (editingAddon) { await billingApi.updateAddon(editingAddon.id, addonForm); toast({ title: "Addon updated" }); }
-      else { await billingApi.createAddon(addonForm); toast({ title: "Addon created" }); }
+      if (editingAddon) { await billingApi.updateAddon(editingAddon.id, addonForm); toast({ title: "Add-on updated" }); }
+      else { await billingApi.createAddon(addonForm); toast({ title: "Add-on created" }); }
       setAddonDialogOpen(false);
       fetchAll();
     } catch (e: any) {
-      toast({ title: "Error", description: e.response?.data?.detail || e.message, variant: "destructive" });
+      toast({ title: "Error", description: e.response?.data?.error || e.response?.data?.detail || e.message, variant: "destructive" });
     }
     setSavingAddon(false);
   };

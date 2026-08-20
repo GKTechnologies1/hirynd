@@ -87,6 +87,5 @@ billing/backfill_invoices.py
 django_backend/backfill_invoices.py
 /tmp/
 django_backend/db.sqlite3
-*migrations
 cache
 implementation_plan.md

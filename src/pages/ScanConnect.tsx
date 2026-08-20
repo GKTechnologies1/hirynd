@@ -4,9 +4,10 @@ import { Instagram, Linkedin } from "lucide-react";
 import { WhatsAppIcon } from "@/components/layout/Footer";
 
 const links = [
+  { icon: WhatsAppIcon, label: "WhatsApp Broadcast (+1 314-354-0634)", url: "https://wa.me/13143540634", color: "bg-green-600" },
+  { icon: WhatsAppIcon, label: "WhatsApp Broadcast (+1 314-319-7982)", url: "https://wa.me/13143197982", color: "bg-green-600" },
   { icon: Instagram, label: "Instagram", url: "https://www.instagram.com/hyrind_usa?igsh=NzZhcjJ1cmFzbXdu", color: "bg-gradient-to-br from-pink-500 to-amber-500" },
   { icon: Linkedin, label: "LinkedIn", url: "https://linkedin.com/company/hyrind", color: "bg-blue-600" },
-  { icon: WhatsAppIcon, label: "WhatsApp Broadcast", url: "https://Wa.me/+1-314-354-0634/", color: "bg-green-600" },
 ];
 
 const ScanConnect = () => {

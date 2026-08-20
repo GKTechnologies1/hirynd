@@ -196,6 +196,31 @@ class RecruiterAssignmentTests(TestCase):
         from recruiters.models import JobLinkEntry
         self.assertTrue(JobLinkEntry.objects.filter(job_url=long_url).exists())
 
+    def test_submit_job_application_long_drive_link(self):
+        """Test that submitting a job application with a long Google Drive link (>255 chars) succeeds."""
+        self.client.force_authenticate(user=self.recruiter)
+        url = reverse('job_applications', kwargs={'candidate_id': self.candidate.id})
+        
+        long_drive_link = "https://docs.google.com/document/d/1Zn2VkVYEVL1ri6XBkA4Rhc2bm06M_Xr5/edit?usp=drive_link&ouid=118123841889096466716&rtpof=true&sd=true&extra_param=" + ("x" * 200)
+        payload = {
+            'job_links': [{
+                'company_name': 'Anduril Industries',
+                'role_title': 'Senior Data Engineer',
+                'job_url': 'www.linkedin.com/company/anduril',
+                'job_description': 'Test description with bullet points • point 1 • point 2',
+                'resume_used': long_drive_link,
+                'status': None
+            }]
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        from recruiters.models import JobLinkEntry
+        entry = JobLinkEntry.objects.get(company_name='Anduril Industries')
+        self.assertEqual(entry.resume_used, long_drive_link)
+        self.assertEqual(entry.job_url, 'https://www.linkedin.com/company/anduril')
+        self.assertEqual(entry.application_status, 'applied')
+
 
 class PublicJobAlertsTests(TestCase):
     def setUp(self):
