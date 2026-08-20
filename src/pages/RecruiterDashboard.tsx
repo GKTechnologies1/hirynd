@@ -197,6 +197,8 @@ const RecruiterHome = () => {
             columns={[
               {
                 header: "ID",
+                accessorKey: "display_id",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
@@ -206,6 +208,8 @@ const RecruiterHome = () => {
               },
               {
                 header: "Candidate",
+                accessorKey: "full_name",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => (
                   <div className="flex flex-col">
@@ -216,6 +220,8 @@ const RecruiterHome = () => {
               },
               {
                 header: "Visa Status",
+                accessorKey: "visa_status",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/10 text-secondary border border-secondary/20 uppercase tracking-tighter">
@@ -225,11 +231,15 @@ const RecruiterHome = () => {
               },
               {
                 header: "Pipeline Status",
+                accessorKey: "status",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => <StatusBadge status={c.status} />
               },
               {
                 header: "Total Apps",
+                accessorKey: "total_applications",
+                sortable: true,
                 className: "px-6 text-center",
                 render: (c: any) => (
                   <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
@@ -239,6 +249,8 @@ const RecruiterHome = () => {
               },
               {
                 header: "Total Interviews",
+                accessorKey: "total_interviews",
+                sortable: true,
                 className: "px-6 text-center",
                 render: (c: any) => (
                   <span className="inline-flex items-center justify-center min-w-[32px] px-2 py-0.5 rounded-full text-xs font-bold bg-secondary/10 text-secondary">
@@ -248,6 +260,8 @@ const RecruiterHome = () => {
               },
               {
                 header: "Last Updated",
+                accessorKey: "updated_at",
+                sortable: true,
                 className: "px-6",
                 render: (c: any) => (
                   <span className="text-xs text-muted-foreground">
