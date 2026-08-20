@@ -14,6 +14,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DatePicker } from "@/components/ui/DatePicker";
+import LocationFilterPopover from "@/components/jobs/LocationFilterPopover";
 import {
   Search, Globe, X, ExternalLink, LayoutGrid, Table, Share2, MapPin,
   Briefcase, DollarSign, Clock, MoreHorizontal, Home, Award, Ban, Heart,
@@ -322,6 +323,7 @@ interface MultiSelectFilterPopoverProps {
   options: string[];
   selected: string[];
   onChange: (selected: string[]) => void;
+  isLoading?: boolean;
   searchPlaceholder?: string;
   activeColorClass?: string;
 }
@@ -333,11 +335,23 @@ const MultiSelectFilterPopover: React.FC<MultiSelectFilterPopoverProps> = ({
   options,
   selected,
   onChange,
+  isLoading = false,
   searchPlaceholder = "Enter keyword to search...",
   activeColorClass = "bg-blue-50 text-[#0d47a1] border-blue-200 font-extrabold shadow-2xs",
 }) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isRenderLoading, setIsRenderLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setIsRenderLoading(true);
+      const timer = setTimeout(() => setIsRenderLoading(false), 80);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  const showSkeleton = isLoading || isRenderLoading;
 
   const filteredOptions = useMemo(() => {
     if (!searchTerm.trim()) return options;
@@ -380,11 +394,12 @@ const MultiSelectFilterPopover: React.FC<MultiSelectFilterPopoverProps> = ({
         </button>
       </PopoverTrigger>
 
-      <PopoverContent align="start" sideOffset={6} className="w-78 p-4 rounded-2xl bg-white shadow-xl border border-slate-200/90 space-y-3 z-50">
+      <PopoverContent align="start" sideOffset={6} className="w-[420px] max-w-[90vw] p-4 rounded-2xl bg-white shadow-xl border border-slate-200/90 space-y-3 z-50">
         {/* Category Header */}
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold text-slate-900 tracking-tight">
-            {categoryTitle || label}
+          <h4 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-1">
+            <span className="text-rose-500 font-bold">*</span>
+            <span>{categoryTitle || label}</span>
           </h4>
           {selected.length > 0 && (
             <span className="text-[10px] font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
@@ -392,6 +407,30 @@ const MultiSelectFilterPopover: React.FC<MultiSelectFilterPopoverProps> = ({
             </span>
           )}
         </div>
+
+        {/* Selected Tags Container (4-column grid layout) */}
+        {selected.length > 0 && (
+          <div className="grid grid-cols-4 gap-1.5 p-1.5 max-h-36 overflow-y-auto custom-scrollbar bg-slate-50/70 rounded-xl border border-slate-100">
+            {selected.map((item) => (
+              <span
+                key={item}
+                className="inline-flex items-center justify-between gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-blue-100/90 text-blue-900 border border-blue-200/80 hover:bg-blue-200/80 transition-colors shadow-2xs min-w-0"
+              >
+                <span className="truncate">{item}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggle(item);
+                  }}
+                  className="hover:text-rose-600 font-bold p-0.5 rounded-full hover:bg-blue-200/60 transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Small Search Option Input inside Dropdown */}
         <div className="relative">
@@ -415,7 +454,15 @@ const MultiSelectFilterPopover: React.FC<MultiSelectFilterPopoverProps> = ({
 
         {/* Scrollable Options List */}
         <div className="max-h-52 overflow-y-auto space-y-1 my-1 pr-1 custom-scrollbar">
-          {filteredOptions.length === 0 ? (
+          {showSkeleton ? (
+            <div className="space-y-1.5 py-1">
+              <Skeleton className="h-7 w-full rounded-xl" />
+              <Skeleton className="h-7 w-full rounded-xl" />
+              <Skeleton className="h-7 w-full rounded-xl" />
+              <Skeleton className="h-7 w-full rounded-xl" />
+              <Skeleton className="h-7 w-full rounded-xl" />
+            </div>
+          ) : filteredOptions.length === 0 ? (
             <div className="py-4 text-center text-xs text-slate-400 font-medium">
               No options match "{searchTerm}"
             </div>
@@ -515,7 +562,7 @@ const AdminJobBoard = () => {
   // Backend Filter Options
   const [filterOptions, setFilterOptions] = useState<{
     roles: string[];
-    locations: string[];
+    locations: any;
     employment_types: string[];
     work_modes: string[];
     experience_levels: string[];
@@ -658,6 +705,7 @@ const AdminJobBoard = () => {
       if (filterType.length > 0) params.employment_type = filterType.join(",");
       if (filterExp.length > 0) params.experience_required = filterExp.join(",");
       if (filterVisa.length > 0) params.visa_eligibility = filterVisa.join(",");
+      if (filterSalary.length > 0) params.salary = filterSalary.join(",");
       if (filterDate.length > 0) params.date_preset = filterDate.join(",");
       if (sortOrder === "Oldest First") params.ordering = "created_at";
 
@@ -694,7 +742,7 @@ const AdminJobBoard = () => {
   }, [
     currentPage, pageSize, debouncedSearchQuery, debouncedSearchTitle, debouncedSearchCompany,
     debouncedSearchSkills, fromDate, toDate, statusFilter, filterLocation, filterRole,
-    filterWorkMode, filterType, filterExp, filterVisa, filterDate, sortOrder, toast
+    filterWorkMode, filterType, filterExp, filterVisa, filterSalary, filterDate, sortOrder, toast
   ]);
 
   useEffect(() => {
@@ -1065,14 +1113,12 @@ const AdminJobBoard = () => {
               {/* Filter Pills Bar BELOW Search Bar */}
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-medium text-slate-700">
                 {/* 1. Location Multi-Select Dropdown */}
-                <MultiSelectFilterPopover
+                <LocationFilterPopover
                   label="Location"
-                  categoryTitle="Country & Location"
-                  icon={<MapPin className="h-3 w-3 text-primary" />}
-                  options={dynamicLocations}
+                  options={filterOptions.locations}
                   selected={filterLocation}
                   onChange={setFilterLocation}
-                  searchPlaceholder="Enter city or state/province..."
+                  isLoading={loading}
                 />
 
                 {/* 2. Job Title Multi-Select Dropdown */}
@@ -1083,6 +1129,7 @@ const AdminJobBoard = () => {
                   options={dynamicRoles}
                   selected={filterRole}
                   onChange={setFilterRole}
+                  isLoading={loading}
                   searchPlaceholder="Search role title..."
                 />
 

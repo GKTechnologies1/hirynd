@@ -833,18 +833,67 @@ def public_job_alert_filter_options(request):
         .order_by('role_title')
     )
 
-    # Distinct Locations
-    locations_set = set()
+    # Distinct Structured Locations
+    country_map = {}
+    flat_locations_set = set()
+
     for entry in base_qs.values('city', 'state', 'country'):
-        parts = [entry.get('city'), entry.get('state'), entry.get('country')]
-        filtered_parts = [p.strip() for p in parts if p and p.strip()]
-        if filtered_parts:
-            locations_set.add(", ".join(filtered_parts))
-        if entry.get('country') and entry['country'].strip():
-            locations_set.add(entry['country'].strip())
-        if entry.get('city') and entry['city'].strip():
-            locations_set.add(entry['city'].strip())
-    locations = sorted(list(locations_set))
+        c = (entry.get('country') or '').strip()
+        s = (entry.get('state') or '').strip()
+        ci = (entry.get('city') or '').strip()
+
+        if not c and not s and not ci:
+            continue
+
+        # Normalization / Default Country if missing
+        if not c:
+            if "india" in (s + ci).lower():
+                c = "India"
+            elif "canada" in (s + ci).lower():
+                c = "Canada"
+            elif "uk" in (s + ci).lower() or "kingdom" in (s + ci).lower():
+                c = "United Kingdom"
+            else:
+                c = "United States"
+
+        if c not in country_map:
+            country_map[c] = {
+                "states": {},
+                "cities": set()
+            }
+
+        # Flat string representation for legacy queries
+        parts = [p for p in [ci, s, c] if p]
+        if parts:
+            flat_locations_set.add(", ".join(parts))
+
+        if s:
+            if s not in country_map[c]["states"]:
+                country_map[c]["states"][s] = set()
+            if ci:
+                country_map[c]["states"][s].add(ci)
+                country_map[c]["cities"].add(f"{ci}, {s}")
+            else:
+                country_map[c]["cities"].add(f"{s} Province" if c == "Canada" and "Province" not in s else s)
+        elif ci:
+            country_map[c]["cities"].add(ci)
+
+    # Convert sets to sorted lists for JSON serialization
+    formatted_countries = {}
+    for country, data in sorted(country_map.items()):
+        formatted_states = {}
+        for state, cities in sorted(data["states"].items()):
+            formatted_states[state] = sorted(list(cities))
+        formatted_countries[country] = {
+            "states": formatted_states,
+            "cities": sorted(list(data["cities"]))
+        }
+
+    locations_data = {
+        "countries": formatted_countries,
+        "all_countries": sorted(list(country_map.keys())),
+        "flat": sorted(list(flat_locations_set))
+    }
 
     # Distinct Employment Types
     employment_types = list(
@@ -886,7 +935,7 @@ def public_job_alert_filter_options(request):
 
     result = {
         'roles': roles,
-        'locations': locations,
+        'locations': locations_data,
         'employment_types': employment_types,
         'work_modes': work_modes,
         'experience_levels': experience_levels,
