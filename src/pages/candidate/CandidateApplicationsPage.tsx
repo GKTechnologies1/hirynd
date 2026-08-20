@@ -390,6 +390,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   });
 
   const handleOpenEditJob = (job: any) => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can edit application details.", variant: "destructive" });
+      return;
+    }
     setEditingJob(job);
     setEditJobForm({
       company_name: job.company_name || "",
@@ -411,6 +415,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleSaveEditJob = async () => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can edit application details.", variant: "destructive" });
+      return;
+    }
     if (!editJobForm.role_title || !editJobForm.company_name) {
       toast({ title: "Role Title and Company Name are required", variant: "destructive" });
       return;
@@ -439,6 +447,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleMarkExpired = async (job: any) => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can mark applications as expired.", variant: "destructive" });
+      return;
+    }
     if (!job?.id) return;
     const jobId = job.id;
     setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "expired", application_status: "expired", candidate_response_status: "expired" } : j));
@@ -455,6 +467,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleRejectJob = async (job: any) => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can reject applications.", variant: "destructive" });
+      return;
+    }
     if (!job?.id) return;
     const jobId = job.id;
     setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "rejected", application_status: "rejected", candidate_response_status: "rejected" } : j));
@@ -471,6 +487,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleConfirmDeleteJob = async () => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can delete applications.", variant: "destructive" });
+      return;
+    }
     if (!deleteJobTarget?.id) return;
     const targetId = deleteJobTarget.id;
     const targetTitle = deleteJobTarget.role_title || deleteJobTarget.title || "Job";
@@ -1207,83 +1227,87 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                             </SelectContent>
                           </Select>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              handleOpenEditJob(j);
-                            }}
-                            className="h-7 px-2 text-[11px] font-semibold text-blue-700 border-blue-200 bg-blue-50/80 hover:bg-blue-100 flex items-center gap-1 cursor-pointer"
-                            title="Edit application details"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            Edit
-                          </Button>
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                          {isStaff && (
+                            <>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground border-border/60 bg-muted/20 hover:bg-muted/60 cursor-pointer"
-                                title="More actions"
-                              >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-popover rounded-xl shadow-lg border border-border p-1 min-w-[160px] z-50">
-                              <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  e.preventDefault();
                                   handleOpenEditJob(j);
                                 }}
-                                className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                className="h-7 px-2 text-[11px] font-semibold text-blue-700 border-blue-200 bg-blue-50/80 hover:bg-blue-100 flex items-center gap-1 cursor-pointer"
+                                title="Edit application details"
                               >
-                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
-                                Edit Details
-                              </DropdownMenuItem>
+                                <Pencil className="h-3 w-3" />
+                                Edit
+                              </Button>
 
-                              {!isExpired && (
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleMarkExpired(j);
-                                  }}
-                                  className="text-xs font-medium text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                                >
-                                  <Ban className="h-3.5 w-3.5 text-rose-600" />
-                                  Mark Expired
-                                </DropdownMenuItem>
-                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground border-border/60 bg-muted/20 hover:bg-muted/60 cursor-pointer"
+                                    title="More actions"
+                                  >
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-popover rounded-xl shadow-lg border border-border p-1 min-w-[160px] z-50">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditJob(j);
+                                    }}
+                                    className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                    Edit Details
+                                  </DropdownMenuItem>
 
-                              {!isRejected && (
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRejectJob(j);
-                                  }}
-                                  className="text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                                >
-                                  <XCircle className="h-3.5 w-3.5 text-amber-600" />
-                                  Reject Application
-                                </DropdownMenuItem>
-                              )}
+                                  {!isExpired && (
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleMarkExpired(j);
+                                      }}
+                                      className="text-xs font-medium text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                    >
+                                      <Ban className="h-3.5 w-3.5 text-rose-600" />
+                                      Mark Expired
+                                    </DropdownMenuItem>
+                                  )}
 
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteJobTarget(j);
-                                }}
-                                className="text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                                Delete Application
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                  {!isRejected && (
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRejectJob(j);
+                                      }}
+                                      className="text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5 text-amber-600" />
+                                      Reject Application
+                                    </DropdownMenuItem>
+                                  )}
+
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteJobTarget(j);
+                                    }}
+                                    className="text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                    Delete Application
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          )}
                         </div>
                       );
                     }

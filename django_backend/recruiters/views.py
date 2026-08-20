@@ -346,7 +346,15 @@ def update_job_status(request, job_id):
     except JobLinkEntry.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    is_staff = (
+        request.user.role in ('admin', 'recruiter', 'team_lead', 'team_manager', 'super_admin') or
+        getattr(request.user, 'is_staff', False) or
+        getattr(request.user, 'is_superuser', False)
+    )
+
     if request.method == 'DELETE':
+        if not is_staff:
+            return Response({'error': 'Permission denied. Only admin or staff can delete job applications.'}, status=status.HTTP_403_FORBIDDEN)
         job.delete()
         try:
             from django.core.cache import cache
@@ -356,7 +364,7 @@ def update_job_status(request, job_id):
             pass
         return Response({'message': 'Deleted successfully'})
 
-    new_status = request.data.get('status') or request.data.get('application_status')
+    new_status = request.data.get('status') or request.data.get('application_status') or request.data.get('candidate_response_status')
     if new_status:
         job.application_status = new_status
         job.candidate_response_status = new_status
@@ -366,9 +374,13 @@ def update_job_status(request, job_id):
         'city', 'state', 'country', 'salary', 'visa_eligibility',
         'company_name', 'role_title', 'notes', 'job_description', 'job_url', 'is_public'
     ]
-    for field_name in fields_to_update:
-        if field_name in request.data:
-            setattr(job, field_name, request.data[field_name])
+    
+    if any(field in request.data for field in fields_to_update):
+        if not is_staff:
+            return Response({'error': 'Permission denied. Only admin or staff can edit application details.'}, status=status.HTTP_403_FORBIDDEN)
+        for field_name in fields_to_update:
+            if field_name in request.data:
+                setattr(job, field_name, request.data[field_name])
 
     job.save()
     if job.candidate:
