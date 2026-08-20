@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Navigate } from "react-router-dom";
-import { recruitersApi } from "@/services/api";
+import { recruitersApi, getPreviewTargetUrl } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,16 +9,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   User, Mail, Phone, MapPin, Briefcase, Award, Calendar,
   TrendingUp, Save, ArrowLeft, Loader2, Shield, CheckCircle2,
-  Users, Eye, Landmark, Linkedin
+  Users, Eye, EyeOff, Landmark, Linkedin, FileUp, Check
 } from "lucide-react";
 import { DataTable } from "@/components/ui/DataTable";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import AdminAuditTab from "@/components/admin/AdminAuditTab";
 
 const ROLE_COLORS: Record<string, string> = {
   recruiter: "bg-blue-500/10 text-blue-700 border-blue-500/20",
@@ -53,6 +55,19 @@ export default function RecruiterTeamMemberDetailPage() {
   const [isIdentityEditing, setIsIdentityEditing] = useState(false);
   const [isEducationEditing, setIsEducationEditing] = useState(false);
   const [isStaffEditing, setIsStaffEditing] = useState(false);
+  const [isBankEditing, setIsBankEditing] = useState(false);
+  const [isReferralEditing, setIsReferralEditing] = useState(false);
+  const [isProfessionalEditing, setIsProfessionalEditing] = useState(false);
+
+  // Bank details state
+  const [bankDetails, setBankDetails] = useState<any>({
+    bank_name: "",
+    account_number: "",
+    routing_number: ""
+  });
+  const [maskAccount, setMaskAccount] = useState(true);
+  const [maskIfsc, setMaskIfsc] = useState(true);
+  const [savingBank, setSavingBank] = useState(false);
 
   // Form Fields State
   const [formData, setFormData] = useState({
@@ -76,7 +91,8 @@ export default function RecruiterTeamMemberDetailPage() {
     prior_recruitment_experience: "",
     work_type_preference: "",
     referral_source: "",
-    referral_friend_name: ""
+    referral_friend_name: "",
+    resume_file: ""
   });
 
   const fetchData = async () => {
@@ -106,8 +122,17 @@ export default function RecruiterTeamMemberDetailPage() {
         prior_recruitment_experience: data.prior_recruitment_experience || "",
         work_type_preference: data.work_type_preference || "",
         referral_source: data.referral_source || "",
-        referral_friend_name: data.referral_friend_name || ""
+        referral_friend_name: data.referral_friend_name || "",
+        resume_file: data.resume_file || ""
       });
+
+      if (data.bank_details) {
+        setBankDetails({
+          bank_name: data.bank_details.bank_name || "",
+          account_number: data.bank_details.account_number || "",
+          routing_number: data.bank_details.ifsc_code || data.bank_details.routing_number || ""
+        });
+      }
     } catch (err: any) {
       toast({
         title: "Error loading team member details",
@@ -118,6 +143,36 @@ export default function RecruiterTeamMemberDetailPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveBankDetails = async () => {
+    if (!teamMemberId) return;
+    setSavingBank(true);
+    try {
+      await recruitersApi.updateTeamMember(teamMemberId, { bank_details: bankDetails });
+      toast({ title: "Bank details updated successfully" });
+      setIsBankEditing(false);
+      setMaskAccount(true);
+      setMaskIfsc(true);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingBank(false);
+    }
+  };
+
+  const handleCancelBank = () => {
+    if (!member) return;
+    const bank = member.bank_details || {};
+    setBankDetails({
+      bank_name: bank.bank_name || "",
+      account_number: bank.account_number || "",
+      routing_number: bank.ifsc_code || bank.routing_number || ""
+    });
+    setIsBankEditing(false);
+    setMaskAccount(true);
+    setMaskIfsc(true);
   };
 
   const fetchAssignments = async () => {
@@ -259,16 +314,6 @@ export default function RecruiterTeamMemberDetailPage() {
       await recruitersApi.updateTeamMember(teamMemberId, {
         date_of_joining: doj || null,
         max_clients: formData.max_clients,
-        company_name: formData.company_name,
-        employee_id: formData.employee_id,
-        department: formData.department,
-        specialization: formData.specialization,
-        prior_recruitment_experience: formData.prior_recruitment_experience,
-        work_type_preference: formData.work_type_preference,
-        referral_source: formData.referral_source,
-        referral_friend_name: formData.referral_friend_name,
-        linkedin_url: formData.linkedin_url,
-        social_profile_url: formData.social_profile_url,
       });
       toast({ title: "Staff details updated successfully" });
       setIsStaffEditing(false);
@@ -290,18 +335,76 @@ export default function RecruiterTeamMemberDetailPage() {
       ...prev,
       date_of_joining: member.date_of_joining || "",
       max_clients: member.max_clients || 3,
-      company_name: member.company_name || "",
-      employee_id: member.employee_id || "",
-      department: member.department || "",
-      specialization: member.specialization || "",
-      prior_recruitment_experience: member.prior_recruitment_experience || "",
-      work_type_preference: member.work_type_preference || "",
-      referral_source: member.referral_source || "",
-      referral_friend_name: member.referral_friend_name || "",
-      linkedin_url: member.linkedin_url || "",
-      social_profile_url: member.social_profile_url || ""
     }));
     setIsStaffEditing(false);
+  };
+
+  const handleSaveReferral = async () => {
+    if (!teamMemberId) return;
+    setSaving(true);
+    try {
+      await recruitersApi.updateTeamMember(teamMemberId, {
+        referral_source: formData.referral_source,
+        referral_friend_name: formData.referral_friend_name,
+        work_type_preference: formData.work_type_preference,
+      });
+      toast({ title: "Registration & referral details updated successfully" });
+      setIsReferralEditing(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ 
+        title: "Update failed", 
+        description: err.response?.data?.error || "Check your input", 
+        variant: "destructive" 
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelReferral = () => {
+    if (!member) return;
+    setFormData(prev => ({
+      ...prev,
+      referral_source: member.referral_source || "",
+      referral_friend_name: member.referral_friend_name || "",
+      work_type_preference: member.work_type_preference || ""
+    }));
+    setIsReferralEditing(false);
+  };
+
+  const handleSaveProfessional = async () => {
+    if (!teamMemberId) return;
+    setSaving(true);
+    try {
+      await recruitersApi.updateTeamMember(teamMemberId, {
+        linkedin_url: formData.linkedin_url,
+        social_profile_url: formData.social_profile_url,
+        prior_recruitment_experience: formData.prior_recruitment_experience,
+      });
+      toast({ title: "Professional details updated successfully" });
+      setIsProfessionalEditing(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ 
+        title: "Update failed", 
+        description: err.response?.data?.error || "Check your input", 
+        variant: "destructive" 
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelProfessional = () => {
+    if (!member) return;
+    setFormData(prev => ({
+      ...prev,
+      linkedin_url: member.linkedin_url || "",
+      social_profile_url: member.social_profile_url || "",
+      prior_recruitment_experience: member.prior_recruitment_experience || ""
+    }));
+    setIsProfessionalEditing(false);
   };
 
   if (loading) {
@@ -357,8 +460,9 @@ export default function RecruiterTeamMemberDetailPage() {
         <TabsList className="bg-card/50 p-1 border border-border/40 rounded-2xl mb-6">
           <TabsTrigger value="overview" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overview</TabsTrigger>
           <TabsTrigger value="assigned_candidates" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Assigned Candidates</TabsTrigger>
-          <TabsTrigger value="staff" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Staff & Referral Details</TabsTrigger>
+          <TabsTrigger value="staff" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Staff Details</TabsTrigger>
           <TabsTrigger value="performance" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Performance</TabsTrigger>
+          <TabsTrigger value="audit" className="rounded-xl font-bold text-xs uppercase tracking-widest px-6 h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Audit Log</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Overview */}
@@ -430,6 +534,67 @@ export default function RecruiterTeamMemberDetailPage() {
               </CardContent>
             </Card>
 
+            {/* Bank Details Card */}
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+              <CardHeader className="bg-secondary/5 pb-4 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Landmark className="h-4 w-4 text-secondary" /> Bank Details
+                  </CardTitle>
+                </div>
+                {!isBankEditing && (
+                  <Button variant="outline" size="sm" onClick={() => setIsBankEditing(true)}>Edit</Button>
+                )}
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Bank Name</Label>
+                  <Input disabled={!isBankEditing} className="bg-background/50 h-10 text-sm" value={bankDetails.bank_name} onChange={e => setBankDetails({ ...bankDetails, bank_name: e.target.value })} placeholder="e.g. Chase Bank, Wells Fargo" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Account Number</Label>
+                  <div className="relative">
+                    <Input
+                      disabled={!isBankEditing}
+                      type={maskAccount ? "password" : "text"}
+                      className="bg-background/50 h-10 text-sm tracking-wider pr-10"
+                      value={bankDetails.account_number}
+                      onChange={e => setBankDetails({ ...bankDetails, account_number: e.target.value })}
+                    />
+                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:bg-transparent" onClick={() => setMaskAccount(!maskAccount)}>
+                      {maskAccount ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-60">IFSC Code</Label>
+                  <div className="relative">
+                    <Input
+                      disabled={!isBankEditing}
+                      type={maskIfsc ? "password" : "text"}
+                      className="bg-background/50 h-10 text-sm tracking-wider pr-10 uppercase"
+                      value={bankDetails.routing_number}
+                      onChange={e => setBankDetails({ ...bankDetails, routing_number: e.target.value })}
+                      placeholder="Enter 11-digit IFSC code"
+                    />
+                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:bg-transparent" onClick={() => setMaskIfsc(!maskIfsc)}>
+                      {maskIfsc ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                {isBankEditing && (
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" className="flex-1 h-11" onClick={handleCancelBank} disabled={savingBank}>
+                      Cancel
+                    </Button>
+                    <Button className="flex-1 h-11" onClick={handleSaveBankDetails} disabled={savingBank}>
+                      {savingBank ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Education Card */}
             <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
               <CardHeader className="bg-secondary/5 pb-4 flex flex-row items-center justify-between">
@@ -451,28 +616,39 @@ export default function RecruiterTeamMemberDetailPage() {
                     className="h-11 rounded-xl bg-muted/20"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree</Label>
-                  <Input
-                    id="input-detail-degree"
-                    value={formData.degree}
-                    disabled={!isEducationEditing}
-                    onChange={e => setFormData({ ...formData, degree: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                    placeholder="e.g. Bachelor of Science"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Major</Label>
-                  <Input
-                    id="input-detail-major"
-                    value={formData.major}
-                    disabled={!isEducationEditing}
-                    onChange={e => setFormData({ ...formData, major: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                    placeholder="e.g. Computer Science"
-                  />
-                </div>
+                {isEducationEditing ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree</Label>
+                      <Input
+                        id="input-detail-degree"
+                        value={formData.degree}
+                        onChange={e => setFormData({ ...formData, degree: e.target.value })}
+                        className="h-11 rounded-xl bg-muted/20"
+                        placeholder="e.g. Bachelor of Science"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Major</Label>
+                      <Input
+                        id="input-detail-major"
+                        value={formData.major}
+                        onChange={e => setFormData({ ...formData, major: e.target.value })}
+                        className="h-11 rounded-xl bg-muted/20"
+                        placeholder="e.g. Computer Science"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Degree & Major</Label>
+                    <Input
+                      value={`${formData.degree || ""}${formData.degree && formData.major ? " & " : ""}${formData.major || ""}`}
+                      disabled
+                      className="h-11 rounded-xl bg-muted/20"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Graduation Date</Label>
                   <DatePicker
@@ -488,6 +664,186 @@ export default function RecruiterTeamMemberDetailPage() {
                       Cancel
                     </Button>
                     <Button id="save-education-btn" className="flex-1 h-11" onClick={handleSaveEducation} disabled={saving}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Registration & Referral Card */}
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40 flex flex-col">
+              <CardHeader className="bg-primary/5 pb-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" /> Registration & Referral
+                </CardTitle>
+                {!isReferralEditing && (
+                  <Button id="edit-referral-btn" variant="outline" size="sm" onClick={() => setIsReferralEditing(true)}>Edit</Button>
+                )}
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4 flex-1">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Discovery Source</Label>
+                  <Input
+                    id="input-detail-referral-source"
+                    value={formData.referral_source}
+                    disabled={!isReferralEditing}
+                    onChange={e => setFormData({ ...formData, referral_source: e.target.value })}
+                    className="h-11 rounded-xl bg-muted/20"
+                    placeholder="e.g. LinkedIn, Google, Friend, etc."
+                  />
+                </div>
+                {(formData.referral_source?.toLowerCase() === "friend" || formData.referral_source?.toLowerCase() === "other") && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">
+                      {formData.referral_source?.toLowerCase() === "friend" ? "Friend's Name" : "Specified Other"}
+                    </Label>
+                    <Input
+                      id="input-detail-referral-friend"
+                      value={formData.referral_friend_name}
+                      disabled={!isReferralEditing}
+                      onChange={e => setFormData({ ...formData, referral_friend_name: e.target.value })}
+                      className="h-11 rounded-xl bg-muted/20"
+                      placeholder={formData.referral_source?.toLowerCase() === "friend" ? "Name of the referring friend" : "Specified other source"}
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Work Type Preference</Label>
+                  <Select
+                    value={formData.work_type_preference}
+                    disabled={!isReferralEditing}
+                    onValueChange={v => setFormData({ ...formData, work_type_preference: v })}
+                  >
+                    <SelectTrigger id="select-work-type-trigger" className="h-11 rounded-xl bg-muted/20">
+                      <SelectValue placeholder="Select Preference" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Full-time", "Part-time", "Contract", "Remote"].map(o => (
+                        <SelectItem key={o} value={o}>{o}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="pt-2 border-t mt-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 block mb-2">Registration Resume</Label>
+                  {formData.resume_file ? (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        id="view-resume-btn"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 flex items-center gap-2 h-10 px-4"
+                        onClick={() => window.open(getPreviewTargetUrl(formData.resume_file), "_blank")}
+                      >
+                        <FileUp className="h-4 w-4" /> View / Download Resume
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground italic ml-1">No resume uploaded during registration</p>
+                  )}
+                </div>
+                {isReferralEditing && (
+                  <div className="flex gap-2 pt-2">
+                    <Button id="cancel-referral-btn" variant="outline" className="flex-1 h-11" onClick={handleCancelReferral} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button id="save-referral-btn" className="flex-1 h-11" onClick={handleSaveReferral} disabled={saving}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Professional Profile Card */}
+            <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
+              <CardHeader className="bg-primary/5 pb-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-primary" /> Professional Profile
+                </CardTitle>
+                {!isProfessionalEditing && (
+                  <Button id="edit-professional-btn" variant="outline" size="sm" onClick={() => setIsProfessionalEditing(true)}>Edit</Button>
+                )}
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">LinkedIn URL</Label>
+                  {isProfessionalEditing ? (
+                    <Input
+                      id="input-detail-linkedin"
+                      type="url"
+                      value={formData.linkedin_url}
+                      onChange={e => setFormData({ ...formData, linkedin_url: e.target.value })}
+                      className="h-11 rounded-xl bg-muted/20"
+                      placeholder="https://linkedin.com/in/..."
+                    />
+                  ) : (
+                    formData.linkedin_url ? (
+                      <div className="h-11 rounded-xl bg-muted/10 border border-border/40 flex items-center px-4">
+                        <a
+                          href={formData.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-semibold text-primary hover:underline flex items-center gap-1.5 truncate"
+                        >
+                          <Linkedin className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="text-primary hover:underline truncate">{formData.linkedin_url}</span>
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="h-11 rounded-xl bg-muted/10 border border-border/40 flex items-center px-4 text-sm text-muted-foreground italic">
+                        No LinkedIn URL provided
+                      </div>
+                    )
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">GitHub Profile</Label>
+                  {isProfessionalEditing ? (
+                    <Input
+                      id="input-detail-github"
+                      type="url"
+                      value={formData.social_profile_url}
+                      onChange={e => setFormData({ ...formData, social_profile_url: e.target.value })}
+                      className="h-11 rounded-xl bg-muted/20"
+                      placeholder="https://github.com/..."
+                    />
+                  ) : (
+                    formData.social_profile_url ? (
+                      <div className="h-11 rounded-xl bg-muted/10 border border-border/40 flex items-center px-4">
+                        <a
+                          href={formData.social_profile_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-semibold text-primary hover:underline flex items-center gap-1.5 truncate"
+                        >
+                          <span className="text-primary hover:underline truncate">{formData.social_profile_url}</span>
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="h-11 rounded-xl bg-muted/10 border border-border/40 flex items-center px-4 text-sm text-muted-foreground italic">
+                        No GitHub profile provided
+                      </div>
+                    )
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Prior Recruitment Experience</Label>
+                  <Input
+                    id="input-detail-prior-experience"
+                    value={formData.prior_recruitment_experience}
+                    disabled={!isProfessionalEditing}
+                    onChange={e => setFormData({ ...formData, prior_recruitment_experience: e.target.value })}
+                    className="h-11 rounded-xl bg-muted/20"
+                  />
+                </div>
+                {isProfessionalEditing && (
+                  <div className="flex gap-2 pt-2">
+                    <Button id="cancel-professional-btn" variant="outline" className="flex-1 h-11" onClick={handleCancelProfessional} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button id="save-professional-btn" className="flex-1 h-11" onClick={handleSaveProfessional} disabled={saving}>
                       {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
                     </Button>
                   </div>
@@ -579,13 +935,13 @@ export default function RecruiterTeamMemberDetailPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab 3: Staff & Referral Details */}
+        {/* Tab 3: Staff Details */}
         <TabsContent value="staff">
           <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md ring-1 ring-border/40">
             <CardHeader className="bg-secondary/5 pb-4 flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-secondary" /> Administrative & Professional Details
+                  <Shield className="h-4 w-4 text-secondary" /> Administrative Information
                 </CardTitle>
                 <CardDescription className="text-[10px] uppercase font-bold tracking-tight text-secondary/70">Metadata and Staff configurations</CardDescription>
               </div>
@@ -619,119 +975,6 @@ export default function RecruiterTeamMemberDetailPage() {
                     className="h-11 rounded-xl bg-muted/20 font-bold"
                   />
                 </div>
-                {/* Company Name */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Company Name</Label>
-                  <Input
-                    id="input-detail-company_name"
-                    value={formData.company_name}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, company_name: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-                {/* Employee ID */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Employee ID</Label>
-                  <Input
-                    id="input-detail-employee_id"
-                    value={formData.employee_id}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, employee_id: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-                {/* Department */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
-                  <Input
-                    id="input-detail-department"
-                    value={formData.department}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, department: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-                {/* Specialization */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Specialization</Label>
-                  <Input
-                    id="input-detail-specialization"
-                    value={formData.specialization}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, specialization: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-                {/* Work Type Preference */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Work Type Preference</Label>
-                  <Input
-                    id="input-detail-work_preference"
-                    value={formData.work_type_preference}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, work_type_preference: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                    placeholder="e.g. Remote, Onsite, Hybrid"
-                  />
-                </div>
-                {/* LinkedIn */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">LinkedIn URL</Label>
-                  <Input
-                    id="input-detail-linkedin"
-                    value={formData.linkedin_url}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, linkedin_url: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                    placeholder="https://linkedin.com/in/..."
-                  />
-                </div>
-                {/* Github */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Github / Portfolio URL</Label>
-                  <Input
-                    id="input-detail-github"
-                    value={formData.social_profile_url}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, social_profile_url: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                    placeholder="https://github.com/..."
-                  />
-                </div>
-                {/* Referral Source */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Referral Source</Label>
-                  <Input
-                    id="input-detail-referral"
-                    value={formData.referral_source}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, referral_source: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-                {/* Referral Friend Name */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Referral Friend Name</Label>
-                  <Input
-                    id="input-detail-referral_friend"
-                    value={formData.referral_friend_name}
-                    disabled={!isStaffEditing}
-                    onChange={e => setFormData({ ...formData, referral_friend_name: e.target.value })}
-                    className="h-11 rounded-xl bg-muted/20"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2 mt-4">
-                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Prior Recruitment Experience</Label>
-                <textarea
-                  id="input-detail-prior_experience"
-                  disabled={!isStaffEditing}
-                  rows={3}
-                  value={formData.prior_recruitment_experience}
-                  onChange={e => setFormData({ ...formData, prior_recruitment_experience: e.target.value })}
-                  className="w-full text-sm p-3 border border-border/40 rounded-xl bg-muted/20 hover:border-border/80 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed transition-all"
-                />
               </div>
 
               {isStaffEditing && (
@@ -818,6 +1061,11 @@ export default function RecruiterTeamMemberDetailPage() {
               <div className="py-20 text-center text-muted-foreground font-medium">Unable to load metrics.</div>
             )}
           </div>
+        </TabsContent>
+
+        {/* Tab 5: Audit Log */}
+        <TabsContent value="audit">
+          <AdminAuditTab targetId={teamMemberId!} />
         </TabsContent>
       </Tabs>
     </div>

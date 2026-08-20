@@ -477,8 +477,8 @@ def admin_update_profile(request, user_id):
     
     try:
         user_obj = User.objects.get(id=user_id)
-        if user_obj.role != 'recruiter':
-            return Response({'error': 'User is not a recruiter'}, status=400)
+        if user_obj.role not in ['recruiter', 'team_lead', 'team_manager']:
+            return Response({'error': 'User is not a recruiter or team lead/manager'}, status=400)
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
 

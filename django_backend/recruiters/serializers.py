@@ -377,6 +377,9 @@ class TeamMemberDetailSerializer(serializers.ModelSerializer):
     work_type_preference = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     referral_source = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     referral_friend_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
+    bank_details = serializers.SerializerMethodField()
+    resume_file = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -389,8 +392,31 @@ class TeamMemberDetailSerializer(serializers.ModelSerializer):
             'company_name', 'employee_id', 'date_of_joining',
             'department', 'specialization', 'max_clients',
             'prior_recruitment_experience', 'work_type_preference',
-            'referral_source', 'referral_friend_name'
+            'referral_source', 'referral_friend_name',
+            'bank_details', 'resume_file'
         ]
+
+    def get_bank_details(self, instance):
+        try:
+            bank = instance.bank_details
+            return {
+                'bank_name': bank.bank_name or "",
+                'account_number_last4': bank.account_number_last4 or "",
+                'routing_number_last4': bank.routing_number_last4 or "",
+                'account_number': bank.account_number_encrypted or "",
+                'ifsc_code': bank.routing_number_encrypted or "",
+                'routing_number': bank.routing_number_encrypted or "",
+            }
+        except Exception:
+            return None
+
+    def get_resume_file(self, instance):
+        rec_profile = getattr(instance, 'recruiter_profile', None)
+        if not rec_profile or not rec_profile.resume_file:
+            return None
+        request = self.context.get('request')
+        relative = f"/media/{rec_profile.resume_file.name}"
+        return request.build_absolute_uri(relative) if request else relative
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -442,5 +468,26 @@ class TeamMemberDetailSerializer(serializers.ModelSerializer):
             if field in validated_data:
                 setattr(rec_profile, field, validated_data[field])
         rec_profile.save()
+
+        # Handle Bank Details updates from initial_data
+        bank_data = self.initial_data.get('bank_details')
+        if bank_data:
+            from .models import RecruiterBankDetails
+            bank, _ = RecruiterBankDetails.objects.get_or_create(recruiter=instance)
+            
+            bank_name = bank_data.get('bank_name')
+            if bank_name is not None:
+                bank.bank_name = bank_name
+                
+            acc = bank_data.get('account_number', '')
+            rtn = bank_data.get('routing_number', '') or bank_data.get('ifsc_code', '')
+            
+            if acc and not acc.startswith('****'):
+                bank.account_number_last4 = acc[-4:]
+                bank.account_number_encrypted = acc
+            if rtn and not rtn.startswith('****'):
+                bank.routing_number_last4 = rtn[-4:]
+                bank.routing_number_encrypted = rtn
+            bank.save()
         
         return instance
