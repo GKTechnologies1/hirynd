@@ -109,6 +109,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return false;
     // Team manager can access recruiter views
     if (role === "recruiter" && ["recruiter", "team_lead", "team_manager"].includes(user.role)) return true;
+    // Finance admin can access admin views
+    if (role === "admin" && ["admin", "finance_admin"].includes(user.role)) return true;
     return user.role === role;
   };
 
