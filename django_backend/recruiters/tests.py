@@ -268,3 +268,33 @@ class PublicJobAlertsTests(TestCase):
         self.assertEqual(response.data[0]['job_url'], 'http://example.com')
         # Check that log_date is serialized correctly
         self.assertEqual(response.data[0]['log_date'], self.log.log_date)
+
+    def test_public_job_alerts_last_30_days_filter(self):
+        """Test that records older than 30 days are excluded from public job alerts."""
+        from datetime import timedelta
+
+        old_log = DailySubmissionLog.objects.create(
+            candidate=self.candidate,
+            recruiter=self.recruiter,
+            log_date=timezone.now().date() - timedelta(days=45),
+            applications_count=1
+        )
+        old_job = JobLinkEntry.objects.create(
+            submission_log=old_log,
+            candidate=self.candidate,
+            company_name='Old Company',
+            role_title='Old Dev',
+            job_url='http://example.com/old',
+            is_public=True
+        )
+        # update created_at directly since auto_now_add sets it on create
+        JobLinkEntry.objects.filter(id=old_job.id).update(
+            created_at=timezone.now() - timedelta(days=45)
+        )
+
+        response = self.client.get(self.public_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should only include self.job (recent), not old_job
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['company_name'], 'Test Company')
+
