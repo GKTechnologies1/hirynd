@@ -651,12 +651,17 @@ def public_job_alerts(request):
 
         return Response(JobLinkEntrySerializer(job).data, status=status.HTTP_201_CREATED)
 
-    # 1. Base queryset
+    # 1. Base queryset (Only last 30 days records)
+    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+    thirty_days_ago_date = thirty_days_ago.date()
+
     include_hidden = request.query_params.get('include_hidden', '').lower() in ('true', '1') or request.query_params.get('is_hidden', '').lower() in ('true', '1')
     if include_hidden:
         jobs = JobLinkEntry.objects.all().select_related('submission_log')
     else:
         jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log')
+
+    jobs = jobs.filter(Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date))
 
     # 2. Status filter
     status_param = request.query_params.get('status')
@@ -796,7 +801,11 @@ def public_job_alerts(request):
     from django.core.cache import cache as django_cache
     unfiltered_total = django_cache.get('public_job_alerts_total')
     if unfiltered_total is None:
-        unfiltered_total = JobLinkEntry.objects.filter(is_public=True).count()
+        unfiltered_total = JobLinkEntry.objects.filter(
+            is_public=True
+        ).filter(
+            Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date)
+        ).count()
         django_cache.set('public_job_alerts_total', unfiltered_total, 300)  # 5 min
 
     try:
@@ -825,16 +834,23 @@ def public_job_alerts(request):
 @permission_classes([AllowAny])
 def public_job_alert_filter_options(request):
     """
-    Returns distinct filter options derived from all live jobs in the database.
+    Returns distinct filter options derived from live jobs created within the last 30 days.
     Response is cached for 5 minutes to avoid 7+ distinct queries on every page load.
     """
     from django.core.cache import cache as django_cache
+    from django.db.models import Q
+    import datetime
 
     cached_result = django_cache.get('job_alert_filter_options')
     if cached_result is not None:
         return Response(cached_result)
 
-    base_qs = JobLinkEntry.objects.filter(is_public=True)
+    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+    thirty_days_ago_date = thirty_days_ago.date()
+
+    base_qs = JobLinkEntry.objects.filter(is_public=True).filter(
+        Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date)
+    )
 
     # Distinct Roles
     roles = list(
