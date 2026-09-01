@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { authApi } from "@/services/api";
 import {
@@ -14,7 +14,8 @@ import { AlertTriangle, Clock } from "lucide-react";
 
 // Helper to read timeout configuration from environment variables with safe defaults
 const getTimeoutConfig = (role?: string) => {
-  const isRecruiter = role === "recruiter";
+  const normalizedRole = role?.toLowerCase() || "";
+  const isRecruiter = ["recruiter", "team_lead", "team_manager"].includes(normalizedRole);
   const env = import.meta.env || {};
 
   const timeoutMins = isRecruiter
@@ -42,6 +43,37 @@ export const SessionTimeoutHandler = () => {
 
   const { maxTimeoutMs, warningTimeoutMs, warningWindowSeconds } = getTimeoutConfig(user?.role);
 
+  const performAutoLogout = useCallback(async () => {
+    if (isLoggingOutRef.current) return;
+    isLoggingOutRef.current = true;
+    setShowWarning(false);
+    try {
+      await signOut("auto_logout_inactivity");
+    } finally {
+      isLoggingOutRef.current = false;
+    }
+  }, [signOut]);
+
+  const checkSessionState = useCallback((): boolean => {
+    if (isLoggingOutRef.current || !user) return false;
+
+    const storedTimestamp = localStorage.getItem("last_activity_timestamp");
+    const lastActivity = Number(storedTimestamp || Date.now());
+    const elapsed = Date.now() - lastActivity;
+
+    if (elapsed >= maxTimeoutMs) {
+      performAutoLogout();
+      return true; // Expired
+    } else if (elapsed >= warningTimeoutMs) {
+      setShowWarning(true);
+      setTimeLeft(Math.max(0, Math.ceil((maxTimeoutMs - elapsed) / 1000)));
+      return false;
+    } else {
+      setShowWarning(false);
+      return false;
+    }
+  }, [user, maxTimeoutMs, warningTimeoutMs, performAutoLogout]);
+
   useEffect(() => {
     if (!user) {
       setShowWarning(false);
@@ -52,51 +84,66 @@ export const SessionTimeoutHandler = () => {
       localStorage.setItem("last_activity_timestamp", Date.now().toString());
     }
 
-    let lastUpdate = 0;
-    const updateActivity = () => {
+    // Initial check on mount
+    checkSessionState();
+
+    let lastThrottleTime = 0;
+    const handleUserActivity = () => {
       const now = Date.now();
-      if (now - lastUpdate > 5000) {
-        lastUpdate = now;
-        localStorage.setItem("last_activity_timestamp", now.toString());
+      // Only throttle writes every 4 seconds
+      if (now - lastThrottleTime < 4000) return;
+      lastThrottleTime = now;
+
+      // CRITICAL: Before recording new activity, verify the session hasn't already timed out!
+      // If elapsed time is >= maxTimeoutMs, do NOT record new activity; log out immediately.
+      const storedTimestamp = localStorage.getItem("last_activity_timestamp");
+      const lastActivity = Number(storedTimestamp || now);
+      if (now - lastActivity >= maxTimeoutMs) {
+        performAutoLogout();
+        return;
+      }
+
+      localStorage.setItem("last_activity_timestamp", now.toString());
+      if (showWarning) {
+        setShowWarning(false);
       }
     };
 
     const activityEvents = ["mousedown", "mousemove", "keydown", "scroll", "touchstart", "click"];
-    activityEvents.forEach((evt) => window.addEventListener(evt, updateActivity, { passive: true }));
+    activityEvents.forEach((evt) => window.addEventListener(evt, handleUserActivity, { passive: true }));
 
-    const interval = setInterval(() => {
-      if (isLoggingOutRef.current) return;
-
-      const lastActivity = Number(localStorage.getItem("last_activity_timestamp") || Date.now());
-      const elapsed = Date.now() - lastActivity;
-
-      if (elapsed >= maxTimeoutMs) {
-        isLoggingOutRef.current = true;
-        clearInterval(interval);
-        signOut("auto_logout_inactivity").then(() => {
-          isLoggingOutRef.current = false;
-        });
-      } else if (elapsed >= warningTimeoutMs) {
-        setShowWarning(true);
-        setTimeLeft(Math.max(0, Math.ceil((maxTimeoutMs - elapsed) / 1000)));
-      } else {
-        setShowWarning(false);
+    // Re-verify immediately when tab gains focus or becomes visible
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        checkSessionState();
       }
+    };
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    // Main periodic check interval
+    const interval = setInterval(() => {
+      checkSessionState();
     }, CHECK_INTERVAL);
 
+    // Cross-tab sync
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "access_token" && !e.newValue) {
         signOut();
+      } else if (e.key === "last_activity_timestamp") {
+        checkSessionState();
       }
     };
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
-      activityEvents.forEach((evt) => window.removeEventListener(evt, updateActivity));
+      activityEvents.forEach((evt) => window.removeEventListener(evt, handleUserActivity));
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
       clearInterval(interval);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [user, signOut, maxTimeoutMs, warningTimeoutMs]);
+  }, [user, maxTimeoutMs, warningTimeoutMs, checkSessionState, performAutoLogout, signOut, showWarning]);
 
   const handleExtendSession = async () => {
     localStorage.setItem("last_activity_timestamp", Date.now().toString());
@@ -158,3 +205,4 @@ export const SessionTimeoutHandler = () => {
     </Dialog>
   );
 };
+

@@ -152,8 +152,10 @@ class CustomTokenRefreshView(TokenRefreshView):
                     user = User.objects.get(id=user_id)
                     if user.last_activity:
                         now = timezone.now()
-                        # Reject refresh if user has been inactive for more than 60 minutes
-                        if now - user.last_activity > timedelta(minutes=60):
+                        # Role-based inactivity limit: 15 minutes for recruiters, 60 minutes for others
+                        user_role = getattr(user, 'role', '').lower()
+                        timeout_minutes = 15 if user_role in ('recruiter', 'team_lead', 'team_manager') else 60
+                        if now - user.last_activity > timedelta(minutes=timeout_minutes):
                             return Response({
                                 'error': 'Session expired due to inactivity'
                             }, status=status.HTTP_401_UNAUTHORIZED)

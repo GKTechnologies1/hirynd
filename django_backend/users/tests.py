@@ -77,3 +77,28 @@ class UserAuthAuditTests(TestCase):
         self.assertIsNotNone(log_entry)
         self.assertEqual(log_entry.details.get('role'), 'recruiter')
         self.assertEqual(log_entry.details.get('reason'), 'auto_logout_inactivity')
+
+    def test_recruiter_refresh_inactivity_timeout(self):
+        """Test that recruiters cannot refresh token if inactive for >15 minutes."""
+        from datetime import timedelta
+        from django.utils import timezone
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        recruiter = User.objects.create_user(
+            email='recruiter_timeout@hyrind.com',
+            password='password123',
+            role='recruiter',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=recruiter, full_name='Recruiter Timeout')
+        
+        # Set last_activity to 16 minutes ago
+        recruiter.last_activity = timezone.now() - timedelta(minutes=16)
+        recruiter.save()
+
+        refresh = RefreshToken.for_user(recruiter)
+        refresh_url = reverse('token_refresh')
+        response = self.client.post(refresh_url, {'refresh': str(refresh)}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('Session expired due to inactivity', response.data.get('error', ''))
+

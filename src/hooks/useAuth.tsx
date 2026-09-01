@@ -73,6 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data } = await authApi.login(email, password);
       localStorage.setItem("access_token", data.access);
       localStorage.setItem("refresh_token", data.refresh);
+      localStorage.setItem("last_activity_timestamp", Date.now().toString());
       setupProactiveRefresh(data.access);
       setUser(data.user);
       return { error: null, user: data.user };
