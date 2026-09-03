@@ -21,6 +21,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/DatePicker";
+import SuggestInput from "@/components/ui/SuggestInput";
+import {
+  RECOMMENDED_COUNTRIES,
+  US_STATE_OPTIONS,
+  getCitiesForState,
+  findStateForCity,
+  formatSalaryAmount,
+  handleSalaryKeyDown,
+} from "@/data/usLocations";
 
 const formatSalaryDisplay = (rawSalary: any): string => {
   if (!rawSalary) return "Not Disclosed";
@@ -157,7 +166,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       work_mode: "",
       city: "",
       state: "",
-      country: "",
+      country: "United States",
       salary: "",
       visa_eligibility: "",
     }]);
@@ -252,8 +261,12 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
         errs.country = "Country is required";
         hasError = true;
       }
-      if (!j.salary?.trim()) {
-        errs.salary = "Salary is required (e.g. $100k or Not Disclosed)";
+      const sal = (j.salary || "").trim();
+      if (!sal || sal === "$") {
+        errs.salary = "Salary amount is required (e.g. $100,000)";
+        hasError = true;
+      } else if (!/\d/.test(sal)) {
+        errs.salary = "Please enter a valid salary amount (numbers only, e.g. $100,000)";
         hasError = true;
       }
       if (!j.visa_eligibility?.trim()) {
@@ -406,7 +419,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       work_mode: job.work_mode || "",
       city: job.city || "",
       state: job.state || "",
-      country: job.country || "",
+      country: job.country || "United States",
       salary: job.salary || "",
       visa_eligibility: job.visa_eligibility || "",
       status: (job.candidate_response_status || job.application_status || job.status || "applied").toLowerCase().replace(/ /g, "_"),
@@ -422,6 +435,13 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     if (!editJobForm.role_title || !editJobForm.company_name) {
       toast({ title: "Role Title and Company Name are required", variant: "destructive" });
       return;
+    }
+    if (editJobForm.salary) {
+      const sal = editJobForm.salary.trim();
+      if (!/\d/.test(sal)) {
+        toast({ title: "Invalid Salary", description: "Please enter a valid salary amount (e.g. $100,000).", variant: "destructive" });
+        return;
+      }
     }
     if (!editingJob?.id) return;
     const jobId = editingJob.id;
@@ -869,33 +889,63 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             <div className="space-y-1">
-                              <Input
+                              <SuggestInput
                                 placeholder="City *"
-                                className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.city && "border-destructive focus-visible:ring-destructive")}
+                                className="h-8 text-[10px] bg-background/50"
                                 value={job.city || ""}
-                                onChange={e => updateJobLink(idx, "city", e.target.value)}
+                                onChange={v => {
+                                  updateJobLink(idx, "city", v);
+                                  const matched = findStateForCity(v);
+                                  if (matched && !job.state) {
+                                    updateJobLink(idx, "state", matched.code);
+                                  }
+                                  if (!job.country) {
+                                    updateJobLink(idx, "country", "United States");
+                                  }
+                                }}
+                                onSelectOption={v => {
+                                  const matched = findStateForCity(v);
+                                  if (matched && !job.state) {
+                                    updateJobLink(idx, "state", matched.code);
+                                  }
+                                  if (!job.country) {
+                                    updateJobLink(idx, "country", "United States");
+                                  }
+                                }}
+                                suggestions={getCitiesForState(job.state)}
+                                hasError={!!jobLinkErrors[idx]?.city}
                               />
                               {jobLinkErrors[idx]?.city && (
                                 <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].city}</p>
                               )}
                             </div>
                             <div className="space-y-1">
-                              <Input
+                              <SuggestInput
                                 placeholder="State *"
-                                className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.state && "border-destructive focus-visible:ring-destructive")}
+                                className="h-8 text-[10px] bg-background/50"
                                 value={job.state || ""}
-                                onChange={e => updateJobLink(idx, "state", e.target.value)}
+                                onChange={v => {
+                                  updateJobLink(idx, "state", v);
+                                  if (!job.country) {
+                                    updateJobLink(idx, "country", "United States");
+                                  }
+                                }}
+                                suggestions={US_STATE_OPTIONS}
+                                hasError={!!jobLinkErrors[idx]?.state}
                               />
                               {jobLinkErrors[idx]?.state && (
                                 <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].state}</p>
                               )}
                             </div>
                             <div className="space-y-1">
-                              <Input
+                              <SuggestInput
                                 placeholder="Country *"
-                                className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.country && "border-destructive focus-visible:ring-destructive")}
+                                className="h-8 text-[10px] bg-background/50"
                                 value={job.country || ""}
-                                onChange={e => updateJobLink(idx, "country", e.target.value)}
+                                onChange={v => updateJobLink(idx, "country", v)}
+                                suggestions={RECOMMENDED_COUNTRIES}
+                                recommendedBadge="United States"
+                                hasError={!!jobLinkErrors[idx]?.country}
                               />
                               {jobLinkErrors[idx]?.country && (
                                 <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].country}</p>
@@ -905,10 +955,12 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <Input
-                                placeholder="Salary (e.g. $100k or Not Disclosed) *"
+                                placeholder="Salary Amount (e.g. $100,000) *"
+                                inputMode="decimal"
                                 className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.salary && "border-destructive focus-visible:ring-destructive")}
                                 value={job.salary || ""}
-                                onChange={e => updateJobLink(idx, "salary", e.target.value)}
+                                onKeyDown={handleSalaryKeyDown}
+                                onChange={e => updateJobLink(idx, "salary", formatSalaryAmount(e.target.value))}
                               />
                               {jobLinkErrors[idx]?.salary && (
                                 <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].salary}</p>
@@ -1506,28 +1558,46 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">City</Label>
-                <Input
+                <SuggestInput
                   value={editJobForm.city}
-                  onChange={(e) => setEditJobForm({ ...editJobForm, city: e.target.value })}
+                  onChange={(v) => {
+                    setEditJobForm((prev: any) => {
+                      const copy = { ...prev, city: v };
+                      const matched = findStateForCity(v);
+                      if (matched && !copy.state) copy.state = matched.code;
+                      if (!copy.country) copy.country = "United States";
+                      return copy;
+                    });
+                  }}
+                  suggestions={getCitiesForState(editJobForm.state)}
                   placeholder="e.g. Austin"
                   className="h-9 text-xs"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">State</Label>
-                <Input
+                <SuggestInput
                   value={editJobForm.state}
-                  onChange={(e) => setEditJobForm({ ...editJobForm, state: e.target.value })}
+                  onChange={(v) => {
+                    setEditJobForm((prev: any) => ({
+                      ...prev,
+                      state: v,
+                      country: prev.country || "United States",
+                    }));
+                  }}
+                  suggestions={US_STATE_OPTIONS}
                   placeholder="e.g. TX"
                   className="h-9 text-xs"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">Country</Label>
-                <Input
+                <SuggestInput
                   value={editJobForm.country}
-                  onChange={(e) => setEditJobForm({ ...editJobForm, country: e.target.value })}
-                  placeholder="e.g. USA"
+                  onChange={(v) => setEditJobForm({ ...editJobForm, country: v })}
+                  suggestions={RECOMMENDED_COUNTRIES}
+                  recommendedBadge="United States"
+                  placeholder="United States"
                   className="h-9 text-xs"
                 />
               </div>
@@ -1535,11 +1605,13 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Salary</Label>
+                <Label className="text-xs font-bold">Salary Amount ($)</Label>
                 <Input
+                  inputMode="decimal"
                   value={editJobForm.salary}
-                  onChange={(e) => setEditJobForm({ ...editJobForm, salary: e.target.value })}
-                  placeholder="e.g. $120,000/yr"
+                  onKeyDown={handleSalaryKeyDown}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, salary: formatSalaryAmount(e.target.value) })}
+                  placeholder="$120,000"
                   className="h-9 text-xs"
                 />
               </div>

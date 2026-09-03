@@ -278,7 +278,7 @@ export const LocationFilterPopover: React.FC<LocationFilterPopoverProps> = ({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Enter a city or area"
+                  placeholder="Search city, state or area..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-400 font-medium"
@@ -297,7 +297,7 @@ export const LocationFilterPopover: React.FC<LocationFilterPopoverProps> = ({
               <div className="max-h-44 overflow-y-auto space-y-1 my-1 pr-1 custom-scrollbar">
                 {currentCities.length === 0 ? (
                   <div className="py-3 text-center text-xs text-slate-400 font-medium">
-                    No cities match "{searchTerm}"
+                    No locations match "{searchTerm}"
                   </div>
                 ) : (
                   currentCities.map((city) => {
