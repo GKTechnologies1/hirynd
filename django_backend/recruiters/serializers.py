@@ -384,7 +384,7 @@ class TeamMemberDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'display_id', 'email', 'role', 'approval_status', 'is_active', 'created_at',
+            'id', 'display_id', 'email', 'role', 'approval_status', 'is_active', 'account_status', 'created_at',
             'full_name', 'phone',
             'city', 'state', 'country',
             'university', 'degree', 'major', 'graduation_date',

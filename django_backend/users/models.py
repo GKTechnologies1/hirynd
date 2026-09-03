@@ -56,11 +56,18 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ]
+    ACCOUNT_STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('resigned', 'Resigned'),
+        ('terminated', 'Terminated'),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='candidate')
     approval_status = models.CharField(max_length=20, choices=APPROVAL_CHOICES, default='pending')
+    account_status = models.CharField(max_length=20, choices=ACCOUNT_STATUS_CHOICES, default='active')
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     seq_number = models.PositiveIntegerField(

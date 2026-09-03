@@ -102,3 +102,34 @@ class UserAuthAuditTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn('Session expired due to inactivity', response.data.get('error', ''))
 
+    def test_account_status_update(self):
+        admin = User.objects.create_user(
+            email='admin_test@hyrind.com',
+            password='password123',
+            role='admin',
+            approval_status='approved'
+        )
+        recruiter = User.objects.create_user(
+            email='recruiter_status@hyrind.com',
+            password='password123',
+            role='recruiter',
+            approval_status='approved'
+        )
+        self.client.force_authenticate(user=admin)
+        url = reverse('manage_user', kwargs={'user_id': recruiter.id})
+
+        # Set account_status to resigned
+        res = self.client.patch(url, {'account_status': 'resigned'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        recruiter.refresh_from_db()
+        self.assertEqual(recruiter.account_status, 'resigned')
+        self.assertFalse(recruiter.is_active)
+
+        # Set account_status to terminated
+        res = self.client.patch(url, {'account_status': 'terminated'}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        recruiter.refresh_from_db()
+        self.assertEqual(recruiter.account_status, 'terminated')
+        self.assertFalse(recruiter.is_active)
+
+
