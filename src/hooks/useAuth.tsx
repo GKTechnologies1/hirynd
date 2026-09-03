@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { authApi, setupProactiveRefresh } from "@/services/api";
 
 type AppRole = "candidate" | "recruiter" | "team_lead" | "team_manager" | "admin" | "finance_admin";
@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     const token = localStorage.getItem("access_token");
     if (!token) {
       setUser(null);
@@ -45,35 +45,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data } = await authApi.me();
       setUser(data);
+      // Keep cached role in sync so SessionTimeoutHandler has the correct
+      // timeout immediately on page refresh (before this async call resolves)
+      if (data?.role) {
+        localStorage.setItem("cached_user_role", data.role);
+      }
     } catch {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
+      localStorage.removeItem("cached_user_role");
       setupProactiveRefresh(null);
       setUser(null);
     }
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchUser();
-  }, []);
+  }, [fetchUser]);
 
-  const signUp = async (email: string, password: string, fullName: string, role = "candidate") => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string, role = "candidate") => {
     try {
       await authApi.register({ email, password, full_name: fullName, role });
       return { error: null };
     } catch (err: any) {
       return { error: err.response?.data || err.message };
     }
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
       // TODO(security): Token storage should be transitioned to HttpOnly cookies to comply with secure coding guidelines and prevent XSS retrieval.
       const { data } = await authApi.login(email, password);
       localStorage.setItem("access_token", data.access);
       localStorage.setItem("refresh_token", data.refresh);
       localStorage.setItem("last_activity_timestamp", Date.now().toString());
+      // Cache role so timeout config is available synchronously on next page load
+      if (data.user?.role) {
+        localStorage.setItem("cached_user_role", data.user.role);
+      }
       setupProactiveRefresh(data.access);
       setUser(data.user);
       return { error: null, user: data.user };
@@ -84,15 +94,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       return { error: errData?.error || err.message };
     }
-  };
+  }, []);
 
-  const signOut = async (reason?: string) => {
+  const signOut = useCallback(async (reason?: string) => {
     try {
       await authApi.logout(reason);
     } catch { /* ignore */ }
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("last_activity_timestamp");
+    localStorage.removeItem("cached_user_role");
     
     // Selectively clean up any Supabase storage tokens for thorough cleanup
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -104,21 +115,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setupProactiveRefresh(null);
     setUser(null);
-  };
+  }, []);
 
-  const hasRole = (role: AppRole) => {
+  const hasRole = useCallback((role: AppRole) => {
     if (!user) return false;
     // Team manager can access recruiter views
     if (role === "recruiter" && ["recruiter", "team_lead", "team_manager"].includes(user.role)) return true;
     // Finance admin can access admin views
     if (role === "admin" && ["admin", "finance_admin"].includes(user.role)) return true;
     return user.role === role;
-  };
-
-  const refreshUser = fetchUser;
+  }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut, hasRole, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut, hasRole, refreshUser: fetchUser }}>
       {children}
     </AuthContext.Provider>
   );

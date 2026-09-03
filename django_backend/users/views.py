@@ -132,45 +132,64 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
+        from rest_framework_simplejwt.tokens import RefreshToken as RawRefreshToken
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # ── Step 1: Check inactivity BEFORE token rotation ──
+        # We must parse the raw refresh token before calling serializer.is_valid(),
+        # because ROTATE_REFRESH_TOKENS=True will blacklist the old token during validation.
+        # Attempting to re-parse a blacklisted token afterwards raises TokenError,
+        # which the old code silently swallowed, bypassing the inactivity check entirely.
+        refresh_token_str = request.data.get('refresh')
+        if refresh_token_str:
+            try:
+                raw_token = RawRefreshToken(refresh_token_str)
+                user_id = raw_token.payload.get('user_id')
+                if user_id:
+                    user = User.objects.get(id=user_id)
+                    if user.last_activity:
+                        now = timezone.now()
+                        # Role-based inactivity limit: 15 min for recruiter roles, 60 min for others
+                        user_role = getattr(user, 'role', '').lower()
+                        timeout_minutes = 15 if user_role in ('recruiter', 'team_lead', 'team_manager') else 60
+                        if now - user.last_activity > timedelta(minutes=timeout_minutes):
+                            return Response(
+                                {'error': 'Session expired due to inactivity'},
+                                status=status.HTTP_401_UNAUTHORIZED
+                            )
+            except User.DoesNotExist:
+                pass
+            except Exception:
+                # Token is malformed or already expired; let the serializer produce the proper error
+                pass
+
+        # ── Step 2: Validate & rotate the refresh token ──
         serializer = self.get_serializer(data=request.data)
-        
         try:
             serializer.is_valid(raise_exception=True)
         except TokenError as e:
             raise InvalidToken(e.args[0])
 
-        try:
-            refresh_token_str = request.data.get('refresh')
-            if refresh_token_str:
-                from rest_framework_simplejwt.tokens import RefreshToken
-                from django.utils import timezone
-                from datetime import timedelta
-                
-                token = RefreshToken(refresh_token_str)
-                user_id = token.payload.get('user_id')
-                if user_id:
-                    user = User.objects.get(id=user_id)
-                    if user.last_activity:
-                        now = timezone.now()
-                        # Role-based inactivity limit: 15 minutes for recruiters, 60 minutes for others
-                        user_role = getattr(user, 'role', '').lower()
-                        timeout_minutes = 15 if user_role in ('recruiter', 'team_lead', 'team_manager') else 60
-                        if now - user.last_activity > timedelta(minutes=timeout_minutes):
-                            return Response({
-                                'error': 'Session expired due to inactivity'
-                            }, status=status.HTTP_401_UNAUTHORIZED)
-                    
-                    # Update activity since they refreshed token, but ONLY if it's NOT a background request
-                    is_background = (
-                        request.headers.get('X-Background-Request') == 'true' or
-                        request.META.get('HTTP_X_BACKGROUND_REQUEST') == 'true'
-                    )
-                    if not is_background:
-                        user.last_activity = timezone.now()
-                        user.save(update_fields=['last_activity'])
-        except Exception:
-            # Let the standard error handling or response proceed if user lookup fails
-            pass
+        # ── Step 3: Update last_activity on non-background refreshes ──
+        if refresh_token_str:
+            try:
+                # At this point the old token is blacklisted; get user_id from validated data.
+                # serializer.validated_data contains the new access token; decode user from it.
+                from rest_framework_simplejwt.tokens import AccessToken
+                new_access_token = serializer.validated_data.get('access')
+                if new_access_token:
+                    decoded = AccessToken(new_access_token)
+                    uid = decoded.payload.get('user_id')
+                    if uid:
+                        is_background = (
+                            request.headers.get('X-Background-Request') == 'true' or
+                            request.META.get('HTTP_X_BACKGROUND_REQUEST') == 'true'
+                        )
+                        if not is_background:
+                            User.objects.filter(id=uid).update(last_activity=timezone.now())
+            except Exception:
+                pass
 
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 

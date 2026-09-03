@@ -14,8 +14,10 @@ import { AlertTriangle, Clock } from "lucide-react";
 
 // Helper to read timeout configuration from environment variables with safe defaults
 const getTimeoutConfig = (role?: string) => {
-  const normalizedRole = role?.toLowerCase() || "";
-  const isRecruiter = ["recruiter", "team_lead", "team_manager"].includes(normalizedRole);
+  // Use cached role from localStorage if role arg is absent (e.g. on initial page load
+  // before the async /me call resolves), so recruiter timeout applies immediately.
+  const effectiveRole = (role || localStorage.getItem("cached_user_role") || "").toLowerCase().trim();
+  const isRecruiter = ["recruiter", "team_lead", "team_manager"].includes(effectiveRole);
   const env = import.meta.env || {};
 
   const timeoutMins = isRecruiter

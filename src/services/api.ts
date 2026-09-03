@@ -144,8 +144,25 @@ export const setupProactiveRefresh = (token: string | null) => {
               localStorage.setItem('refresh_token', data.refresh);
             }
             setupProactiveRefresh(data.access);
-          } catch {
-            // Let the standard refresh logic or next request handle dynamic logout
+          } catch (err: any) {
+            // If backend returns 401 (inactivity expired), clear tokens and redirect.
+            // Any other error: leave tokens in place so the next API call's 401
+            // interceptor can handle it gracefully.
+            if (err?.response?.status === 401) {
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+              localStorage.removeItem('last_activity_timestamp');
+              const role = localStorage.getItem('cached_user_role') || '';
+              localStorage.removeItem('cached_user_role');
+              const path = window.location.pathname;
+              if (role === 'admin' || role === 'finance_admin' || path.startsWith('/admin')) {
+                window.location.href = '/admin-login';
+              } else if (['recruiter', 'team_lead', 'team_manager'].includes(role) || path.startsWith('/recruiter')) {
+                window.location.href = '/recruiter-login';
+              } else {
+                window.location.href = '/candidate-login';
+              }
+            }
           }
         }
       }, delay);
@@ -161,7 +178,24 @@ export const setupProactiveRefresh = (token: string | null) => {
           localStorage.setItem('access_token', data.access);
           if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
           setupProactiveRefresh(data.access);
-        }).catch(() => {});
+        }).catch((err: any) => {
+          // Handle inactivity-expired 401 on wake-up refresh
+          if (err?.response?.status === 401) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('last_activity_timestamp');
+            const role = localStorage.getItem('cached_user_role') || '';
+            localStorage.removeItem('cached_user_role');
+            const path = window.location.pathname;
+            if (role === 'admin' || role === 'finance_admin' || path.startsWith('/admin')) {
+              window.location.href = '/admin-login';
+            } else if (['recruiter', 'team_lead', 'team_manager'].includes(role) || path.startsWith('/recruiter')) {
+              window.location.href = '/recruiter-login';
+            } else {
+              window.location.href = '/candidate-login';
+            }
+          }
+        });
       }
     }
   } catch (e) {
