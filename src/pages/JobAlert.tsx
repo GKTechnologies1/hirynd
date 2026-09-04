@@ -511,6 +511,7 @@ export default function JobAlert() {
     work_modes: string[];
     experience_levels: string[];
     visa_eligibilities: string[];
+    salary_ranges?: string[];
     total_count?: number;
   }>({
     roles: [],
@@ -519,6 +520,7 @@ export default function JobAlert() {
     work_modes: [],
     experience_levels: [],
     visa_eligibilities: [],
+    salary_ranges: [],
   });
 
   // Multi-Select Filter states
@@ -581,7 +583,7 @@ export default function JobAlert() {
     if (filterOptions.locations && filterOptions.locations.length > 0) {
       return filterOptions.locations;
     }
-    return ["United States", "Canada", "United Kingdom", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA", "Los Angeles, CA", "Chicago, IL", "Boston, MA", "Atlanta, GA"];
+    return ["United States", "Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Seattle, WA", "Los Angeles, CA", "Chicago, IL", "Boston, MA", "Atlanta, GA"];
   }, [filterOptions.locations]);
 
   // Distinct roles from backend or fallback defaults
@@ -620,6 +622,13 @@ export default function JobAlert() {
     return ["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"];
   }, [filterOptions.visa_eligibilities]);
 
+  const dynamicSalaryRanges = useMemo(() => {
+    if (filterOptions.salary_ranges && filterOptions.salary_ranges.length > 0) {
+      return filterOptions.salary_ranges;
+    }
+    return ["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"];
+  }, [filterOptions.salary_ranges]);
+
   useEffect(() => {
     window.scrollTo(0, 0);
     document.body.style.paddingTop = '58px';
@@ -649,7 +658,7 @@ export default function JobAlert() {
       if (filterType.length > 0) params.employment_type = filterType.join(",");
       if (filterExp.length > 0) params.experience_required = filterExp.join(",");
       if (filterVisa.length > 0) params.visa_eligibility = filterVisa.join(",");
-      if (filterSalary.length > 0) params.salary = filterSalary.join(",");
+      if (filterSalary.length > 0) params.salary = filterSalary.join(";");
       if (filterDate.length > 0) params.date_preset = filterDate.join(",");
       if (sortOrder === "Oldest First") params.ordering = "created_at";
 
@@ -1098,7 +1107,7 @@ export default function JobAlert() {
                   label="Salary"
                   categoryTitle="Salary Range"
                   icon={<DollarSign className="h-3 w-3 text-[#0d47a1]" />}
-                  options={["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"]}
+                  options={dynamicSalaryRanges}
                   selected={filterSalary}
                   onChange={setFilterSalary}
                   searchPlaceholder="Search salary..."

@@ -19,6 +19,9 @@ from .serializers import (
     AdminRecruiterFullSerializer, MyAssignmentSerializer, DailyJournalSerializer,
     TeamMemberDetailSerializer,
 )
+from .location_data import get_us_locations_data, parse_location_query, build_location_filter_q
+from .salary_utils import filter_jobs_by_salary
+
 
 
 @api_view(['GET'])
@@ -704,15 +707,14 @@ def public_job_alerts(request):
     if skills:
         jobs = jobs.filter(Q(job_description__icontains=skills) | Q(notes__icontains=skills))
 
-    # 7. Location filter (handles comma-separated multi-select values)
+    # 7. Location filter (handles comma-separated multi-select values and City, State pairs)
     location = request.query_params.get('location')
     if location:
-        loc_list = [l.strip() for l in location.split(',') if l.strip()]
+        loc_list = parse_location_query(location)
         if loc_list:
-            q_loc = Q()
-            for l in loc_list:
-                q_loc |= Q(city__icontains=l) | Q(state__icontains=l) | Q(country__icontains=l)
-            jobs = jobs.filter(q_loc)
+            q_loc = build_location_filter_q(loc_list)
+            if q_loc:
+                jobs = jobs.filter(q_loc)
 
     # 8. Work mode filter
     work_mode = request.query_params.get('work_mode')
@@ -754,7 +756,12 @@ def public_job_alerts(request):
                 q_visa |= Q(visa_eligibility__icontains=v)
             jobs = jobs.filter(q_visa)
 
-    # 12. Date Range filter
+    # 12. Salary filter
+    salary = request.query_params.get('salary')
+    if salary:
+        jobs = filter_jobs_by_salary(jobs, salary)
+
+    # 13. Date Range filter
     from_date = request.query_params.get('from_date') or request.query_params.get('date_from')
     if from_date:
         try:
@@ -861,67 +868,9 @@ def public_job_alert_filter_options(request):
         .order_by('role_title')
     )
 
-    # Distinct Structured Locations
-    country_map = {}
-    flat_locations_set = set()
-
-    for entry in base_qs.values('city', 'state', 'country'):
-        c = (entry.get('country') or '').strip()
-        s = (entry.get('state') or '').strip()
-        ci = (entry.get('city') or '').strip()
-
-        if not c and not s and not ci:
-            continue
-
-        # Normalization / Default Country if missing
-        if not c:
-            if "india" in (s + ci).lower():
-                c = "India"
-            elif "canada" in (s + ci).lower():
-                c = "Canada"
-            elif "uk" in (s + ci).lower() or "kingdom" in (s + ci).lower():
-                c = "United Kingdom"
-            else:
-                c = "United States"
-
-        if c not in country_map:
-            country_map[c] = {
-                "states": {},
-                "cities": set()
-            }
-
-        # Flat string representation for legacy queries
-        parts = [p for p in [ci, s, c] if p]
-        if parts:
-            flat_locations_set.add(", ".join(parts))
-
-        if s:
-            if s not in country_map[c]["states"]:
-                country_map[c]["states"][s] = set()
-            if ci:
-                country_map[c]["states"][s].add(ci)
-                country_map[c]["cities"].add(f"{ci}, {s}")
-            else:
-                country_map[c]["cities"].add(f"{s} Province" if c == "Canada" and "Province" not in s else s)
-        elif ci:
-            country_map[c]["cities"].add(ci)
-
-    # Convert sets to sorted lists for JSON serialization
-    formatted_countries = {}
-    for country, data in sorted(country_map.items()):
-        formatted_states = {}
-        for state, cities in sorted(data["states"].items()):
-            formatted_states[state] = sorted(list(cities))
-        formatted_countries[country] = {
-            "states": formatted_states,
-            "cities": sorted(list(data["cities"]))
-        }
-
-    locations_data = {
-        "countries": formatted_countries,
-        "all_countries": sorted(list(country_map.keys())),
-        "flat": sorted(list(flat_locations_set))
-    }
+    # Distinct Structured Locations (Restricted to United States with comprehensive states & cities)
+    db_loc_entries = list(base_qs.values('city', 'state', 'country'))
+    locations_data = get_us_locations_data(extra_db_records=db_loc_entries)
 
     # Distinct Employment Types
     employment_types = list(
@@ -968,6 +917,7 @@ def public_job_alert_filter_options(request):
         'work_modes': work_modes,
         'experience_levels': experience_levels,
         'visa_eligibilities': visa_eligibilities,
+        'salary_ranges': ["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"],
         'total_count': total_count,
     }
 
