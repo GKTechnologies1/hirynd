@@ -107,21 +107,64 @@ def login(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def logout(request):
     reason = request.data.get('reason', 'user_logout')
     event_type = 'auto_logout_inactivity' if reason == 'auto_logout_inactivity' else 'user_logout'
-    log_action(
-        request.user,
-        event_type,
-        str(request.user.id),
-        'user',
-        {'role': request.user.role, 'reason': reason}
-    )
+
+    # Identify the user: prefer the authenticated user, then fall back to
+    # extracting identity from the access or refresh token (which may be expired
+    # by the time an auto-logout fires).
+    user = None
+    if request.user and request.user.is_authenticated:
+        user = request.user
+    else:
+        # Try to extract user from the (possibly expired) access token
+        access_token_str = request.data.get('access') or ''
+        if access_token_str:
+            try:
+                import jwt as pyjwt
+                payload = pyjwt.decode(
+                    access_token_str,
+                    options={"verify_exp": False, "verify_signature": False},
+                )
+                uid = payload.get('user_id')
+                if uid:
+                    user = User.objects.filter(id=uid).first()
+            except Exception:
+                pass
+
+        # Fall back to the refresh token if access token didn't resolve a user
+        if not user:
+            refresh_token_str = request.data.get('refresh') or ''
+            if refresh_token_str:
+                try:
+                    import jwt as pyjwt
+                    payload = pyjwt.decode(
+                        refresh_token_str,
+                        options={"verify_exp": False, "verify_signature": False},
+                    )
+                    uid = payload.get('user_id')
+                    if uid:
+                        user = User.objects.filter(id=uid).first()
+                except Exception:
+                    pass
+
+    # Only log and blacklist if we could identify a valid user
+    if user:
+        log_action(
+            user,
+            event_type,
+            str(user.id),
+            'user',
+            {'role': user.role, 'reason': reason}
+        )
+
     try:
         refresh_token = request.data.get('refresh')
-        token = RefreshToken(refresh_token)
-        token.blacklist()
+        if refresh_token:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
     except Exception:
         pass
     return Response({'message': 'Logged out'})

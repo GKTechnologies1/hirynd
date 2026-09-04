@@ -132,4 +132,58 @@ class UserAuthAuditTests(TestCase):
         self.assertEqual(recruiter.account_status, 'terminated')
         self.assertFalse(recruiter.is_active)
 
+    def test_auto_logout_with_expired_token_creates_audit_log(self):
+        """Test that auto-logout audit logs are created even when the access token
+        has expired and the request is unauthenticated. The backend should extract
+        user identity from the access token in the request body."""
+        from rest_framework_simplejwt.tokens import RefreshToken as RawRefreshToken
 
+        team_lead = User.objects.create_user(
+            email='teamlead_expired@hyrind.com',
+            password='password123',
+            role='team_lead',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=team_lead, full_name='Team Lead User')
+
+        refresh = RawRefreshToken.for_user(team_lead)
+        access_token = str(refresh.access_token)
+
+        # Do NOT authenticate — simulate an expired token scenario
+        self.client.credentials()
+        response = self.client.post(self.logout_url, {
+            'reason': 'auto_logout_inactivity',
+            'access': access_token,
+            'refresh': str(refresh),
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log_entry = AuditLog.objects.filter(
+            actor=team_lead, action='auto_logout_inactivity'
+        ).first()
+        self.assertIsNotNone(log_entry, "Audit log should be created even without auth header")
+        self.assertEqual(log_entry.details.get('role'), 'team_lead')
+        self.assertEqual(log_entry.details.get('reason'), 'auto_logout_inactivity')
+
+    def test_team_manager_auto_logout_audit_logging(self):
+        """Test that team_manager role auto-logout is recorded in audit log."""
+        manager = User.objects.create_user(
+            email='manager_autologout@hyrind.com',
+            password='password123',
+            role='team_manager',
+            approval_status='approved'
+        )
+        Profile.objects.create(user=manager, full_name='Team Manager')
+
+        self.client.force_authenticate(user=manager)
+        response = self.client.post(self.logout_url, {
+            'reason': 'auto_logout_inactivity'
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log_entry = AuditLog.objects.filter(
+            actor=manager, action='auto_logout_inactivity'
+        ).first()
+        self.assertIsNotNone(log_entry)
+        self.assertEqual(log_entry.details.get('role'), 'team_manager')
+        self.assertEqual(log_entry.details.get('reason'), 'auto_logout_inactivity')

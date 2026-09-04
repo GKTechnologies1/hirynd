@@ -42,6 +42,7 @@ export const SessionTimeoutHandler = () => {
   const [showWarning, setShowWarning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(120);
   const isLoggingOutRef = useRef(false);
+  const showWarningRef = useRef(false);
 
   const { maxTimeoutMs, warningTimeoutMs, warningWindowSeconds } = getTimeoutConfig(user?.role);
 
@@ -67,10 +68,12 @@ export const SessionTimeoutHandler = () => {
       performAutoLogout();
       return true; // Expired
     } else if (elapsed >= warningTimeoutMs) {
+      showWarningRef.current = true;
       setShowWarning(true);
       setTimeLeft(Math.max(0, Math.ceil((maxTimeoutMs - elapsed) / 1000)));
       return false;
     } else {
+      showWarningRef.current = false;
       setShowWarning(false);
       return false;
     }
@@ -106,7 +109,8 @@ export const SessionTimeoutHandler = () => {
       }
 
       localStorage.setItem("last_activity_timestamp", now.toString());
-      if (showWarning) {
+      if (showWarningRef.current) {
+        showWarningRef.current = false;
         setShowWarning(false);
       }
     };
@@ -145,7 +149,10 @@ export const SessionTimeoutHandler = () => {
       clearInterval(interval);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [user, maxTimeoutMs, warningTimeoutMs, checkSessionState, performAutoLogout, signOut, showWarning]);
+  // NOTE: showWarning intentionally excluded — tracked via showWarningRef to
+  // avoid re-running this entire effect (and re-attaching all listeners) every
+  // time the warning dialog toggles.
+  }, [user, maxTimeoutMs, warningTimeoutMs, checkSessionState, performAutoLogout, signOut]);
 
   const handleExtendSession = async () => {
     localStorage.setItem("last_activity_timestamp", Date.now().toString());

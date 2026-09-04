@@ -567,7 +567,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     }, 45000);
 
     const onFocus = () => {
-      fetchAll(false, false);
+      fetchAll(false, true);
     };
     window.addEventListener('focus', onFocus);
 

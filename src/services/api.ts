@@ -326,7 +326,17 @@ export const authApi = {
     api.post('/auth/login/', { email, password }),
   logout: (reason?: string) => {
     const refresh = localStorage.getItem('refresh_token');
-    return api.post('/auth/logout/', { refresh, reason: reason || 'user_logout' });
+    const access = localStorage.getItem('access_token');
+    // Use axios directly to bypass the 401 response interceptor — during
+    // auto-logout the access token may already be expired and we don't want
+    // the interceptor to trigger a token refresh cycle.
+    return axios.post(`${API_BASE_URL}/auth/logout/`, {
+      refresh,
+      access,
+      reason: reason || 'user_logout',
+    }).catch(() => {
+      // Swallow errors — logout cleanup will happen client-side regardless
+    });
   },
   me: () => api.get('/auth/me/'),
   updateProfile: (data: Record<string, any>) => api.patch('/auth/profile/', data),
