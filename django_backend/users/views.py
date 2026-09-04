@@ -343,11 +343,14 @@ def manage_user(request, user_id):
         return Response({'detail': 'User deleted'})
 
     # PATCH — only update fields that actually exist on the User model
-    user_fields = ['email', 'role', 'approval_status', 'is_active']
+    user_fields = ['email', 'role', 'approval_status', 'is_active', 'account_status']
     old_approval_status = user.approval_status
     for field in user_fields:
         if field in request.data:
             setattr(user, field, request.data[field])
+
+    if 'account_status' in request.data:
+        user.is_active = (user.account_status == 'active')
             
     # Check if admin is trying to update the user's password
     new_password = request.data.get('password')
