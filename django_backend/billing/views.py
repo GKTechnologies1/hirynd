@@ -4,6 +4,7 @@ per-candidate subscription lifecycle, and payment verification.
 """
 import hashlib
 import hmac
+import json
 import logging
 from decimal import Decimal
 
@@ -997,3 +998,140 @@ def admin_ledger_report(request):
         
     return Response(report_data)
 
+
+# ────────────────────────────────────────────────────────────────
+#  Razorpay Webhook  (server-to-server — no JWT, CSRF-exempt)
+# ────────────────────────────────────────────────────────────────
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import authentication_classes, throttle_classes
+
+
+@csrf_exempt
+@api_view(['POST'])
+@authentication_classes([])       # No JWT — uses webhook signature
+@permission_classes([])           # Public endpoint secured by HMAC
+@throttle_classes([])             # Razorpay retries should never be throttled
+def razorpay_webhook(request):
+    """
+    Razorpay sends POST events (e.g. payment.captured, payment.failed) here.
+    This is the safety-net that records payments even when the client-side
+    verification callback is lost (browser closed, network drop, JWT expired).
+
+    Security: The payload is verified using HMAC-SHA256 with the
+    RAZORPAY_WEBHOOK_SECRET configured in Razorpay Dashboard → Settings → Webhooks.
+    """
+    # ── 1. Verify webhook signature ──────────────────────────────────────────
+    webhook_secret = getattr(settings, 'RAZORPAY_WEBHOOK_SECRET', '')
+    received_signature = request.META.get('HTTP_X_RAZORPAY_SIGNATURE', '')
+    raw_body = request.body
+
+    if not webhook_secret or webhook_secret == 'whsec_zzzz':
+        logger.error("RAZORPAY_WEBHOOK_SECRET is not configured. Webhook rejected.")
+        return Response({'error': 'Webhook secret not configured'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    expected_signature = hmac.new(
+        webhook_secret.encode('utf-8'),
+        raw_body,
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_signature, received_signature):
+        logger.warning("Razorpay webhook signature mismatch. Rejecting.")
+        return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # ── 2. Parse event ───────────────────────────────────────────────────────
+    try:
+        event = json.loads(raw_body)
+    except json.JSONDecodeError:
+        return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+
+    event_type = event.get('event', '')
+    logger.info("Razorpay webhook received: event=%s", event_type)
+
+    # ── 3. Handle payment.captured ────────────────────────────────────────────
+    if event_type == 'payment.captured':
+        try:
+            payment_entity = event.get('payload', {}).get('payment', {}).get('entity', {})
+            razorpay_payment_id = payment_entity.get('id', '')
+            razorpay_order_id = payment_entity.get('order_id', '')
+
+            if not razorpay_order_id or not razorpay_payment_id:
+                logger.warning("Webhook payment.captured missing order_id or payment_id.")
+                return Response({'status': 'ignored', 'reason': 'missing ids'})
+
+            # Look up our internal order
+            try:
+                rp_order = RazorpayOrder.objects.select_related(
+                    'candidate', 'candidate__user', 'subscription'
+                ).get(razorpay_order_id=razorpay_order_id)
+            except RazorpayOrder.DoesNotExist:
+                logger.warning("Webhook: RazorpayOrder not found for order_id=%s", razorpay_order_id)
+                return Response({'status': 'ignored', 'reason': 'order not found'})
+
+            # Route to the appropriate fulfillment handler based on payment type
+            if rp_order.payment_type == 'subscription':
+                PaymentService.fulfill_subscription_payment(
+                    rp_order, razorpay_payment_id
+                )
+                logger.info("Webhook: Fulfilled subscription payment for order %s", razorpay_order_id)
+            else:
+                # Individual addon payment — find the billing Payment record
+                billing_payment_id = None
+                if isinstance(rp_order.notes, dict):
+                    billing_payment_id = rp_order.notes.get('billing_payment_id')
+
+                if billing_payment_id:
+                    try:
+                        pay = Payment.objects.get(id=billing_payment_id, candidate=rp_order.candidate)
+                        if pay.status != 'completed':
+                            pay.status = 'completed'
+                            pay.payment_date = timezone.now().date()
+                            pay.razorpay_order = rp_order
+                            pay.notes = (pay.notes or '') + f' | Razorpay: {razorpay_payment_id}'
+                            pay.save(update_fields=['status', 'payment_date', 'razorpay_order', 'notes'])
+
+                            if pay.addon_assignment:
+                                AddonService.complete_addon_payment(pay.addon_assignment, payment_reference=razorpay_payment_id)
+
+                            # Generate invoice
+                            try:
+                                AddonService.generate_invoice_for_addon(pay)
+                            except Exception as inv_err:
+                                logger.error("Webhook: Invoice generation failed for addon payment %s: %s", billing_payment_id, inv_err)
+                    except Payment.DoesNotExist:
+                        logger.warning("Webhook: billing Payment %s not found", billing_payment_id)
+
+                # Mark the razorpay order as paid
+                if rp_order.status != 'paid':
+                    rp_order.razorpay_payment_id = razorpay_payment_id
+                    rp_order.status = 'paid'
+                    rp_order.verified_at = timezone.now()
+                    rp_order.save(update_fields=['razorpay_payment_id', 'status', 'verified_at'])
+                    logger.info("Webhook: Fulfilled individual payment for order %s", razorpay_order_id)
+
+            return Response({'status': 'ok'})
+
+        except Exception as e:
+            logger.error("Webhook payment.captured processing error: %s", str(e), exc_info=True)
+            # Return 200 so Razorpay doesn't retry endlessly; the reconciliation
+            # cron will catch anything that slipped through.
+            return Response({'status': 'error', 'detail': 'processing failed'})
+
+    # ── 4. Handle payment.failed ─────────────────────────────────────────────
+    elif event_type == 'payment.failed':
+        try:
+            payment_entity = event.get('payload', {}).get('payment', {}).get('entity', {})
+            razorpay_order_id = payment_entity.get('order_id', '')
+            if razorpay_order_id:
+                RazorpayOrder.objects.filter(
+                    razorpay_order_id=razorpay_order_id, status='created'
+                ).update(status='failed')
+                logger.info("Webhook: Marked order %s as failed.", razorpay_order_id)
+        except Exception as e:
+            logger.error("Webhook payment.failed processing error: %s", str(e))
+        return Response({'status': 'ok'})
+
+    # ── 5. Ignore other events ───────────────────────────────────────────────
+    else:
+        logger.info("Webhook: Ignoring event type '%s'", event_type)
+        return Response({'status': 'ignored', 'reason': f'unhandled event: {event_type}'})
