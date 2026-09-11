@@ -32,6 +32,13 @@ import NotFound from "./pages/NotFound";
 import ServerError from "./pages/ServerError";
 import DocumentViewer from "./pages/DocumentViewer";
 
+import { useAnalytics } from "@/hooks/useAnalytics";
+
+const AnalyticsTracker = () => {
+  useAnalytics();
+  return null;
+};
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -40,6 +47,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AnalyticsTracker />
         <ScrollToTop />
         <AuthProvider>
           <SessionTimeoutHandler />

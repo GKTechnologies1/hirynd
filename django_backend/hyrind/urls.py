@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/jobs/',          include('jobs.urls')),
     path('api/reviews/',       include('reviews.urls')),
     path('api/admin/',         include('audit.admin_urls')),
+    path('api/analytics/',     include('analytics.urls')),
     
     # ── API Catch-all for proper 404 JSON ──
     path('api/<path:undefined>', custom_404),

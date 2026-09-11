@@ -593,3 +593,9 @@ export const reviewsApi = {
   deleteAdmin: (id: string) => api.delete(`/reviews/admin/${id}/`),
   listPublic: () => api.get('/reviews/public/'),
 };
+
+// ─── Analytics ───
+export const analyticsApi = {
+  trackPageView: (data: Record<string, any>) => api.post('/analytics/track/', data, { headers: { 'X-Background-Request': 'true' } }),
+  getDashboardStats: (range: string) => api.get('/analytics/dashboard/', { params: { range } }),
+};

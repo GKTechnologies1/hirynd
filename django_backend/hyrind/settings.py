@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'chat',
     'jobs',
     'reviews',
+    'analytics',
 ]
 
 MIDDLEWARE = [

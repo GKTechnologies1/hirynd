@@ -23,6 +23,7 @@ import AdminInterestedCandidatesPage from "@/pages/admin/AdminInterestedCandidat
 import AdminInterestedCandidateDetail from "@/pages/admin/AdminInterestedCandidateDetail";
 import AdminGeneralEnquiriesPage from "@/pages/admin/AdminGeneralEnquiriesPage";
 import AdminReviewsPage from "@/pages/admin/AdminReviewsPage";
+import AdminAnalyticsPage from "@/pages/admin/AdminAnalyticsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
@@ -57,6 +58,7 @@ const navItems = [
   { label: "Reviews", path: "/admin-dashboard/reviews", icon: <Star className="h-4 w-4" /> },
   { label: "Notifications", path: "/admin-dashboard/notifications", icon: <Bell className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
+  { label: "Analytics", path: "/admin-dashboard/analytics", icon: <BarChart className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
   { label: "Configuration", path: "/admin-dashboard/config", icon: <Settings className="h-4 w-4" /> },
   { label: "Settings", path: "/admin-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
@@ -193,6 +195,7 @@ const AdminDashboard = () => {
       case "approvals": return <AdminApprovalsPage />;
       case "referrals": return <AdminReferralsPage />;
       case "config": return <AdminConfigPage />;
+      case "analytics": return <AdminAnalyticsPage />;
       case "reports": return <AdminReportsPage />;
       case "audit": return <AdminGlobalAuditTab />;
       case "billing-run": return <AdminBillingRunPage />;

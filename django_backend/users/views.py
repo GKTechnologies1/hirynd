@@ -79,9 +79,19 @@ def login(request):
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
+        try:
+            from analytics.models import AnalyticsEvent
+            AnalyticsEvent.objects.create(event_type='login_failed', role='unknown')
+        except Exception:
+            pass
         return Response({'error': 'Invalid email id'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if not user.check_password(password):
+        try:
+            from analytics.models import AnalyticsEvent
+            AnalyticsEvent.objects.create(user=user, event_type='login_failed', role=user.role)
+        except Exception:
+            pass
         return Response({'error': 'Invalid password'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if user.approval_status != 'approved' and user.role != 'admin':
@@ -92,6 +102,11 @@ def login(request):
 
     # Track login in audit log
     log_action(user, 'user_login', str(user.id), 'user', {'role': user.role})
+    try:
+        from analytics.models import AnalyticsEvent
+        AnalyticsEvent.objects.create(user=user, event_type='login_success', role=user.role)
+    except Exception:
+        pass
 
     # Update last_activity on successful login
     from django.utils import timezone
@@ -159,6 +174,11 @@ def logout(request):
             'user',
             {'role': user.role, 'reason': reason}
         )
+        try:
+            from analytics.models import AnalyticsEvent
+            AnalyticsEvent.objects.create(user=user, event_type='logout', role=user.role)
+        except Exception:
+            pass
 
     try:
         refresh_token = request.data.get('refresh')
