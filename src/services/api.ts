@@ -307,9 +307,11 @@ api.interceptors.response.use(
     }
 
     // ── 500+: Server Error ──
-    // If the server crashes, show the ServerError page
+    // If the server crashes, we temporarily disable the hard redirect to /500
+    // so that the actual API error can be inspected in the Network tab and handled by the component.
     if (status && status >= 500) {
-      window.location.href = '/500';
+      console.error('Server error intercepted:', error.response || error);
+      // window.location.href = '/500';
     }
 
     return Promise.reject(error);
