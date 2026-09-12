@@ -1,15 +1,34 @@
 import datetime
 from django.utils import timezone
 from django.db.models import Count, Q
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from users.permissions import IsAdmin
 from rest_framework.response import Response
 from rest_framework import status
 from .models import AnalyticsVisitor, AnalyticsSession, AnalyticsPageView, AnalyticsEvent
 from users.models import User
 
+class OptionalJWTAuthentication(JWTAuthentication):
+    """
+    Safely authenticates JWT if present and valid,
+    but does not throw 401 if token is expired or absent.
+    """
+    def authenticate(self, request):
+        try:
+            return super().authenticate(request)
+        except Exception:
+            return None
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
 @api_view(['POST'])
+@authentication_classes([OptionalJWTAuthentication])
 @permission_classes([AllowAny])
 def track_page_view(request):
     data = request.data
@@ -20,24 +39,34 @@ def track_page_view(request):
     if not visitor_id or not url_path:
         return Response({'error': 'visitor_id and url_path are required'}, status=status.HTTP_400_BAD_REQUEST)
 
+    ip = get_client_ip(request)
+    user_agent = request.META.get('HTTP_USER_AGENT')
+
     # Get or create visitor
     visitor, _ = AnalyticsVisitor.objects.get_or_create(
         visitor_id=visitor_id,
         defaults={
-            'ip_address': request.META.get('REMOTE_ADDR'),
-            'user_agent': request.META.get('HTTP_USER_AGENT')
+            'ip_address': ip,
+            'user_agent': user_agent
         }
     )
     
-    # Update last visit
+    # Update last visit and IP/user agent
     visitor.last_visit = timezone.now()
-    
+    if ip and visitor.ip_address != ip:
+        visitor.ip_address = ip
+    if user_agent and visitor.user_agent != user_agent:
+        visitor.user_agent = user_agent
+
     user = None
-    if request.user.is_authenticated:
+    if request.user and request.user.is_authenticated:
         user = request.user
         if visitor.user != user:
             visitor.user = user
-    visitor.save(update_fields=['last_visit', 'user'])
+    elif visitor.user:
+        user = visitor.user
+
+    visitor.save(update_fields=['last_visit', 'ip_address', 'user_agent', 'user'])
 
     # Get or create session
     session = None
@@ -64,7 +93,6 @@ def track_page_view(request):
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def dashboard_stats(request):
-
     date_range = request.query_params.get('range', '7days')
     now = timezone.now()
     
@@ -106,9 +134,14 @@ def dashboard_stats(request):
         .order_by('-views')[:10]
     )
 
+    # Device breakdown
+    device_breakdown = list(
+        page_views.values('device_type')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+
     # Trend Chart Data (daily grouping)
-    # Since SQLite/MySQL timezone grouping varies, we do it in Python for simplicity
-    # For small/medium sets, pulling values is fine.
     views_data = page_views.values('timestamp', 'visitor_id')
     trend_dict = {}
     
@@ -132,8 +165,44 @@ def dashboard_stats(request):
     failed_logins = events.filter(event_type='login_failed').count()
     
     # User roles active
-    active_candidates = User.objects.filter(role='candidate', last_activity__gte=start_date).count()
-    active_recruiters = User.objects.filter(role__in=['recruiter', 'team_lead', 'team_manager'], last_activity__gte=start_date).count()
+    active_candidates = User.objects.filter(
+        Q(last_activity__gte=start_date) | Q(analytics_page_views__timestamp__gte=start_date),
+        role='candidate'
+    ).distinct().count()
+    active_recruiters = User.objects.filter(
+        Q(last_activity__gte=start_date) | Q(analytics_page_views__timestamp__gte=start_date),
+        role__in=['recruiter', 'team_lead', 'team_manager']
+    ).distinct().count()
+
+    # Recent User and Visitor Activity Tracking (Last 30 page visits)
+    recent_pvs = (
+        page_views.select_related('user', 'visitor')
+        .order_by('-timestamp')[:30]
+    )
+    recent_activity = []
+    for pv in recent_pvs:
+        u = pv.user or (pv.visitor.user if pv.visitor else None)
+        user_name = None
+        user_email = None
+        user_role = 'guest'
+        if u:
+            full_name = getattr(getattr(u, 'profile', None), 'full_name', '')
+            user_name = full_name if full_name else u.email
+            user_email = u.email
+            user_role = u.role
+        
+        recent_activity.append({
+            'id': str(pv.id),
+            'url_path': pv.url_path,
+            'timestamp': pv.timestamp.isoformat(),
+            'visitor_id': pv.visitor.visitor_id if pv.visitor else 'Unknown',
+            'user_name': user_name,
+            'user_email': user_email,
+            'user_role': user_role,
+            'device_type': pv.device_type or 'desktop',
+            'referrer': pv.referrer or 'Direct',
+            'ip_address': pv.visitor.ip_address if pv.visitor else 'Unknown',
+        })
 
     return Response({
         'kpis': {
@@ -146,7 +215,9 @@ def dashboard_stats(request):
             'total_registered_users': total_registered_users,
         },
         'top_pages': list(top_pages),
+        'device_breakdown': device_breakdown,
         'trend_chart': trend_chart,
+        'recent_activity': recent_activity,
         'login_activity': {
             'successful_logins': successful_logins,
             'failed_logins': failed_logins,

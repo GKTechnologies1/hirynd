@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi, authApi, billingApi, notificationsApi, jobsApi } from "@/services/api";
+import { candidatesApi, authApi, billingApi, notificationsApi, jobsApi, analyticsApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import AdminCandidateDetail from "@/pages/admin/AdminCandidateDetail";
@@ -149,6 +149,14 @@ const AdminDashboard = () => {
       }
     }
 
+    // Analytics Stats
+    try {
+      const { data: aStats } = await analyticsApi.getDashboardStats("today");
+      setAnalytics(aStats);
+    } catch (err) {
+      console.warn("Dashboard: Failed to fetch analytics stats", err);
+    }
+
     setLoading(false);
   };
 
@@ -262,6 +270,99 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
         )} */}
+
+        {/* Real-time Platform Traffic & User Analytics Overview */}
+        {analytics?.kpis && (
+          <div className="dashboard-section mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <p className="dashboard-section-title mb-0">Platform Traffic & Analytics Overview</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <BarChart className="h-3.5 w-3.5" />
+                View Full Analytics & User Tracking →
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Card
+                className="border-secondary/20 bg-secondary/5 cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                    <Activity className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.active_now}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Active Visitors (Last 5m)</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.total_page_views}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Page Views (Today)</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.unique_visitors_today}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Unique Visitors (Today)</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400">
+                    <Shield className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.logged_in_today}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">User Logins (Today)</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
 
         {/* Pipeline Widgets */}
         <div className="dashboard-section">
