@@ -687,10 +687,10 @@ const AdminJobBoard = () => {
   }, [filterOptions.visa_eligibilities]);
 
   const dynamicSalaryRanges = useMemo(() => {
-    if (filterOptions.salary_ranges && filterOptions.salary_ranges.length > 0) {
-      return filterOptions.salary_ranges;
-    }
-    return ["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"];
+    const raw = filterOptions.salary_ranges && filterOptions.salary_ranges.length > 0
+      ? filterOptions.salary_ranges
+      : ["$50,000+", "$100,000+", "$150,000+", "$200,000+"];
+    return raw.filter((item: string) => item.toLowerCase() !== "disclosed only");
   }, [filterOptions.salary_ranges]);
 
   // Admin Modal States
@@ -1259,7 +1259,7 @@ const AdminJobBoard = () => {
                   className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-[#0d47a1] hover:bg-[#1565c0] text-white font-bold transition-all whitespace-nowrap cursor-pointer text-xs shadow-xs"
                 >
                   <X className="h-3 w-3" />
-                  All Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}
+                  Clear All Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}
                 </button>
               </div>
             </CardContent>

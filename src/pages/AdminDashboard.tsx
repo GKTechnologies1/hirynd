@@ -451,11 +451,18 @@ const AdminDashboard = () => {
                 { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold", sortable: true },
                 { header: "Email", accessorKey: "email", className: "text-xs font-semibold", sortable: true },
                 {
-                  header: "Status",
-                  render: (c: any) => <StatusBadge status={c.status} />,
+                  header: "Approval Status",
+                  render: (c: any) => <StatusBadge status={c.approval_status || (c.status === "pending_approval" ? "pending" : (c.status === "rejected" ? "rejected" : "approved"))} />,
                   className: "text-xs font-semibold",
                   sortable: true,
-                  accessorKey: "status"
+                  accessorKey: "approval_status"
+                },
+                {
+                  header: "Account Status",
+                  render: (c: any) => <StatusBadge status={c.account_status || (c.is_active !== false ? "active" : "inactive")} />,
+                  className: "text-xs font-semibold",
+                  sortable: true,
+                  accessorKey: "account_status"
                 },
                 {
                   header: "Joined",
@@ -561,13 +568,24 @@ const AdminDashboard = () => {
                     )
                   },
                   {
-                    header: "Status",
+                    header: "Approval Status",
                     sortable: true,
                     accessorKey: "approval_status",
                     className: "text-xs text-center",
                     render: (r: any) => (
                       <div className="flex justify-center">
-                        <StatusBadge status={r.approval_status} />
+                        <StatusBadge status={r.approval_status || "pending"} />
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Account Status",
+                    sortable: true,
+                    accessorKey: "account_status",
+                    className: "text-xs text-center",
+                    render: (r: any) => (
+                      <div className="flex justify-center">
+                        <StatusBadge status={r.account_status || (r.is_active !== false ? "active" : "inactive")} />
                       </div>
                     )
                   },

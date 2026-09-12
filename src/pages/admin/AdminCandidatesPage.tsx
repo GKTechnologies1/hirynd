@@ -156,11 +156,22 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
                 )
               },
               { 
-                header: "Status", 
-                render: (c: any) => <StatusBadge status={c.status} />,
+                header: "Approval Status", 
+                render: (c: any) => (
+                  <StatusBadge status={c.approval_status || (c.status === "pending_approval" ? "pending" : (c.status === "rejected" ? "rejected" : "approved"))} />
+                ),
                 className: "text-xs",
                 sortable: true,
-                accessorKey: "status"
+                accessorKey: "approval_status"
+              },
+              { 
+                header: "Account Status", 
+                render: (c: any) => (
+                  <StatusBadge status={c.account_status || (c.is_active !== false ? "active" : "inactive")} />
+                ),
+                className: "text-xs",
+                sortable: true,
+                accessorKey: "account_status"
               },
               {
                 header: "Submission Date",

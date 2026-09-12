@@ -36,6 +36,13 @@ const APPROVAL_COLORS: Record<string, string> = {
   rejected: "bg-red-100 text-red-800",
 };
 
+const ACCOUNT_STATUS_COLORS: Record<string, string> = {
+  active: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+  inactive: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  resigned: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  terminated: "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300",
+};
+
 interface EditUserForm {
   full_name: string;
   phone: string;
@@ -122,12 +129,17 @@ const AdminUsersPage = () => {
 
   const openEdit = (user: any) => {
     setEditUser(user);
-    const initialAccountStatus = user.account_status || (user.is_active !== false ? "active" : "inactive");
+    const role = user.role || "candidate";
+    let initialAccountStatus = user.account_status || (user.is_active !== false ? "active" : "inactive");
+    if ((role === "candidate" || role === "admin" || role === "finance_admin") && 
+        (initialAccountStatus === "resigned" || initialAccountStatus === "terminated")) {
+      initialAccountStatus = "inactive";
+    }
     setEditForm({
       full_name: user.full_name || user.profile?.full_name || "",
       phone: user.phone || user.profile?.phone || "",
       email: user.email || "",
-      role: user.role || "candidate",
+      role: role,
       approval_status: user.approval_status || "pending",
       account_status: initialAccountStatus,
       is_active: initialAccountStatus === "active",
@@ -328,14 +340,27 @@ const AdminUsersPage = () => {
                 )
               },
               { 
-                header: "Status", 
+                header: "Approval Status", 
                 sortable: true,
                 accessorKey: "approval_status",
                 render: (u: any) => (
                   <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${APPROVAL_COLORS[u.approval_status] || "bg-gray-100"}`}>
-                    {u.approval_status}
+                    {u.approval_status || "pending"}
                   </span>
                 )
+              },
+              { 
+                header: "Account Status", 
+                sortable: true,
+                accessorKey: "account_status",
+                render: (u: any) => {
+                  const accStatus = u.account_status || (u.is_active !== false ? "active" : "inactive");
+                  return (
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${ACCOUNT_STATUS_COLORS[accStatus] || "bg-gray-100 text-gray-800"}`}>
+                      {accStatus}
+                    </span>
+                  );
+                }
               },
               { 
                 header: "Joined", 
@@ -394,7 +419,20 @@ const AdminUsersPage = () => {
             <div><Label>Email</Label><Input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} /></div>
             <div>
               <Label>Role</Label>
-              <Select value={editForm.role} onValueChange={v => setEditForm(f => ({ ...f, role: v }))}>
+              <Select 
+                value={editForm.role} 
+                onValueChange={v => {
+                  const isCandOrAdmin = v === "candidate" || v === "admin" || v === "finance_admin";
+                  const shouldReset = isCandOrAdmin && (editForm.account_status === "resigned" || editForm.account_status === "terminated");
+                  const newAccStatus = shouldReset ? "inactive" : editForm.account_status;
+                  setEditForm(f => ({
+                    ...f,
+                    role: v,
+                    account_status: newAccStatus,
+                    is_active: newAccStatus === "active"
+                  }));
+                }}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="candidate">Candidate</SelectItem>
@@ -423,8 +461,12 @@ const AdminUsersPage = () => {
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="resigned">Resigned</SelectItem>
-                  <SelectItem value="terminated">Terminated</SelectItem>
+                  {editForm.role !== "candidate" && editForm.role !== "admin" && editForm.role !== "finance_admin" && (
+                    <>
+                      <SelectItem value="resigned">Resigned</SelectItem>
+                      <SelectItem value="terminated">Terminated</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

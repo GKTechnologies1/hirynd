@@ -420,6 +420,9 @@ def manage_user(request, user_id):
             setattr(user, field, request.data[field])
 
     if 'account_status' in request.data:
+        target_role = request.data.get('role', user.role)
+        if target_role in ('candidate', 'admin', 'finance_admin') and request.data['account_status'] in ('resigned', 'terminated'):
+            return Response({'error': f"Resigned and Terminated account statuses are not applicable for {target_role} role."}, status=400)
         user.is_active = (user.account_status == 'active')
             
     # Check if admin is trying to update the user's password

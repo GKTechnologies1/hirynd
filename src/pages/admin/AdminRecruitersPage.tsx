@@ -226,7 +226,7 @@ const AdminRecruitersPage = () => {
                 }
               },
               { 
-                header: "Status", 
+                header: "Approval Status", 
                 sortable: true,
                 accessorKey: "approval_status",
                 className: "font-bold text-xs uppercase tracking-widest text-center",
@@ -234,10 +234,35 @@ const AdminRecruitersPage = () => {
                   <div className="flex justify-center">
                     <Badge variant={r.approval_status === "approved" ? "secondary" : "outline"} className={`h-6 text-[9px] font-bold uppercase tracking-widest rounded-lg px-2 flex items-center gap-1.5 ${r.approval_status === "approved" ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"}`}>
                       <div className={`h-1.5 w-1.5 rounded-full ${r.approval_status === "approved" ? "bg-green-500" : "bg-amber-500"}`} />
-                      {r.approval_status}
+                      {r.approval_status || "pending"}
                     </Badge>
                   </div>
                 )
+              },
+              { 
+                header: "Account Status", 
+                sortable: true,
+                accessorKey: "account_status",
+                className: "font-bold text-xs uppercase tracking-widest text-center",
+                render: (r: any) => {
+                  const accStatus = r.account_status || (r.is_active !== false ? "active" : "inactive");
+                  const isPositive = accStatus === "active";
+                  const isWarning = accStatus === "resigned";
+                  return (
+                    <div className="flex justify-center">
+                      <Badge variant="outline" className={`h-6 text-[9px] font-bold uppercase tracking-widest rounded-lg px-2 flex items-center gap-1.5 ${
+                        isPositive ? "bg-green-500/10 text-green-600 border-green-500/20" :
+                        isWarning ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                        "bg-red-500/10 text-red-600 border-red-500/20"
+                      }`}>
+                        <div className={`h-1.5 w-1.5 rounded-full ${
+                          isPositive ? "bg-green-500" : isWarning ? "bg-amber-500" : "bg-red-500"
+                        }`} />
+                        {accStatus}
+                      </Badge>
+                    </div>
+                  );
+                }
               },
               { 
                 header: "Actions", 
