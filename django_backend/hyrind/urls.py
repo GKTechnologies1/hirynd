@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from .views import landing_page, serve_media, custom_404, custom_500
+from .views import landing_page, health_check, serve_media, custom_404, custom_500
 
 handler404 = 'hyrind.views.custom_404'
 handler500 = 'hyrind.views.custom_500'
@@ -14,6 +14,9 @@ admin.site.site_title   = "Hyrind Control Panel"
 admin.site.index_title  = "Welcome to Hyrind Back Office"
 
 urlpatterns = [
+    # ── DevOps Health Check ──
+    path('api/health/', health_check, name='health_check'),
+
     # ── Media serving with proper error handling ──
     # This replaces the default static() serve and ensures missing files return JSON/clean HTML
     path('media/<path:path>', serve_media, name='serve_media'),
@@ -45,6 +48,7 @@ urlpatterns = [
     path('api/jobs/',          include('jobs.urls')),
     path('api/reviews/',       include('reviews.urls')),
     path('api/admin/',         include('audit.admin_urls')),
+    path('api/analytics/',     include('analytics.urls')),
     
     # ── API Catch-all for proper 404 JSON ──
     path('api/<path:undefined>', custom_404),

@@ -42,6 +42,7 @@ interface EditUserForm {
   email: string;
   role: string;
   approval_status: string;
+  account_status: string;
   is_active: boolean;
   password?: string;
 }
@@ -78,7 +79,7 @@ const AdminUsersPage = () => {
   // Edit dialog
   const [editUser, setEditUser] = useState<any>(null);
   const [editForm, setEditForm] = useState<EditUserForm>({
-    full_name: "", phone: "", email: "", role: "", approval_status: "", is_active: true, password: ""
+    full_name: "", phone: "", email: "", role: "", approval_status: "", account_status: "active", is_active: true, password: ""
   });
   const [saving, setSaving] = useState(false);
 
@@ -121,13 +122,15 @@ const AdminUsersPage = () => {
 
   const openEdit = (user: any) => {
     setEditUser(user);
+    const initialAccountStatus = user.account_status || (user.is_active !== false ? "active" : "inactive");
     setEditForm({
       full_name: user.full_name || user.profile?.full_name || "",
       phone: user.phone || user.profile?.phone || "",
       email: user.email || "",
       role: user.role || "candidate",
       approval_status: user.approval_status || "pending",
-      is_active: user.is_active !== false,
+      account_status: initialAccountStatus,
+      is_active: initialAccountStatus === "active",
       password: "",
     });
   };
@@ -415,11 +418,13 @@ const AdminUsersPage = () => {
             </div>
             <div>
               <Label>Account Status</Label>
-              <Select value={editForm.is_active ? "active" : "inactive"} onValueChange={v => setEditForm(f => ({ ...f, is_active: v === "active" }))}>
+              <Select value={editForm.account_status} onValueChange={v => setEditForm(f => ({ ...f, account_status: v, is_active: v === "active" }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="resigned">Resigned</SelectItem>
+                  <SelectItem value="terminated">Terminated</SelectItem>
                 </SelectContent>
               </Select>
             </div>

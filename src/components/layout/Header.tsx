@@ -8,7 +8,7 @@ export default function Header() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const [loginDropdownOpen, setLoginDropdownOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, signOut, hasRole } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -545,9 +545,9 @@ export default function Header() {
                       <button
                         onClick={() => {
                           closeProfileDropdown();
-                          if (user.role === 'candidate') navigate('/candidate-dashboard');
-                          else if (user.role === 'recruiter') navigate('/recruiter-dashboard');
-                          else if (user.role === 'admin') navigate('/admin-dashboard');
+                          if (hasRole('candidate')) navigate('/candidate-dashboard');
+                          else if (hasRole('recruiter')) navigate('/recruiter-dashboard');
+                          else if (hasRole('admin')) navigate('/admin-dashboard');
                         }}
                         className="dropdown-item"
                       >

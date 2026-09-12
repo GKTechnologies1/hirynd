@@ -13,6 +13,7 @@ const ACTION_TYPES = [
   { value: "status_change", label: "Status Changes" },
   { value: "password", label: "Password" },
   { value: "login", label: "Login" },
+  { value: "logout", label: "Logout & Auto-Logout" },
   { value: "subscription", label: "Subscription" },
   { value: "payment", label: "Payment" },
   { value: "recruiter", label: "Recruiter" },
@@ -39,6 +40,7 @@ const AdminActivityPage = () => {
 
   const actionColor = (action: string) => {
     if (action.includes("login")) return "bg-secondary/15 text-secondary";
+    if (action.includes("logout")) return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
     if (action.includes("password")) return "bg-accent/15 text-accent-foreground";
     if (action.includes("payment") || action.includes("subscription")) return "bg-primary/10 text-primary";
     if (action.includes("deactivat") || action.includes("rejected")) return "bg-destructive/15 text-destructive";

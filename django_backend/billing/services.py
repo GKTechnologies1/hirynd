@@ -436,6 +436,11 @@ class PaymentService:
         if str(rp_order.candidate_id) != str(candidate_id):
             raise ValueError('Forbidden order candidate mismatch')
 
+        # Idempotency: if already fulfilled, return immediately
+        if rp_order.status == 'paid' and rp_order.verified_at:
+            logger.info("Order %s already verified, skipping duplicate verification.", razorpay_order_id)
+            return rp_order
+
         # Check Razorpay credentials
         from .views import _get_razorpay_client
         client, _ = _get_razorpay_client()
@@ -451,47 +456,80 @@ class PaymentService:
         else:
             raise ValueError('Gateway not configured')
 
-        # Mark paid
-        rp_order.razorpay_payment_id = razorpay_payment_id
-        rp_order.razorpay_signature = razorpay_signature
-        rp_order.status = 'paid'
-        rp_order.verified_at = timezone.now()
-        rp_order.save()
+        # Delegate to shared fulfillment logic
+        return PaymentService.fulfill_subscription_payment(rp_order, razorpay_payment_id, razorpay_signature)
 
-        sub = rp_order.subscription
-        candidate = rp_order.candidate
-        SubscriptionService.activate_subscription(sub, payment_reference=razorpay_payment_id)
+    @staticmethod
+    def fulfill_subscription_payment(rp_order, razorpay_payment_id, razorpay_signature=None):
+        """
+        Core fulfillment logic for a subscription payment. Idempotent — safe to
+        call from the client-side verify callback, server-side webhook, or
+        the reconciliation cron.  All three entry points converge here.
+        """
+        from django.db import transaction as db_transaction
 
-        # Update related Payment records
-        pending_payments = Payment.objects.filter(
-            candidate_id=candidate_id,
-            status='pending',
-            payment_type='monthly_service'
-        )
+        # Idempotency: if already fulfilled, return immediately
+        if rp_order.status == 'paid' and rp_order.verified_at:
+            logger.info("Order %s already fulfilled, skipping.", rp_order.razorpay_order_id)
+            return rp_order
 
-        if not pending_payments.exists():
-            Payment.objects.create(
-                candidate=candidate,
-                subscription=sub,
-                razorpay_order=rp_order,
-                amount=rp_order.amount,
-                currency=rp_order.currency,
-                payment_type='monthly_service',
-                status='completed',
-                payment_date=timezone.now().date(),
-                notes=f"Base Subscription Fee: {sub.plan_name if sub else 'Standard'} | Razorpay payment {razorpay_payment_id}"
+        with db_transaction.atomic():
+            # Lock the row to prevent concurrent fulfillment (e.g. webhook + client race)
+            rp_order = RazorpayOrder.objects.select_for_update().select_related(
+                'candidate', 'candidate__user', 'subscription'
+            ).get(id=rp_order.id)
+
+            # Double-check after acquiring lock
+            if rp_order.status == 'paid' and rp_order.verified_at:
+                logger.info("Order %s already fulfilled (post-lock), skipping.", rp_order.razorpay_order_id)
+                return rp_order
+
+            # Mark paid
+            rp_order.razorpay_payment_id = razorpay_payment_id
+            if razorpay_signature:
+                rp_order.razorpay_signature = razorpay_signature
+            rp_order.status = 'paid'
+            rp_order.verified_at = timezone.now()
+            rp_order.save(update_fields=['razorpay_payment_id', 'razorpay_signature', 'status', 'verified_at'])
+
+            sub = rp_order.subscription
+            candidate = rp_order.candidate
+            candidate_id = str(candidate.id)
+
+            if sub:
+                SubscriptionService.activate_subscription(sub, payment_reference=razorpay_payment_id)
+
+            # Update related Payment records
+            pending_payments = Payment.objects.filter(
+                candidate_id=candidate_id,
+                status='pending',
+                payment_type='monthly_service'
             )
-        else:
-            for payment in pending_payments:
-                payment.razorpay_order = rp_order
-                payment.amount = rp_order.amount
-                payment.currency = rp_order.currency
-                payment.status = 'completed'
-                payment.payment_date = timezone.now().date()
-                payment.notes = (payment.notes or '') + f' | Razorpay payment {razorpay_payment_id}'
-                payment.save()
 
-        # Fulfil Invoice Generation
+            if not pending_payments.exists():
+                Payment.objects.create(
+                    candidate=candidate,
+                    subscription=sub,
+                    razorpay_order=rp_order,
+                    amount=rp_order.amount,
+                    currency=rp_order.currency,
+                    payment_type='monthly_service',
+                    status='completed',
+                    payment_date=timezone.now().date(),
+                    notes=f"Base Subscription Fee: {sub.plan_name if sub else 'Standard'} | Razorpay payment {razorpay_payment_id}"
+                )
+            else:
+                for payment in pending_payments:
+                    payment.razorpay_order = rp_order
+                    payment.amount = rp_order.amount
+                    payment.currency = rp_order.currency
+                    payment.status = 'completed'
+                    payment.payment_date = timezone.now().date()
+                    payment.notes = (payment.notes or '') + f' | Razorpay payment {razorpay_payment_id}'
+                    payment.save()
+
+        # Invoice generation & emails outside the transaction to avoid
+        # holding the DB lock during slow I/O (PDF rendering, SMTP calls).
         try:
             invoice = Invoice.objects.create(
                 subscription=sub,
@@ -546,6 +584,8 @@ class PaymentService:
         except Exception as e:
             logger.error(f"Fulfillment invoice creation failed: {e}")
 
+        logger.info("Successfully fulfilled subscription payment for order %s (candidate %s).",
+                     rp_order.razorpay_order_id, candidate.user.email)
         return rp_order
 
     @staticmethod
@@ -604,7 +644,9 @@ class PaymentService:
 
     @staticmethod
     def verify_individual_payment(candidate_id, payment_id, razorpay_order_id, razorpay_payment_id, razorpay_signature):
-        """Verifies signature and completes individual payments (addons)."""
+        """Verifies signature and completes individual payments (addons). Idempotent and thread-safe."""
+        from django.db import transaction as db_transaction
+
         try:
             candidate = Candidate.objects.select_related('user').get(id=candidate_id)
         except Candidate.DoesNotExist:
@@ -620,6 +662,11 @@ class PaymentService:
         except RazorpayOrder.DoesNotExist:
             raise ValueError('Order not found')
 
+        # Idempotency check: if already completed, return immediately
+        if pay.status == 'completed' and rp_order.status == 'paid':
+            logger.info("Individual payment %s already completed, skipping duplicate verification.", payment_id)
+            return pay
+
         from .views import _get_razorpay_client
         client, _ = _get_razorpay_client()
         if client:
@@ -634,25 +681,34 @@ class PaymentService:
         else:
             raise ValueError('Gateway not configured')
 
-        # Verify order
-        rp_order.razorpay_payment_id = razorpay_payment_id
-        rp_order.razorpay_signature = razorpay_signature
-        rp_order.status = 'paid'
-        rp_order.verified_at = timezone.now()
-        rp_order.save()
+        with db_transaction.atomic():
+            # Acquire row locks to prevent concurrent race conditions
+            pay = Payment.objects.select_for_update().get(id=payment_id)
+            rp_order = RazorpayOrder.objects.select_for_update().get(id=rp_order.id)
 
-        # Update Payment
-        pay.status = 'completed'
-        pay.payment_date = timezone.now().date()
-        pay.razorpay_order = rp_order
-        pay.notes = (pay.notes or '') + f' | Razorpay: {razorpay_payment_id}'
-        pay.save(update_fields=['status', 'payment_date', 'razorpay_order', 'notes'])
+            if pay.status == 'completed' and rp_order.status == 'paid':
+                logger.info("Individual payment %s completed in concurrent thread, skipping.", payment_id)
+                return pay
 
-        # If this is linked to an addon assignment, complete it
-        if pay.addon_assignment:
-            AddonService.complete_addon_payment(pay.addon_assignment, payment_reference=razorpay_payment_id)
+            # Verify order
+            rp_order.razorpay_payment_id = razorpay_payment_id
+            rp_order.razorpay_signature = razorpay_signature
+            rp_order.status = 'paid'
+            rp_order.verified_at = timezone.now()
+            rp_order.save(update_fields=['razorpay_payment_id', 'razorpay_signature', 'status', 'verified_at'])
 
-        # Trigger invoice generation
+            # Update Payment
+            pay.status = 'completed'
+            pay.payment_date = timezone.now().date()
+            pay.razorpay_order = rp_order
+            pay.notes = (pay.notes or '') + f' | Razorpay: {razorpay_payment_id}'
+            pay.save(update_fields=['status', 'payment_date', 'razorpay_order', 'notes'])
+
+            # If this is linked to an addon assignment, complete it
+            if pay.addon_assignment:
+                AddonService.complete_addon_payment(pay.addon_assignment, payment_reference=razorpay_payment_id)
+
+        # Trigger invoice generation outside the lock
         try:
             AddonService.generate_invoice_for_addon(pay)
         except Exception as e:

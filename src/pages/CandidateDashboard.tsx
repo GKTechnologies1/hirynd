@@ -172,7 +172,7 @@ const CandidateDashboard = () => {
       // Don't auto-refresh when on form-heavy sheets to avoid clearing unsaved data
       const isFormSheet = location.pathname.includes('/intake') || location.pathname.includes('/credentials');
       if (!isFormSheet) {
-        fetchData(false, false);
+        fetchData(false, true);
       }
     };
     window.addEventListener('focus', onFocus);

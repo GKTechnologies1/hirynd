@@ -12,6 +12,9 @@ urlpatterns = [
     path('addons/create/', views.create_addon, name='create_addon'),
     path('addons/<uuid:addon_id>/', views.manage_addon, name='manage_addon'),
 
+    # Razorpay Webhook (server-to-server, no JWT/CSRF)
+    path('webhook/razorpay/', views.razorpay_webhook, name='razorpay_webhook'),
+
     # Admin overview
     path('subscriptions/', views.all_subscriptions, name='all_subscriptions'),
     path('payments/all/', views.all_payments, name='all_payments'),

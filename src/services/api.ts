@@ -144,8 +144,25 @@ export const setupProactiveRefresh = (token: string | null) => {
               localStorage.setItem('refresh_token', data.refresh);
             }
             setupProactiveRefresh(data.access);
-          } catch {
-            // Let the standard refresh logic or next request handle dynamic logout
+          } catch (err: any) {
+            // If backend returns 401 (inactivity expired), clear tokens and redirect.
+            // Any other error: leave tokens in place so the next API call's 401
+            // interceptor can handle it gracefully.
+            if (err?.response?.status === 401) {
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+              localStorage.removeItem('last_activity_timestamp');
+              const role = localStorage.getItem('cached_user_role') || '';
+              localStorage.removeItem('cached_user_role');
+              const path = window.location.pathname;
+              if (role === 'admin' || role === 'finance_admin' || path.startsWith('/admin')) {
+                window.location.href = '/admin-login';
+              } else if (['recruiter', 'team_lead', 'team_manager'].includes(role) || path.startsWith('/recruiter')) {
+                window.location.href = '/recruiter-login';
+              } else {
+                window.location.href = '/candidate-login';
+              }
+            }
           }
         }
       }, delay);
@@ -161,7 +178,24 @@ export const setupProactiveRefresh = (token: string | null) => {
           localStorage.setItem('access_token', data.access);
           if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
           setupProactiveRefresh(data.access);
-        }).catch(() => {});
+        }).catch((err: any) => {
+          // Handle inactivity-expired 401 on wake-up refresh
+          if (err?.response?.status === 401) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('last_activity_timestamp');
+            const role = localStorage.getItem('cached_user_role') || '';
+            localStorage.removeItem('cached_user_role');
+            const path = window.location.pathname;
+            if (role === 'admin' || role === 'finance_admin' || path.startsWith('/admin')) {
+              window.location.href = '/admin-login';
+            } else if (['recruiter', 'team_lead', 'team_manager'].includes(role) || path.startsWith('/recruiter')) {
+              window.location.href = '/recruiter-login';
+            } else {
+              window.location.href = '/candidate-login';
+            }
+          }
+        });
       }
     }
   } catch (e) {
@@ -273,9 +307,11 @@ api.interceptors.response.use(
     }
 
     // ── 500+: Server Error ──
-    // If the server crashes, show the ServerError page
+    // If the server crashes, we temporarily disable the hard redirect to /500
+    // so that the actual API error can be inspected in the Network tab and handled by the component.
     if (status && status >= 500) {
-      window.location.href = '/500';
+      console.error('Server error intercepted:', error.response || error);
+      // window.location.href = '/500';
     }
 
     return Promise.reject(error);
@@ -292,7 +328,17 @@ export const authApi = {
     api.post('/auth/login/', { email, password }),
   logout: (reason?: string) => {
     const refresh = localStorage.getItem('refresh_token');
-    return api.post('/auth/logout/', { refresh, reason: reason || 'user_logout' });
+    const access = localStorage.getItem('access_token');
+    // Use axios directly to bypass the 401 response interceptor — during
+    // auto-logout the access token may already be expired and we don't want
+    // the interceptor to trigger a token refresh cycle.
+    return axios.post(`${API_BASE_URL}/auth/logout/`, {
+      refresh,
+      access,
+      reason: reason || 'user_logout',
+    }).catch(() => {
+      // Swallow errors — logout cleanup will happen client-side regardless
+    });
   },
   me: () => api.get('/auth/me/'),
   updateProfile: (data: Record<string, any>) => api.patch('/auth/profile/', data),
@@ -548,4 +594,10 @@ export const reviewsApi = {
     api.patch(`/reviews/admin/${id}/`, data),
   deleteAdmin: (id: string) => api.delete(`/reviews/admin/${id}/`),
   listPublic: () => api.get('/reviews/public/'),
+};
+
+// ─── Analytics ───
+export const analyticsApi = {
+  trackPageView: (data: Record<string, any>) => api.post('/analytics/track/', data, { headers: { 'X-Background-Request': 'true' } }),
+  getDashboardStats: (range: string) => api.get('/analytics/dashboard/', { params: { range } }),
 };

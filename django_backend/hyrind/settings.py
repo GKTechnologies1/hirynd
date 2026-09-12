@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'chat',
     'jobs',
     'reviews',
+    'analytics',
 ]
 
 MIDDLEWARE = [
@@ -252,6 +253,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # For production, replace with rzp_live_ keys
 RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_test_mock_xxxxxxxxxxx')
 RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'xxxxxxxxxxxxxxxxxxxxxxxx')
+RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
 
 
 # Static files

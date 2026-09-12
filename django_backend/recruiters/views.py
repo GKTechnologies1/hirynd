@@ -19,6 +19,9 @@ from .serializers import (
     AdminRecruiterFullSerializer, MyAssignmentSerializer, DailyJournalSerializer,
     TeamMemberDetailSerializer,
 )
+from .location_data import get_us_locations_data, parse_location_query, build_location_filter_q
+from .salary_utils import filter_jobs_by_salary
+
 
 
 @api_view(['GET'])
@@ -346,7 +349,15 @@ def update_job_status(request, job_id):
     except JobLinkEntry.DoesNotExist:
         return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    is_staff = (
+        request.user.role in ('admin', 'recruiter', 'team_lead', 'team_manager', 'super_admin') or
+        getattr(request.user, 'is_staff', False) or
+        getattr(request.user, 'is_superuser', False)
+    )
+
     if request.method == 'DELETE':
+        if not is_staff:
+            return Response({'error': 'Permission denied. Only admin or staff can delete job applications.'}, status=status.HTTP_403_FORBIDDEN)
         job.delete()
         try:
             from django.core.cache import cache
@@ -356,7 +367,7 @@ def update_job_status(request, job_id):
             pass
         return Response({'message': 'Deleted successfully'})
 
-    new_status = request.data.get('status') or request.data.get('application_status')
+    new_status = request.data.get('status') or request.data.get('application_status') or request.data.get('candidate_response_status')
     if new_status:
         job.application_status = new_status
         job.candidate_response_status = new_status
@@ -366,9 +377,13 @@ def update_job_status(request, job_id):
         'city', 'state', 'country', 'salary', 'visa_eligibility',
         'company_name', 'role_title', 'notes', 'job_description', 'job_url', 'is_public'
     ]
-    for field_name in fields_to_update:
-        if field_name in request.data:
-            setattr(job, field_name, request.data[field_name])
+    
+    if any(field in request.data for field in fields_to_update):
+        if not is_staff:
+            return Response({'error': 'Permission denied. Only admin or staff can edit application details.'}, status=status.HTTP_403_FORBIDDEN)
+        for field_name in fields_to_update:
+            if field_name in request.data:
+                setattr(job, field_name, request.data[field_name])
 
     job.save()
     if job.candidate:
@@ -639,12 +654,17 @@ def public_job_alerts(request):
 
         return Response(JobLinkEntrySerializer(job).data, status=status.HTTP_201_CREATED)
 
-    # 1. Base queryset
+    # 1. Base queryset (Only last 30 days records)
+    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+    thirty_days_ago_date = thirty_days_ago.date()
+
     include_hidden = request.query_params.get('include_hidden', '').lower() in ('true', '1') or request.query_params.get('is_hidden', '').lower() in ('true', '1')
     if include_hidden:
         jobs = JobLinkEntry.objects.all().select_related('submission_log')
     else:
         jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log')
+
+    jobs = jobs.filter(Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date))
 
     # 2. Status filter
     status_param = request.query_params.get('status')
@@ -687,15 +707,14 @@ def public_job_alerts(request):
     if skills:
         jobs = jobs.filter(Q(job_description__icontains=skills) | Q(notes__icontains=skills))
 
-    # 7. Location filter (handles comma-separated multi-select values)
+    # 7. Location filter (handles comma-separated multi-select values and City, State pairs)
     location = request.query_params.get('location')
     if location:
-        loc_list = [l.strip() for l in location.split(',') if l.strip()]
+        loc_list = parse_location_query(location)
         if loc_list:
-            q_loc = Q()
-            for l in loc_list:
-                q_loc |= Q(city__icontains=l) | Q(state__icontains=l) | Q(country__icontains=l)
-            jobs = jobs.filter(q_loc)
+            q_loc = build_location_filter_q(loc_list)
+            if q_loc:
+                jobs = jobs.filter(q_loc)
 
     # 8. Work mode filter
     work_mode = request.query_params.get('work_mode')
@@ -737,7 +756,12 @@ def public_job_alerts(request):
                 q_visa |= Q(visa_eligibility__icontains=v)
             jobs = jobs.filter(q_visa)
 
-    # 12. Date Range filter
+    # 12. Salary filter
+    salary = request.query_params.get('salary')
+    if salary:
+        jobs = filter_jobs_by_salary(jobs, salary)
+
+    # 13. Date Range filter
     from_date = request.query_params.get('from_date') or request.query_params.get('date_from')
     if from_date:
         try:
@@ -784,7 +808,11 @@ def public_job_alerts(request):
     from django.core.cache import cache as django_cache
     unfiltered_total = django_cache.get('public_job_alerts_total')
     if unfiltered_total is None:
-        unfiltered_total = JobLinkEntry.objects.filter(is_public=True).count()
+        unfiltered_total = JobLinkEntry.objects.filter(
+            is_public=True
+        ).filter(
+            Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date)
+        ).count()
         django_cache.set('public_job_alerts_total', unfiltered_total, 300)  # 5 min
 
     try:
@@ -813,16 +841,23 @@ def public_job_alerts(request):
 @permission_classes([AllowAny])
 def public_job_alert_filter_options(request):
     """
-    Returns distinct filter options derived from all live jobs in the database.
+    Returns distinct filter options derived from live jobs created within the last 30 days.
     Response is cached for 5 minutes to avoid 7+ distinct queries on every page load.
     """
     from django.core.cache import cache as django_cache
+    from django.db.models import Q
+    import datetime
 
     cached_result = django_cache.get('job_alert_filter_options')
     if cached_result is not None:
         return Response(cached_result)
 
-    base_qs = JobLinkEntry.objects.filter(is_public=True)
+    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+    thirty_days_ago_date = thirty_days_ago.date()
+
+    base_qs = JobLinkEntry.objects.filter(is_public=True).filter(
+        Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date)
+    )
 
     # Distinct Roles
     roles = list(
@@ -833,67 +868,9 @@ def public_job_alert_filter_options(request):
         .order_by('role_title')
     )
 
-    # Distinct Structured Locations
-    country_map = {}
-    flat_locations_set = set()
-
-    for entry in base_qs.values('city', 'state', 'country'):
-        c = (entry.get('country') or '').strip()
-        s = (entry.get('state') or '').strip()
-        ci = (entry.get('city') or '').strip()
-
-        if not c and not s and not ci:
-            continue
-
-        # Normalization / Default Country if missing
-        if not c:
-            if "india" in (s + ci).lower():
-                c = "India"
-            elif "canada" in (s + ci).lower():
-                c = "Canada"
-            elif "uk" in (s + ci).lower() or "kingdom" in (s + ci).lower():
-                c = "United Kingdom"
-            else:
-                c = "United States"
-
-        if c not in country_map:
-            country_map[c] = {
-                "states": {},
-                "cities": set()
-            }
-
-        # Flat string representation for legacy queries
-        parts = [p for p in [ci, s, c] if p]
-        if parts:
-            flat_locations_set.add(", ".join(parts))
-
-        if s:
-            if s not in country_map[c]["states"]:
-                country_map[c]["states"][s] = set()
-            if ci:
-                country_map[c]["states"][s].add(ci)
-                country_map[c]["cities"].add(f"{ci}, {s}")
-            else:
-                country_map[c]["cities"].add(f"{s} Province" if c == "Canada" and "Province" not in s else s)
-        elif ci:
-            country_map[c]["cities"].add(ci)
-
-    # Convert sets to sorted lists for JSON serialization
-    formatted_countries = {}
-    for country, data in sorted(country_map.items()):
-        formatted_states = {}
-        for state, cities in sorted(data["states"].items()):
-            formatted_states[state] = sorted(list(cities))
-        formatted_countries[country] = {
-            "states": formatted_states,
-            "cities": sorted(list(data["cities"]))
-        }
-
-    locations_data = {
-        "countries": formatted_countries,
-        "all_countries": sorted(list(country_map.keys())),
-        "flat": sorted(list(flat_locations_set))
-    }
+    # Distinct Structured Locations (Restricted to United States with comprehensive states & cities)
+    db_loc_entries = list(base_qs.values('city', 'state', 'country'))
+    locations_data = get_us_locations_data(extra_db_records=db_loc_entries)
 
     # Distinct Employment Types
     employment_types = list(
@@ -940,6 +917,7 @@ def public_job_alert_filter_options(request):
         'work_modes': work_modes,
         'experience_levels': experience_levels,
         'visa_eligibilities': visa_eligibilities,
+        'salary_ranges': ["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"],
         'total_count': total_count,
     }
 

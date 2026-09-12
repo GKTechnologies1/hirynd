@@ -15,6 +15,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Skeleton } from "@/components/ui/skeleton";
 import { DatePicker } from "@/components/ui/DatePicker";
 import LocationFilterPopover from "@/components/jobs/LocationFilterPopover";
+import SuggestInput from "@/components/ui/SuggestInput";
+import {
+  RECOMMENDED_COUNTRIES,
+  US_STATE_OPTIONS,
+  getCitiesForState,
+  findStateForCity,
+  formatSalaryAmount,
+  handleSalaryKeyDown,
+} from "@/data/usLocations";
 import {
   Search, Globe, X, ExternalLink, LayoutGrid, Table, Share2, MapPin,
   Briefcase, DollarSign, Clock, MoreHorizontal, Home, Award, Ban, Heart,
@@ -567,6 +576,7 @@ const AdminJobBoard = () => {
     work_modes: string[];
     experience_levels: string[];
     visa_eligibilities: string[];
+    salary_ranges?: string[];
     total_count?: number;
   }>({
     roles: [],
@@ -575,6 +585,7 @@ const AdminJobBoard = () => {
     work_modes: [],
     experience_levels: [],
     visa_eligibilities: [],
+    salary_ranges: [],
   });
 
   // Multi-select Filter states
@@ -675,6 +686,13 @@ const AdminJobBoard = () => {
     return ["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"];
   }, [filterOptions.visa_eligibilities]);
 
+  const dynamicSalaryRanges = useMemo(() => {
+    if (filterOptions.salary_ranges && filterOptions.salary_ranges.length > 0) {
+      return filterOptions.salary_ranges;
+    }
+    return ["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"];
+  }, [filterOptions.salary_ranges]);
+
   // Admin Modal States
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<any | null>(null);
@@ -705,7 +723,7 @@ const AdminJobBoard = () => {
       if (filterType.length > 0) params.employment_type = filterType.join(",");
       if (filterExp.length > 0) params.experience_required = filterExp.join(",");
       if (filterVisa.length > 0) params.visa_eligibility = filterVisa.join(",");
-      if (filterSalary.length > 0) params.salary = filterSalary.join(",");
+      if (filterSalary.length > 0) params.salary = filterSalary.join(";");
       if (filterDate.length > 0) params.date_preset = filterDate.join(",");
       if (sortOrder === "Oldest First") params.ordering = "created_at";
 
@@ -960,6 +978,17 @@ const AdminJobBoard = () => {
       toast({ title: "Role Title and Company Name are required", variant: "destructive" });
       return;
     }
+    if (jobForm.salary) {
+      const sal = jobForm.salary.trim();
+      if (sal.toLowerCase() === "not disclosed") {
+        toast({ title: "Not Disclosed is not allowed", description: "Please enter a valid salary amount with dollar (e.g. $100,000).", variant: "destructive" });
+        return;
+      }
+      if (!sal.includes("$") || !/\d/.test(sal)) {
+        toast({ title: "Invalid Salary", description: "Salary must include a dollar amount (e.g. $100,000 or $50/hr).", variant: "destructive" });
+        return;
+      }
+    }
     setSavingJob(true);
     try {
       if (editingJob) {
@@ -1182,7 +1211,7 @@ const AdminJobBoard = () => {
                   label="Salary"
                   categoryTitle="Salary Range"
                   icon={<DollarSign className="h-3 w-3 text-primary" />}
-                  options={["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"]}
+                  options={dynamicSalaryRanges}
                   selected={filterSalary}
                   onChange={setFilterSalary}
                   searchPlaceholder="Search salary..."
@@ -1773,27 +1802,39 @@ const AdminJobBoard = () => {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">City</Label>
-                <Input
+                <SuggestInput
                   value={jobForm.city}
-                  onChange={(e) => setJobForm((f) => ({ ...f, city: e.target.value }))}
+                  onChange={(v) => {
+                    setJobForm((f) => {
+                      const copy = { ...f, city: v };
+                      const matched = findStateForCity(v);
+                      if (matched && !copy.state) copy.state = matched.code;
+                      if (!copy.country) copy.country = "United States";
+                      return copy;
+                    });
+                  }}
+                  suggestions={getCitiesForState(jobForm.state)}
                   placeholder="San Francisco"
                   className="h-9 text-xs"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">State</Label>
-                <Input
+                <SuggestInput
                   value={jobForm.state}
-                  onChange={(e) => setJobForm((f) => ({ ...f, state: e.target.value }))}
+                  onChange={(v) => setJobForm((f) => ({ ...f, state: v, country: f.country || "United States" }))}
+                  suggestions={US_STATE_OPTIONS}
                   placeholder="CA"
                   className="h-9 text-xs"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Country</Label>
-                <Input
+                <SuggestInput
                   value={jobForm.country}
-                  onChange={(e) => setJobForm((f) => ({ ...f, country: e.target.value }))}
+                  onChange={(v) => setJobForm((f) => ({ ...f, country: v }))}
+                  suggestions={RECOMMENDED_COUNTRIES}
+                  recommendedBadge="United States"
                   placeholder="United States"
                   className="h-9 text-xs"
                 />
@@ -1802,11 +1843,13 @@ const AdminJobBoard = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Salary</Label>
+                <Label className="text-xs font-semibold">Salary Amount ($)</Label>
                 <Input
+                  inputMode="decimal"
                   value={jobForm.salary}
-                  onChange={(e) => setJobForm((f) => ({ ...f, salary: e.target.value }))}
-                  placeholder="$120,000 / yr"
+                  onKeyDown={handleSalaryKeyDown}
+                  onChange={(e) => setJobForm((f) => ({ ...f, salary: formatSalaryAmount(e.target.value) }))}
+                  placeholder="$120,000"
                   className="h-9 text-xs"
                 />
               </div>

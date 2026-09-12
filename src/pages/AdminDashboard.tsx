@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi, authApi, billingApi, notificationsApi, jobsApi } from "@/services/api";
+import { candidatesApi, authApi, billingApi, notificationsApi, jobsApi, analyticsApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import AdminCandidateDetail from "@/pages/admin/AdminCandidateDetail";
@@ -23,11 +23,12 @@ import AdminInterestedCandidatesPage from "@/pages/admin/AdminInterestedCandidat
 import AdminInterestedCandidateDetail from "@/pages/admin/AdminInterestedCandidateDetail";
 import AdminGeneralEnquiriesPage from "@/pages/admin/AdminGeneralEnquiriesPage";
 import AdminReviewsPage from "@/pages/admin/AdminReviewsPage";
+import AdminAnalyticsPage from "@/pages/admin/AdminAnalyticsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star, PauseCircle } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star, PauseCircle, Home, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
@@ -57,6 +58,7 @@ const navItems = [
   { label: "Reviews", path: "/admin-dashboard/reviews", icon: <Star className="h-4 w-4" /> },
   { label: "Notifications", path: "/admin-dashboard/notifications", icon: <Bell className="h-4 w-4" /> },
   { label: "Audit Logs", path: "/admin-dashboard/audit", icon: <Shield className="h-4 w-4" /> },
+  { label: "Analytics", path: "/admin-dashboard/analytics", icon: <BarChart className="h-4 w-4" /> },
   { label: "Reports", path: "/admin-dashboard/reports", icon: <BarChart className="h-4 w-4" /> },
   { label: "Configuration", path: "/admin-dashboard/config", icon: <Settings className="h-4 w-4" /> },
   { label: "Settings", path: "/admin-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
@@ -147,6 +149,14 @@ const AdminDashboard = () => {
       }
     }
 
+    // Analytics Stats
+    try {
+      const { data: aStats } = await analyticsApi.getDashboardStats("today");
+      setAnalytics(aStats);
+    } catch (err) {
+      console.warn("Dashboard: Failed to fetch analytics stats", err);
+    }
+
     setLoading(false);
   };
 
@@ -193,6 +203,7 @@ const AdminDashboard = () => {
       case "approvals": return <AdminApprovalsPage />;
       case "referrals": return <AdminReferralsPage />;
       case "config": return <AdminConfigPage />;
+      case "analytics": return <AdminAnalyticsPage />;
       case "reports": return <AdminReportsPage />;
       case "audit": return <AdminGlobalAuditTab />;
       case "billing-run": return <AdminBillingRunPage />;
@@ -259,6 +270,116 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
         )} */}
+
+        {/* Real-time Platform Traffic & User Analytics Overview */}
+        {analytics?.kpis && (
+          <div className="dashboard-section mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <p className="dashboard-section-title mb-0">Platform Traffic & Analytics Overview</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <BarChart className="h-3.5 w-3.5" />
+                View Full Analytics & User Tracking →
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Card
+                className="border-secondary/20 bg-secondary/5 cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                    <Activity className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.active_now}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Active Now (5m)</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400">
+                    <Shield className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.logged_in_today ?? 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Logged In Today</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.active_users_today ?? 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Active Users Today</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+                    <Home className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.homepage_visitors_today ?? 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Homepage Visitors Today</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400">
+                    <Globe className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.visitors_today ?? analytics.kpis.unique_visitors_today ?? 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Total Visitors Today</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
 
         {/* Pipeline Widgets */}
         <div className="dashboard-section">

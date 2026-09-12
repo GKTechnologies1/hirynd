@@ -21,6 +21,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/DatePicker";
+import SuggestInput from "@/components/ui/SuggestInput";
+import {
+  RECOMMENDED_COUNTRIES,
+  US_STATE_OPTIONS,
+  getCitiesForState,
+  findStateForCity,
+  formatSalaryAmount,
+  handleSalaryKeyDown,
+} from "@/data/usLocations";
 
 const formatSalaryDisplay = (rawSalary: any): string => {
   if (!rawSalary) return "Not Disclosed";
@@ -157,7 +166,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       work_mode: "",
       city: "",
       state: "",
-      country: "",
+      country: "United States",
       salary: "",
       visa_eligibility: "",
     }]);
@@ -252,8 +261,12 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
         errs.country = "Country is required";
         hasError = true;
       }
-      if (!j.salary?.trim()) {
-        errs.salary = "Salary is required (e.g. $100k or Not Disclosed)";
+      const sal = (j.salary || "").trim();
+      if (!sal || sal === "$") {
+        errs.salary = "Salary amount is required (e.g. $100,000)";
+        hasError = true;
+      } else if (!/\d/.test(sal)) {
+        errs.salary = "Please enter a valid salary amount (numbers only, e.g. $100,000)";
         hasError = true;
       }
       if (!j.visa_eligibility?.trim()) {
@@ -390,6 +403,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   });
 
   const handleOpenEditJob = (job: any) => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can edit application details.", variant: "destructive" });
+      return;
+    }
     setEditingJob(job);
     setEditJobForm({
       company_name: job.company_name || "",
@@ -402,7 +419,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       work_mode: job.work_mode || "",
       city: job.city || "",
       state: job.state || "",
-      country: job.country || "",
+      country: job.country || "United States",
       salary: job.salary || "",
       visa_eligibility: job.visa_eligibility || "",
       status: (job.candidate_response_status || job.application_status || job.status || "applied").toLowerCase().replace(/ /g, "_"),
@@ -411,9 +428,20 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleSaveEditJob = async () => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can edit application details.", variant: "destructive" });
+      return;
+    }
     if (!editJobForm.role_title || !editJobForm.company_name) {
       toast({ title: "Role Title and Company Name are required", variant: "destructive" });
       return;
+    }
+    if (editJobForm.salary) {
+      const sal = editJobForm.salary.trim();
+      if (!/\d/.test(sal)) {
+        toast({ title: "Invalid Salary", description: "Please enter a valid salary amount (e.g. $100,000).", variant: "destructive" });
+        return;
+      }
     }
     if (!editingJob?.id) return;
     const jobId = editingJob.id;
@@ -439,6 +467,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleMarkExpired = async (job: any) => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can mark applications as expired.", variant: "destructive" });
+      return;
+    }
     if (!job?.id) return;
     const jobId = job.id;
     setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "expired", application_status: "expired", candidate_response_status: "expired" } : j));
@@ -455,6 +487,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleRejectJob = async (job: any) => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can reject applications.", variant: "destructive" });
+      return;
+    }
     if (!job?.id) return;
     const jobId = job.id;
     setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "rejected", application_status: "rejected", candidate_response_status: "rejected" } : j));
@@ -471,6 +507,10 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleConfirmDeleteJob = async () => {
+    if (!isStaff) {
+      toast({ title: "Permission Denied", description: "Only admin and staff can delete applications.", variant: "destructive" });
+      return;
+    }
     if (!deleteJobTarget?.id) return;
     const targetId = deleteJobTarget.id;
     const targetTitle = deleteJobTarget.role_title || deleteJobTarget.title || "Job";
@@ -849,33 +889,63 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             <div className="space-y-1">
-                              <Input
+                              <SuggestInput
                                 placeholder="City *"
-                                className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.city && "border-destructive focus-visible:ring-destructive")}
+                                className="h-8 text-[10px] bg-background/50"
                                 value={job.city || ""}
-                                onChange={e => updateJobLink(idx, "city", e.target.value)}
+                                onChange={v => {
+                                  updateJobLink(idx, "city", v);
+                                  const matched = findStateForCity(v);
+                                  if (matched && !job.state) {
+                                    updateJobLink(idx, "state", matched.code);
+                                  }
+                                  if (!job.country) {
+                                    updateJobLink(idx, "country", "United States");
+                                  }
+                                }}
+                                onSelectOption={v => {
+                                  const matched = findStateForCity(v);
+                                  if (matched && !job.state) {
+                                    updateJobLink(idx, "state", matched.code);
+                                  }
+                                  if (!job.country) {
+                                    updateJobLink(idx, "country", "United States");
+                                  }
+                                }}
+                                suggestions={getCitiesForState(job.state)}
+                                hasError={!!jobLinkErrors[idx]?.city}
                               />
                               {jobLinkErrors[idx]?.city && (
                                 <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].city}</p>
                               )}
                             </div>
                             <div className="space-y-1">
-                              <Input
+                              <SuggestInput
                                 placeholder="State *"
-                                className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.state && "border-destructive focus-visible:ring-destructive")}
+                                className="h-8 text-[10px] bg-background/50"
                                 value={job.state || ""}
-                                onChange={e => updateJobLink(idx, "state", e.target.value)}
+                                onChange={v => {
+                                  updateJobLink(idx, "state", v);
+                                  if (!job.country) {
+                                    updateJobLink(idx, "country", "United States");
+                                  }
+                                }}
+                                suggestions={US_STATE_OPTIONS}
+                                hasError={!!jobLinkErrors[idx]?.state}
                               />
                               {jobLinkErrors[idx]?.state && (
                                 <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].state}</p>
                               )}
                             </div>
                             <div className="space-y-1">
-                              <Input
+                              <SuggestInput
                                 placeholder="Country *"
-                                className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.country && "border-destructive focus-visible:ring-destructive")}
+                                className="h-8 text-[10px] bg-background/50"
                                 value={job.country || ""}
-                                onChange={e => updateJobLink(idx, "country", e.target.value)}
+                                onChange={v => updateJobLink(idx, "country", v)}
+                                suggestions={RECOMMENDED_COUNTRIES}
+                                recommendedBadge="United States"
+                                hasError={!!jobLinkErrors[idx]?.country}
                               />
                               {jobLinkErrors[idx]?.country && (
                                 <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].country}</p>
@@ -885,10 +955,12 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <Input
-                                placeholder="Salary (e.g. $100k or Not Disclosed) *"
+                                placeholder="Salary Amount (e.g. $100,000) *"
+                                inputMode="decimal"
                                 className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.salary && "border-destructive focus-visible:ring-destructive")}
                                 value={job.salary || ""}
-                                onChange={e => updateJobLink(idx, "salary", e.target.value)}
+                                onKeyDown={handleSalaryKeyDown}
+                                onChange={e => updateJobLink(idx, "salary", formatSalaryAmount(e.target.value))}
                               />
                               {jobLinkErrors[idx]?.salary && (
                                 <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].salary}</p>
@@ -1207,83 +1279,87 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                             </SelectContent>
                           </Select>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              handleOpenEditJob(j);
-                            }}
-                            className="h-7 px-2 text-[11px] font-semibold text-blue-700 border-blue-200 bg-blue-50/80 hover:bg-blue-100 flex items-center gap-1 cursor-pointer"
-                            title="Edit application details"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            Edit
-                          </Button>
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                          {isStaff && (
+                            <>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground border-border/60 bg-muted/20 hover:bg-muted/60 cursor-pointer"
-                                title="More actions"
-                              >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-popover rounded-xl shadow-lg border border-border p-1 min-w-[160px] z-50">
-                              <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  e.preventDefault();
                                   handleOpenEditJob(j);
                                 }}
-                                className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                className="h-7 px-2 text-[11px] font-semibold text-blue-700 border-blue-200 bg-blue-50/80 hover:bg-blue-100 flex items-center gap-1 cursor-pointer"
+                                title="Edit application details"
                               >
-                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
-                                Edit Details
-                              </DropdownMenuItem>
+                                <Pencil className="h-3 w-3" />
+                                Edit
+                              </Button>
 
-                              {!isExpired && (
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleMarkExpired(j);
-                                  }}
-                                  className="text-xs font-medium text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                                >
-                                  <Ban className="h-3.5 w-3.5 text-rose-600" />
-                                  Mark Expired
-                                </DropdownMenuItem>
-                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground border-border/60 bg-muted/20 hover:bg-muted/60 cursor-pointer"
+                                    title="More actions"
+                                  >
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-popover rounded-xl shadow-lg border border-border p-1 min-w-[160px] z-50">
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditJob(j);
+                                    }}
+                                    className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                    Edit Details
+                                  </DropdownMenuItem>
 
-                              {!isRejected && (
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRejectJob(j);
-                                  }}
-                                  className="text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                                >
-                                  <XCircle className="h-3.5 w-3.5 text-amber-600" />
-                                  Reject Application
-                                </DropdownMenuItem>
-                              )}
+                                  {!isExpired && (
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleMarkExpired(j);
+                                      }}
+                                      className="text-xs font-medium text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                    >
+                                      <Ban className="h-3.5 w-3.5 text-rose-600" />
+                                      Mark Expired
+                                    </DropdownMenuItem>
+                                  )}
 
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteJobTarget(j);
-                                }}
-                                className="text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                                Delete Application
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                  {!isRejected && (
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRejectJob(j);
+                                      }}
+                                      className="text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5 text-amber-600" />
+                                      Reject Application
+                                    </DropdownMenuItem>
+                                  )}
+
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteJobTarget(j);
+                                    }}
+                                    className="text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                    Delete Application
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          )}
                         </div>
                       );
                     }
@@ -1482,28 +1558,46 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">City</Label>
-                <Input
+                <SuggestInput
                   value={editJobForm.city}
-                  onChange={(e) => setEditJobForm({ ...editJobForm, city: e.target.value })}
+                  onChange={(v) => {
+                    setEditJobForm((prev: any) => {
+                      const copy = { ...prev, city: v };
+                      const matched = findStateForCity(v);
+                      if (matched && !copy.state) copy.state = matched.code;
+                      if (!copy.country) copy.country = "United States";
+                      return copy;
+                    });
+                  }}
+                  suggestions={getCitiesForState(editJobForm.state)}
                   placeholder="e.g. Austin"
                   className="h-9 text-xs"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">State</Label>
-                <Input
+                <SuggestInput
                   value={editJobForm.state}
-                  onChange={(e) => setEditJobForm({ ...editJobForm, state: e.target.value })}
+                  onChange={(v) => {
+                    setEditJobForm((prev: any) => ({
+                      ...prev,
+                      state: v,
+                      country: prev.country || "United States",
+                    }));
+                  }}
+                  suggestions={US_STATE_OPTIONS}
                   placeholder="e.g. TX"
                   className="h-9 text-xs"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">Country</Label>
-                <Input
+                <SuggestInput
                   value={editJobForm.country}
-                  onChange={(e) => setEditJobForm({ ...editJobForm, country: e.target.value })}
-                  placeholder="e.g. USA"
+                  onChange={(v) => setEditJobForm({ ...editJobForm, country: v })}
+                  suggestions={RECOMMENDED_COUNTRIES}
+                  recommendedBadge="United States"
+                  placeholder="United States"
                   className="h-9 text-xs"
                 />
               </div>
@@ -1511,11 +1605,13 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Salary</Label>
+                <Label className="text-xs font-bold">Salary Amount ($)</Label>
                 <Input
+                  inputMode="decimal"
                   value={editJobForm.salary}
-                  onChange={(e) => setEditJobForm({ ...editJobForm, salary: e.target.value })}
-                  placeholder="e.g. $120,000/yr"
+                  onKeyDown={handleSalaryKeyDown}
+                  onChange={(e) => setEditJobForm({ ...editJobForm, salary: formatSalaryAmount(e.target.value) })}
+                  placeholder="$120,000"
                   className="h-9 text-xs"
                 />
               </div>

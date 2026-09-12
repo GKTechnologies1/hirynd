@@ -268,3 +268,101 @@ class PublicJobAlertsTests(TestCase):
         self.assertEqual(response.data[0]['job_url'], 'http://example.com')
         # Check that log_date is serialized correctly
         self.assertEqual(response.data[0]['log_date'], self.log.log_date)
+
+    def test_public_job_alerts_last_30_days_filter(self):
+        """Test that records older than 30 days are excluded from public job alerts."""
+        from datetime import timedelta
+
+        old_log = DailySubmissionLog.objects.create(
+            candidate=self.candidate,
+            recruiter=self.recruiter,
+            log_date=timezone.now().date() - timedelta(days=45),
+            applications_count=1
+        )
+        old_job = JobLinkEntry.objects.create(
+            submission_log=old_log,
+            candidate=self.candidate,
+            company_name='Old Company',
+            role_title='Old Dev',
+            job_url='http://example.com/old',
+            is_public=True
+        )
+        # update created_at directly since auto_now_add sets it on create
+        JobLinkEntry.objects.filter(id=old_job.id).update(
+            created_at=timezone.now() - timedelta(days=45)
+        )
+
+        response = self.client.get(self.public_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should only include self.job (recent), not old_job
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['company_name'], 'Test Company')
+
+    def test_public_job_alerts_salary_filter(self):
+        """Test that salary query parameter filters jobs accurately."""
+        # Create jobs with various salary values
+        job_120k = JobLinkEntry.objects.create(
+            submission_log=self.log,
+            candidate=self.candidate,
+            company_name='High Pay Inc',
+            role_title='Lead Dev',
+            job_url='http://example.com/high',
+            salary='$120,000 / yr',
+            is_public=True
+        )
+        job_60k = JobLinkEntry.objects.create(
+            submission_log=self.log,
+            candidate=self.candidate,
+            company_name='Mid Pay Inc',
+            role_title='Junior Dev',
+            job_url='http://example.com/mid',
+            salary='$60,000',
+            is_public=True
+        )
+        job_undisclosed = JobLinkEntry.objects.create(
+            submission_log=self.log,
+            candidate=self.candidate,
+            company_name='Mystery Inc',
+            role_title='Mystery Dev',
+            job_url='http://example.com/mystery',
+            salary='Not Disclosed',
+            is_public=True
+        )
+
+        # 1. Disclosed Only
+        resp = self.client.get(self.public_url, {'salary': 'Disclosed Only'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        returned_companies = [j['company_name'] for j in resp.data]
+        self.assertIn('High Pay Inc', returned_companies)
+        self.assertIn('Mid Pay Inc', returned_companies)
+        self.assertNotIn('Mystery Inc', returned_companies)
+        self.assertNotIn('Test Company', returned_companies) # self.job has salary=None
+
+        # 2. $50,000+
+        resp = self.client.get(self.public_url, {'salary': '$50,000+'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        returned_companies = [j['company_name'] for j in resp.data]
+        self.assertIn('High Pay Inc', returned_companies)
+        self.assertIn('Mid Pay Inc', returned_companies)
+        self.assertNotIn('Mystery Inc', returned_companies)
+
+        # 3. $100,000+
+        resp = self.client.get(self.public_url, {'salary': '$100,000+'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        returned_companies = [j['company_name'] for j in resp.data]
+        self.assertIn('High Pay Inc', returned_companies)
+        self.assertNotIn('Mid Pay Inc', returned_companies)
+        self.assertNotIn('Mystery Inc', returned_companies)
+
+        # 4. $150,000+
+        resp = self.client.get(self.public_url, {'salary': '$150,000+'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 0)
+
+        # 5. Multiple selected options via semicolon or comma
+        resp = self.client.get(self.public_url, {'salary': '$100,000+;$150,000+'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        returned_companies = [j['company_name'] for j in resp.data]
+        self.assertIn('High Pay Inc', returned_companies)
+        self.assertNotIn('Mid Pay Inc', returned_companies)
+
