@@ -663,11 +663,16 @@ export default function JobAlert() {
       if (sortOrder === "Oldest First") params.ordering = "created_at";
 
       const res = await recruitersApi.getPublicJobAlerts(params);
+      const formatJobs = (jobsList: any[]) => (jobsList || []).map((job: any) => ({
+        ...job,
+        display_id: job.display_id || `HYRJOB${job.id?.toString().slice(-6).toUpperCase()}`,
+      }));
+
       if (Array.isArray(res.data)) {
-        setJobPostings(res.data);
+        setJobPostings(formatJobs(res.data));
         setTotalJobs(res.data.length);
       } else if (res.data && Array.isArray(res.data.results)) {
-        setJobPostings(res.data.results);
+        setJobPostings(formatJobs(res.data.results));
         setTotalJobs(typeof res.data.total === "number" ? res.data.total : res.data.results.length);
         if (typeof res.data.unfiltered_total === "number") {
           setTotalUnfilteredJobs(res.data.unfiltered_total);
@@ -1306,6 +1311,17 @@ export default function JobAlert() {
                     onPageSizeChange: (s) => setPageSize(s),
                   }}
                   columns={[
+                    {
+                      header: "ID",
+                      accessorKey: "display_id",
+                      sortable: true,
+                      className: "py-4 pl-4 text-xs font-mono",
+                      render: (job: any) => (
+                        <span className="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 uppercase whitespace-nowrap font-mono">
+                          {job.display_id || `HYRJOB${job.id?.toString().slice(-6).toUpperCase()}`}
+                        </span>
+                      ),
+                    },
                     {
                       header: "Company Name",
                       accessorKey: "company_name",

@@ -105,12 +105,18 @@ const AdminUsersPage = () => {
         team_lead: 'HYRTLD', team_manager: 'HYRTMG',
         admin: 'HYRADM', finance_admin: 'HYRFIN',
       };
-      const formattedList = list.map((u: any) => ({
-        ...u,
-        full_name: u.full_name || u.profile?.full_name || "",
-        display_id: u.display_id || `${ROLE_PREFIX[u.role] || 'HYRUSR'}${u.id.toString().slice(-6).toUpperCase()}`,
-        date_joined: u.date_joined || u.created_at
-      }));
+      const formattedList = list.map((u: any) => {
+        const prefix = ROLE_PREFIX[u.role] || 'HYRUSR';
+        const rawId = u.display_id || '';
+        const hasPrefix = Object.values(ROLE_PREFIX).some(p => rawId.startsWith(p));
+        const cleanDisplayId = hasPrefix ? rawId : `${prefix}${u.id.toString().slice(-6).toUpperCase()}`;
+        return {
+          ...u,
+          full_name: u.full_name || u.profile?.full_name || "",
+          display_id: cleanDisplayId,
+          date_joined: u.date_joined || u.created_at
+        };
+      });
       setUsers(formattedList);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });

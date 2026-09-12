@@ -375,7 +375,24 @@ def all_users(request):
     from django.db.models import Count, Q
     qs = User.objects.select_related('profile', 'candidate', 'recruiter_profile').annotate(
         assigned_candidate_count=Count('recruiter_assignments', filter=Q(recruiter_assignments__is_active=True))
-    ).order_by('-created_at')
+    )
+    ordering = request.query_params.get('ordering', '-created_at')
+    ordering_map = {
+        'id': 'seq_number',
+        '-id': '-seq_number',
+        'display_id': 'seq_number',
+        '-display_id': '-seq_number',
+        'seq_number': 'seq_number',
+        '-seq_number': '-seq_number',
+        'created_at': 'created_at',
+        '-created_at': '-created_at',
+        'email': 'email',
+        '-email': '-email',
+        'role': 'role',
+        '-role': '-role',
+    }
+    db_order = ordering_map.get(ordering, '-created_at')
+    qs = qs.order_by(db_order)
     if role:
         qs = qs.filter(role=role)
     if search:

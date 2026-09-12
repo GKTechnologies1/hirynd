@@ -35,10 +35,14 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
     try {
       const { data: cands } = await candidatesApi.list();
       if (cands) {
-        setCandidates(cands);
+        const candList = (Array.isArray(cands) ? cands : (cands?.results || [])).map((c: any) => ({
+          ...c,
+          display_id: c.display_id || `HYRCDT${c.id?.toString().slice(-6).toUpperCase()}`,
+        }));
+        setCandidates(candList);
         const counts: Record<string, number> = {};
         STATUSES.forEach((s) => { counts[s] = 0; });
-        cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
+        candList.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
         setPipelineCounts(counts);
       }
     } catch (err: any) {

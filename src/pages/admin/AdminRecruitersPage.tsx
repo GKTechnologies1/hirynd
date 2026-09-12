@@ -36,12 +36,18 @@ const AdminRecruitersPage = () => {
       };
       const formattedList = list
         .filter((u: any) => u.role === "recruiter" || u.role === "team_lead" || u.role === "team_manager")
-        .map((u: any) => ({
-          ...u,
-          full_name: u.full_name || u.profile?.full_name || "",
-          display_id: u.display_id || `${ROLE_PREFIX[u.role] || 'HYRREC'}${u.id.toString().slice(-6).toUpperCase()}`,
-          date_joined: u.date_joined || u.created_at
-        }));
+        .map((u: any) => {
+          const prefix = ROLE_PREFIX[u.role] || 'HYRREC';
+          const rawId = u.display_id || '';
+          const hasPrefix = Object.values(ROLE_PREFIX).some(p => rawId.startsWith(p));
+          const cleanDisplayId = hasPrefix ? rawId : `${prefix}${u.id.toString().slice(-6).toUpperCase()}`;
+          return {
+            ...u,
+            full_name: u.full_name || u.profile?.full_name || "",
+            display_id: cleanDisplayId,
+            date_joined: u.date_joined || u.created_at
+          };
+        });
       setRecruiters(formattedList);
     } catch (err: any) {
       toast({ title: "Error fetch recruiters", description: err.message, variant: "destructive" });

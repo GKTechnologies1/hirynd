@@ -98,10 +98,14 @@ const AdminDashboard = () => {
       ]);
 
       if (cands) {
-        setCandidates(cands);
+        const candList = (Array.isArray(cands) ? cands : (cands?.results || [])).map((c: any) => ({
+          ...c,
+          display_id: c.display_id || `HYRCDT${c.id?.toString().slice(-6).toUpperCase()}`,
+        }));
+        setCandidates(candList);
         const counts: Record<string, number> = {};
         STATUSES.forEach((s) => { counts[s] = 0; });
-        cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
+        candList.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
         setPipelineCounts(counts);
       }
     } catch (err) {
@@ -125,7 +129,17 @@ const AdminDashboard = () => {
     try {
       const { data: recData } = await authApi.allUsers();
       const allUsers = Array.isArray(recData) ? recData : (recData?.results || []);
-      const recList = allUsers.filter((u: any) => ["recruiter", "team_lead", "team_manager"].includes(u.role));
+      const ROLE_PREFIX: Record<string, string> = {
+        recruiter: 'HYRREC',
+        team_lead: 'HYRTLD',
+        team_manager: 'HYRTMG',
+      };
+      const recList = allUsers
+        .filter((u: any) => ["recruiter", "team_lead", "team_manager"].includes(u.role))
+        .map((u: any) => ({
+          ...u,
+          display_id: u.display_id || `${ROLE_PREFIX[u.role] || 'HYRREC'}${u.id?.toString().slice(-6).toUpperCase()}`,
+        }));
       setRecruiters(recList);
     } catch (err) {
       console.warn("Dashboard: Failed to fetch recruiters", err);
@@ -445,7 +459,7 @@ const AdminDashboard = () => {
                     </span>
                   ),
                   sortable: true,
-                  accessorKey: "id",
+                  accessorKey: "display_id",
                   className: "text-xs pl-4"
                 },
                 { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold", sortable: true },
@@ -520,11 +534,11 @@ const AdminDashboard = () => {
                     header: "ID",
                     render: (r: any) => (
                       <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono">
-                        {r.display_id || `USR${r.id.toString().slice(-6).toUpperCase()}`}
+                        {r.display_id || `HYRREC${r.id.toString().slice(-6).toUpperCase()}`}
                       </span>
                     ),
                     sortable: true,
-                    accessorKey: "id",
+                    accessorKey: "display_id",
                     className: "text-xs pl-4"
                   },
                   {
