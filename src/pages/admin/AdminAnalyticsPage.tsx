@@ -4,7 +4,7 @@ import { analyticsApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/DataTable";
-import { Activity, Users, FileText, Download, RefreshCw, Laptop, Smartphone, Tablet, Globe, Shield } from "lucide-react";
+import { Activity, Users, FileText, Download, RefreshCw, Laptop, Smartphone, Tablet, Globe, Shield, Home, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { formatDate } from "@/lib/utils";
@@ -123,46 +123,158 @@ const AdminAnalyticsPage = () => {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Primary Real-time & Today KPIs */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Card className="border-secondary/20 bg-secondary/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Now</CardTitle>
-            <Activity className="h-4 w-4 text-emerald-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-medium">Active Now (5m)</CardTitle>
+            <Activity className="h-3.5 w-3.5 text-emerald-500" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-bold text-card-foreground">{kpis?.active_now ?? 0}</div>
-            <p className="text-xs text-muted-foreground">Active in last 5 minutes</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{kpis?.active_users_now ?? 0} logged-in users</p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Page Views</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-medium">Logged In Today</CardTitle>
+            <Shield className="h-3.5 w-3.5 text-purple-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">{kpis?.total_page_views ?? 0}</div>
-            <p className="text-xs text-muted-foreground">Total for selected period</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unique Visitors</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">{kpis?.unique_visitors ?? 0}</div>
-            <p className="text-xs text-muted-foreground">Distinct visitor sessions</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Logins Today</CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-bold text-card-foreground">{kpis?.logged_in_today ?? 0}</div>
-            <p className="text-xs text-muted-foreground">Unique authenticated users</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Authenticated users</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-medium">Active Users Today</CardTitle>
+            <UserCheck className="h-3.5 w-3.5 text-amber-500" />
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-bold text-card-foreground">{kpis?.active_users_today ?? 0}</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Candidates & Recruiters</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-medium">Homepage Today</CardTitle>
+            <Home className="h-3.5 w-3.5 text-blue-500" />
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-bold text-card-foreground">{kpis?.homepage_visitors_today ?? 0}</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{kpis?.homepage_views_today ?? 0} page views</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-medium">Total Visitors Today</CardTitle>
+            <Globe className="h-3.5 w-3.5 text-indigo-500" />
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-bold text-card-foreground">{kpis?.visitors_today ?? 0}</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{kpis?.page_views_today ?? 0} page views</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3.5">
+            <CardTitle className="text-xs font-medium">Registered Users</CardTitle>
+            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-bold text-card-foreground">{kpis?.total_registered_users ?? 0}</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Platform accounts</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Homepage vs Website Traffic Highlight Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                <Home className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Main Homepage Visitors
+              </CardTitle>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-mono">
+                Route: /
+              </span>
+            </div>
+            <CardDescription className="text-xs">Landing page visits and audience reach</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="border-r pr-2">
+                <span className="text-[11px] text-muted-foreground">Today's Visitors</span>
+                <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{kpis?.homepage_visitors_today ?? 0}</p>
+                <span className="text-[10px] text-muted-foreground">{kpis?.homepage_views_today ?? 0} views today</span>
+              </div>
+              <div className="pl-1">
+                <span className="text-[11px] text-muted-foreground">Period Visitors</span>
+                <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{kpis?.homepage_visitors_period ?? 0}</p>
+                <span className="text-[10px] text-muted-foreground">{kpis?.homepage_views_period ?? 0} views in {dateRange}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/20">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-indigo-900 dark:text-indigo-100">
+                <Globe className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Total Website Traffic
+              </CardTitle>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 font-mono">
+                All Pages
+              </span>
+            </div>
+            <CardDescription className="text-xs">Site-wide visitor engagement</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="border-r pr-2">
+                <span className="text-[11px] text-muted-foreground">Unique Visitors ({dateRange})</span>
+                <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">{kpis?.unique_visitors ?? 0}</p>
+                <span className="text-[10px] text-muted-foreground">{kpis?.total_page_views ?? 0} page views</span>
+              </div>
+              <div className="pl-1">
+                <span className="text-[11px] text-muted-foreground">All-Time Visitors</span>
+                <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">{kpis?.all_time_visitors ?? 0}</p>
+                <span className="text-[10px] text-muted-foreground">{kpis?.all_time_page_views ?? 0} all-time views</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-900 dark:text-emerald-100">
+                <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> User Activity Overview
+              </CardTitle>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 font-mono">
+                Today
+              </span>
+            </div>
+            <CardDescription className="text-xs">Logged-in and platform user metrics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="border-r pr-2">
+                <span className="text-[11px] text-muted-foreground">Active Users Today</span>
+                <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">{kpis?.active_users_today ?? 0}</p>
+                <span className="text-[10px] text-muted-foreground">Users performing actions</span>
+              </div>
+              <div className="pl-1">
+                <span className="text-[11px] text-muted-foreground">Logged In Today</span>
+                <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">{kpis?.logged_in_today ?? 0}</p>
+                <span className="text-[10px] text-muted-foreground">Unique logins today</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

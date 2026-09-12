@@ -112,20 +112,54 @@ def dashboard_stats(request):
     visitors = AnalyticsVisitor.objects.filter(last_visit__gte=start_date)
     events = AnalyticsEvent.objects.filter(timestamp__gte=start_date)
     
-    # Active now (visited in last 5 minutes)
+    # ── Active Now (last 5 minutes) ──
     active_now_threshold = now - datetime.timedelta(minutes=5)
-    active_now = AnalyticsVisitor.objects.filter(last_visit__gte=active_now_threshold).count()
+    active_now_visitors = AnalyticsVisitor.objects.filter(last_visit__gte=active_now_threshold).count()
+    active_now_users = User.objects.filter(last_activity__gte=active_now_threshold).count()
     
-    # Today stats
+    # ── Today Stats ──
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    visitors_today = AnalyticsVisitor.objects.filter(last_visit__gte=today_start).count()
+    page_views_today = AnalyticsPageView.objects.filter(timestamp__gte=today_start).count()
     unique_visitors_today = AnalyticsPageView.objects.filter(timestamp__gte=today_start).values('visitor').distinct().count()
-    logged_in_today = AnalyticsEvent.objects.filter(timestamp__gte=today_start, event_type='login_success').values('user').distinct().count()
+    
+    # Logged In Today: union of AnalyticsEvent, AuditLog, and User.last_login
+    from audit.models import AuditLog
+    logged_in_user_ids = set(
+        AnalyticsEvent.objects.filter(timestamp__gte=today_start, event_type='login_success')
+        .values_list('user_id', flat=True)
+    )
+    logged_in_user_ids.update(
+        AuditLog.objects.filter(created_at__gte=today_start, action='user_login')
+        .values_list('actor_id', flat=True)
+    )
+    logged_in_user_ids.update(
+        User.objects.filter(last_login__gte=today_start)
+        .values_list('id', flat=True)
+    )
+    logged_in_user_ids.discard(None)
+    logged_in_today = len(logged_in_user_ids)
 
-    # KPI stats
+    # Active Today: distinct users with activity today
+    active_users_today = User.objects.filter(
+        Q(last_activity__gte=today_start) | Q(analytics_page_views__timestamp__gte=today_start)
+    ).distinct().count()
+
+    # ── Homepage / Main Page Visitor Tracking ──
+    homepage_q = Q(url_path='/') | Q(url_path__startswith='/?') | Q(url_path='')
+    homepage_pvs_period = page_views.filter(homepage_q)
+    homepage_views_period = homepage_pvs_period.count()
+    homepage_visitors_period = homepage_pvs_period.values('visitor').distinct().count()
+
+    homepage_pvs_today = AnalyticsPageView.objects.filter(timestamp__gte=today_start).filter(homepage_q)
+    homepage_views_today = homepage_pvs_today.count()
+    homepage_visitors_today = homepage_pvs_today.values('visitor').distinct().count()
+
+    # ── KPI Stats for website ──
     total_page_views = page_views.count()
     unique_visitors = page_views.values('visitor').distinct().count()
     total_registered_users = User.objects.count()
+    all_time_visitors = AnalyticsVisitor.objects.count()
+    all_time_page_views = AnalyticsPageView.objects.count()
     
     # Top Pages
     top_pages = (
@@ -206,12 +240,20 @@ def dashboard_stats(request):
 
     return Response({
         'kpis': {
-            'visitors_today': visitors_today,
-            'unique_visitors_today': unique_visitors_today,
-            'total_page_views': total_page_views,
-            'unique_visitors': unique_visitors,
-            'active_now': active_now,
+            'active_now': active_now_visitors,
+            'active_users_now': active_now_users,
+            'active_users_today': active_users_today,
             'logged_in_today': logged_in_today,
+            'visitors_today': unique_visitors_today,
+            'page_views_today': page_views_today,
+            'homepage_visitors_today': homepage_visitors_today,
+            'homepage_views_today': homepage_views_today,
+            'homepage_visitors_period': homepage_visitors_period,
+            'homepage_views_period': homepage_views_period,
+            'unique_visitors': unique_visitors,
+            'total_page_views': total_page_views,
+            'all_time_visitors': all_time_visitors,
+            'all_time_page_views': all_time_page_views,
             'total_registered_users': total_registered_users,
         },
         'top_pages': list(top_pages),

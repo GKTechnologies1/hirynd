@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star, PauseCircle } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star, PauseCircle, Home, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
@@ -292,7 +292,7 @@ const AdminDashboard = () => {
                 View Full Analytics & User Tracking →
               </Button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <Card
                 className="border-secondary/20 bg-secondary/5 cursor-pointer transition-all hover:shadow-sm"
                 onClick={() => navigate("/admin-dashboard/analytics")}
@@ -305,41 +305,7 @@ const AdminDashboard = () => {
                     <p className="text-xl font-bold text-card-foreground leading-none">
                       {analytics.kpis.active_now}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Active Visitors (Last 5m)</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card
-                className="cursor-pointer transition-all hover:shadow-sm"
-                onClick={() => navigate("/admin-dashboard/analytics")}
-              >
-                <CardContent className="flex items-center gap-3 p-3.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xl font-bold text-card-foreground leading-none">
-                      {analytics.kpis.total_page_views}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Page Views (Today)</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card
-                className="cursor-pointer transition-all hover:shadow-sm"
-                onClick={() => navigate("/admin-dashboard/analytics")}
-              >
-                <CardContent className="flex items-center gap-3 p-3.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400">
-                    <Users className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xl font-bold text-card-foreground leading-none">
-                      {analytics.kpis.unique_visitors_today}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Unique Visitors (Today)</p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Active Now (5m)</p>
                   </div>
                 </CardContent>
               </Card>
@@ -354,9 +320,60 @@ const AdminDashboard = () => {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xl font-bold text-card-foreground leading-none">
-                      {analytics.kpis.logged_in_today}
+                      {analytics.kpis.logged_in_today ?? 0}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">User Logins (Today)</p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Logged In Today</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.active_users_today ?? 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Active Users Today</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+                    <Home className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.homepage_visitors_today ?? 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Homepage Visitors Today</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer transition-all hover:shadow-sm"
+                onClick={() => navigate("/admin-dashboard/analytics")}
+              >
+                <CardContent className="flex items-center gap-3 p-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400">
+                    <Globe className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-card-foreground leading-none">
+                      {analytics.kpis.visitors_today ?? analytics.kpis.unique_visitors_today ?? 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Total Visitors Today</p>
                   </div>
                 </CardContent>
               </Card>

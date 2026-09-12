@@ -19,6 +19,35 @@ def landing_page(request):
     return render(request, 'landing.html', context)
 
 
+def health_check(request):
+    """
+    DevOps health check endpoint: GET /api/health/
+    Verifies database connectivity and returns system status.
+    """
+    from django.utils import timezone
+    from django.db import connection
+
+    health_data = {
+        'status': 'healthy',
+        'timestamp': timezone.now().isoformat(),
+        'version': '1.0.0',
+        'environment': 'Staging' if settings.DEBUG else 'Production',
+        'database': 'connected',
+    }
+    status_code = 200
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except Exception as e:
+        health_data['status'] = 'unhealthy'
+        health_data['database'] = f'error: {str(e)}'
+        status_code = 503
+
+    return JsonResponse(health_data, status=status_code)
+
+
 def serve_media(request, path):
     """
     Industry standard media server for development/staging.

@@ -108,10 +108,12 @@ def login(request):
     except Exception:
         pass
 
-    # Update last_activity on successful login
+    # Update last_activity and last_login on successful login
     from django.utils import timezone
-    user.last_activity = timezone.now()
-    user.save(update_fields=['last_activity'])
+    now = timezone.now()
+    user.last_activity = now
+    user.last_login = now
+    user.save(update_fields=['last_activity', 'last_login'])
 
     refresh = RefreshToken.for_user(user)
     return Response({
