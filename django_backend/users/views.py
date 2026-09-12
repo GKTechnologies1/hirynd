@@ -94,6 +94,11 @@ def login(request):
             pass
         return Response({'error': 'Invalid password'}, status=status.HTTP_401_UNAUTHORIZED)
 
+    if not user.is_active:
+        return Response({
+            'error': f'Account is {user.account_status or "inactive"}'
+        }, status=status.HTTP_403_FORBIDDEN)
+
     if user.approval_status != 'approved' and user.role != 'admin':
         return Response({
             'error': 'Account not yet approved',

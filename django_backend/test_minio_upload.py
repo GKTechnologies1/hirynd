@@ -55,10 +55,10 @@ try:
     s3.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=test_key)
     print("Dummy file deleted successfully!")
     
-    print("\n✨ ALL TESTS PASSED! MinIO is fully configured, connected, and working perfectly on your machine! ✨")
+    print("\nALL TESTS PASSED! MinIO is fully configured, connected, and working perfectly on your machine!")
     
 except Exception as e:
-    print("\n❌ Connection or Upload Test Failed:")
+    print("\nConnection or Upload Test Failed:")
     import traceback
     traceback.print_exc()
     print("\nSuggestions:")
