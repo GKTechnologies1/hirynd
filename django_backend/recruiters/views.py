@@ -917,7 +917,7 @@ def public_job_alert_filter_options(request):
         'work_modes': work_modes,
         'experience_levels': experience_levels,
         'visa_eligibilities': visa_eligibilities,
-        'salary_ranges': ["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"],
+        'salary_ranges': ["$50,000+", "$100,000+", "$150,000+", "$200,000+"],
         'total_count': total_count,
     }
 

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SessionTimeoutHandler } from "@/components/auth/SessionTimeoutHandler";
 import ScrollToTop from "@/components/layout/ScrollToTop";
@@ -59,7 +59,8 @@ const App = () => (
             <Route path="/services/interview-training" element={<InterviewTraining />} />
             <Route path="/services/skills-training" element={<SkillsTraining />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
-            <Route path="/job-alert" element={<JobAlert />} />
+            <Route path="/job-board" element={<JobAlert />} />
+            <Route path="/job-alert" element={<Navigate to="/job-board" replace />} />
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/terms" element={<Terms />} />
