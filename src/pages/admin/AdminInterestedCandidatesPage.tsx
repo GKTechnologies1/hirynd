@@ -31,12 +31,16 @@ const AdminInterestedCandidatesPage = () => {
     setLoading(true);
     try {
       const response = await candidatesApi.interestedList();
-      const data = Array.isArray(response.data)
+      const rawList = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.results)
           ? response.data.results
           : [];
-      setCandidates(data);
+      const formattedList = rawList.map((c: any) => ({
+        ...c,
+        display_id: c.display_id || (c.seq_number ? `HYRLD${String(c.seq_number).padStart(4, '0')}` : `HYRLD${c.id?.toString().slice(-4).toUpperCase()}`),
+      }));
+      setCandidates(formattedList);
     } catch (err: any) {
       toast({ title: "Error fetching leads", description: err.response?.data?.error || err.message, variant: "destructive" });
     }
@@ -218,11 +222,11 @@ const AdminInterestedCandidatesPage = () => {
                 header: "ID", 
                 render: (c: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono">
-                    {c.display_id || `HYRLD${String(c.seq_number || 0).padStart(4, '0')}`}
+                    {c.display_id}
                   </span>
                 ),
                 sortable: true,
-                accessorKey: "id",
+                accessorKey: "display_id",
                 className: "text-xs pl-6"
               },
               { 

@@ -70,7 +70,21 @@ def candidate_list(request):
             Q(user__profile__full_name__icontains=search)
         )
 
-    qs = qs.order_by('-created_at')
+    ordering = request.query_params.get('ordering', '-created_at')
+    ordering_map = {
+        'id': 'user__seq_number',
+        '-id': '-user__seq_number',
+        'display_id': 'user__seq_number',
+        '-display_id': '-user__seq_number',
+        'seq_number': 'user__seq_number',
+        '-seq_number': '-user__seq_number',
+        'created_at': 'created_at',
+        '-created_at': '-created_at',
+        'status': 'status',
+        '-status': '-status',
+    }
+    db_order = ordering_map.get(ordering, '-created_at')
+    qs = qs.order_by(db_order)
     total = qs.count()
     page = int(request.query_params.get('page', 0))
     page_size = int(request.query_params.get('page_size', 0))
