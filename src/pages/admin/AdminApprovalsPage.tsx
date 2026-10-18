@@ -72,7 +72,12 @@ const AdminApprovalsPage = () => {
     setLoading(true);
     try {
       const { data } = await authApi.pendingApprovals();
-      setPending(data || []);
+      const rawList = Array.isArray(data) ? data : (data?.results || []);
+      const formatted = rawList.map((u: any) => ({
+        ...u,
+        display_id: u.display_id || (u.role === 'candidate' ? `HYRCDT${u.id.toString().slice(-6).toUpperCase()}` : `HYRREC${u.id.toString().slice(-6).toUpperCase()}`),
+      }));
+      setPending(formatted);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -136,9 +141,11 @@ const AdminApprovalsPage = () => {
             columns={[
               {
                 header: "ID",
+                accessorKey: "display_id",
+                sortable: true,
                 render: (u: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
-                    {u.display_id || (u.role === 'candidate' ? `HYRCDT${u.id.toString().slice(-6).toUpperCase()}` : `HYRREC${u.id.toString().slice(-6).toUpperCase()}`)}
+                    {u.display_id}
                   </span>
                 ),
                 className: "pl-6"

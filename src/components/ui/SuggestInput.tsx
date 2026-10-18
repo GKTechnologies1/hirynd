@@ -90,7 +90,7 @@ export const SuggestInput: React.FC<SuggestInputProps> = ({
   return (
     <div ref={containerRef} className="relative w-full">
       <Input
-        list={datalistId}
+        list={suggestions && suggestions.length > 0 ? datalistId : undefined}
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
@@ -109,11 +109,13 @@ export const SuggestInput: React.FC<SuggestInputProps> = ({
         {...props}
       />
 
-      <datalist id={datalistId}>
-        {suggestions.slice(0, 30).map((s) => (
-          <option key={s} value={s} />
-        ))}
-      </datalist>
+      {suggestions && suggestions.length > 0 && (
+        <datalist id={datalistId}>
+          {suggestions.slice(0, 30).map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      )}
 
       {isOpen && filtered.length > 0 && (
         <div

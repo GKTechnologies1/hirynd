@@ -1,23 +1,34 @@
 import { useState, useEffect } from "react";
-import { recruitersApi, authApi, candidatesApi } from "@/services/api";
-import { Link, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { recruitersApi, authApi } from "@/services/api";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/button";
-
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Search, Mail, Phone, MapPin, UserCheck, UserPlus, RefreshCw, BarChart3, TrendingUp, Calendar, Briefcase, Award, Loader2, Eye, Settings2, ChevronDown } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import StatusBadge from "@/components/dashboard/StatusBadge";
+import { formatDate } from "@/lib/utils";
+import { Mail, Phone, MapPin, RefreshCw, BarChart3, TrendingUp, Calendar, Briefcase, Loader2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-purple-100 text-purple-800",
+  candidate: "bg-blue-100 text-blue-800",
+  recruiter: "bg-teal-100 text-teal-800",
+  team_lead: "bg-orange-100 text-orange-800",
+  team_manager: "bg-pink-100 text-pink-800",
+};
 
 const AdminRecruitersPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [recruiters, setRecruiters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   
   // Performance Modal State
   const [selectedRecruiter, setSelectedRecruiter] = useState<any>(null);
@@ -36,15 +47,21 @@ const AdminRecruitersPage = () => {
       };
       const formattedList = list
         .filter((u: any) => u.role === "recruiter" || u.role === "team_lead" || u.role === "team_manager")
-        .map((u: any) => ({
-          ...u,
-          full_name: u.full_name || u.profile?.full_name || "",
-          display_id: u.display_id || `${ROLE_PREFIX[u.role] || 'HYRREC'}${u.id.toString().slice(-6).toUpperCase()}`,
-          date_joined: u.date_joined || u.created_at
-        }));
+        .map((u: any) => {
+          const prefix = ROLE_PREFIX[u.role] || 'HYRREC';
+          const rawId = u.display_id || '';
+          const hasPrefix = Object.values(ROLE_PREFIX).some(p => rawId.startsWith(p));
+          const cleanDisplayId = hasPrefix ? rawId : `${prefix}${u.id.toString().slice(-6).toUpperCase()}`;
+          return {
+            ...u,
+            full_name: u.full_name || u.profile?.full_name || "",
+            display_id: cleanDisplayId,
+            date_joined: u.date_joined || u.created_at
+          };
+        });
       setRecruiters(formattedList);
     } catch (err: any) {
-      toast({ title: "Error fetch recruiters", description: err.message, variant: "destructive" });
+      toast({ title: "Error fetching recruiters", description: err.message, variant: "destructive" });
     }
     setLoading(false);
   };
@@ -56,7 +73,6 @@ const AdminRecruitersPage = () => {
     setLoadingStats(true);
     setStats(null);
     try {
-      // Use the new user_id param to fetch this specific recruiter's stats
       const { data } = await recruitersApi.stats({ user_id: recruiter.id } as any);
       setStats(data);
     } catch (err) {
@@ -66,90 +82,151 @@ const AdminRecruitersPage = () => {
     }
   };
 
-  const filtered = recruiters.filter(r => 
-    (r.full_name || r.profile?.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (r.email || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = recruiters.filter(r => {
+    const matchesRole = roleFilter === "all" 
+      ? true 
+      : roleFilter === "team_lead"
+        ? (r.role === "team_lead" || r.role === "team_manager")
+        : r.role === roleFilter;
+
+    const accStatus = r.account_status || (r.is_active !== false ? "active" : "inactive");
+    const matchesStatus = statusFilter === "all"
+      ? true
+      : statusFilter === "pending"
+        ? (r.approval_status === "pending")
+        : accStatus === statusFilter;
+
+    return matchesRole && matchesStatus;
+  });
+
+  const totalCount = recruiters.length;
+  const activeCount = recruiters.filter(r => (r.account_status || (r.is_active !== false ? "active" : "inactive")) === "active").length;
+  const teamLeadCount = recruiters.filter(r => r.role === "team_lead" || r.role === "team_manager").length;
+  const pendingCount = recruiters.filter(r => (r.approval_status || "pending") === "pending").length;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Recruiter Management</h2>
-          <p className="text-sm text-muted-foreground font-medium">Monitor and analyze your recruitment team's productivity and success.</p>
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Recruiters</h2>
+          <p className="text-sm text-muted-foreground mt-1">Manage and monitor recruiters across the platform</p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchRecruiters} disabled={loading} className="rounded-xl border-border/50 h-10 px-4">
+        <Button variant="outline" size="sm" onClick={fetchRecruiters} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
         </Button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
-          <Input 
-            className="pl-9 h-11 bg-card/50 border-border/40 rounded-xl" 
-            placeholder="Search recruiters by name or email..." 
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <Badge variant="secondary" className="h-11 px-6 rounded-xl bg-primary/5 text-primary border-primary/10 font-semibold">
-          {filtered.length} Active Team Members
-        </Badge>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Total Recruiters", value: totalCount, filterKey: "all", filterType: "all", color: "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300", active: roleFilter === "all" && statusFilter === "all" },
+          { label: "Active", value: activeCount, filterKey: "active", filterType: "status", color: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300", active: statusFilter === "active" },
+          { label: "Team Leads", value: teamLeadCount, filterKey: "team_lead", filterType: "role", color: "bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300", active: roleFilter === "team_lead" },
+          { label: "Pending Approval", value: pendingCount, filterKey: "pending", filterType: "status", color: "bg-yellow-50 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300", active: statusFilter === "pending" },
+        ].map(c => {
+          const isActive = c.active;
+          return (
+            <Card
+              key={c.label}
+              className={`${c.color} border-0 cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+                isActive ? "ring-2 ring-teal-500 dark:ring-teal-400 shadow-md" : "opacity-75 hover:opacity-100"
+              }`}
+              onClick={() => {
+                if (c.filterType === "all") {
+                  setRoleFilter("all");
+                  setStatusFilter("all");
+                } else if (c.filterType === "role") {
+                  setRoleFilter(prev => prev === c.filterKey ? "all" : c.filterKey);
+                } else if (c.filterType === "status") {
+                  setStatusFilter(prev => prev === c.filterKey ? "all" : c.filterKey);
+                }
+              }}
+            >
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold">{c.value}</p>
+                <p className="text-sm font-medium">{c.label}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      <Card className="border-none shadow-sm bg-card/60 backdrop-blur-md overflow-hidden ring-1 ring-border/40">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-44 h-9 text-xs">
+            <SelectValue placeholder="Filter by role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            <SelectItem value="recruiter">Recruiter</SelectItem>
+            <SelectItem value="team_lead">Team Lead / Manager</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-44 h-9 text-xs">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="pending">Pending Approval</SelectItem>
+            <SelectItem value="resigned">Resigned</SelectItem>
+            <SelectItem value="terminated">Terminated</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {(roleFilter !== "all" || statusFilter !== "all") && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => { setRoleFilter("all"); setStatusFilter("all"); }} 
+            className="h-9 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Clear Filters
+          </Button>
+        )}
+        <span className="text-sm text-muted-foreground font-medium ml-auto">{filtered.length} recruiter(s) found</span>
+      </div>
+
+      {/* Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">Recruiter Records</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <DataTable
             data={filtered}
             isLoading={loading}
-            searchPlaceholder="Filter results..."
+            searchPlaceholder="Search recruiters by name..."
             searchKey="full_name"
-            emptyMessage="No results found."
+            emptyMessage="No recruiters found."
             columns={[
               { 
                 header: "ID", 
-                className: "pl-6 py-4",
-                sortable: true,
-                accessorKey: "display_id",
                 render: (r: any) => (
                   <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
                     {r.display_id}
                   </span>
-                )
+                ),
+                sortable: true,
+                accessorKey: "display_id",
+                className: "text-xs pl-4"
               },
               { 
-                header: "Recruiter Info", 
+                header: "Recruiter", 
                 sortable: true,
                 accessorKey: "full_name",
-                className: "py-4 font-bold text-xs uppercase tracking-widest",
-                render: (r: any) => {
-                  const name = r.full_name || "Unset Name";
-                  const email = r.email;
-                  return (
-                    <div className="flex items-center gap-3 py-1 pl-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold shadow-sm ring-1 ring-primary/20">
-                        {name?.[0] || email?.[0]?.toUpperCase()}
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{name}</p>
-                        <p className="text-[11px] text-muted-foreground font-medium opacity-80">{email}</p>
-                      </div>
-                    </div>
-                  );
-                }
-              },
-              {
-                header: "Assigned To",
-                className: "font-bold text-xs uppercase tracking-widest text-center",
-                sortable: true,
-                accessorKey: "assigned_candidate_count",
+                className: "text-xs font-medium",
                 render: (r: any) => (
-                  <div className="flex flex-col items-center justify-center gap-1">
-                    <Badge variant="outline" className="h-7 px-3 rounded-xl bg-secondary/5 text-secondary border-secondary/20 font-black text-xs">
-                      {r.assigned_candidate_count || 0}
-                    </Badge>
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Candidates</span>
+                  <div>
+                    <p className="font-bold text-sm text-foreground">{r.full_name || "(name not set)"}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Mail className="h-3 w-3" />{r.email}
+                    </p>
                   </div>
                 )
               },
@@ -157,204 +234,176 @@ const AdminRecruitersPage = () => {
                 header: "Role", 
                 sortable: true,
                 accessorKey: "role",
-                className: "font-bold text-xs uppercase tracking-widest text-center",
+                className: "text-xs",
                 render: (r: any) => (
-                  <div className="flex justify-center">
-                    <Badge variant="outline" className="capitalize bg-secondary/5 border-secondary/20 text-secondary text-[10px] font-bold tracking-wider px-3 h-6 rounded-full">
-                      {r.role?.replace("_", " ")}
-                    </Badge>
+                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[r.role] || "bg-teal-100 text-teal-800"}`}>
+                    {r.role?.replace(/_/g, " ")}
+                  </span>
+                )
+              },
+              {
+                header: "Assigned Candidates",
+                sortable: true,
+                accessorKey: "assigned_candidate_count",
+                className: "text-xs text-center",
+                render: (r: any) => (
+                  <Badge variant="secondary" className="text-xs font-semibold">
+                    {r.assigned_candidate_count || 0}
+                  </Badge>
+                )
+              },
+              { 
+                header: "Education", 
+                className: "text-xs min-w-[150px]",
+                render: (r: any) => (
+                  <div className="flex flex-col gap-0.5">
+                    <p className="font-bold text-[11px] truncate max-w-[150px]">{r.university || r.profile?.university || "—"}</p>
+                    <p className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                      {r.degree || r.profile?.degree || "—"}{(r.major || r.profile?.major) ? ` / ${r.major || r.profile?.major}` : ""}
+                    </p>
                   </div>
                 )
               },
               { 
-                header: "Professional Background", 
-                className: "font-bold text-xs uppercase tracking-widest",
-                render: (r: any) => {
-                  const university = r.university || r.profile?.university;
-                  const degree = r.degree || r.profile?.degree;
-                  const major = r.major || r.profile?.major;
-                  const linkedin = r.linkedin_url || r.profile?.linkedin_url;
-                  const social = r.social_profile_url || r.profile?.social_profile_url;
-                  
-                  return (
-                    <div className="space-y-1.5 py-1">
-                      {university && (
-                        <p className="text-[11px] flex items-center gap-2 text-foreground font-bold">
-                          <Award className="h-3 w-3 text-secondary" /> {university}
-                        </p>
-                      )}
-                      {(degree || major) && (
-                        <p className="text-[10px] text-muted-foreground font-medium pl-5">{degree || "—"}{major ? ` / ${major}` : ""}</p>
-                      )}
-                      <div className="flex gap-3 mt-1 pl-5">
-                        {linkedin && (
-                          <a href={linkedin} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
-                             LinkedIn
-                          </a>
-                        )}
-                        {social && (
-                          <a href={social} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
-                             Social
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-              },
-              { 
-                header: "Contact Details", 
-                className: "font-bold text-xs uppercase tracking-widest",
+                header: "Contact", 
+                className: "text-xs",
                 render: (r: any) => {
                   const phone = r.phone || r.profile?.phone;
-                  const city = r.city || r.profile?.city;
-                  const state = r.state || r.profile?.state;
-                  const country = r.country || r.profile?.country;
-                  
+                  const location = [r.city || r.profile?.city, r.state || r.profile?.state, r.country || r.profile?.country].filter(Boolean).join(", ");
                   return (
-                    <div className="space-y-1">
-                      <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
-                        <Phone className="h-3 w-3 opacity-60" /> {phone || "No phone listed"}
-                      </p>
-                      {city && (
-                        <p className="text-[11px] flex items-center gap-2 text-muted-foreground font-medium">
-                          <MapPin className="h-3 w-3 opacity-60" /> {city}, {state ? `${state}, ` : ""}{country}
-                        </p>
-                      )}
+                    <div className="text-xs space-y-0.5">
+                      {phone ? <p className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{phone}</p> : null}
+                      {location ? <p className="text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{location}</p> : null}
+                      {!phone && !location && <span className="text-muted-foreground">—</span>}
                     </div>
                   );
                 }
               },
               { 
-                header: "Status", 
+                header: "Approval Status", 
                 sortable: true,
                 accessorKey: "approval_status",
-                className: "font-bold text-xs uppercase tracking-widest text-center",
+                className: "text-xs",
                 render: (r: any) => (
-                  <div className="flex justify-center">
-                    <Badge variant={r.approval_status === "approved" ? "secondary" : "outline"} className={`h-6 text-[9px] font-bold uppercase tracking-widest rounded-lg px-2 flex items-center gap-1.5 ${r.approval_status === "approved" ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"}`}>
-                      <div className={`h-1.5 w-1.5 rounded-full ${r.approval_status === "approved" ? "bg-green-500" : "bg-amber-500"}`} />
-                      {r.approval_status}
-                    </Badge>
+                  <StatusBadge status={r.approval_status || "pending"} />
+                )
+              },
+              { 
+                header: "Account Status", 
+                sortable: true,
+                accessorKey: "account_status",
+                className: "text-xs",
+                render: (r: any) => {
+                  const accStatus = r.account_status || (r.is_active !== false ? "active" : "inactive");
+                  return <StatusBadge status={accStatus} />;
+                }
+              },
+              { 
+                header: "Joined", 
+                sortable: true,
+                accessorKey: "date_joined",
+                className: "text-xs",
+                render: (r: any) => (
+                  <div className="text-[10px]">
+                    <p className="font-bold">{formatDate(r.date_joined || r.created_at)}</p>
+                    <p className="opacity-50">{r.date_joined ? new Date(r.date_joined).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : r.created_at ? new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</p>
                   </div>
                 )
               },
               { 
                 header: "Actions", 
-                className: "text-right font-bold text-xs uppercase tracking-widest pr-6",
+                className: "text-xs text-right pr-4",
                 render: (r: any) => (
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-1.5">
                     <Button 
-                      variant="ghost" 
+                      variant="outline" 
                       size="sm" 
-                      className="h-9 w-9 p-0 rounded-xl hover:bg-primary/10 text-primary border border-transparent hover:border-primary/20"
+                      className="h-7 text-xs px-2"
                       onClick={() => navigate(`/admin-dashboard/recruiters/${r.id}`)}
-                      title="View Full Profile"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="mr-1 h-3 w-3" /> View Details
                     </Button>
                     <Button 
-                      variant="ghost" 
+                      variant="outline" 
                       size="sm" 
-                      className="h-9 px-4 text-xs font-bold gap-2 rounded-xl border border-transparent hover:bg-secondary/5 hover:text-secondary hover:border-secondary/10 transition-all font-black tracking-tighter"
+                      className="h-7 text-xs px-2"
                       onClick={() => handleViewPerformance(r)}
                     >
-                      <BarChart3 className="h-3.5 w-3.5" />
-                      Analytics
+                      <BarChart3 className="mr-1 h-3 w-3" /> Analytics
                     </Button>
                   </div>
                 )
               }
             ]}
           />
-          {filtered.length > 5 && (
-            <div className="py-2 flex justify-center border-t border-border/10 bg-muted/5 group">
-              <ChevronDown className="h-4 w-4 text-muted-foreground/30 animate-bounce group-hover:text-secondary group-hover:opacity-100 transition-all" />
-            </div>
-          )}
         </CardContent>
       </Card>
 
-
       {/* Performance Stats Modal */}
       <Dialog open={!!selectedRecruiter} onOpenChange={() => setSelectedRecruiter(null)}>
-        <DialogContent className="max-w-2xl bg-card/95 backdrop-blur-xl border-border/50 p-0 overflow-hidden rounded-[2rem]">
-          <div className="h-1.5 bg-gradient-to-r from-primary via-secondary to-primary" />
-          <DialogHeader className="p-8 pb-4">
-            <div className="flex items-center flex-wrap gap-4 mb-2">
-              <div className="h-16 w-16 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary text-2xl font-black shadow-inner ring-1 ring-primary/20">
-                {selectedRecruiter?.full_name?.[0] || "?"}
-              </div>
-              <div className="flex flex-col">
-                <DialogTitle className="text-2xl font-black tracking-tighter text-foreground">{selectedRecruiter?.full_name}'s Performance</DialogTitle>
-                <DialogDescription className="font-medium text-muted-foreground">Detailed metrics and submission output analytics.</DialogDescription>
-              </div>
-            </div>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">{selectedRecruiter?.full_name}'s Performance</DialogTitle>
+            <DialogDescription>Detailed metrics and submission output analytics.</DialogDescription>
           </DialogHeader>
 
-          <div className="p-8 pt-0 space-y-6">
+          <div className="space-y-6 pt-2">
             {loadingStats ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary opacity-60" />
-                <p className="text-sm font-bold text-muted-foreground animate-pulse">Calculating metrics...</p>
+                <p className="text-sm font-medium text-muted-foreground">Calculating metrics...</p>
               </div>
             ) : stats ? (
               <>
                 <div className="grid grid-cols-2 gap-4">
                   {/* Today Card */}
-                  <Card className="border-none bg-primary/5 ring-1 ring-primary/10 overflow-hidden relative group">
-                    <TrendingUp className="absolute -right-4 -bottom-4 h-24 w-24 text-primary/5 group-hover:scale-110 transition-transform" />
-                    <CardContent className="p-6">
+                  <Card className="border shadow-sm">
+                    <CardContent className="p-5">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-primary/20 text-primary">
+                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                           <Calendar className="h-4 w-4" />
                         </div>
-                        <span className="text-[11px] font-black uppercase tracking-widest text-primary/70">Today's Output</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today's Output</span>
                       </div>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-foreground">{stats.apps_today}</span>
-                        <span className="text-xs font-bold text-muted-foreground">applications</span>
+                        <span className="text-3xl font-bold text-foreground">{stats.apps_today}</span>
+                        <span className="text-xs text-muted-foreground">applications</span>
                       </div>
                     </CardContent>
                   </Card>
 
                   {/* Week Card */}
-                  <Card className="border-none bg-secondary/5 ring-1 ring-secondary/10 overflow-hidden relative group">
-                    <TrendingUp className="absolute -right-4 -bottom-4 h-24 w-24 text-secondary/5 group-hover:scale-110 transition-transform" />
-                    <CardContent className="p-6">
+                  <Card className="border shadow-sm">
+                    <CardContent className="p-5">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-secondary/20 text-secondary">
+                        <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary">
                           <TrendingUp className="h-4 w-4" />
                         </div>
-                        <span className="text-[11px] font-black uppercase tracking-widest text-secondary/70">Weekly Total</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Weekly Total</span>
                       </div>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-foreground">{stats.apps_week}</span>
-                        <span className="text-xs font-bold text-muted-foreground">submissions</span>
+                        <span className="text-3xl font-bold text-foreground">{stats.apps_week}</span>
+                        <span className="text-xs text-muted-foreground">submissions</span>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-5 rounded-3xl bg-muted/40 border border-border/30 flex items-center justify-between group hover:bg-muted/60 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 shadow-sm ring-1 ring-amber-500/20 group-hover:rotate-12 transition-transform">
-                        <Briefcase className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-tight">Interviews</p>
-                        <p className="text-xl font-black text-foreground">Scheduled This Week</p>
-                      </div>
+                <div className="p-4 rounded-xl bg-muted/40 border flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
+                      <Briefcase className="h-5 w-5" />
                     </div>
-                    <span className="text-3xl font-black text-amber-600 opacity-60 group-hover:opacity-100 transition-opacity pr-2">{stats.interviews_week}</span>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Interviews</p>
+                      <p className="text-base font-bold text-foreground">Scheduled This Week</p>
+                    </div>
                   </div>
-
-
+                  <span className="text-2xl font-bold text-amber-600 pr-2">{stats.interviews_week}</span>
                 </div>
 
-                <div className="bg-primary/5 rounded-2xl p-4 flex gap-3 text-xs text-primary font-medium border border-primary/10">
-                  <BarChart3 className="h-4 w-4 shrink-0" />
+                <div className="bg-primary/5 rounded-xl p-3.5 flex gap-2.5 text-xs text-primary font-medium border border-primary/10">
+                  <BarChart3 className="h-4 w-4 shrink-0 mt-0.5" />
                   <p>Performance is calculated based on daily submission logs and job link status updates from the last 7 days.</p>
                 </div>
               </>
@@ -362,8 +411,8 @@ const AdminRecruitersPage = () => {
               <div className="py-20 text-center text-muted-foreground font-medium">Unable to load metrics.</div>
             )}
             
-            <div className="flex justify-end gap-3 pt-4 border-t border-border/20">
-              <Button onClick={() => setSelectedRecruiter(null)} className="rounded-2xl px-8 h-12 font-black tracking-tighter shadow-lg shadow-primary/20">Close Analysis</Button>
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button variant="outline" onClick={() => setSelectedRecruiter(null)}>Close</Button>
             </div>
           </div>
         </DialogContent>

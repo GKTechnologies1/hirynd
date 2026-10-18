@@ -35,10 +35,14 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
     try {
       const { data: cands } = await candidatesApi.list();
       if (cands) {
-        setCandidates(cands);
+        const candList = (Array.isArray(cands) ? cands : (cands?.results || [])).map((c: any) => ({
+          ...c,
+          display_id: c.display_id || `HYRCDT${c.id?.toString().slice(-6).toUpperCase()}`,
+        }));
+        setCandidates(candList);
         const counts: Record<string, number> = {};
         STATUSES.forEach((s) => { counts[s] = 0; });
-        cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
+        candList.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
         setPipelineCounts(counts);
       }
     } catch (err: any) {
@@ -156,11 +160,22 @@ const AdminCandidatesPage = ({ statusFilter }: AdminCandidatesPageProps = {}) =>
                 )
               },
               { 
-                header: "Status", 
-                render: (c: any) => <StatusBadge status={c.status} />,
+                header: "Approval Status", 
+                render: (c: any) => (
+                  <StatusBadge status={c.approval_status || (c.status === "pending_approval" ? "pending" : (c.status === "rejected" ? "rejected" : "approved"))} />
+                ),
                 className: "text-xs",
                 sortable: true,
-                accessorKey: "status"
+                accessorKey: "approval_status"
+              },
+              { 
+                header: "Account Status", 
+                render: (c: any) => (
+                  <StatusBadge status={c.account_status || (c.is_active !== false ? "active" : "inactive")} />
+                ),
+                className: "text-xs",
+                sortable: true,
+                accessorKey: "account_status"
               },
               {
                 header: "Submission Date",

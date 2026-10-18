@@ -80,7 +80,9 @@ class Candidate(models.Model):
     @property
     def display_id(self):
         """Delegates to the user's branded display ID (e.g. HYRCDT000001)"""
-        return self.user.display_id
+        if hasattr(self, 'user') and self.user:
+            return self.user.display_id
+        return f"HYRCDT{str(self.id)[:6].upper()}"
 
 
 class WorkExperience(models.Model):
@@ -179,7 +181,7 @@ class InterestedCandidate(models.Model):
     def display_id(self):
         """Branded display ID: HYRLD0001"""
         if self.seq_number is None:
-            return str(self.id)[:8].upper()
+            return f"HYRLD{str(self.id)[:4].upper()}"
         return f"HYRLD{self.seq_number:04d}"
 
     def save(self, *args, **kwargs):

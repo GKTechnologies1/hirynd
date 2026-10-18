@@ -28,6 +28,9 @@ const statusConfig: Record<string, { label: string; className: string; dot?: str
 
   // Generic statuses
   active: { label: "Active", className: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  inactive: { label: "Inactive", className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300", dot: "bg-slate-400" },
+  resigned: { label: "Resigned", className: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", dot: "bg-amber-500" },
+  terminated: { label: "Terminated", className: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400", dot: "bg-red-500" },
   pending: { label: "Pending", className: "bg-yellow-50 text-yellow-700", dot: "bg-yellow-500" },
   completed: { label: "Completed", className: "bg-secondary text-secondary-foreground", dot: "bg-white" },
   applied: { label: "Applied", className: "bg-blue-50 text-blue-700", dot: "bg-blue-500" },

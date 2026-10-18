@@ -35,15 +35,18 @@ export interface ServerPaginationConfig {
   onPageSizeChange?: (pageSize: number) => void;
 }
 
+export interface DataTableColumn<T> {
+  header: string;
+  accessorKey?: keyof T;
+  render?: (row: T, col?: any, globalIndex?: number) => React.ReactNode;
+  className?: string;
+  sortable?: boolean;
+  sortValue?: (row: T) => any;
+}
+
 interface DataTableProps<T> {
   data: T[];
-  columns: {
-    header: string;
-    accessorKey?: keyof T;
-    render?: (row: T, col?: any, globalIndex?: number) => React.ReactNode;
-    className?: string;
-    sortable?: boolean;
-  }[];
+  columns: DataTableColumn<T>[];
   searchPlaceholder?: string;
   searchKey?: keyof T;
   pageSize?: number;
@@ -79,6 +82,61 @@ export function DataTable<T>({
     setSortConfig({ key: direction ? key : null, direction });
   };
 
+  const sortItems = React.useCallback((items: T[]) => {
+    if (!sortConfig.key || !sortConfig.direction) return items;
+    const activeCol = columns.find((c) => c.accessorKey === sortConfig.key);
+    const getVal = (item: T) => {
+      if (activeCol?.sortValue) return activeCol.sortValue(item);
+      return item[sortConfig.key!];
+    };
+
+    return [...items].sort((a, b) => {
+      const aVal = getVal(a);
+      const bVal = getVal(b);
+
+      if (aVal === bVal) return 0;
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
+
+      let comparison = 0;
+
+      const isIdCol =
+        String(sortConfig.key).toLowerCase().includes('id') ||
+        Boolean(activeCol?.header?.toLowerCase().includes('id'));
+
+      // If sorting on an ID column or string values, extract the last numerical digit sequence
+      const getNumberFromVal = (val: any): number | null => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+          const matches = val.match(/\d+/g);
+          if (matches && matches.length > 0) {
+            return parseInt(matches[matches.length - 1], 10);
+          }
+        }
+        return null;
+      };
+
+      const numA = getNumberFromVal(aVal);
+      const numB = getNumberFromVal(bVal);
+
+      if (isIdCol && numA !== null && numB !== null) {
+        if (numA !== numB) {
+          comparison = numA < numB ? -1 : 1;
+        } else {
+          comparison = String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' });
+        }
+      } else if (typeof aVal === 'string' && typeof bVal === 'string') {
+        comparison = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' });
+      } else if (typeof aVal === 'number' && typeof bVal === 'number') {
+        comparison = aVal < bVal ? -1 : 1;
+      } else {
+        comparison = aVal < bVal ? -1 : 1;
+      }
+
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
+    });
+  }, [sortConfig, columns]);
+
   const filteredAndSortedData = React.useMemo(() => {
     let result = [...data];
 
@@ -94,22 +152,8 @@ export function DataTable<T>({
     }
 
     // Sort
-    if (sortConfig.key && sortConfig.direction) {
-      result.sort((a, b) => {
-        const aVal = a[sortConfig.key!];
-        const bVal = b[sortConfig.key!];
-
-        if (aVal === bVal) return 0;
-        if (aVal === null || aVal === undefined) return 1;
-        if (bVal === null || bVal === undefined) return -1;
-
-        const comparison = aVal < bVal ? -1 : 1;
-        return sortConfig.direction === 'asc' ? comparison : -comparison;
-      });
-    }
-
-    return result;
-  }, [data, searchTerm, searchKey, sortConfig]);
+    return sortItems(result);
+  }, [data, searchTerm, searchKey, sortItems]);
 
   const isServer = Boolean(serverPagination);
   const activePage = isServer ? serverPagination!.page : currentPage;
@@ -117,8 +161,14 @@ export function DataTable<T>({
   const activeTotal = isServer ? serverPagination!.totalCount : filteredAndSortedData.length;
 
   const totalPages = Math.max(1, Math.ceil(activeTotal / activePageSize));
+
+  const serverPageData = React.useMemo(() => {
+    if (!isServer) return [];
+    return sortItems(data);
+  }, [data, isServer, sortItems]);
+
   const paginatedData = isServer
-    ? data
+    ? serverPageData
     : filteredAndSortedData.slice(
         (currentPage - 1) * currentPageSize,
         currentPage * currentPageSize

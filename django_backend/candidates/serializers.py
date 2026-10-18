@@ -61,6 +61,8 @@ class CandidateSerializer(serializers.ModelSerializer):
     has_completed_payment = serializers.SerializerMethodField()
     has_submitted_credentials = serializers.SerializerMethodField()
     roles_status = serializers.SerializerMethodField()
+    approval_status = serializers.SerializerMethodField()
+    account_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
@@ -142,6 +144,16 @@ class CandidateSerializer(serializers.ModelSerializer):
         from .models import InterviewLog
         return InterviewLog.objects.filter(candidate=obj).count()
 
+    def get_approval_status(self, obj):
+        if hasattr(obj, 'user') and obj.user:
+            return getattr(obj.user, 'approval_status', 'pending')
+        return 'pending' if obj.status == 'pending_approval' else 'approved'
+
+    def get_account_status(self, obj):
+        if hasattr(obj, 'user') and obj.user:
+            return getattr(obj.user, 'account_status', 'active') or ('active' if obj.user.is_active else 'inactive')
+        return 'active'
+
     def to_representation(self, instance):
         try:
             sub = instance.subscription
@@ -158,15 +170,27 @@ class CandidateListSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
     total_applications = serializers.SerializerMethodField()
     total_interviews = serializers.SerializerMethodField()
+    approval_status = serializers.SerializerMethodField()
+    account_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
         fields = [
-            'id', 'display_id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
+            'id', 'display_id', 'status', 'approval_status', 'account_status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
             'university', 'degree', 'major', 'graduation_year', 'graduation_date', 'referral_source',
             'referral_friend_name', 'current_location', 'preferred_locations', 'notes',
             'total_applications', 'total_interviews'
         ]
+
+    def get_approval_status(self, obj):
+        if hasattr(obj, 'user') and obj.user:
+            return getattr(obj.user, 'approval_status', 'pending')
+        return 'pending' if obj.status == 'pending_approval' else 'approved'
+
+    def get_account_status(self, obj):
+        if hasattr(obj, 'user') and obj.user:
+            return getattr(obj.user, 'account_status', 'active') or ('active' if obj.user.is_active else 'inactive')
+        return 'active'
 
     def get_full_name(self, obj):
         return obj.user.profile.full_name if hasattr(obj.user, 'profile') else ''

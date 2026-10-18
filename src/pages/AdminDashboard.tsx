@@ -98,10 +98,14 @@ const AdminDashboard = () => {
       ]);
 
       if (cands) {
-        setCandidates(cands);
+        const candList = (Array.isArray(cands) ? cands : (cands?.results || [])).map((c: any) => ({
+          ...c,
+          display_id: c.display_id || `HYRCDT${c.id?.toString().slice(-6).toUpperCase()}`,
+        }));
+        setCandidates(candList);
         const counts: Record<string, number> = {};
         STATUSES.forEach((s) => { counts[s] = 0; });
-        cands.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
+        candList.forEach((c: any) => { counts[c.status] = (counts[c.status] || 0) + 1; });
         setPipelineCounts(counts);
       }
     } catch (err) {
@@ -125,7 +129,17 @@ const AdminDashboard = () => {
     try {
       const { data: recData } = await authApi.allUsers();
       const allUsers = Array.isArray(recData) ? recData : (recData?.results || []);
-      const recList = allUsers.filter((u: any) => ["recruiter", "team_lead", "team_manager"].includes(u.role));
+      const ROLE_PREFIX: Record<string, string> = {
+        recruiter: 'HYRREC',
+        team_lead: 'HYRTLD',
+        team_manager: 'HYRTMG',
+      };
+      const recList = allUsers
+        .filter((u: any) => ["recruiter", "team_lead", "team_manager"].includes(u.role))
+        .map((u: any) => ({
+          ...u,
+          display_id: u.display_id || `${ROLE_PREFIX[u.role] || 'HYRREC'}${u.id?.toString().slice(-6).toUpperCase()}`,
+        }));
       setRecruiters(recList);
     } catch (err) {
       console.warn("Dashboard: Failed to fetch recruiters", err);
@@ -445,17 +459,24 @@ const AdminDashboard = () => {
                     </span>
                   ),
                   sortable: true,
-                  accessorKey: "id",
+                  accessorKey: "display_id",
                   className: "text-xs pl-4"
                 },
                 { header: "Name", accessorKey: "full_name", className: "text-xs font-semibold", sortable: true },
                 { header: "Email", accessorKey: "email", className: "text-xs font-semibold", sortable: true },
                 {
-                  header: "Status",
-                  render: (c: any) => <StatusBadge status={c.status} />,
+                  header: "Approval Status",
+                  render: (c: any) => <StatusBadge status={c.approval_status || (c.status === "pending_approval" ? "pending" : (c.status === "rejected" ? "rejected" : "approved"))} />,
                   className: "text-xs font-semibold",
                   sortable: true,
-                  accessorKey: "status"
+                  accessorKey: "approval_status"
+                },
+                {
+                  header: "Account Status",
+                  render: (c: any) => <StatusBadge status={c.account_status || (c.is_active !== false ? "active" : "inactive")} />,
+                  className: "text-xs font-semibold",
+                  sortable: true,
+                  accessorKey: "account_status"
                 },
                 {
                   header: "Joined",
@@ -513,11 +534,11 @@ const AdminDashboard = () => {
                     header: "ID",
                     render: (r: any) => (
                       <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-mono">
-                        {r.display_id || `USR${r.id.toString().slice(-6).toUpperCase()}`}
+                        {r.display_id || `HYRREC${r.id.toString().slice(-6).toUpperCase()}`}
                       </span>
                     ),
                     sortable: true,
-                    accessorKey: "id",
+                    accessorKey: "display_id",
                     className: "text-xs pl-4"
                   },
                   {
@@ -561,13 +582,24 @@ const AdminDashboard = () => {
                     )
                   },
                   {
-                    header: "Status",
+                    header: "Approval Status",
                     sortable: true,
                     accessorKey: "approval_status",
                     className: "text-xs text-center",
                     render: (r: any) => (
                       <div className="flex justify-center">
-                        <StatusBadge status={r.approval_status} />
+                        <StatusBadge status={r.approval_status || "pending"} />
+                      </div>
+                    )
+                  },
+                  {
+                    header: "Account Status",
+                    sortable: true,
+                    accessorKey: "account_status",
+                    className: "text-xs text-center",
+                    render: (r: any) => (
+                      <div className="flex justify-center">
+                        <StatusBadge status={r.account_status || (r.is_active !== false ? "active" : "inactive")} />
                       </div>
                     )
                   },

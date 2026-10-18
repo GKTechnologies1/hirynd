@@ -15,8 +15,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload, Search, Ban, XCircle, MoreHorizontal } from "lucide-react";
+import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload, Search, Ban, XCircle, MoreHorizontal, Download, SlidersHorizontal } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { format, subDays } from "date-fns";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
@@ -32,7 +34,7 @@ import {
   formatSalaryAmount,
   handleSalaryKeyDown,
 } from "@/data/usLocations";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -239,6 +241,109 @@ const formatSalaryDisplay = (rawSalary: any): string => {
     return cleaned;
   }
   return `$${cleaned}`;
+};
+
+const TIME_OPTIONS = [
+  "12:00 AM", "12:30 AM", "01:00 AM", "01:30 AM", "02:00 AM", "02:30 AM",
+  "03:00 AM", "03:30 AM", "04:00 AM", "04:30 AM", "05:00 AM", "05:30 AM",
+  "06:00 AM", "06:30 AM", "07:00 AM", "07:30 AM", "08:00 AM", "08:30 AM",
+  "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+  "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
+  "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM",
+  "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM",
+  "09:00 PM", "09:30 PM", "10:00 PM", "10:30 PM", "11:00 PM", "11:30 PM",
+];
+
+const parseTimeString = (timeStr: string): { hours: number; minutes: number } => {
+  const match = (timeStr || "").trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) return { hours: 0, minutes: 0 };
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const meridiem = match[3]?.toUpperCase();
+
+  if (meridiem === "PM" && hours < 12) {
+    hours += 12;
+  } else if (meridiem === "AM" && hours === 12) {
+    hours = 0;
+  }
+  return { hours, minutes };
+};
+
+const parseDateParts = (dateStr: string): { year: number; month: number; day: number } | null => {
+  if (!dateStr) return null;
+  const parts = dateStr.trim().split(/[-\/]/).map(p => parseInt(p, 10));
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+
+  if (parts[0] > 1000) {
+    // yyyy-MM-dd
+    return { year: parts[0], month: parts[1], day: parts[2] };
+  } else {
+    // MM-dd-yyyy or MM/dd/yyyy
+    return { year: parts[2], month: parts[0], day: parts[1] };
+  }
+};
+
+const isAppInDateTimeRange = (
+  app: any,
+  fromDateStr: string,
+  toDateStr: string,
+  fromTimeStr: string,
+  toTimeStr: string
+): boolean => {
+  const rawDateStr = app.created_at || app.log_date;
+  if (!rawDateStr) return false;
+
+  const appDate = new Date(rawDateStr);
+  if (isNaN(appDate.getTime())) return false;
+
+  const hasTime = typeof rawDateStr === "string" && (rawDateStr.includes("T") || rawDateStr.includes(":") || rawDateStr.includes(" "));
+
+  const { hours: fH, minutes: fM } = parseTimeString(fromTimeStr || "07:00 PM");
+  const { hours: tH, minutes: tM } = parseTimeString(toTimeStr || "03:00 AM");
+  const fromMinutes = fH * 60 + fM;
+  const toMinutes = tH * 60 + tM;
+
+  const isOvernight = fromMinutes > toMinutes;
+
+  const appHour = appDate.getHours();
+  const appMinute = appDate.getMinutes();
+  const appTotalMinutes = appHour * 60 + appMinute;
+
+  // Time window verification (when time is present in record)
+  if (hasTime) {
+    let matchesTime = false;
+    if (isOvernight) {
+      matchesTime = appTotalMinutes >= fromMinutes || appTotalMinutes <= toMinutes;
+    } else {
+      matchesTime = appTotalMinutes >= fromMinutes && appTotalMinutes <= toMinutes;
+    }
+    if (!matchesTime) return false;
+  }
+
+  // Effective shift date calculation
+  // In overnight shift, early morning logs (<= toMinutes) belong to the previous day's shift
+  let shiftDate = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+  if (isOvernight && hasTime && appTotalMinutes <= toMinutes) {
+    shiftDate.setDate(shiftDate.getDate() - 1);
+  }
+
+  if (fromDateStr) {
+    const f = parseDateParts(fromDateStr);
+    if (f) {
+      const fromD = new Date(f.year, f.month - 1, f.day);
+      if (shiftDate < fromD) return false;
+    }
+  }
+
+  if (toDateStr) {
+    const t = parseDateParts(toDateStr);
+    if (t) {
+      const toD = new Date(t.year, t.month - 1, t.day);
+      if (shiftDate > toD) return false;
+    }
+  }
+
+  return true;
 };
 
 const JobDescriptionCell = ({
@@ -463,6 +568,100 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     status: "applied",
   });
 
+  // Download Applications State
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [downloadFromDate, setDownloadFromDate] = useState(() => format(new Date(), "MM-dd-yyyy"));
+  const [downloadToDate, setDownloadToDate] = useState(() => format(new Date(), "MM-dd-yyyy"));
+  const [downloadFromTime, setDownloadFromTime] = useState("07:00 PM");
+  const [downloadToTime, setDownloadToTime] = useState("03:00 AM");
+  const [downloadStatusFilter, setDownloadStatusFilter] = useState("all");
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  // Job Application "Always Show" Defaults State (Default is blank)
+  const [optionsPopoverOpen, setOptionsPopoverOpen] = useState(false);
+  const [alwaysShowDefaults, setAlwaysShowDefaults] = useState<{
+    company_name: string;
+    role_title: string;
+    job_description: string;
+    job_url: string;
+    resume_used: string;
+    status: string;
+    employment_type: string;
+    experience_required: string;
+    work_mode: string;
+    city: string;
+    state: string;
+    country: string;
+    salary: string;
+    visa_eligibility: string;
+  }>(() => {
+    const blank = {
+      company_name: "",
+      role_title: "",
+      job_description: "",
+      job_url: "",
+      resume_used: "",
+      status: "",
+      employment_type: "",
+      experience_required: "",
+      work_mode: "",
+      city: "",
+      state: "",
+      country: "",
+      salary: "",
+      visa_eligibility: "",
+    };
+    try {
+      const saved = localStorage.getItem("recruiter_always_show_defaults");
+      if (saved) {
+        return { ...blank, ...JSON.parse(saved) };
+      }
+    } catch { }
+    return blank;
+  });
+
+  const updateAlwaysShowDefault = (field: string, value: string) => {
+    setAlwaysShowDefaults(prev => {
+      const updated = { ...prev, [field]: value };
+      if (field === "work_mode" && value === "Remote") {
+        updated.city = "";
+        updated.state = "";
+      }
+      localStorage.setItem("recruiter_always_show_defaults", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleClearAlwaysShowDefaults = () => {
+    const blank = {
+      company_name: "",
+      role_title: "",
+      job_description: "",
+      job_url: "",
+      resume_used: "",
+      status: "",
+      employment_type: "",
+      experience_required: "",
+      work_mode: "",
+      city: "",
+      state: "",
+      country: "",
+      salary: "",
+      visa_eligibility: "",
+    };
+    setAlwaysShowDefaults(blank);
+    localStorage.setItem("recruiter_always_show_defaults", JSON.stringify(blank));
+    toast({ title: "Always Show fields reset to blank" });
+  };
+
+  const hasActiveDefaults = useMemo(() => {
+    return Object.values(alwaysShowDefaults).some(val => typeof val === "string" && val.trim() !== "");
+  }, [alwaysShowDefaults]);
+
+  const activeDefaultsCount = useMemo(() => {
+    return Object.values(alwaysShowDefaults).filter(val => typeof val === "string" && val.trim() !== "").length;
+  }, [alwaysShowDefaults]);
+
   const fetchAll = async (showLoading = true, isPolling = false) => {
     if (!user) return;
     if (showLoading) setLoading(true);
@@ -565,6 +764,49 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     }
     return list;
   }, [credentials]);
+
+  const primaryResumeUrl = useMemo(() => {
+    if (resumes && resumes.length > 0 && resumes[0].url) {
+      return resumes[0].url;
+    }
+    if (credentials?.[0]?.data?.primary_resume) {
+      return credentials[0].data.primary_resume;
+    }
+    if (candidate?.profile?.resume_url) {
+      return candidate.profile.resume_url;
+    }
+    if (candidate?.resume_url) {
+      return candidate.resume_url;
+    }
+    return "";
+  }, [resumes, credentials, candidate]);
+
+  const candLocation = useMemo(() => {
+    const loc = (
+      credForm?.location ||
+      candidate?.current_location ||
+      candidate?.location ||
+      candidate?.profile?.location ||
+      candidate?.preferred_locations ||
+      ""
+    ).trim();
+
+    if (!loc) return null;
+
+    const parts = loc.split(",").map((s: string) => s.trim());
+    if (parts.length >= 2) {
+      return {
+        city: parts[0],
+        state: parts[1],
+        raw: loc,
+      };
+    }
+    return {
+      city: loc,
+      state: "",
+      raw: loc,
+    };
+  }, [credForm?.location, candidate]);
 
   useEffect(() => {
     setCandidate(null);
@@ -827,22 +1069,406 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     }
   };
 
+  const applicationsToDownload = useMemo(() => {
+    return jobPostings.filter(j => {
+      // Status filter
+      if (downloadStatusFilter !== "all") {
+        const currentStatus = (j.candidate_response_status || j.status || j.application_status || "").toLowerCase().replace(/ /g, "_");
+        if (currentStatus !== downloadStatusFilter.toLowerCase().replace(/ /g, "_")) {
+          return false;
+        }
+      }
+
+      // Date and Time filter
+      return isAppInDateTimeRange(
+        j,
+        downloadFromDate,
+        downloadToDate,
+        downloadFromTime,
+        downloadToTime
+      );
+    });
+  }, [jobPostings, downloadFromDate, downloadToDate, downloadFromTime, downloadToTime, downloadStatusFilter]);
+
+  const handleDownloadPdf = async () => {
+    if (applicationsToDownload.length === 0) {
+      toast({
+        title: "No applications found",
+        description: "There are no applications matching the selected date and time range.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      // 1. Ensure jsPDF is loaded via CDN if not already on window
+      if (!(window as any).jspdf?.jsPDF) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Failed to load PDF library"));
+          document.head.appendChild(script);
+        });
+      }
+
+      const { jsPDF } = (window as any).jspdf;
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4", // 595 x 842 pt
+      });
+
+      const candidateName = candidate?.full_name || candidate?.profile?.full_name || "Candidate";
+      const displayId = candidate?.display_id || (candidateId ? `HYRCDT${candidateId.slice(-6).toUpperCase()}` : "");
+      const visaStatus = candidate?.profile?.visa_status || candidate?.visa_status || "N/A";
+      const email = candidate?.email || candidate?.profile?.email || "—";
+      const phone = candidate?.profile?.phone || candidate?.phone || "—";
+
+      let y = 40;
+
+      // Top Banner Header
+      doc.setFillColor(30, 58, 138); // Deep Navy
+      doc.rect(40, y, 515, 34, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(255, 255, 255);
+      doc.text("HYRIND — CANDIDATE APPLICATIONS REPORT", 52, y + 21);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(219, 234, 254);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 545, y + 21, { align: "right" });
+      y += 44;
+
+      // Candidate Information & Parameters Box
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(40, y, 515, 68, 4, 4, "FD");
+
+      // Row 1: Candidate Name (Col 1) & Candidate ID (Col 2)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Candidate: ${candidateName}`, 52, y + 16);
+      doc.text(`Candidate ID: ${displayId}`, 320, y + 16);
+
+      // Row 2: Visa Status (Col 1) & Total Applications (Col 2)
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Visa Status: ${visaStatus}`, 52, y + 31);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Total Applications: ${applicationsToDownload.length}`, 320, y + 31);
+
+      // Row 3: Date Range (Col 1) & Shift Hours (Col 2)
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      const dateRangeLabel = downloadFromDate ? `${downloadFromDate} to ${downloadToDate}` : "All Recorded Dates";
+      doc.text(`Date Range: ${dateRangeLabel}`, 52, y + 46);
+      doc.text(`Shift Hours: ${downloadFromTime} – ${downloadToTime}`, 320, y + 46);
+
+      // Row 4: Contact details
+      doc.text(`Contact: ${email}  •  ${phone}`, 52, y + 60);
+      y += 80;
+
+      // Sequential Applications (Strict Non-Tabular Format):
+      // 1) {{ job title }} - {{ company Name }}
+      //
+      // Job Description:-
+      // {{ job Description Matter }}
+      applicationsToDownload.forEach((j, idx) => {
+        const desc = (j.job_description || "").trim() || "No job description provided.";
+
+        // Page break check for item start
+        if (y > 700) {
+          doc.addPage();
+          y = 45;
+        }
+
+        // Title format requested: 1) {{ job title }} - {{ company Name }}
+        const titleText = `${idx + 1}) ${j.role_title || "Untitled Role"} - ${j.company_name || "Unknown Company"}`;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+
+        const splitTitle = doc.splitTextToSize(titleText, 515);
+        for (const titleLine of splitTitle) {
+          if (y > 780) {
+            doc.addPage();
+            y = 45;
+          }
+          doc.text(titleLine, 40, y);
+          y += 15;
+        }
+
+        y += 8;
+
+        // Job Description:-
+        if (y > 760) {
+          doc.addPage();
+          y = 45;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.5);
+        doc.setTextColor(30, 58, 138); // Navy
+        doc.text("Job Description:-", 40, y);
+        y += 14;
+
+        // Job Description Matter (Multi-line text wrapping)
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(51, 65, 85);
+        const descLines = doc.splitTextToSize(desc, 515);
+        for (const line of descLines) {
+          if (y > 785) {
+            doc.addPage();
+            y = 45;
+          }
+          doc.text(line, 40, y);
+          y += 12;
+        }
+
+        y += 14;
+
+        // Divider Line between applications
+        if (idx < applicationsToDownload.length - 1) {
+          if (y > 785) {
+            doc.addPage();
+            y = 45;
+          }
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.6);
+          doc.line(40, y, 555, y);
+          y += 20;
+        }
+      });
+
+      // Page numbers at bottom of each page
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `Page ${i} of ${totalPages} — Confidential • Hyrind Candidate Applications Report`,
+          297,
+          822,
+          { align: "center" }
+        );
+      }
+
+      const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const dateRangeStr = downloadFromDate ? `${downloadFromDate}_to_${downloadToDate}` : "all_dates";
+      const timeRangeStr = `${downloadFromTime.replace(/[:\s]/g, "")}_to_${downloadToTime.replace(/[:\s]/g, "")}`;
+      const fileName = `${safeName}_Applications_${dateRangeStr}_${timeRangeStr}.pdf`;
+
+      doc.save(fileName);
+
+      toast({
+        title: "PDF Downloaded",
+        description: `Successfully exported ${applicationsToDownload.length} candidate applications in non-tabular document format.`,
+      });
+      setDownloadDialogOpen(false);
+    } catch (err: any) {
+      console.error("PDF generation failed, opening printable fallback:", err);
+      openPrintablePdfFallback();
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const openPrintablePdfFallback = () => {
+    const candidateName = candidate?.full_name || candidate?.profile?.full_name || "Candidate";
+    const displayId = candidate?.display_id || (candidateId ? `HYRCDT${candidateId.slice(-6).toUpperCase()}` : "");
+    const dateRangeLabel = downloadFromDate ? `${downloadFromDate} to ${downloadToDate}` : "All Dates";
+
+    const itemsHtml = applicationsToDownload.map((j, idx) => {
+      const desc = (j.job_description || "").trim() || "No job description provided.";
+
+      return `
+        <div class="job-item">
+          <div class="job-title">${idx + 1}) ${j.role_title || "Role Title"} - ${j.company_name || "Company Name"}</div>
+          <div class="job-desc-heading">Job Description:-</div>
+          <div class="job-desc-matter">${desc}</div>
+        </div>
+      `;
+    }).join("");
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${candidateName}_Candidate_Applications_Report</title>
+          <style>
+            @page { size: portrait; margin: 12mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #1e293b; margin: 0; padding: 20px; line-height: 1.5; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 16px; }
+            .title { font-size: 18px; font-weight: bold; color: #1e3a8a; }
+            .meta { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px; }
+            .meta-item { display: flex; flex-direction: column; }
+            .meta-label { font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+            .meta-val { font-weight: 600; color: #0f172a; }
+            .job-item { background: #ffffff; border-bottom: 1px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px; page-break-inside: avoid; }
+            .job-title { font-size: 14px; font-weight: bold; color: #0f172a; margin-bottom: 10px; }
+            .job-desc-heading { font-size: 12px; font-weight: bold; color: #1e3a8a; margin-top: 10px; margin-bottom: 6px; }
+            .job-desc-matter { font-size: 11px; color: #334155; white-space: pre-wrap; line-height: 1.6; }
+            .footer { margin-top: 24px; text-align: center; color: #94a3b8; font-size: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">Hyrind — Candidate Applications Report</div>
+              <div style="color:#64748b; font-size:11px;">Official Candidate Submission Pipeline Record</div>
+            </div>
+            <div style="text-align:right; font-size:10px; color:#64748b;">
+              Generated: ${new Date().toLocaleString()}
+            </div>
+          </div>
+
+          <div class="meta">
+            <div class="meta-item"><span class="meta-label">Candidate</span><span class="meta-val">${candidateName}</span></div>
+            <div class="meta-item"><span class="meta-label">Candidate ID</span><span class="meta-val">${displayId}</span></div>
+            <div class="meta-item"><span class="meta-label">Date Range</span><span class="meta-val">${dateRangeLabel}</span></div>
+            <div class="meta-item"><span class="meta-label">Shift Hours</span><span class="meta-val">${downloadFromTime} – ${downloadToTime}</span></div>
+            <div class="meta-item"><span class="meta-label">Total Applications</span><span class="meta-val">${applicationsToDownload.length}</span></div>
+          </div>
+
+          ${itemsHtml}
+
+          <div class="footer">
+            Hyrind Candidate Applications • Confidential Document • ${applicationsToDownload.length} application(s)
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    const printWin = window.open("", "_blank");
+    if (printWin) {
+      printWin.document.write(printHtml);
+      printWin.document.close();
+      toast({
+        title: "Print to PDF Opened",
+        description: "Your document is ready in the print window. Select 'Save as PDF' to download.",
+      });
+      setDownloadDialogOpen(false);
+    }
+  };
+
+  const handleDownloadCsv = () => {
+    if (applicationsToDownload.length === 0) {
+      toast({
+        title: "No applications found",
+        description: "There are no applications matching the selected date and time range.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const candidateName = candidate?.full_name || candidate?.profile?.full_name || "Candidate";
+    const displayId = candidate?.display_id || (candidateId ? `HYRCDT${candidateId.slice(-6).toUpperCase()}` : "");
+
+    const headers = [
+      "Application ID",
+      "Candidate ID",
+      "Candidate Name",
+      "Company Name",
+      "Role Title",
+      "Employment Type",
+      "Work Mode",
+      "Experience Required",
+      "City",
+      "State",
+      "Country",
+      "Salary",
+      "Visa Eligibility",
+      "Application Status",
+      "Job URL",
+      "Resume Used",
+      "Logged Date & Time",
+      "Job Description",
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = applicationsToDownload.map(j => {
+      const appId = `HYRSUB${j.id ? j.id.toString().slice(-6).toUpperCase() : ""}`;
+      const status = j.candidate_response_status || j.application_status || j.status || "Applied";
+      const loggedAt = formatDateTime(j.created_at || j.log_date);
+
+      return [
+        escapeCsv(appId),
+        escapeCsv(displayId),
+        escapeCsv(candidateName),
+        escapeCsv(j.company_name || ""),
+        escapeCsv(j.role_title || ""),
+        escapeCsv(j.employment_type || ""),
+        escapeCsv(j.work_mode || ""),
+        escapeCsv(j.experience_required || ""),
+        escapeCsv(j.city || ""),
+        escapeCsv(j.state || ""),
+        escapeCsv(j.country || ""),
+        escapeCsv(formatSalaryDisplay(j.salary)),
+        escapeCsv(j.visa_eligibility || ""),
+        escapeCsv(status),
+        escapeCsv(j.job_url || ""),
+        escapeCsv(j.resume_used || ""),
+        escapeCsv(loggedAt),
+        escapeCsv(j.job_description || ""),
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const dateRangeStr = downloadFromDate ? `${downloadFromDate}_to_${downloadToDate}` : "all_dates";
+    const timeRangeStr = `${downloadFromTime.replace(/[:\s]/g, "")}_to_${downloadToTime.replace(/[:\s]/g, "")}`;
+    a.download = `${safeName}_Applications_${dateRangeStr}_${timeRangeStr}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Download Started",
+      description: `Successfully exported ${applicationsToDownload.length} candidate applications in CSV format.`,
+    });
+    setDownloadDialogOpen(false);
+  };
+
   const addJobLink = () => {
     setJobLinks([...jobLinks, {
-      company_name: "",
-      role_title: "",
-      job_url: "",
-      job_description: "",
-      resume_used: "",
-      status: "Applied",
-      employment_type: "",
-      experience_required: "",
-      work_mode: "",
-      city: "",
-      state: "",
-      country: "United States",
-      salary: "",
-      visa_eligibility: "",
+      company_name: alwaysShowDefaults.company_name || "",
+      role_title: alwaysShowDefaults.role_title || "",
+      job_url: alwaysShowDefaults.job_url || "",
+      job_description: alwaysShowDefaults.job_description || "",
+      resume_used: alwaysShowDefaults.resume_used || "",
+      status: alwaysShowDefaults.status || "Applied",
+      employment_type: alwaysShowDefaults.employment_type || "",
+      experience_required: alwaysShowDefaults.experience_required || "",
+      work_mode: alwaysShowDefaults.work_mode || "",
+      city: alwaysShowDefaults.work_mode === "Remote" ? "" : (alwaysShowDefaults.city || ""),
+      state: alwaysShowDefaults.work_mode === "Remote" ? "" : (alwaysShowDefaults.state || ""),
+      country: alwaysShowDefaults.country || "United States",
+      salary: alwaysShowDefaults.salary || "",
+      visa_eligibility: alwaysShowDefaults.visa_eligibility || "",
     }]);
   };
 
@@ -852,21 +1478,23 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     setJobLinks(updated);
 
     // Clear inline error on change
-    if (jobLinkErrors[idx]?.[field]) {
-      setJobLinkErrors(prev => {
-        const copy = { ...prev };
-        if (copy[idx]) {
-          const fieldErrors = { ...copy[idx] };
-          delete fieldErrors[field];
-          if (Object.keys(fieldErrors).length === 0) {
-            delete copy[idx];
-          } else {
-            copy[idx] = fieldErrors;
-          }
+    setJobLinkErrors(prev => {
+      const copy = { ...prev };
+      if (copy[idx]) {
+        const fieldErrors = { ...copy[idx] };
+        delete fieldErrors[field];
+        if (field === "work_mode" && value === "Remote") {
+          delete fieldErrors.city;
+          delete fieldErrors.state;
         }
-        return copy;
-      });
-    }
+        if (Object.keys(fieldErrors).length === 0) {
+          delete copy[idx];
+        } else {
+          copy[idx] = fieldErrors;
+        }
+      }
+      return copy;
+    });
   };
 
   const removeJobLink = (idx: number) => {
@@ -923,13 +1551,15 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         errs.work_mode = "Work Mode is required";
         hasError = true;
       }
-      if (!j.city?.trim()) {
-        errs.city = "City is required";
-        hasError = true;
-      }
-      if (!j.state?.trim()) {
-        errs.state = "State is required";
-        hasError = true;
+      if (j.work_mode !== "Remote") {
+        if (!j.city?.trim()) {
+          errs.city = "City is required";
+          hasError = true;
+        }
+        if (!j.state?.trim()) {
+          errs.state = "State is required";
+          hasError = true;
+        }
       }
       if (!j.country?.trim()) {
         errs.country = "Country is required";
@@ -1039,9 +1669,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
             employment_type: j.employment_type || undefined,
             experience_required: j.experience_required || undefined,
             work_mode: j.work_mode || undefined,
-            city: j.city || undefined,
-            state: j.state || undefined,
-            country: j.country || undefined,
+            city: j.work_mode === "Remote" ? undefined : (j.city?.trim() || undefined),
+            state: j.work_mode === "Remote" ? undefined : (j.state?.trim() || undefined),
+            country: j.country?.trim() || undefined,
             salary: j.salary?.trim() ? j.salary.trim() : "Not Disclosed",
             visa_eligibility: j.visa_eligibility || undefined,
           };
@@ -2194,9 +2824,317 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2 mb-2">
                   <h4 className="text-sm font-bold flex items-center gap-2">Jobs & URLs <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">{jobLinks.length}</span></h4>
-                  <Button variant="ghost" size="sm" onClick={addJobLink} className="h-8 text-[11px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 rounded-lg border border-secondary/20">
-                    <Plus className="mr-1 h-3 w-3" /> Add Job Application Link
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="ghost" size="sm" onClick={addJobLink} className="h-8 text-[11px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 rounded-lg border border-secondary/20">
+                      <Plus className="mr-1 h-3 w-3" /> Add Job Application Link
+                    </Button>
+                    <Popover open={optionsPopoverOpen} onOpenChange={setOptionsPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className={cn(
+                            "h-8 w-8 rounded-lg border-secondary/20 text-muted-foreground hover:text-foreground transition-colors relative",
+                            optionsPopoverOpen && "bg-secondary/10 text-secondary border-secondary/40",
+                            hasActiveDefaults && "border-secondary text-secondary font-bold"
+                          )}
+                          title="Always Show Defaults"
+                          aria-label="Always Show Defaults"
+                        >
+                          <SlidersHorizontal className="h-3.5 w-3.5" />
+                          {hasActiveDefaults && (
+                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-secondary ring-2 ring-background" />
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="end"
+                        sideOffset={6}
+                        className="w-[460px] max-w-[95vw] max-h-[85vh] overflow-y-auto p-4 space-y-3.5 bg-card/95 backdrop-blur-md shadow-2xl border-border/80 custom-scrollbar"
+                        onInteractOutside={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target?.closest?.('[role="listbox"]') || target?.closest?.('[data-radix-popper-content-wrapper]')) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        {/* Header */}
+                        <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h5 className="text-xs font-bold text-foreground">Always Show Fields</h5>
+                              {hasActiveDefaults && (
+                                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-mono font-medium">
+                                  {activeDefaultsCount} set
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Values entered here will automatically be pre-filled every time you click "+ Add Job Application Link". Default is blank.
+                            </p>
+                          </div>
+                          {hasActiveDefaults && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleClearAlwaysShowDefaults}
+                              className="h-7 text-[10px] text-destructive hover:bg-destructive/10 px-2 shrink-0 font-medium"
+                            >
+                              Reset to Blank
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* All Application Link Fields (Default Blank) */}
+                        <div className="space-y-3 pt-1">
+                          {/* Company Name & Role Title */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-[10px] font-bold text-muted-foreground">Default Company Name</Label>
+                              <Input
+                                placeholder="Leave blank or enter..."
+                                className="h-8 text-xs bg-background/50"
+                                value={alwaysShowDefaults.company_name}
+                                onChange={e => updateAlwaysShowDefault("company_name", e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] font-bold text-muted-foreground">Default Role Title</Label>
+                              <Input
+                                placeholder="Leave blank or enter..."
+                                className="h-8 text-xs bg-background/50"
+                                value={alwaysShowDefaults.role_title}
+                                onChange={e => updateAlwaysShowDefault("role_title", e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Job Description */}
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-muted-foreground">Default Job Description</Label>
+                            <Textarea
+                              placeholder="Leave blank or enter default description matter..."
+                              className="text-xs bg-background/50 min-h-[60px] max-h-24 resize-y"
+                              value={alwaysShowDefaults.job_description}
+                              onChange={e => updateAlwaysShowDefault("job_description", e.target.value)}
+                            />
+                          </div>
+
+                          {/* Job Application Link */}
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-muted-foreground">Default Job Application Link</Label>
+                            <Input
+                              placeholder="https://... (leave blank or enter)"
+                              className="h-8 text-xs bg-background/50"
+                              value={alwaysShowDefaults.job_url}
+                              onChange={e => updateAlwaysShowDefault("job_url", e.target.value)}
+                            />
+                          </div>
+
+                          {/* Resume Link & Status */}
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="col-span-2 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[10px] font-bold text-muted-foreground">Default Resume Drive Link</Label>
+                                {resumes.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateAlwaysShowDefault("resume_used", resumes[0].url)}
+                                    className="text-[9px] text-secondary hover:underline"
+                                  >
+                                    Use Primary
+                                  </button>
+                                )}
+                              </div>
+                              <Input
+                                placeholder="Google drive link of resume..."
+                                className="h-8 text-[10px] font-bold bg-background/50"
+                                value={alwaysShowDefaults.resume_used}
+                                onChange={e => updateAlwaysShowDefault("resume_used", e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] font-bold text-muted-foreground">Default Status</Label>
+                              <Select
+                                value={alwaysShowDefaults.status || "__BLANK__"}
+                                onValueChange={v => updateAlwaysShowDefault("status", v === "__BLANK__" ? "" : v)}
+                              >
+                                <SelectTrigger className="h-8 text-[10px] font-bold bg-background/50">
+                                  <SelectValue placeholder="Blank" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__BLANK__" className="text-xs text-muted-foreground">-- None (Blank) --</SelectItem>
+                                  {JOB_STATUSES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {/* Job Details: Employment Type, Experience Required, Work Mode */}
+                          <div className="pt-2 border-t border-border/30 space-y-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Job Details
+                            </p>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="space-y-1">
+                                <Select
+                                  value={alwaysShowDefaults.employment_type || "__BLANK__"}
+                                  onValueChange={v => updateAlwaysShowDefault("employment_type", v === "__BLANK__" ? "" : v)}
+                                >
+                                  <SelectTrigger className="h-8 text-[10px] bg-background/50">
+                                    <SelectValue placeholder="Employment Type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__BLANK__" className="text-xs text-muted-foreground">-- None (Blank) --</SelectItem>
+                                    <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
+                                    <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
+                                    <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
+                                    <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
+                                    <SelectItem value="W2" className="text-xs">W2</SelectItem>
+                                    <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Select
+                                  value={alwaysShowDefaults.experience_required || "__BLANK__"}
+                                  onValueChange={v => updateAlwaysShowDefault("experience_required", v === "__BLANK__" ? "" : v)}
+                                >
+                                  <SelectTrigger className="h-8 text-[10px] bg-background/50">
+                                    <SelectValue placeholder="Experience Required" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__BLANK__" className="text-xs text-muted-foreground">-- None (Blank) --</SelectItem>
+                                    <SelectItem value="0–2 Years" className="text-xs">0–2 Years</SelectItem>
+                                    <SelectItem value="2–5 Years" className="text-xs">2–5 Years</SelectItem>
+                                    <SelectItem value="5+ Years" className="text-xs">5+ Years</SelectItem>
+                                    <SelectItem value="Senior Level" className="text-xs">Senior Level</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Select
+                                  value={alwaysShowDefaults.work_mode || "__BLANK__"}
+                                  onValueChange={v => updateAlwaysShowDefault("work_mode", v === "__BLANK__" ? "" : v)}
+                                >
+                                  <SelectTrigger className="h-8 text-[10px] bg-background/50">
+                                    <SelectValue placeholder="Work Mode" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__BLANK__" className="text-xs text-muted-foreground">-- None (Blank) --</SelectItem>
+                                    <SelectItem value="Remote" className="text-xs">Remote</SelectItem>
+                                    <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
+                                    <SelectItem value="Onsite" className="text-xs">Onsite</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            {/* Location: City, State, Country (City and State hidden if Work Mode is Remote) */}
+                            <div className={cn("grid gap-2", alwaysShowDefaults.work_mode === "Remote" ? "grid-cols-1" : "grid-cols-3")}>
+                              {alwaysShowDefaults.work_mode !== "Remote" && (
+                                <>
+                                  <div className="space-y-1">
+                                    <SuggestInput
+                                      placeholder="Default City"
+                                      className="h-8 text-[10px] bg-background/50"
+                                      value={alwaysShowDefaults.city || ""}
+                                      onChange={v => {
+                                        updateAlwaysShowDefault("city", v);
+                                        const matched = findStateForCity(v);
+                                        if (matched && !alwaysShowDefaults.state) {
+                                          updateAlwaysShowDefault("state", matched.code);
+                                        }
+                                        if (!alwaysShowDefaults.country) {
+                                          updateAlwaysShowDefault("country", "United States");
+                                        }
+                                      }}
+                                      suggestions={getCitiesForState(alwaysShowDefaults.state)}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <SuggestInput
+                                      placeholder="Default State"
+                                      className="h-8 text-[10px] bg-background/50"
+                                      value={alwaysShowDefaults.state || ""}
+                                      onChange={v => {
+                                        updateAlwaysShowDefault("state", v);
+                                        if (!alwaysShowDefaults.country) {
+                                          updateAlwaysShowDefault("country", "United States");
+                                        }
+                                      }}
+                                      suggestions={US_STATE_OPTIONS}
+                                    />
+                                  </div>
+                                </>
+                              )}
+                              <div className="space-y-1">
+                                <SuggestInput
+                                  placeholder="Default Country"
+                                  className="h-8 text-[10px] bg-background/50"
+                                  value={alwaysShowDefaults.country || ""}
+                                  onChange={v => updateAlwaysShowDefault("country", v)}
+                                  suggestions={RECOMMENDED_COUNTRIES}
+                                  recommendedBadge="United States"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Salary & Visa Eligibility */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Input
+                                  placeholder="Default Salary (e.g. $100,000)"
+                                  inputMode="decimal"
+                                  className="h-8 text-[10px] bg-background/50"
+                                  value={alwaysShowDefaults.salary || ""}
+                                  onKeyDown={handleSalaryKeyDown}
+                                  onChange={e => updateAlwaysShowDefault("salary", formatSalaryAmount(e.target.value))}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Select
+                                  value={alwaysShowDefaults.visa_eligibility || "__BLANK__"}
+                                  onValueChange={v => updateAlwaysShowDefault("visa_eligibility", v === "__BLANK__" ? "" : v)}
+                                >
+                                  <SelectTrigger className="h-8 text-[10px] bg-background/50">
+                                    <SelectValue placeholder="Visa Eligibility" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__BLANK__" className="text-xs text-muted-foreground">-- None (Blank) --</SelectItem>
+                                    <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
+                                    <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
+                                    <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
+                                    <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
+                                    <SelectItem value="USC" className="text-xs">USC</SelectItem>
+                                    <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
+                                    <SelectItem value="All Work Authorization" className="text-xs">All Work Authorization</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[10px]">
+                          <span className="text-muted-foreground italic">
+                            ✓ Auto-saved
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => setOptionsPopoverOpen(false)}
+                            className="h-7 text-xs px-3"
+                          >
+                            Done
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
                 {jobLinks.length === 0 && (
@@ -2270,26 +3208,28 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </p>
                         )}
                       </div>
-                      <div className="flex items-start gap-3">
-                        <div className="space-y-1 flex-1">
-                          <Input
-                            placeholder="Add google drive link of resume *"
-                            className={cn("h-9 text-[10px] font-bold bg-background/50", jobLinkErrors[idx]?.resume_used && "border-destructive focus-visible:ring-destructive")}
-                            value={job.resume_used}
-                            onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
-                          />
-                          {jobLinkErrors[idx]?.resume_used && (
-                            <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
-                              {jobLinkErrors[idx].resume_used}
-                            </p>
-                          )}
+                      <div className="space-y-1">
+                        <div className="flex items-start gap-3">
+                          <div className="space-y-1 flex-1">
+                            <Input
+                              placeholder="Add google drive link of resume *"
+                              className={cn("h-9 text-[10px] font-bold bg-background/50", jobLinkErrors[idx]?.resume_used && "border-destructive focus-visible:ring-destructive")}
+                              value={job.resume_used}
+                              onChange={e => updateJobLink(idx, "resume_used", e.target.value)}
+                            />
+                            {jobLinkErrors[idx]?.resume_used && (
+                              <p className="text-[10px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-top-1">
+                                {jobLinkErrors[idx].resume_used}
+                              </p>
+                            )}
+                          </div>
+                          <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
+                            <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {JOB_STATUSES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <Select value={job.status} onValueChange={v => updateJobLink(idx, "status", v)}>
-                          <SelectTrigger className="w-36 h-9 text-[10px] font-bold bg-background/50"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {JOB_STATUSES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
                       </div>
 
                       {/* Job Details (Mandatory) */}
@@ -2348,56 +3288,60 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                             )}
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <SuggestInput
-                              placeholder="City *"
-                              className="h-8 text-[10px] bg-background/50"
-                              value={job.city || ""}
-                              onChange={v => {
-                                updateJobLink(idx, "city", v);
-                                const matched = findStateForCity(v);
-                                if (matched && !job.state) {
-                                  updateJobLink(idx, "state", matched.code);
-                                }
-                                if (!job.country) {
-                                  updateJobLink(idx, "country", "United States");
-                                }
-                              }}
-                              onSelectOption={v => {
-                                const matched = findStateForCity(v);
-                                if (matched && !job.state) {
-                                  updateJobLink(idx, "state", matched.code);
-                                }
-                                if (!job.country) {
-                                  updateJobLink(idx, "country", "United States");
-                                }
-                              }}
-                              suggestions={getCitiesForState(job.state)}
-                              hasError={!!jobLinkErrors[idx]?.city}
-                            />
-                            {jobLinkErrors[idx]?.city && (
-                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].city}</p>
-                            )}
-                          </div>
-                          <div className="space-y-1">
-                            <SuggestInput
-                              placeholder="State *"
-                              className="h-8 text-[10px] bg-background/50"
-                              value={job.state || ""}
-                              onChange={v => {
-                                updateJobLink(idx, "state", v);
-                                if (!job.country) {
-                                  updateJobLink(idx, "country", "United States");
-                                }
-                              }}
-                              suggestions={US_STATE_OPTIONS}
-                              hasError={!!jobLinkErrors[idx]?.state}
-                            />
-                            {jobLinkErrors[idx]?.state && (
-                              <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].state}</p>
-                            )}
-                          </div>
+                        <div className={cn("grid gap-2", job.work_mode === "Remote" ? "grid-cols-1" : "grid-cols-3")}>
+                          {job.work_mode !== "Remote" && (
+                            <>
+                              <div className="space-y-1">
+                                <SuggestInput
+                                  placeholder="City *"
+                                  className="h-8 text-[10px] bg-background/50"
+                                  value={job.city || ""}
+                                  onChange={v => {
+                                    updateJobLink(idx, "city", v);
+                                    const matched = findStateForCity(v);
+                                    if (matched && !job.state) {
+                                      updateJobLink(idx, "state", matched.code);
+                                    }
+                                    if (!job.country) {
+                                      updateJobLink(idx, "country", "United States");
+                                    }
+                                  }}
+                                  onSelectOption={v => {
+                                    const matched = findStateForCity(v);
+                                    if (matched && !job.state) {
+                                      updateJobLink(idx, "state", matched.code);
+                                    }
+                                    if (!job.country) {
+                                      updateJobLink(idx, "country", "United States");
+                                    }
+                                  }}
+                                  suggestions={getCitiesForState(job.state)}
+                                  hasError={!!jobLinkErrors[idx]?.city}
+                                />
+                                {jobLinkErrors[idx]?.city && (
+                                  <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].city}</p>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <SuggestInput
+                                  placeholder="State *"
+                                  className="h-8 text-[10px] bg-background/50"
+                                  value={job.state || ""}
+                                  onChange={v => {
+                                    updateJobLink(idx, "state", v);
+                                    if (!job.country) {
+                                      updateJobLink(idx, "country", "United States");
+                                    }
+                                  }}
+                                  suggestions={US_STATE_OPTIONS}
+                                  hasError={!!jobLinkErrors[idx]?.state}
+                                />
+                                {jobLinkErrors[idx]?.state && (
+                                  <p className="text-[9px] text-destructive font-medium ml-1">{jobLinkErrors[idx].state}</p>
+                                )}
+                              </div>
+                            </>
+                          )}
                           <div className="space-y-1">
                             <SuggestInput
                               placeholder="Country *"
@@ -2471,7 +3415,33 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           </Card>
 
           <Card className="border-none shadow-sm bg-card/60 mt-6">
-            <CardHeader><CardTitle className="text-base font-bold">Submission Pipeline</CardTitle></CardHeader>
+            <CardHeader className="pb-3 px-6 pt-5 border-b border-border/40">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-primary" />
+                    Submission Pipeline
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Track and export submitted applications for this candidate
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    if (appFromDate) setDownloadFromDate(appFromDate);
+                    if (appToDate) setDownloadToDate(appToDate);
+                    setDownloadDialogOpen(true);
+                  }}
+                  className="h-9 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm flex items-center gap-2 transition-all cursor-pointer w-fit"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Applications
+                </Button>
+              </div>
+            </CardHeader>
             <CardContent className="p-0">
               <div className="px-6 pt-4 pb-2">
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-5 mb-4 items-end">
@@ -2940,41 +3910,45 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">City</Label>
-                <SuggestInput
-                  value={editJobForm.city}
-                  onChange={(v) => {
-                    setEditJobForm((prev: any) => {
-                      const copy = { ...prev, city: v };
-                      const matched = findStateForCity(v);
-                      if (matched && !copy.state) copy.state = matched.code;
-                      if (!copy.country) copy.country = "United States";
-                      return copy;
-                    });
-                  }}
-                  suggestions={getCitiesForState(editJobForm.state)}
-                  placeholder="San Francisco"
-                  className="h-9 text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">State</Label>
-                <SuggestInput
-                  value={editJobForm.state}
-                  onChange={(v) => {
-                    setEditJobForm((prev: any) => ({
-                      ...prev,
-                      state: v,
-                      country: prev.country || "United States",
-                    }));
-                  }}
-                  suggestions={US_STATE_OPTIONS}
-                  placeholder="CA"
-                  className="h-9 text-xs"
-                />
-              </div>
+            <div className={cn("grid gap-3", editJobForm.work_mode === "Remote" ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3")}>
+              {editJobForm.work_mode !== "Remote" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">City</Label>
+                    <SuggestInput
+                      value={editJobForm.city}
+                      onChange={(v) => {
+                        setEditJobForm((prev: any) => {
+                          const copy = { ...prev, city: v };
+                          const matched = findStateForCity(v);
+                          if (matched && !copy.state) copy.state = matched.code;
+                          if (!copy.country) copy.country = "United States";
+                          return copy;
+                        });
+                      }}
+                      suggestions={getCitiesForState(editJobForm.state)}
+                      placeholder="San Francisco"
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">State</Label>
+                    <SuggestInput
+                      value={editJobForm.state}
+                      onChange={(v) => {
+                        setEditJobForm((prev: any) => ({
+                          ...prev,
+                          state: v,
+                          country: prev.country || "United States",
+                        }));
+                      }}
+                      suggestions={US_STATE_OPTIONS}
+                      placeholder="CA"
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                </>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">Country</Label>
                 <SuggestInput
@@ -3064,6 +4038,365 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
               Save Changes
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Download Candidate Applications Modal */}
+      <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-6 bg-background rounded-2xl border border-border shadow-2xl overflow-hidden">
+          <DialogHeader className="space-y-1.5 pb-2 border-b border-border/40 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shrink-0">
+                <Download className="h-4 w-4" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-foreground">
+                  Download Candidate Applications
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Applications export in clean non-tabular PDF format. Review full application details & remaining matter in UI below.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4 pt-1">
+            {/* Candidate & Shift Info Pill */}
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Candidate:</span>
+                <span className="font-bold text-foreground">
+                  {candidate?.full_name || "Candidate"}
+                  <span className="ml-1.5 text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    {candidate?.display_id || (candidateId ? `HYRCDT${candidateId.slice(-6).toUpperCase()}` : "")}
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 pt-1 border-t border-border/40 text-[11px] text-amber-700 dark:text-amber-300">
+                <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                <span>
+                  Default Shift: <strong>7:00 PM to 3:00 AM</strong> (US Night Shift)
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Quick Presets</Label>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-7 text-[11px] px-2.5 rounded-lg"
+                  onClick={() => {
+                    const todayStr = format(new Date(), "MM-dd-yyyy");
+                    setDownloadFromDate(todayStr);
+                    setDownloadToDate(todayStr);
+                    setDownloadFromTime("07:00 PM");
+                    setDownloadToTime("03:00 AM");
+                  }}
+                >
+                  Today's Shift
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px] px-2.5 rounded-lg"
+                  onClick={() => {
+                    const yesterdayStr = format(subDays(new Date(), 1), "MM-dd-yyyy");
+                    const todayStr = format(new Date(), "MM-dd-yyyy");
+                    setDownloadFromDate(yesterdayStr);
+                    setDownloadToDate(todayStr);
+                    setDownloadFromTime("07:00 PM");
+                    setDownloadToTime("03:00 AM");
+                  }}
+                >
+                  Yesterday's Shift
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px] px-2.5 rounded-lg"
+                  onClick={() => {
+                    const weekAgoStr = format(subDays(new Date(), 7), "MM-dd-yyyy");
+                    const todayStr = format(new Date(), "MM-dd-yyyy");
+                    setDownloadFromDate(weekAgoStr);
+                    setDownloadToDate(todayStr);
+                    setDownloadFromTime("07:00 PM");
+                    setDownloadToTime("03:00 AM");
+                  }}
+                >
+                  Past 7 Days
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setDownloadFromDate("");
+                    setDownloadToDate("");
+                    setDownloadFromTime("07:00 PM");
+                    setDownloadToTime("03:00 AM");
+                    setDownloadStatusFilter("all");
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+            </div>
+
+            {/* Date Range Options */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold flex items-center gap-1.5">
+                  <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  From Date
+                </Label>
+                <DatePicker
+                  value={downloadFromDate}
+                  onChange={(d) => setDownloadFromDate(d)}
+                  placeholder="MM-DD-YYYY"
+                  formatStr="MM-dd-yyyy"
+                  className="h-9 text-xs w-full bg-background border-border/80 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold flex items-center gap-1.5">
+                  <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  To Date
+                </Label>
+                <DatePicker
+                  value={downloadToDate}
+                  onChange={(d) => setDownloadToDate(d)}
+                  placeholder="MM-DD-YYYY"
+                  formatStr="MM-dd-yyyy"
+                  className="h-9 text-xs w-full bg-background border-border/80 font-medium"
+                />
+              </div>
+            </div>
+
+            {/* Time Range Options */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    From Time
+                  </span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Default: 7:00 PM</span>
+                </Label>
+                <Select value={downloadFromTime} onValueChange={setDownloadFromTime}>
+                  <SelectTrigger className="h-9 text-xs bg-background border-border/80 font-medium">
+                    <SelectValue placeholder="Select From Time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    {TIME_OPTIONS.map((t) => (
+                      <SelectItem key={t} value={t} className="text-xs">
+                        {t} {t === "07:00 PM" ? "★ (Default 7:00 PM)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    To Time
+                  </span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Default: 3:00 AM</span>
+                </Label>
+                <Select value={downloadToTime} onValueChange={setDownloadToTime}>
+                  <SelectTrigger className="h-9 text-xs bg-background border-border/80 font-medium">
+                    <SelectValue placeholder="Select To Time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    {TIME_OPTIONS.map((t) => (
+                      <SelectItem key={t} value={t} className="text-xs">
+                        {t} {t === "03:00 AM" ? "★ (Default 3:00 AM)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Application Status Filter */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Status Filter</Label>
+              <Select value={downloadStatusFilter} onValueChange={setDownloadStatusFilter}>
+                <SelectTrigger className="h-9 text-xs bg-background border-border/80 font-medium">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All Applications</SelectItem>
+                  <SelectItem value="applied" className="text-xs">Applied</SelectItem>
+                  <SelectItem value="screening" className="text-xs">Screening</SelectItem>
+                  <SelectItem value="screening_scheduled" className="text-xs">Screening Scheduled</SelectItem>
+                  <SelectItem value="interview" className="text-xs">Interview</SelectItem>
+                  <SelectItem value="interview_scheduled" className="text-xs">Interview Scheduled</SelectItem>
+                  <SelectItem value="offer" className="text-xs">Offer</SelectItem>
+                  <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
+                  <SelectItem value="no_response" className="text-xs">No Response</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Applications & Remaining Matter in UI */}
+            <div className="space-y-2.5 pt-2 border-t border-border/40">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground">
+                    Applications & Remaining Matter in UI
+                  </span>
+                  <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-bold ${applicationsToDownload.length > 0
+                      ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                      : 'bg-muted text-muted-foreground'
+                    }`}>
+                    {applicationsToDownload.length} found
+                  </span>
+                </div>
+                <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/50">
+                  PDF Format: 1) Job Title - Company Name & Job Description
+                </span>
+              </div>
+
+              {applicationsToDownload.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border/60">
+                  No candidate applications found matching the selected date range, shift hours, or status filter.
+                </div>
+              ) : (
+                <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
+                  {applicationsToDownload.map((j: any, idx: number) => {
+                    const appId = `HYRSUB${j.id ? j.id.toString().slice(-6).toUpperCase() : ""}`;
+                    const location = [j.city, j.state, j.country].filter(Boolean).join(", ") || "—";
+                    const status = (j.candidate_response_status || j.application_status || j.status || "Applied").toLowerCase().replace(/ /g, "_");
+                    const loggedAt = formatDateTime(j.created_at || j.log_date);
+                    const isUrl = j.resume_used?.startsWith('http');
+                    const resumeName = isUrl ? (resumes.find(r => r.url === j.resume_used)?.label || "View Resume") : (j.resume_used || "Standard");
+
+                    return (
+                      <div key={j.id || idx} className="rounded-xl border border-border/70 bg-card p-3.5 space-y-2.5 shadow-xs">
+                        {/* 1) {{ job title }} - {{ company Name }} */}
+                        <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
+                          <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <span className="text-primary font-mono">{idx + 1})</span>
+                            <span>{j.role_title || "Untitled Role"}</span>
+                            <span className="text-muted-foreground">-</span>
+                            <span className="text-primary">{j.company_name || "Unknown Company"}</span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground shrink-0">
+                            {appId}
+                          </span>
+                        </div>
+
+                        {/* Remaining Matter in UI */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-muted/30 p-2.5 rounded-lg border border-border/40">
+                          <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground block">Status:</span>
+                            <span className="font-semibold text-foreground capitalize">{status.replace(/_/g, " ")}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground block">Logged Shift Time:</span>
+                            <span className="font-medium text-foreground">{loggedAt}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground block">Type & Mode:</span>
+                            <span className="font-medium text-foreground">{j.employment_type || "—"} • {j.work_mode || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground block">Exp. & Visa:</span>
+                            <span className="font-medium text-foreground">{j.experience_required || "—"} • {j.visa_eligibility || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground block">Location:</span>
+                            <span className="font-medium text-foreground">{location}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground block">Salary:</span>
+                            <span className="font-bold text-foreground">{formatSalaryDisplay(j.salary)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground block">Resume Used:</span>
+                            {isUrl ? (
+                              <DocumentPreview url={j.resume_used} label={resumeName} className="text-[11px] font-semibold inline-flex truncate max-w-full" />
+                            ) : (
+                              <span className="font-mono text-[11px] text-foreground truncate block">{resumeName}</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground block">Job Link:</span>
+                            {j.job_url ? (
+                              <a href={j.job_url} target="_blank" rel="noreferrer" className="text-secondary hover:underline inline-flex items-center gap-1 font-semibold truncate max-w-full">
+                                <span className="truncate">Open Link</span>
+                                <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Job Description:- Matter */}
+                        <div className="space-y-1">
+                          <div className="text-[11px] font-bold text-foreground">Job Description:-</div>
+                          <div className="text-[11px] text-muted-foreground whitespace-pre-wrap bg-muted/20 p-2.5 rounded-lg border border-border/30 max-h-24 overflow-y-auto leading-relaxed">
+                            {j.job_description || "No job description provided."}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 pt-4 border-t border-border mt-2 sm:justify-between shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDownloadDialogOpen(false)}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadCsv}
+                disabled={applicationsToDownload.length === 0}
+                className="text-xs font-semibold flex items-center gap-1.5"
+                title="Download as CSV spreadsheet"
+              >
+                <Download className="h-3.5 w-3.5" />
+                CSV
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleDownloadPdf}
+                disabled={applicationsToDownload.length === 0 || isDownloadingPdf}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-sm"
+              >
+                {isDownloadingPdf ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                Download PDF ({applicationsToDownload.length})
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
