@@ -88,4 +88,40 @@ django_backend/backfill_invoices.py
 /tmp/
 django_backend/db.sqlite3
 cache
-implementation_plan.md
+implementation_plan.md
+# Database dumps & local database files
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+*.db
+*.db-journal
+*.dump
+*.backup
+*.sql.dump
+*.sql.backup
+pg_dump*.sql
+
+# Job Scraper government data & downloads
+data/
+django_backend/data/
+*.download
+*.tmp.xlsx
+*.tmp.csv
+
+# OS & Temp junk
+Desktop.ini
+ehthumbs.db
+ehthumbs_vista.db
+$RECYCLE.BIN/
+.AppleDouble
+.LSOverride
+*.bak
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Tooling and linter caches
+.mypy_cache/
+.ruff_cache/
+.eslintcache/

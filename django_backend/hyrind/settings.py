@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'jobs',
     'reviews',
     'analytics',
+    'job_scraper',
 ]
 
 MIDDLEWARE = [
@@ -80,12 +81,22 @@ WSGI_APPLICATION = 'hyrind.wsgi.application'
 # Database — SQLite for local dev, MySQL for production
 USE_SQLITE = os.getenv('USE_SQLITE', 'True').lower() == 'true'
 
+JOBS_DATABASE = {
+    'ENGINE': 'django.db.backends.postgresql',
+    'NAME': os.getenv('JOBS_DB_NAME', os.getenv('POSTGRES_DB', 'jobplatform')),
+    'USER': os.getenv('JOBS_DB_USER', os.getenv('POSTGRES_USER', 'postgres')),
+    'PASSWORD': os.getenv('JOBS_DB_PASSWORD', os.getenv('POSTGRES_PASSWORD', '')),
+    'HOST': os.getenv('JOBS_DB_HOST', os.getenv('POSTGRES_HOST', 'localhost')),
+    'PORT': os.getenv('JOBS_DB_PORT', os.getenv('POSTGRES_PORT', '5432')),
+}
+
 if USE_SQLITE:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
-        }
+        },
+        'jobs': JOBS_DATABASE,
     }
 else:
     DATABASES = {
@@ -99,10 +110,13 @@ else:
             'OPTIONS': {
                 'charset': 'utf8mb4',
             },
-        }
+        },
+        'jobs': JOBS_DATABASE,
     }
 
 AUTH_USER_MODEL = 'users.User'
+JOB_SCRAPER_DB_ALIAS = 'jobs'
+DATABASE_ROUTERS = ['job_scraper.routers.JobScraperRouter']
 
 # Cache — in-process memory cache (no external service required)
 # Swap to django-redis when scaling to multiple server instances

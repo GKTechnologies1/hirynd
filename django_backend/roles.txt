@@ -1,0 +1,6 @@
+# Roles to scrape, one per line (lines starting with # are ignored)
+Software Engineer
+Data Engineer
+Data Analyst
+Product Manager
+DevOps Engineer
