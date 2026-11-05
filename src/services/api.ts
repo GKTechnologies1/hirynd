@@ -601,3 +601,39 @@ export const analyticsApi = {
   trackPageView: (data: Record<string, any>) => api.post('/analytics/track/', data, { headers: { 'X-Background-Request': 'true' } }),
   getDashboardStats: (range: string) => api.get('/analytics/dashboard/', { params: { range } }),
 };
+
+// ─── Job Scraper ───
+export const jobScraperApi = {
+  roles: (limit?: number) => api.get('/admin/job-scraper/roles/', { params: { limit } }),
+  run: (data: { roles: { role: string; limit: number }[]; sources?: string[] }) =>
+    api.post('/admin/job-scraper/run/', data),
+  executions: (params?: { status?: string; page?: number; page_size?: number }) =>
+    api.get('/admin/job-scraper/executions/', { params }),
+  executionDetail: (id: string) => api.get(`/admin/job-scraper/executions/${id}/`),
+};
+
+// ─── Job Discovery ───
+export const jobDiscoveryApi = {
+  statistics: () => api.get('/admin/job-discovery/statistics/'),
+  jobs: (params?: {
+    search?: string;
+    role?: string;
+    source?: string;
+    review_status?: string;
+    is_remote?: boolean | string;
+    location?: string;
+    is_duplicate?: boolean | string;
+    date_from?: string;
+    date_to?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get('/admin/job-discovery/jobs/', { params }),
+  jobDetail: (id: string) => api.get(`/admin/job-discovery/jobs/${id}/`),
+  reviewJob: (id: string, data: { review_status: string; review_notes?: string }) =>
+    api.patch(`/admin/job-discovery/jobs/${id}/review/`, data),
+  filters: () => api.get('/admin/job-discovery/filters/'),
+  approveForJobManagement: (id: string, data: { candidate_id?: string; create_job_opening?: boolean; notes?: string }) =>
+    api.post(`/admin/job-discovery/jobs/${id}/approve-for-job-management/`, data),
+};
+
