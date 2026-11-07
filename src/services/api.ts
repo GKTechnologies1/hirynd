@@ -605,20 +605,41 @@ export const analyticsApi = {
 // ─── Job Scraper ───
 export const jobScraperApi = {
   roles: (limit?: number) => api.get('/admin/job-scraper/roles/', { params: { limit } }),
-  run: (data: { roles: { role: string; limit: number }[]; sources?: string[] }) =>
-    api.post('/admin/job-scraper/run/', data),
+  companies: (params?: {
+    search?: string;
+    grade?: string;
+    min_score?: number;
+    min_filings?: number;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get('/admin/job-scraper/companies/', { params }),
+  companyVisaDetail: (id: number | string) =>
+    api.get(`/admin/job-scraper/companies/${id}/visa-details/`),
+  run: (data: {
+    roles: { role: string; limit: number }[];
+    companies?: string[];
+    sources?: string[];
+    mode?: 'STANDARD' | 'VISA_FILTERED';
+    minimum_score?: number;
+  }) => api.post('/admin/job-scraper/run/', data),
   executions: (params?: { status?: string; page?: number; page_size?: number }) =>
     api.get('/admin/job-scraper/executions/', { params }),
   executionDetail: (id: string) => api.get(`/admin/job-scraper/executions/${id}/`),
 };
 
-// ─── Job Discovery ───
+// ─── Job Discovery (Dashboard A - Global View) ───
 export const jobDiscoveryApi = {
   statistics: () => api.get('/admin/job-discovery/statistics/'),
   jobs: (params?: {
     search?: string;
     role?: string;
+    company?: string;
     source?: string;
+    visa_grade?: string;
+    min_score?: number | string;
+    max_score?: number | string;
+    h1b_only?: boolean | string;
     review_status?: string;
     is_remote?: boolean | string;
     location?: string;
@@ -635,5 +656,29 @@ export const jobDiscoveryApi = {
   filters: () => api.get('/admin/job-discovery/filters/'),
   approveForJobManagement: (id: string, data: { candidate_id?: string; create_job_opening?: boolean; notes?: string }) =>
     api.post(`/admin/job-discovery/jobs/${id}/approve-for-job-management/`, data),
+};
+
+// ─── Recruiter Job Discovery (Dashboard B - Personalized View) ───
+export const recruiterJobDiscoveryApi = {
+  statistics: () => api.get('/recruiter/job-discovery/statistics/'),
+  jobs: (params?: {
+    search?: string;
+    candidate_id?: string;
+    role?: string;
+    source?: string;
+    visa_grade?: string;
+    min_score?: number | string;
+    max_score?: number | string;
+    h1b_only?: boolean | string;
+    is_remote?: boolean | string;
+    location?: string;
+    date_from?: string;
+    date_to?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get('/recruiter/job-discovery/jobs/', { params }),
+  jobDetail: (id: string) => api.get(`/recruiter/job-discovery/jobs/${id}/`),
+  filters: () => api.get('/recruiter/job-discovery/filters/'),
 };
 

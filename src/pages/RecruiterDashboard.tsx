@@ -11,13 +11,14 @@ import RecruiterSettingsPage from "@/pages/recruiter/RecruiterSettingsPage";
 import RecruiterAssignedToPage from "@/pages/recruiter/RecruiterAssignedToPage";
 import RecruiterTeamPage from "@/pages/recruiter/RecruiterTeamPage";
 import RecruiterTeamMemberDetailPage from "@/pages/recruiter/RecruiterTeamMemberDetailPage";
+import RecruiterJobDiscoveryPage from "@/pages/recruiter/RecruiterJobDiscoveryPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, TrendingUp, Settings, ChevronDown, UserCheck } from "lucide-react";
+import { Users, ClipboardList, User, Eye, Search, Briefcase, Calendar, TrendingUp, Settings, ChevronDown, UserCheck, Compass } from "lucide-react";
 import { motion } from "framer-motion";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { parse, format } from "date-fns";
@@ -26,6 +27,7 @@ import { parse, format } from "date-fns";
 const navItems = [
   { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
   { label: "Assigned To", path: "/recruiter-dashboard/assigned-to", icon: <UserCheck className="h-4 w-4" /> },
+  { label: "Job Discovery", path: "/recruiter-dashboard/job-discovery", icon: <Compass className="h-4 w-4" /> },
   { label: "Daily Log", path: "/recruiter-dashboard/daily-log", icon: <ClipboardList className="h-4 w-4" /> },
   { label: "My Profile", path: "/recruiter-dashboard/profile", icon: <User className="h-4 w-4" /> },
   { label: "Settings", path: "/recruiter-dashboard/settings", icon: <Settings className="h-4 w-4" /> },
@@ -308,6 +310,7 @@ const RecruiterDashboard = () => {
   const dynamicNavItems = [
     { label: "My Candidates", path: "/recruiter-dashboard", icon: <Users className="h-4 w-4" /> },
     { label: "Assigned To", path: "/recruiter-dashboard/assigned-to", icon: <UserCheck className="h-4 w-4" /> },
+    { label: "Job Discovery", path: "/recruiter-dashboard/job-discovery", icon: <Compass className="h-4 w-4" /> },
     { label: "Daily Log", path: "/recruiter-dashboard/daily-log", icon: <ClipboardList className="h-4 w-4" /> },
     ...(user?.role === "team_lead" || user?.role === "team_manager" || user?.role === "admin"
       ? [{ label: "My Team", path: "/recruiter-dashboard/team", icon: <Users className="h-4 w-4" /> }]
@@ -323,6 +326,7 @@ const RecruiterDashboard = () => {
         <Route path="/" element={<RecruiterHome />} />
         <Route path="/candidates/:candidateId" element={<CandidateDetailWrapper />} />
         <Route path="/assigned-to" element={<RecruiterAssignedToPage />} />
+        <Route path="/job-discovery" element={<RecruiterJobDiscoveryPage />} />
         <Route path="/daily-log" element={<DailyLogPage />} />
         <Route path="/team" element={<RecruiterTeamPage />} />
         <Route path="/team/:teamMemberId" element={<RecruiterTeamMemberDetailPage />} />
