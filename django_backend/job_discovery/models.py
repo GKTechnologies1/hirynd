@@ -62,7 +62,7 @@ class DiscoveredJob(models.Model):
 
     title = models.CharField(max_length=300)
     company_name = models.CharField(max_length=255, db_index=True)
-    company_name_norm = models.CharField(max_length=255, blank=True, null=True)
+    company_name_norm = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     target_role = models.CharField(max_length=150, db_index=True)
 
     job_url = models.TextField(blank=True, null=True)
@@ -87,6 +87,21 @@ class DiscoveredJob(models.Model):
     experience_level = models.CharField(max_length=50, blank=True, null=True)
     source_portal = models.CharField(max_length=50, db_index=True)
     date_posted = models.DateTimeField(null=True, blank=True)
+
+    # Visa Intelligence fields
+    visa_matched = models.BooleanField(default=False, db_index=True)
+    h1b_sponsor = models.BooleanField(null=True, blank=True, db_index=True)
+    h1b_filings_recent = models.IntegerField(default=0)
+    h1b_approvals = models.IntegerField(default=0)
+    h1b_denials = models.IntegerField(default=0)
+    h1b_approval_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    h1b_avg_salary = models.IntegerField(null=True, blank=True)
+    perm_filings = models.IntegerField(default=0)
+    green_card_sponsor = models.BooleanField(null=True, blank=True)
+    everify_enrolled = models.BooleanField(null=True, blank=True)
+    visa_grade = models.CharField(max_length=2, null=True, blank=True, db_index=True)
+    visa_friendly_score = models.IntegerField(default=0, db_index=True)
+    company_match_confidence = models.CharField(max_length=20, default='none')
 
     execution = models.ForeignKey(
         ScraperExecution, null=True, blank=True, on_delete=models.SET_NULL, related_name='jobs'
@@ -113,7 +128,49 @@ class DiscoveredJob(models.Model):
             models.Index(fields=['source_portal', '-created_at'], name='idx_dj_source_created'),
             models.Index(fields=['review_status', '-created_at'], name='idx_dj_status_created'),
             models.Index(fields=['company_name', '-created_at'], name='idx_dj_company_created'),
+            models.Index(fields=['visa_friendly_score', '-created_at'], name='idx_dj_score_created'),
+            models.Index(fields=['visa_grade', '-created_at'], name='idx_dj_grade_created'),
         ]
 
     def __str__(self):
         return f"{self.title} @ {self.company_name} [{self.source_portal}]"
+
+
+class CompanyVisaHistory(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    company_name = models.CharField(max_length=255, db_index=True)
+    company_name_norm = models.CharField(max_length=255, unique=True, db_index=True)
+    h1b_total_filings = models.IntegerField(default=0, db_index=True)
+    h1b_approvals = models.IntegerField(default=0)
+    h1b_denials = models.IntegerField(default=0)
+    h1b_approval_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    h1b_avg_salary = models.IntegerField(null=True, blank=True)
+    h1b_last_filing_year = models.IntegerField(null=True, blank=True)
+    perm_total_filings = models.IntegerField(default=0)
+    perm_last_year = models.IntegerField(null=True, blank=True)
+    green_card_sponsor = models.BooleanField(default=False)
+    everify_enrolled = models.BooleanField(null=True, blank=True)
+    visa_friendly_score = models.IntegerField(default=0, db_index=True)
+    visa_grade = models.CharField(max_length=2, null=True, blank=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'company_visa_history'
+        ordering = ['-visa_friendly_score', '-h1b_total_filings']
+
+    def __str__(self):
+        return f"{self.company_name} (Grade: {self.visa_grade}, Score: {self.visa_friendly_score})"
+
+
+class CompanyAlias(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    alias_norm = models.CharField(max_length=255, unique=True, db_index=True)
+    target_norm = models.CharField(max_length=255, db_index=True)
+    notes = models.CharField(max_length=500, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'company_aliases'
+
+    def __str__(self):
+        return f"{self.alias_norm} -> {self.target_norm}"

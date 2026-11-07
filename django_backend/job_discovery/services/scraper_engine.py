@@ -249,7 +249,39 @@ def execute_scraping_run(execution_id: UUID) -> None:
         execution.save(update_fields=['status', 'error_message', 'completed_at'])
         return
 
-    logger.info(f"[JobScraper] Starting execution {execution_id} with {len(roles_config)} role(s) on sources: {sources}")
+    companies = config.get('companies', [])
+    query_targets = []
+    if companies:
+        for r_entry in roles_config:
+            r_name = r_entry.get('role', '').strip()
+            r_limit = int(r_entry.get('limit', 15))
+            if not r_name:
+                continue
+            for comp in companies:
+                c_name = comp if isinstance(comp, str) else comp.get('name', '')
+                if c_name:
+                    query_targets.append({
+                        'role': r_name,
+                        'query': f"{r_name} {c_name}",
+                        'limit': max(3, r_limit // max(1, len(companies))),
+                        'company': c_name,
+                    })
+    else:
+        for r_entry in roles_config:
+            r_name = r_entry.get('role', '').strip()
+            r_limit = int(r_entry.get('limit', 15))
+            if r_name:
+                query_targets.append({
+                    'role': r_name,
+                    'query': r_name,
+                    'limit': r_limit,
+                    'company': None,
+                })
+
+    logger.info(
+        f"[JobScraper] Starting execution {execution_id} with {len(roles_config)} role(s) "
+        f"and {len(companies)} company target(s) across {sources}"
+    )
 
     total_found = 0
     total_ins = 0
@@ -258,20 +290,19 @@ def execute_scraping_run(execution_id: UUID) -> None:
     errors = []
 
     try:
-        for r_entry in roles_config:
-            role_name = r_entry.get('role', '').strip()
-            role_limit = int(r_entry.get('limit', 15))
-            if not role_name:
-                continue
+        for q_target in query_targets:
+            role_name = q_target['role']
+            search_query = q_target['query']
+            role_limit = q_target['limit']
 
-            logger.info(f"[JobScraper] Processing role: '{role_name}' (limit: {role_limit})")
+            logger.info(f"[JobScraper] Processing search: '{search_query}' (limit: {role_limit})")
 
             # Divide limit across sources or search until limit reached
             per_source_limit = max(3, role_limit // max(1, len(sources)))
 
             for source in sources:
                 try:
-                    actor_payload = build_actor_input(source, role_name, limit=per_source_limit)
+                    actor_payload = build_actor_input(source, search_query, limit=per_source_limit)
                     if not actor_payload:
                         logger.warning(f"[JobScraper] No actor configuration for source: {source}")
                         continue
@@ -319,6 +350,27 @@ def execute_scraping_run(execution_id: UUID) -> None:
                     err_msg = f"Error scraping {source} for {role_name}: {str(src_err)}"
                     logger.error(f"[JobScraper] {err_msg}")
                     errors.append(err_msg)
+
+        # Automatically enrich newly scraped jobs with Visa Intelligence
+        try:
+            from ..matcher.match_jobs_to_visa import match_jobs_to_visa
+            matched_count = match_jobs_to_visa()
+            logger.info(f"[JobScraper] Visa matching completed: {matched_count} jobs enriched with Visa Intelligence.")
+        except Exception as match_err:
+            logger.error(f"[JobScraper] Post-scrape Visa matching error: {str(match_err)}")
+
+        # Post-scrape qualification metrics for Visa-filtered runs
+        min_score = int(config.get('minimum_score', 0) or 0)
+        qualified_jobs = DiscoveredJob.objects.filter(execution=execution)
+        if min_score > 0:
+            qualified_jobs = qualified_jobs.filter(visa_friendly_score__gte=min_score)
+        qualified_count = qualified_jobs.count()
+
+        execution.config = {
+            **config,
+            'qualified_count': qualified_count,
+            'unqualified_count': max(0, total_found - qualified_count),
+        }
 
         execution.status = 'completed'
         if errors and total_found == 0:

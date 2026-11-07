@@ -1,5 +1,23 @@
 from rest_framework import serializers
-from .models import ScraperExecution, DiscoveredJob
+from datetime import datetime
+from .models import ScraperExecution, DiscoveredJob, CompanyVisaHistory, CompanyAlias
+
+
+class CompanyVisaHistorySerializer(serializers.ModelSerializer):
+    aliases = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CompanyVisaHistory
+        fields = [
+            'id', 'company_name', 'company_name_norm', 'h1b_total_filings',
+            'h1b_approvals', 'h1b_denials', 'h1b_approval_rate', 'h1b_avg_salary',
+            'h1b_last_filing_year', 'perm_total_filings', 'perm_last_year',
+            'green_card_sponsor', 'everify_enrolled', 'visa_friendly_score',
+            'visa_grade', 'updated_at', 'aliases'
+        ]
+
+    def get_aliases(self, obj):
+        return list(CompanyAlias.objects.filter(target_norm=obj.company_name_norm).values_list('alias_norm', flat=True))
 
 
 class ScraperExecutionSerializer(serializers.ModelSerializer):
@@ -32,13 +50,17 @@ class DiscoveredJobListSerializer(serializers.ModelSerializer):
     class Meta:
         model = DiscoveredJob
         fields = [
-            'id', 'job_id', 'title', 'company_name', 'target_role',
+            'id', 'job_id', 'title', 'company_name', 'company_name_norm', 'target_role',
             'location_raw', 'city', 'state', 'state_code', 'country',
             'is_remote', 'is_hybrid', 'salary_min', 'salary_max', 'salary_currency',
             'salary_period', 'salary_raw', 'employment_type', 'experience_level',
             'source_portal', 'date_posted', 'job_url', 'review_status',
             'is_duplicate', 'canonical_job_id', 'reviewed_by_email',
-            'reviewed_at', 'created_at'
+            'reviewed_at', 'created_at',
+            # Visa Intelligence fields
+            'visa_matched', 'h1b_sponsor', 'h1b_filings_recent', 'everify_enrolled',
+            'green_card_sponsor', 'visa_grade', 'visa_friendly_score',
+            'company_match_confidence'
         ]
 
     def get_reviewed_by_email(self, obj) -> str:
@@ -48,6 +70,7 @@ class DiscoveredJobListSerializer(serializers.ModelSerializer):
 class DiscoveredJobDetailSerializer(serializers.ModelSerializer):
     reviewed_by_email = serializers.SerializerMethodField()
     canonical_job_title = serializers.SerializerMethodField()
+    score_factors = serializers.SerializerMethodField()
 
     class Meta:
         model = DiscoveredJob
@@ -59,7 +82,12 @@ class DiscoveredJobDetailSerializer(serializers.ModelSerializer):
             'employment_type', 'experience_level', 'source_portal', 'date_posted',
             'execution', 'review_status', 'is_duplicate', 'canonical_job',
             'canonical_job_title', 'reviewed_by', 'reviewed_by_email', 'reviewed_at',
-            'review_notes', 'is_active', 'created_at', 'updated_at'
+            'review_notes', 'is_active', 'created_at', 'updated_at',
+            # Full Visa Intelligence & Explanation
+            'visa_matched', 'h1b_sponsor', 'h1b_filings_recent', 'h1b_approvals',
+            'h1b_denials', 'h1b_approval_rate', 'h1b_avg_salary', 'perm_filings',
+            'green_card_sponsor', 'everify_enrolled', 'visa_grade',
+            'visa_friendly_score', 'company_match_confidence', 'score_factors'
         ]
 
     def get_reviewed_by_email(self, obj) -> str:
@@ -69,6 +97,18 @@ class DiscoveredJobDetailSerializer(serializers.ModelSerializer):
         if obj.canonical_job:
             return f"{obj.canonical_job.title} @ {obj.canonical_job.company_name}"
         return None
+
+    def get_score_factors(self, obj) -> dict:
+        from .visa.scoring import compute_visa_score
+        res = compute_visa_score(
+            h1b_filings=obj.h1b_filings_recent,
+            approvals=obj.h1b_approvals,
+            denials=obj.h1b_denials,
+            perm_filings=obj.perm_filings,
+            everify=bool(obj.everify_enrolled),
+            year=datetime.now().year if obj.visa_matched else 0,
+        )
+        return res.get('factors', {})
 
 
 class DiscoveredJobReviewSerializer(serializers.Serializer):
@@ -83,7 +123,10 @@ class RoleItemSerializer(serializers.Serializer):
 
 class ScraperRunRequestSerializer(serializers.Serializer):
     roles = serializers.ListField(child=RoleItemSerializer(), min_length=1)
+    companies = serializers.ListField(child=serializers.CharField(), required=False)
     sources = serializers.ListField(child=serializers.CharField(), required=False)
+    mode = serializers.ChoiceField(choices=['STANDARD', 'VISA_FILTERED'], default='STANDARD', required=False)
+    minimum_score = serializers.IntegerField(default=0, min_value=0, max_value=100, required=False)
 
 
 class ApproveForJobManagementSerializer(serializers.Serializer):

@@ -12,7 +12,7 @@ from candidates.models import Candidate
 from recruiters.models import JobLinkEntry, DailySubmissionLog
 from jobs.models import JobOpening
 
-from .models import ScraperExecution, DiscoveredJob
+from .models import ScraperExecution, DiscoveredJob, CompanyVisaHistory, CompanyAlias
 from .serializers import (
     ScraperExecutionSerializer,
     DiscoveredJobListSerializer,
@@ -20,6 +20,7 @@ from .serializers import (
     DiscoveredJobReviewSerializer,
     ScraperRunRequestSerializer,
     ApproveForJobManagementSerializer,
+    CompanyVisaHistorySerializer,
 )
 from .services.role_provider import get_eligible_roles
 from .services.scraper_engine import trigger_async_scrape
@@ -69,12 +70,21 @@ def run_scraper(request):
     sources_data = serializer.validated_data.get('sources') or [
         'linkedin', 'indeed', 'glassdoor', 'dice'
     ]
+    companies_data = serializer.validated_data.get('companies') or []
+    mode = serializer.validated_data.get('mode', 'VISA_FILTERED' if companies_data else 'STANDARD')
+    minimum_score = serializer.validated_data.get('minimum_score', 0)
 
     execution = ScraperExecution.objects.create(
         trigger_type='manual',
         triggered_by=request.user,
         status='pending',
-        config={'roles': roles_data, 'sources': sources_data},
+        config={
+            'mode': mode,
+            'roles': roles_data,
+            'sources': sources_data,
+            'companies': companies_data,
+            'minimum_score': minimum_score,
+        },
         total_roles=len(roles_data),
     )
 
@@ -133,6 +143,97 @@ def get_execution_detail(request, execution_id):
     return Response(serializer.data)
 
 
+# ─── Visa Intelligence & Company Endpoints ────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsApproved, IsRecruiter])
+def list_visa_companies(request):
+    """
+    GET /api/admin/job-scraper/companies/
+    Lists/searches companies in CompanyVisaHistory.
+    """
+    qs = CompanyVisaHistory.objects.all()
+
+    search = request.GET.get('search', '').strip()
+    if search:
+        qs = qs.filter(
+            Q(company_name__icontains=search) |
+            Q(company_name_norm__icontains=search)
+        )
+
+    grade = request.GET.get('grade', '').strip()
+    if grade and grade != 'all':
+        qs = qs.filter(visa_grade__iexact=grade)
+
+    min_score = request.GET.get('min_score')
+    if min_score:
+        try:
+            qs = qs.filter(visa_friendly_score__gte=int(min_score))
+        except ValueError:
+            pass
+
+    min_filings = request.GET.get('min_filings')
+    if min_filings:
+        try:
+            qs = qs.filter(h1b_total_filings__gte=int(min_filings))
+        except ValueError:
+            pass
+
+    ordering = request.GET.get('ordering', '-h1b_total_filings')
+    allowed_orderings = [
+        '-h1b_total_filings', 'h1b_total_filings',
+        '-visa_friendly_score', 'visa_friendly_score',
+        'company_name', '-company_name',
+        '-h1b_approvals', 'h1b_approvals'
+    ]
+    if ordering in allowed_orderings:
+        qs = qs.order_by(ordering)
+    else:
+        qs = qs.order_by('-h1b_total_filings')
+
+    page = int(request.GET.get('page', 1))
+    page_size = min(int(request.GET.get('page_size', 20)), 100)
+
+    paginator = Paginator(qs, page_size)
+    page_obj = paginator.get_page(page)
+
+    serializer = CompanyVisaHistorySerializer(page_obj.object_list, many=True)
+    return Response({
+        'count': paginator.count,
+        'num_pages': paginator.num_pages,
+        'current_page': page,
+        'results': serializer.data,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved, IsRecruiter])
+def get_company_visa_detail(request, company_id):
+    """
+    GET /api/admin/job-scraper/companies/<company_id>/visa-details/
+    Returns full visa intelligence for a specific company with factor breakdown.
+    """
+    try:
+        company = CompanyVisaHistory.objects.get(id=company_id)
+    except CompanyVisaHistory.DoesNotExist:
+        return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = CompanyVisaHistorySerializer(company)
+    data = serializer.data
+
+    from .visa.scoring import compute_visa_score
+    score_res = compute_visa_score(
+        h1b_filings=company.h1b_total_filings,
+        approvals=company.h1b_approvals,
+        denials=company.h1b_denials,
+        perm_filings=company.perm_total_filings,
+        everify=bool(company.everify_enrolled),
+        year=company.h1b_last_filing_year or 0
+    )
+    data['score_factors'] = score_res.get('factors', {})
+    return Response(data)
+
+
 # ─── Job Discovery Endpoints ──────────────────────────────────────────────────
 
 @api_view(['GET'])
@@ -171,6 +272,14 @@ def job_discovery_statistics(request):
         .order_by('-count')
     )
 
+    # Visa Grade breakdown
+    grade_breakdown = list(
+        base_qs.values('visa_grade')
+        .annotate(count=Count('id'))
+        .order_by('visa_grade')
+    )
+    visa_sponsored_count = base_qs.filter(Q(h1b_sponsor=True) | Q(h1b_approvals__gt=0)).count()
+
     return Response({
         'total_scraped': total_scraped,
         'scraped_today': scraped_today,
@@ -179,8 +288,10 @@ def job_discovery_statistics(request):
         'approved': approved,
         'rejected': rejected,
         'duplicates_detected': duplicates,
+        'visa_sponsored_count': visa_sponsored_count,
         'by_role': top_roles,
         'by_source': sources_breakdown,
+        'by_grade': grade_breakdown,
     })
 
 
@@ -206,6 +317,40 @@ def list_discovered_jobs(request):
     role = request.GET.get('role', '').strip()
     if role and role != 'all':
         qs = qs.filter(target_role__iexact=role)
+
+    company = request.GET.get('company', '').strip()
+    if company:
+        qs = qs.filter(
+            Q(company_name__icontains=company) |
+            Q(company_name_norm__icontains=company)
+        )
+
+    visa_grade = request.GET.get('visa_grade', '').strip()
+    if visa_grade and visa_grade != 'all':
+        grades = [g.strip().upper() for g in visa_grade.split(',') if g.strip()]
+        if len(grades) == 1:
+            qs = qs.filter(visa_grade__iexact=grades[0])
+        elif len(grades) > 1:
+            qs = qs.filter(visa_grade__in=grades)
+
+    min_score = request.GET.get('min_score')
+    if min_score is not None and min_score != '':
+        try:
+            qs = qs.filter(visa_friendly_score__gte=int(min_score))
+        except ValueError:
+            pass
+
+    max_score = request.GET.get('max_score')
+    if max_score is not None and max_score != '':
+        try:
+            qs = qs.filter(visa_friendly_score__lte=int(max_score))
+        except ValueError:
+            pass
+
+    h1b_only = request.GET.get('h1b_only')
+    if h1b_only is not None and h1b_only != '':
+        if h1b_only.lower() == 'true':
+            qs = qs.filter(Q(h1b_sponsor=True) | Q(h1b_approvals__gt=0))
 
     source = request.GET.get('source', '').strip()
     if source and source != 'all':
@@ -248,7 +393,10 @@ def list_discovered_jobs(request):
         '-date_posted', 'date_posted',
         'title', '-title',
         'company_name', '-company_name',
-        'target_role', '-target_role'
+        'target_role', '-target_role',
+        '-visa_friendly_score', 'visa_friendly_score',
+        '-h1b_approvals', 'h1b_approvals',
+        '-h1b_filings_recent', 'h1b_filings_recent'
     ]
     if sort_by in allowed_sorts:
         qs = qs.order_by(sort_by)
@@ -344,10 +492,20 @@ def get_job_discovery_filters(request):
         .exclude(state='')
     )
 
+    companies = (
+        DiscoveredJob.objects.order_by()
+        .values_list('company_name', flat=True)
+        .distinct()
+        .exclude(company_name__isnull=True)
+        .exclude(company_name='')[:40]
+    )
+
     return Response({
         'roles': sorted(list(set(r for r in roles if r))),
         'sources': sorted(list(set(s for s in sources if s))),
         'locations': sorted(list(set(loc for loc in locations if loc))),
+        'companies': sorted(list(set(c for c in companies if c))),
+        'visa_grades': ['A', 'B', 'C', 'D', 'E', 'F'],
         'statuses': [
             {'value': 'PENDING_REVIEW', 'label': 'Pending Review'},
             {'value': 'APPROVED', 'label': 'Approved'},

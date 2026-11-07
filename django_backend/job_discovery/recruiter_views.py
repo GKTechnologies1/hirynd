@@ -1,0 +1,292 @@
+import logging
+from datetime import timedelta
+from django.utils import timezone
+from django.db.models import Count, Q
+from django.core.paginator import Paginator
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+
+from users.permissions import IsApproved, IsRecruiter
+from .models import DiscoveredJob
+from .serializers import DiscoveredJobListSerializer, DiscoveredJobDetailSerializer
+from .services.recruiter_scoper import (
+    get_recruiter_assigned_scope,
+    build_recruiter_jobs_queryset,
+    attach_matching_candidate_context,
+)
+
+logger = logging.getLogger('job_discovery')
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved, IsRecruiter])
+def list_recruiter_jobs(request):
+    """
+    GET /api/recruiter/job-discovery/jobs/
+    Returns ONLY job listings relevant to candidates assigned to the logged-in recruiter.
+    Attaches matched candidate badge data to each returned job record.
+    """
+    scope = get_recruiter_assigned_scope(request.user)
+
+    # Recruiter has no active assignments or no confirmed candidate roles
+    if not scope['has_candidates'] or not scope['roles']:
+        return Response({
+            'count': 0,
+            'num_pages': 1,
+            'current_page': 1,
+            'results': [],
+            'has_candidates': scope['has_candidates'],
+            'assigned_candidates': scope['candidates'],
+            'message': 'No active candidates with confirmed roles are currently assigned to you.'
+        })
+
+    candidate_id = request.GET.get('candidate_id')
+    role_filter = request.GET.get('role')
+
+    # Build scoped queryset restricted strictly to recruiter's candidate roles
+    qs = build_recruiter_jobs_queryset(
+        recruiter_user=request.user,
+        candidate_id=candidate_id,
+        role_filter=role_filter
+    )
+
+    # Search keyword filter (title, company, description)
+    search = request.GET.get('search', '').strip()
+    if search:
+        qs = qs.filter(
+            Q(title__icontains=search) |
+            Q(company_name__icontains=search) |
+            Q(job_description__icontains=search)
+        )
+
+    # Portal source filter
+    source = request.GET.get('source', '').strip()
+    if source and source != 'all':
+        qs = qs.filter(source_portal__iexact=source)
+
+    # Visa Grade filter (supports comma-separated 'A,B' or single 'A')
+    visa_grade = request.GET.get('visa_grade', '').strip()
+    if visa_grade and visa_grade != 'all':
+        grades = [g.strip().upper() for g in visa_grade.split(',') if g.strip()]
+        if len(grades) == 1:
+            qs = qs.filter(visa_grade__iexact=grades[0])
+        elif len(grades) > 1:
+            qs = qs.filter(visa_grade__in=grades)
+
+    # Visa score range filters
+    min_score = request.GET.get('min_score')
+    if min_score is not None and min_score != '':
+        try:
+            qs = qs.filter(visa_friendly_score__gte=int(min_score))
+        except ValueError:
+            pass
+
+    max_score = request.GET.get('max_score')
+    if max_score is not None and max_score != '':
+        try:
+            qs = qs.filter(visa_friendly_score__lte=int(max_score))
+        except ValueError:
+            pass
+
+    # H1B only filter
+    h1b_only = request.GET.get('h1b_only')
+    if h1b_only is not None and h1b_only != '':
+        if h1b_only.lower() == 'true':
+            qs = qs.filter(Q(h1b_sponsor=True) | Q(h1b_approvals__gt=0))
+
+    # Remote filter
+    is_remote = request.GET.get('is_remote')
+    if is_remote is not None and is_remote != '':
+        qs = qs.filter(is_remote=is_remote.lower() == 'true')
+
+    # Location filter
+    location = request.GET.get('location', '').strip()
+    if location:
+        qs = qs.filter(
+            Q(city__icontains=location) |
+            Q(state__icontains=location) |
+            Q(state_code__iexact=location) |
+            Q(location_raw__icontains=location)
+        )
+
+    # Date range filters
+    date_from = request.GET.get('date_from')
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+
+    date_to = request.GET.get('date_to')
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+
+    # Sorting
+    sort_by = request.GET.get('ordering', '-created_at')
+    allowed_sorts = [
+        '-created_at', 'created_at',
+        '-date_posted', 'date_posted',
+        'title', '-title',
+        'company_name', '-company_name',
+        'target_role', '-target_role',
+        '-visa_friendly_score', 'visa_friendly_score',
+        '-h1b_approvals', 'h1b_approvals',
+    ]
+    if sort_by in allowed_sorts:
+        qs = qs.order_by(sort_by)
+    else:
+        qs = qs.order_by('-created_at')
+
+    page = int(request.GET.get('page', 1))
+    page_size = min(int(request.GET.get('page_size', 20)), 100)
+
+    paginator = Paginator(qs, page_size)
+    page_obj = paginator.get_page(page)
+
+    serializer = DiscoveredJobListSerializer(page_obj.object_list, many=True)
+    serialized_jobs = serializer.data
+
+    # Dynamically attach candidate context
+    enriched_jobs = attach_matching_candidate_context(serialized_jobs, scope)
+
+    return Response({
+        'count': paginator.count,
+        'num_pages': paginator.num_pages,
+        'current_page': page,
+        'results': enriched_jobs,
+        'assigned_candidates': scope['candidates'],
+        'recruiter_roles': scope['roles'],
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved, IsRecruiter])
+def get_recruiter_job_detail(request, job_id):
+    """
+    GET /api/recruiter/job-discovery/jobs/<job_id>/
+    Returns full details of a discovered job if it matches the recruiter's candidate scope.
+    """
+    try:
+        job = DiscoveredJob.objects.select_related('canonical_job', 'reviewed_by').get(id=job_id)
+    except DiscoveredJob.DoesNotExist:
+        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    scope = get_recruiter_assigned_scope(request.user)
+
+    # Enforce recruiter scope boundary (Admins bypass isolation)
+    if request.user.role != 'admin':
+        target_role = (job.target_role or '').lower()
+        title = (job.title or '').lower()
+        matched = False
+        for cand in scope['candidates']:
+            for r in cand.get('roles', []):
+                sub_parts = [p.strip().lower() for p in r.split(',') if p.strip()]
+                for p in sub_parts:
+                    if p in target_role or p in title:
+                        matched = True
+                        break
+                if matched:
+                    break
+            if matched:
+                break
+
+        if not matched:
+            return Response({
+                'error': 'This job is outside your assigned candidate scope.'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+    serializer = DiscoveredJobDetailSerializer(job)
+    job_dict = serializer.data
+
+    # Attach candidate matching context
+    attach_matching_candidate_context([job_dict], scope)
+
+    return Response(job_dict)
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved, IsRecruiter])
+def recruiter_job_discovery_statistics(request):
+    """
+    GET /api/recruiter/job-discovery/statistics/
+    Computes summary metrics specific to the logged-in recruiter's candidate scope.
+    """
+    scope = get_recruiter_assigned_scope(request.user)
+
+    if not scope['has_candidates'] or not scope['roles']:
+        return Response({
+            'total_matching_jobs': 0,
+            'matching_today': 0,
+            'matching_week': 0,
+            'assigned_candidates_count': 0,
+            'by_candidate': [],
+            'by_role': [],
+            'by_grade': [],
+        })
+
+    qs = build_recruiter_jobs_queryset(request.user)
+
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=7)
+
+    total_matching = qs.count()
+    matching_today = qs.filter(created_at__gte=today_start).count()
+    matching_week = qs.filter(created_at__gte=week_start).count()
+
+    # Per-candidate job count breakdown
+    by_candidate = []
+    for cand in scope['candidates']:
+        cand_qs = build_recruiter_jobs_queryset(request.user, candidate_id=cand['id'])
+        by_candidate.append({
+            'id': cand['id'],
+            'name': cand['name'],
+            'email': cand['email'],
+            'roles': cand['roles'],
+            'matching_jobs_count': cand_qs.count(),
+        })
+
+    # Roles breakdown
+    by_role = list(
+        qs.values('target_role')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:5]
+    )
+
+    # Visa Grade breakdown
+    by_grade = list(
+        qs.values('visa_grade')
+        .annotate(count=Count('id'))
+        .order_by('visa_grade')
+    )
+
+    return Response({
+        'total_matching_jobs': total_matching,
+        'matching_today': matching_today,
+        'matching_week': matching_week,
+        'assigned_candidates_count': len(scope['candidates']),
+        'by_candidate': by_candidate,
+        'by_role': by_role,
+        'by_grade': by_grade,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsApproved, IsRecruiter])
+def get_recruiter_job_discovery_filters(request):
+    """
+    GET /api/recruiter/job-discovery/filters/
+    Returns filter choices populated directly from recruiter's actual candidate data.
+    """
+    scope = get_recruiter_assigned_scope(request.user)
+    qs = build_recruiter_jobs_queryset(request.user)
+
+    sources = sorted(list(set(qs.values_list('source_portal', flat=True).distinct().exclude(source_portal=''))))
+    locations = sorted(list(set(loc for loc in qs.values_list('state', flat=True).distinct() if loc)))
+
+    return Response({
+        'candidates': scope['candidates'],
+        'roles': scope['roles'],
+        'sources': sources,
+        'locations': locations,
+        'visa_grades': ['A', 'B', 'C', 'D', 'E', 'F'],
+    })
+
