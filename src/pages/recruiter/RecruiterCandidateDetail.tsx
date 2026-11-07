@@ -15,12 +15,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload, Search, Ban, XCircle, MoreHorizontal, Download, SlidersHorizontal } from "lucide-react";
+import { Users, Clock, FileText, Briefcase, KeyRound, ClipboardList, Plus, Trash2, User, Phone, Shield, AlertTriangle, Sparkles, Loader2, MessageSquare, History, Globe, ExternalLink, Save, ChevronDown, Eye, EyeOff, LayoutDashboard, FileCheck, Calendar as CalendarIcon, Award, UserCheck, X, Pencil, CheckCircle, Upload, Search, Ban, XCircle, MoreHorizontal, Download, SlidersHorizontal, Compass } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { format, subDays } from "date-fns";
 import { motion } from "framer-motion";
 import RecruiterInterviewsTab from "@/components/recruiter/RecruiterInterviewsTab";
+import CandidateDiscoveryJobsSection from "@/components/recruiter/CandidateDiscoveryJobsSection";
 import AdminAuditTab from "@/components/admin/AdminAuditTab";
 import ChatTab from "@/components/recruiter/ChatTab";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
@@ -545,6 +546,27 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
   const [jobLinkErrors, setJobLinkErrors] = useState<Record<number, Record<string, string>>>({});
   const [savingLog, setSavingLog] = useState(false);
   const [fetchingJob, setFetchingJob] = useState<Record<number, boolean>>({});
+
+  // Discovery Jobs Section State & Refs
+  const [showDiscoveryJobs, setShowDiscoveryJobs] = useState(false);
+  const discoveryJobsRef = useRef<HTMLDivElement>(null);
+  const submitJobAppCardRef = useRef<HTMLDivElement>(null);
+  const submissionPipelineRef = useRef<HTMLDivElement>(null);
+
+  const handleJobMovedToPipeline = (createdEntries?: any) => {
+    if (createdEntries) {
+      const list = Array.isArray(createdEntries) ? createdEntries : [createdEntries];
+      setJobPostings(prev => {
+        const prevIds = new Set(prev.map(p => p.id));
+        const fresh = list.filter(item => !prevIds.has(item.id));
+        return [...fresh, ...prev];
+      });
+    }
+    fetchAll(false);
+    setTimeout(() => {
+      submissionPipelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+  };
 
   // Edit & Delete Job Application States
   const [editJobDialogOpen, setEditJobDialogOpen] = useState(false);
@@ -2818,16 +2840,40 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         </TabsContent>
 
         <TabsContent value="applications" className="space-y-4">
-          <Card className="border-none shadow-sm bg-card/60">
+          <Card ref={submitJobAppCardRef} className="border-none shadow-sm bg-card/60">
             <CardHeader><CardTitle className="text-base font-bold">Submit Job Application</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2 mb-2">
                   <h4 className="text-sm font-bold flex items-center gap-2">Jobs & URLs <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">{jobLinks.length}</span></h4>
                   <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const next = !showDiscoveryJobs;
+                        setShowDiscoveryJobs(next);
+                        if (next) {
+                          setTimeout(() => {
+                            discoveryJobsRef.current?.scrollIntoView({ behavior: "smooth" });
+                          }, 100);
+                        }
+                      }}
+                      className={cn(
+                        "h-8 text-[11px] font-bold uppercase tracking-widest rounded-lg border transition-all flex items-center gap-1.5",
+                        showDiscoveryJobs
+                          ? "bg-secondary text-secondary-foreground border-secondary shadow-xs font-extrabold"
+                          : "text-secondary hover:bg-secondary/5 border-secondary/20"
+                      )}
+                    >
+                      <Compass className="mr-1 h-3.5 w-3.5" />
+                      {showDiscoveryJobs ? "Hide Discovery Jobs" : "Discovery Jobs"}
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={addJobLink} className="h-8 text-[11px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 rounded-lg border border-secondary/20">
                       <Plus className="mr-1 h-3 w-3" /> Add Job Application Link
                     </Button>
+
                     <Popover open={optionsPopoverOpen} onOpenChange={setOptionsPopoverOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -3414,7 +3460,25 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-sm bg-card/60 mt-6">
+          {/* Discovered Jobs Section for this Candidate (Before Submission Pipeline) */}
+          {showDiscoveryJobs && (
+            <div ref={discoveryJobsRef} className="mt-6">
+              <CandidateDiscoveryJobsSection
+                candidateId={candidateId}
+                candidate={candidate}
+                roles={roles}
+                jobPostings={jobPostings}
+                resumes={resumes}
+                alwaysShowDefaults={alwaysShowDefaults}
+                onUpdateJobStatus={handleUpdateJobStatus}
+                onRefreshApplications={fetchAll}
+                onMovedToPipeline={handleJobMovedToPipeline}
+                onClose={() => setShowDiscoveryJobs(false)}
+              />
+            </div>
+          )}
+
+          <Card ref={submissionPipelineRef} id="submission-pipeline-card" className="border-none shadow-sm bg-card/60 mt-6">
             <CardHeader className="pb-3 px-6 pt-5 border-b border-border/40">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
@@ -3780,6 +3844,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           <RecruiterInterviewsTab
             candidateId={candidateId}
             candidateUserId={candidate.user_id}
+            candidate={candidate}
             onRefresh={() => fetchAll(false)}
           />
         </TabsContent>
@@ -4256,8 +4321,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     Applications & Remaining Matter in UI
                   </span>
                   <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-bold ${applicationsToDownload.length > 0
-                      ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                      : 'bg-muted text-muted-foreground'
+                    ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                    : 'bg-muted text-muted-foreground'
                     }`}>
                     {applicationsToDownload.length} found
                   </span>
