@@ -336,6 +336,85 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
         return obj.submission_log.log_date if obj.submission_log else None
 
 
+class PublicDiscoveredJobAlertSerializer(serializers.ModelSerializer):
+    """
+    Public-facing serializer for unauthenticated Job Board.
+    Strictly omits all visa intelligence, internal scraping metadata, and work authorization.
+    """
+    role_title = serializers.CharField(source='title', read_only=True)
+    job_description = serializers.CharField(read_only=True)
+    display_id = serializers.SerializerMethodField()
+    work_mode = serializers.SerializerMethodField()
+    experience_required = serializers.SerializerMethodField()
+    salary = serializers.SerializerMethodField()
+    salary_range = serializers.SerializerMethodField()
+    salary_type = serializers.CharField(source='salary_period', read_only=True)
+    application_status = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    log_date = serializers.SerializerMethodField()
+    is_public = serializers.BooleanField(source='is_active', read_only=True)
+
+    class Meta:
+        model = DiscoveredJob
+        fields = [
+            'id', 'job_id', 'display_id', 'title', 'role_title', 'company_name',
+            'target_role', 'job_url', 'job_description',
+            'location_raw', 'city', 'state', 'state_code', 'country',
+            'is_remote', 'is_hybrid', 'work_mode',
+            'salary_min', 'salary_max', 'salary_currency', 'salary_period', 'salary_type', 'salary_raw',
+            'salary', 'salary_range',
+            'employment_type', 'experience_level', 'experience_required',
+            'date_posted', 'log_date',
+            'review_status', 'application_status', 'status',
+            'is_active', 'is_public',
+            'created_at', 'updated_at',
+        ]
+
+    def get_display_id(self, obj):
+        if obj.job_id:
+            return obj.job_id
+        return f"HYRJOB{str(obj.id)[:6].upper()}"
+
+    def get_work_mode(self, obj):
+        if obj.is_remote:
+            return 'Remote'
+        if obj.is_hybrid:
+            return 'Hybrid'
+        return 'Onsite'
+
+    def get_experience_required(self, obj):
+        return obj.experience_level or 'Not Specified'
+
+    def get_salary(self, obj):
+        if obj.salary_raw:
+            return obj.salary_raw
+        if obj.salary_min and obj.salary_max:
+            return f"${int(obj.salary_min):,} - ${int(obj.salary_max):,}"
+        if obj.salary_min:
+            return f"${int(obj.salary_min):,}+"
+        return "Not Disclosed"
+
+    def get_salary_range(self, obj):
+        return self.get_salary(obj)
+
+    def get_application_status(self, obj):
+        if obj.review_status == 'REJECTED':
+            return 'rejected'
+        if not obj.is_active:
+            return 'expired'
+        return 'applied'
+
+    def get_status(self, obj):
+        return self.get_application_status(obj)
+
+    def get_log_date(self, obj):
+        if obj.date_posted:
+            return obj.date_posted.date()
+        if obj.created_at:
+            return obj.created_at.date()
+        return None
+
+
 class DiscoveredJobAlertSerializer(serializers.ModelSerializer):
     role_title = serializers.CharField(source='title', read_only=True)
     job_description = serializers.CharField(read_only=True)

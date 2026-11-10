@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
+import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
 import {
   Search, Filter, ExternalLink, RefreshCw, CheckCircle2,
   XCircle, AlertCircle, Briefcase, Building, MapPin, DollarSign,
@@ -26,31 +28,6 @@ const REVIEW_STATUS_CONFIG: Record<string, { label: string; color: string; icon:
   APPROVED: { label: "Approved", color: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
   REJECTED: { label: "Rejected", color: "bg-red-100 text-red-800 border-red-200", icon: XCircle },
   ALREADY_EXISTS: { label: "Duplicate", color: "bg-slate-100 text-slate-700 border-slate-300", icon: Copy },
-};
-
-const getVisaGradeBadge = (grade?: string, score?: number) => {
-  if (!grade) {
-    return (
-      <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 font-normal text-[11px]">
-        Unrated
-      </Badge>
-    );
-  }
-
-  const g = grade.toUpperCase();
-  let colorClass = "bg-slate-100 text-slate-700 border-slate-300";
-  if (g === "A") colorClass = "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold";
-  else if (g === "B") colorClass = "bg-blue-100 text-blue-800 border-blue-300 font-semibold";
-  else if (g === "C") colorClass = "bg-amber-100 text-amber-800 border-amber-300 font-medium";
-  else if (g === "D") colorClass = "bg-orange-100 text-orange-800 border-orange-300";
-  else if (g === "E" || g === "F") colorClass = "bg-red-100 text-red-800 border-red-300";
-
-  return (
-    <Badge variant="outline" className={`${colorClass} px-1.5 py-0.5 text-[11px] flex items-center gap-1`}>
-      <Award className="h-3 w-3" />
-      Grade {g} {score !== undefined && score > 0 ? `(${score})` : ""}
-    </Badge>
-  );
 };
 
 const safeUrl = (url?: string): string => {
@@ -511,21 +488,22 @@ export const AdminJobDiscoveryPage = () => {
                   <th className="py-2.5 px-3">Location</th>
                   <th className="py-2.5 px-3">Salary</th>
                   <th className="py-2.5 px-3">Portal</th>
-                  <th className="py-2.5 px-3">Posted</th>
+                  <th className="py-2.5 px-3">Scraped Date</th>
+                  <th className="py-2.5 px-3">Posted Date</th>
                   <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading discovered opportunities...
                     </td>
                   </tr>
                 ) : jobs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       No opportunities match your current filter parameters.
                     </td>
@@ -533,17 +511,24 @@ export const AdminJobDiscoveryPage = () => {
                 ) : (
                   jobs.map((job) => (
                     <tr key={job.id} className="hover:bg-slate-50/80 transition-colors">
-                      {/* Title & Company */}
-                      <td className="py-2.5 px-3 max-w-[240px]">
-                        <button
-                          onClick={() => handleOpenDetail(job.id)}
-                          className="font-semibold text-slate-900 hover:text-primary hover:underline text-left block truncate text-xs"
-                        >
-                          {job.title}
-                        </button>
-                        <span className="text-slate-500 text-[11px] block truncate mt-0.5">
-                          {job.company_name}
-                        </span>
+                      {/* Title, Company & Restrictions */}
+                      <td className="py-2.5 px-3 max-w-[280px]">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleOpenDetail(job.id)}
+                            className="font-semibold text-slate-900 hover:text-primary hover:underline text-left block text-xs line-clamp-2 leading-tight"
+                          >
+                            {job.title}
+                          </button>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-slate-600 font-medium text-[11px] truncate max-w-[150px]">
+                              {job.company_name}
+                            </span>
+                            {job.detected_restrictions && job.detected_restrictions.length > 0 && (
+                              <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
+                            )}
+                          </div>
+                        </div>
                       </td>
 
                       {/* Target Role */}
@@ -554,9 +539,15 @@ export const AdminJobDiscoveryPage = () => {
                       </td>
 
                       {/* Visa Intelligence Column */}
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 whitespace-nowrap">
                         <div className="flex flex-col gap-1 items-start">
-                          {getVisaGradeBadge(job.visa_grade, job.visa_friendly_score)}
+                          <VisaGradeBadge
+                            grade={job.visa_grade}
+                            score={job.visa_friendly_score}
+                            visaMatched={job.visa_matched}
+                            matchConfidence={job.company_match_confidence}
+                            filingsCount={job.h1b_filings_recent}
+                          />
                           <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                             {job.h1b_filings_recent > 0 ? (
                               <span>{job.h1b_filings_recent.toLocaleString()} filings</span>
@@ -593,9 +584,17 @@ export const AdminJobDiscoveryPage = () => {
                         </span>
                       </td>
 
+                      {/* Date Scraped */}
+                      <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap text-[11px]">
+                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                          <Calendar className="h-3 w-3 text-slate-400" />
+                          <span>{formatDate(job.created_at)}</span>
+                        </div>
+                      </td>
+
                       {/* Date Posted */}
-                      <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                        {job.date_posted ? formatDate(job.date_posted) : "Recent"}
+                      <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap text-[11px]">
+                        {job.date_posted ? formatDate(job.date_posted) : "—"}
                       </td>
 
                       {/* Actions */}
@@ -672,8 +671,14 @@ export const AdminJobDiscoveryPage = () => {
           {selectedJob && (
             <>
               <DialogHeader>
-                <div className="flex items-center gap-2 mb-1">
-                  {getVisaGradeBadge(selectedJob.visa_grade, selectedJob.visa_friendly_score)}
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <VisaGradeBadge
+                    grade={selectedJob.visa_grade}
+                    score={selectedJob.visa_friendly_score}
+                    visaMatched={selectedJob.visa_matched}
+                    matchConfidence={selectedJob.company_match_confidence}
+                    filingsCount={selectedJob.h1b_filings_recent}
+                  />
                   <Badge variant="outline" className="text-xs capitalize font-normal">
                     {selectedJob.source_portal}
                   </Badge>
@@ -681,6 +686,9 @@ export const AdminJobDiscoveryPage = () => {
                     <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700">
                       Remote
                     </Badge>
+                  )}
+                  {selectedJob.detected_restrictions && selectedJob.detected_restrictions.length > 0 && (
+                    <JobRestrictionBadges restrictions={selectedJob.detected_restrictions} compact={false} />
                   )}
                 </div>
                 <DialogTitle className="text-lg font-bold text-slate-900">
@@ -692,6 +700,9 @@ export const AdminJobDiscoveryPage = () => {
                   <span className="mx-1">•</span>
                   <MapPin className="h-3.5 w-3.5" />
                   {selectedJob.city ? `${selectedJob.city}, ${selectedJob.state_code || selectedJob.state}` : (selectedJob.location_raw || "USA")}
+                  <span className="mx-1">•</span>
+                  <Calendar className="h-3.5 w-3.5" />
+                  Scraped: {formatDate(selectedJob.created_at)}
                 </DialogDescription>
               </DialogHeader>
 
@@ -739,7 +750,13 @@ export const AdminJobDiscoveryPage = () => {
                       <ShieldCheck className="h-4 w-4 text-primary" />
                       <span className="font-semibold text-slate-900 text-xs">Visa Intelligence Breakdown</span>
                     </div>
-                    {getVisaGradeBadge(selectedJob.visa_grade, selectedJob.visa_friendly_score)}
+                    <VisaGradeBadge
+                      grade={selectedJob.visa_grade}
+                      score={selectedJob.visa_friendly_score}
+                      visaMatched={selectedJob.visa_matched}
+                      matchConfidence={selectedJob.company_match_confidence}
+                      filingsCount={selectedJob.h1b_filings_recent}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-xs">

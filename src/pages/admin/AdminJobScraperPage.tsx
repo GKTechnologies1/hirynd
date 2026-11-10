@@ -12,10 +12,13 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { ScraperSessionReportModal } from "@/components/admin/ScraperSessionReportModal";
+import { ScrapingCostAnalyticsModal } from "@/components/admin/ScrapingCostAnalyticsModal";
+import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
 import {
   Compass, Play, RefreshCw, Plus, Trash2, CheckCircle2,
   XCircle, Clock, AlertTriangle, Layers, Database, Building2,
-  Search, ShieldCheck, Award, ExternalLink, X, Info, Globe
+  Search, ShieldCheck, Award, ExternalLink, X, Info, Globe, DollarSign
 } from "lucide-react";
 
 interface RoleConfig {
@@ -95,6 +98,7 @@ export const AdminJobScraperPage = () => {
   const [executions, setExecutions] = useState<any[]>([]);
   const [loadingExecutions, setLoadingExecutions] = useState(false);
   const [selectedExecutionModal, setSelectedExecutionModal] = useState<any>(null);
+  const [costModalOpen, setCostModalOpen] = useState(false);
 
   // Fetch roles from DB
   const fetchDbRoles = useCallback(async () => {
@@ -788,14 +792,25 @@ export const AdminJobScraperPage = () => {
 
       {/* Execution History Table */}
       <Card className="border-slate-200 shadow-xs">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="h-4 w-4 text-slate-500" />
-            Scraper Execution History
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Log of manual runs and automatic daily 6:00 PM IST schedules.
-          </CardDescription>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4 text-slate-500" />
+              Scraper Execution History
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Audit log of scraping runs, role breakdown, recruiter distribution, and metered costs.
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCostModalOpen(true)}
+            className="h-8 text-xs font-semibold flex items-center gap-1.5 border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+          >
+            <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+            Financial & Cost Analytics
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-slate-200 overflow-x-auto">
@@ -808,29 +823,30 @@ export const AdminJobScraperPage = () => {
                   <th className="py-2.5 px-3">Found</th>
                   <th className="py-2.5 px-3">New Inserted</th>
                   <th className="py-2.5 px-3">Duplicates</th>
+                  <th className="py-2.5 px-3">Cost (USD)</th>
                   <th className="py-2.5 px-3">Status</th>
                   <th className="py-2.5 px-3">Started At</th>
-                  <th className="py-2.5 px-3 text-right">Details</th>
+                  <th className="py-2.5 px-3 text-right">Audit & Assign</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loadingExecutions ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading executions...
                     </td>
                   </tr>
                 ) : executions.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
                       No executions recorded yet. Run a scraper above or wait for the daily 6:00 PM IST schedule.
                     </td>
                   </tr>
                 ) : (
                   executions.map((e) => (
                     <tr key={e.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2 px-3 font-mono text-slate-700">
+                      <td className="py-2 px-3 font-mono text-slate-700 font-medium">
                         {e.id.slice(0, 8)}
                       </td>
                       <td className="py-2 px-3 capitalize">
@@ -847,6 +863,9 @@ export const AdminJobScraperPage = () => {
                       </td>
                       <td className="py-2 px-3 text-amber-700">
                         {e.total_duplicates || 0}
+                      </td>
+                      <td className="py-2 px-3 font-mono text-emerald-700 font-semibold">
+                        ${Number(e.total_cost_usd || 0).toFixed(4)}
                       </td>
                       <td className="py-2 px-3">
                         <Badge
@@ -867,12 +886,12 @@ export const AdminJobScraperPage = () => {
                       </td>
                       <td className="py-2 px-3 text-right">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => setSelectedExecutionModal(e)}
-                          className="h-7 px-2 text-xs"
+                          className="h-7 px-2.5 text-xs font-semibold"
                         >
-                          View
+                          View Report
                         </Button>
                       </td>
                     </tr>
@@ -884,73 +903,18 @@ export const AdminJobScraperPage = () => {
         </CardContent>
       </Card>
 
-      {/* Execution Detail Modal */}
-      <Dialog open={!!selectedExecutionModal} onOpenChange={(open) => !open && setSelectedExecutionModal(null)}>
-        <DialogContent className="max-w-xl">
-          {selectedExecutionModal && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-base font-bold">
-                  Scraper Execution Details ({selectedExecutionModal.id.slice(0, 8)})
-                </DialogTitle>
-                <DialogDescription className="text-xs">
-                  Started at {formatDateTime(selectedExecutionModal.started_at)}
-                </DialogDescription>
-              </DialogHeader>
+      {/* Comprehensive Scraper Session Report & Distribution Modal */}
+      <ScraperSessionReportModal
+        execution={selectedExecutionModal}
+        open={!!selectedExecutionModal}
+        onClose={() => setSelectedExecutionModal(null)}
+      />
 
-              <div className="space-y-3 py-2 text-xs">
-                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                  <div>
-                    <span className="text-slate-500 block">Trigger:</span>
-                    <strong className="capitalize">{selectedExecutionModal.trigger_type}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Status:</span>
-                    <strong>{selectedExecutionModal.status}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Total Found:</span>
-                    <strong>{selectedExecutionModal.total_jobs_found}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">New Inserted:</span>
-                    <strong className="text-green-700">{selectedExecutionModal.total_inserted}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Duplicates Avoided:</span>
-                    <strong className="text-amber-700">{selectedExecutionModal.total_duplicates}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Duration:</span>
-                    <strong>{selectedExecutionModal.duration_seconds || 0} seconds</strong>
-                  </div>
-                </div>
-
-                {selectedExecutionModal.error_message && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-xs">
-                    <strong>Error / Notes:</strong> {selectedExecutionModal.error_message}
-                  </div>
-                )}
-
-                <div>
-                  <Label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Configured Roles & Targets:
-                  </Label>
-                  <pre className="p-2.5 bg-slate-900 text-slate-100 rounded text-[11px] overflow-x-auto max-h-40">
-                    {JSON.stringify(selectedExecutionModal.config, null, 2)}
-                  </pre>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" size="sm" onClick={() => setSelectedExecutionModal(null)}>
-                  Close
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Admin-Only Financial & Cost Analytics Modal */}
+      <ScrapingCostAnalyticsModal
+        open={costModalOpen}
+        onClose={() => setCostModalOpen(false)}
+      />
 
       {/* Company Visa Detail Modal */}
       <Dialog open={!!viewCompanyModal} onOpenChange={(open) => !open && setViewCompanyModal(null)}>

@@ -290,3 +290,121 @@ def get_recruiter_job_discovery_filters(request):
         'visa_grades': ['A', 'B', 'C', 'D', 'E', 'F'],
     })
 
+
+@api_view(['POST'])
+@permission_classes([IsApproved, IsRecruiter])
+def mark_job_as_applied(request, job_id):
+    """
+    POST /api/recruiter/job-discovery/jobs/<job_id>/mark-applied/
+    Marks a discovered job as applied for an assigned candidate, creating
+    or updating a JobLinkEntry in the Candidate Applications tracking system.
+    """
+    candidate_id = request.data.get('candidate_id')
+    notes = request.data.get('notes', '').strip()
+
+    if not candidate_id:
+        return Response({'error': 'candidate_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate candidate assignment (Admins bypass isolation)
+    if request.user.role != 'admin':
+        from recruiters.models import RecruiterAssignment
+        is_assigned = RecruiterAssignment.objects.filter(
+            recruiter=request.user,
+            candidate_id=candidate_id,
+            is_active=True
+        ).exists()
+        if not is_assigned:
+            return Response(
+                {'error': 'You are not assigned to manage this candidate.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    try:
+        job = DiscoveredJob.objects.get(id=job_id)
+    except DiscoveredJob.DoesNotExist:
+        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    from candidates.models import Candidate
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    from recruiters.models import JobLinkEntry, DailySubmissionLog
+
+    # Check for existing matching application for this candidate
+    existing = None
+    if job.job_url:
+        existing = JobLinkEntry.objects.filter(
+            candidate=candidate,
+            job_url=job.job_url
+        ).first()
+
+    if not existing:
+        existing = JobLinkEntry.objects.filter(
+            candidate=candidate,
+            company_name__iexact=job.company_name,
+            role_title__icontains=job.target_role
+        ).first()
+
+    if existing:
+        return Response({
+            'status': 'already_applied',
+            'message': f'This job is already applied for {candidate.user.email} (Status: {existing.application_status}).',
+            'application_id': str(existing.id),
+            'application_status': existing.application_status,
+            'applied_date': existing.created_at.date().isoformat() if existing.created_at else None,
+        })
+
+    # Associate with or create today's DailySubmissionLog
+    today = timezone.now().date()
+    log, _ = DailySubmissionLog.objects.get_or_create(
+        candidate=candidate,
+        recruiter=request.user,
+        log_date=today,
+        defaults={
+            'notes': 'Job Discovery Application',
+            'is_manual': False,
+            'applications_count': 0,
+            'screening_count': 0,
+            'interview_count': 0,
+            'offer_count': 0,
+        }
+    )
+
+    sal_val = job.salary_raw or ""
+    if not sal_val and job.salary_min:
+        sal_val = f"${int(job.salary_min):,}"
+
+    entry = JobLinkEntry.objects.create(
+        submission_log=log,
+        candidate=candidate,
+        company_name=job.company_name,
+        role_title=job.title,
+        job_url=job.job_url or '',
+        job_description=job.job_description or '',
+        application_status='applied',
+        employment_type=job.employment_type or 'Full-Time',
+        city=job.city or '',
+        state=job.state or '',
+        country=job.country or 'USA',
+        salary=sal_val,
+        visa_eligibility=f"Grade {job.visa_grade}" if job.visa_grade else "",
+        notes=f"Applied from Job Discovery. {notes}".strip(),
+        submitted_by=request.user,
+        is_public=True,
+    )
+
+    # Update daily log counts
+    log.applications_count = JobLinkEntry.objects.filter(submission_log=log).count()
+    log.save(update_fields=['applications_count'])
+
+    return Response({
+        'status': 'success',
+        'message': f'Successfully marked as Applied for {candidate.user.email}.',
+        'application_id': str(entry.id),
+        'application_status': 'applied',
+        'applied_date': entry.created_at.date().isoformat() if entry.created_at else today.isoformat(),
+    }, status=status.HTTP_201_CREATED)
+
+

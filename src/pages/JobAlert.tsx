@@ -121,18 +121,8 @@ const JobCardItem = ({
               <Clock className="h-3 w-3 text-blue-600" />
               {postedDate}
             </span>
-            {job.source_portal && (
-              <span className="bg-sky-50 text-sky-800 border border-sky-200/60 px-2 py-0.5 rounded-md uppercase text-[9px] font-bold">
-                {job.source_portal}
-              </span>
-            )}
-            {visaEligibility && (
-              <span className="bg-amber-50 text-amber-800 border border-amber-200/60 px-2 py-0.5 rounded-md">
-                Visa: {visaEligibility}
-              </span>
-            )}
-            <span className="bg-indigo-50 text-indigo-800 border border-indigo-200/60 px-2 py-0.5 rounded-md">
-              Scraped Opening
+            <span className="bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-2 py-0.5 rounded-md font-medium">
+              Verified Opening
             </span>
           </div>
 
@@ -230,12 +220,6 @@ const JobCardItem = ({
               </span>
             )}
           </div>
-          {visaEligibility && (
-            <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-semibold truncate">
-              <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
-              <span className="truncate">{visaEligibility}</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1110,18 +1094,7 @@ export default function JobAlert() {
                   searchPlaceholder="Search work mode..."
                 />
 
-                {/* 6. Visa Type Multi-Select Dropdown */}
-                <MultiSelectFilterPopover
-                  label="Visa Type"
-                  categoryTitle="Visa Eligibility"
-                  icon={<Sparkles className="h-3 w-3 text-[#0d47a1]" />}
-                  options={dynamicVisaEligibilities}
-                  selected={filterVisa}
-                  onChange={setFilterVisa}
-                  searchPlaceholder="Search visa..."
-                />
-
-                {/* 7. Salary Multi-Select Dropdown */}
+                {/* 6. Salary Multi-Select Dropdown */}
                 <MultiSelectFilterPopover
                   label="Salary"
                   categoryTitle="Salary Range"
@@ -1432,17 +1405,6 @@ export default function JobAlert() {
                       }
                     },
                     {
-                      header: "Visa Eligibility",
-                      accessorKey: "visa_eligibility",
-                      sortable: true,
-                      className: "py-4 text-xs font-semibold",
-                      render: (job: any) => job.visa_eligibility ? (
-                        <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold">
-                          {job.visa_eligibility}
-                        </span>
-                      ) : <span className="text-slate-400">—</span>
-                    },
-                    {
                       header: "Job Description",
                       render: (job: any) => (
                         <JobDescriptionCell
@@ -1531,10 +1493,6 @@ export default function JobAlert() {
             <div>
               <p className="text-[10px] uppercase font-bold text-slate-400">Salary</p>
               <p className="font-bold text-blue-700">{activeJobDesc?.salary || "Not Disclosed"}</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Visa Information</p>
-              <p className="font-semibold text-amber-800">{activeJobDesc?.visa_eligibility || "—"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-slate-400">Required Skills</p>

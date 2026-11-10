@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, cn } from "@/lib/utils";
+import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
+import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
 import {
   Search, ExternalLink, RefreshCw, Briefcase, Building, MapPin,
   Eye, Copy, ChevronLeft, ChevronRight, Award,
@@ -30,31 +32,6 @@ export const JOB_STATUSES = [
   "Rejected",
   "No Response",
 ];
-
-const getVisaGradeBadge = (grade?: string, score?: number) => {
-  if (!grade) {
-    return (
-      <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 font-normal text-[11px]">
-        Unrated
-      </Badge>
-    );
-  }
-
-  const g = grade.toUpperCase();
-  let colorClass = "bg-slate-100 text-slate-700 border-slate-300";
-  if (g === "A") colorClass = "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold";
-  else if (g === "B") colorClass = "bg-blue-100 text-blue-800 border-blue-300 font-semibold";
-  else if (g === "C") colorClass = "bg-amber-100 text-amber-800 border-amber-300 font-medium";
-  else if (g === "D") colorClass = "bg-orange-100 text-orange-800 border-orange-300";
-  else if (g === "E" || g === "F") colorClass = "bg-red-100 text-red-800 border-red-300";
-
-  return (
-    <Badge variant="outline" className={`${colorClass} px-1.5 py-0.5 text-[11px] flex items-center gap-1`}>
-      <Award className="h-3 w-3" />
-      Grade {g} {score !== undefined && score > 0 ? `(${score})` : ""}
-    </Badge>
-  );
-};
 
 const safeUrl = (url?: string): string => {
   if (!url) return "#";
@@ -596,7 +573,14 @@ export const CandidateDiscoveryJobsSection = ({
                         {/* Title and Company Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold mb-1">
-                            {getVisaGradeBadge(job.visa_grade, job.visa_friendly_score)}
+                            <VisaGradeBadge
+                              grade={job.visa_grade}
+                              score={job.visa_friendly_score}
+                              visaMatched={job.visa_matched}
+                              matchConfidence={job.company_match_confidence}
+                              filingsCount={job.h1b_filings_recent}
+                              size="sm"
+                            />
                             <span className="bg-blue-500/10 text-blue-700 border border-blue-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {postedDate}
@@ -604,6 +588,9 @@ export const CandidateDiscoveryJobsSection = ({
                             <span className="bg-purple-500/10 text-purple-700 border border-purple-500/20 px-1.5 py-0.5 rounded-md capitalize">
                               {job.source_portal || "Web"}
                             </span>
+                            {job.detected_restrictions && job.detected_restrictions.length > 0 && (
+                              <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
+                            )}
                           </div>
 
                           <h4
@@ -814,7 +801,13 @@ export const CandidateDiscoveryJobsSection = ({
                         {/* Visa Intelligence */}
                         <td className="py-3 px-3 whitespace-nowrap">
                           <div className="flex flex-col gap-1 items-start">
-                            {getVisaGradeBadge(job.visa_grade, job.visa_friendly_score)}
+                            <VisaGradeBadge
+                              grade={job.visa_grade}
+                              score={job.visa_friendly_score}
+                              visaMatched={job.visa_matched}
+                              matchConfidence={job.company_match_confidence}
+                              filingsCount={job.h1b_filings_recent}
+                            />
                             <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                               {job.h1b_filings_recent > 0 && (
                                 <span>{job.h1b_filings_recent.toLocaleString()} filings</span>
@@ -980,8 +973,14 @@ export const CandidateDiscoveryJobsSection = ({
           {selectedJob && (
             <>
               <DialogHeader>
-                <div className="flex items-center gap-2 mb-1">
-                  {getVisaGradeBadge(selectedJob.visa_grade, selectedJob.visa_friendly_score)}
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <VisaGradeBadge
+                    grade={selectedJob.visa_grade}
+                    score={selectedJob.visa_friendly_score}
+                    visaMatched={selectedJob.visa_matched}
+                    matchConfidence={selectedJob.company_match_confidence}
+                    filingsCount={selectedJob.h1b_filings_recent}
+                  />
                   <Badge variant="outline" className="text-xs capitalize font-normal">
                     {selectedJob.source_portal || "Web"}
                   </Badge>
@@ -989,6 +988,9 @@ export const CandidateDiscoveryJobsSection = ({
                     <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-700">
                       Remote
                     </Badge>
+                  )}
+                  {selectedJob.detected_restrictions && selectedJob.detected_restrictions.length > 0 && (
+                    <JobRestrictionBadges restrictions={selectedJob.detected_restrictions} compact={false} />
                   )}
                 </div>
                 <DialogTitle className="text-lg font-bold text-foreground">
@@ -1109,7 +1111,13 @@ export const CandidateDiscoveryJobsSection = ({
                       <ShieldCheck className="h-4 w-4 text-primary" />
                       <span className="font-semibold text-foreground text-xs">Employer Visa Sponsorship</span>
                     </div>
-                    {getVisaGradeBadge(selectedJob.visa_grade, selectedJob.visa_friendly_score)}
+                    <VisaGradeBadge
+                      grade={selectedJob.visa_grade}
+                      score={selectedJob.visa_friendly_score}
+                      visaMatched={selectedJob.visa_matched}
+                      matchConfidence={selectedJob.company_match_confidence}
+                      filingsCount={selectedJob.h1b_filings_recent}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-xs">

@@ -626,6 +626,13 @@ export const jobScraperApi = {
   executions: (params?: { status?: string; page?: number; page_size?: number }) =>
     api.get('/admin/job-scraper/executions/', { params }),
   executionDetail: (id: string) => api.get(`/admin/job-scraper/executions/${id}/`),
+  sessionReport: (id: string) => api.get(`/admin/job-scraper/executions/${id}/report/`),
+  rolesBreakdown: (id: string) => api.get(`/admin/job-scraper/executions/${id}/roles/`),
+  distribution: (id: string) => api.get(`/admin/job-scraper/executions/${id}/distribution/`),
+  assign: (id: string, data: { recruiter_ids: string[]; role_names?: string[]; job_ids?: string[]; notes?: string }) =>
+    api.post(`/admin/job-scraper/executions/${id}/assign/`, data),
+  costReports: (params?: { date_from?: string; date_to?: string; portal?: string; role?: string; initiated_by?: string }) =>
+    api.get('/admin/job-scraper/cost-reports/', { params }),
 };
 
 // ─── Job Discovery (Dashboard A - Global View) ───
@@ -680,5 +687,30 @@ export const recruiterJobDiscoveryApi = {
   }) => api.get('/recruiter/job-discovery/jobs/', { params }),
   jobDetail: (id: string) => api.get(`/recruiter/job-discovery/jobs/${id}/`),
   filters: () => api.get('/recruiter/job-discovery/filters/'),
+  markApplied: (id: string, data: { candidate_id: string; notes?: string }) =>
+    api.post(`/recruiter/job-discovery/jobs/${id}/mark-applied/`, data),
+};
+
+// ─── Employer Intelligence & Discovery (Admin) ───
+export const employerDiscoveryApi = {
+  list: (params?: {
+    search?: string;
+    industry?: string;
+    location?: string;
+    grade?: string;
+    has_placements?: boolean | string;
+    has_h1b?: boolean | string;
+    has_lca?: boolean | string;
+    verification_status?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get('/admin/employers/', { params }),
+  statistics: () => api.get('/admin/employers/statistics/'),
+  detail: (id: number | string) => api.get(`/admin/employers/${id}/`),
+  update: (id: number | string, data: Record<string, any>) => api.patch(`/admin/employers/${id}/`, data),
+  create: (data: Record<string, any>) => api.post('/admin/employers/create/', data),
+  placements: (id: number | string) => api.get(`/admin/employers/${id}/placements/`),
+  addPlacement: (id: number | string, data: Record<string, any>) => api.post(`/admin/employers/${id}/placements/`, data),
 };
 

@@ -74,6 +74,9 @@ const App = () => (
             <Route path="/candidate-dashboard/*" element={<ProtectedRoute requiredRole="candidate"><CandidateDashboard /></ProtectedRoute>} />
             <Route path="/recruiter-dashboard/*" element={<ProtectedRoute requiredRole="recruiter"><RecruiterDashboard /></ProtectedRoute>} />
             <Route path="/admin-dashboard/*" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/employers" element={<Navigate to="/admin-dashboard/employers" replace />} />
+            <Route path="/admin/job-discovery" element={<Navigate to="/admin-dashboard/job-discovery" replace />} />
+            <Route path="/admin/job-scraper" element={<Navigate to="/admin-dashboard/job-scraper" replace />} />
             <Route path="/preview" element={<DocumentViewer />} />
             <Route path="/500" element={<ServerError />} />
             <Route path="*" element={<NotFound />} />

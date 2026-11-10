@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star, PauseCircle, Home, Globe, Compass, Search } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, Shield, FileText, DollarSign, UserPlus, Activity, Eye, Bell, Settings, BarChart, CreditCard, AlertTriangle, CheckCircle, Briefcase, Star, PauseCircle, Home, Globe, Compass, Search, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
@@ -42,6 +42,7 @@ import AdminPaymentsPage from "@/pages/admin/AdminPaymentsPage";
 import AdminNotificationsPage from "@/pages/admin/AdminNotificationsPage";
 import AdminJobScraperPage from "@/pages/admin/AdminJobScraperPage";
 import AdminJobDiscoveryPage from "@/pages/admin/AdminJobDiscoveryPage";
+import AdminEmployerDiscoveryPage from "@/pages/admin/AdminEmployerDiscoveryPage";
 
 const navItems = [
   { label: "Operations", path: "/admin-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -54,6 +55,7 @@ const navItems = [
   { label: "Job Board", path: "/admin-dashboard/job-board", icon: <Briefcase className="h-4 w-4" /> },
   { label: "Jobs Scraper", path: "/admin-dashboard/job-scraper", icon: <Compass className="h-4 w-4" /> },
   { label: "Job Discovery", path: "/admin-dashboard/job-discovery", icon: <Search className="h-4 w-4" /> },
+  { label: "Employer Intelligence", path: "/admin-dashboard/employers", icon: <Building2 className="h-4 w-4" /> },
   { label: "Payments", path: "/admin-dashboard/payments", icon: <DollarSign className="h-4 w-4" /> },
   { label: "Subscriptions", path: "/admin-dashboard/subscriptions", icon: <CreditCard className="h-4 w-4" /> },
   { label: "Billing Run", path: "/admin-dashboard/billing-run", icon: <AlertTriangle className="h-4 w-4" /> },
@@ -234,6 +236,8 @@ const AdminDashboard = () => {
       case "jobscraper": return <AdminJobScraperPage />;
       case "job-discovery":
       case "jobdiscovery": return <AdminJobDiscoveryPage />;
+      case "employers":
+      case "employer-discovery": return <AdminEmployerDiscoveryPage />;
       case "candidates": return <AdminCandidatesPage />;
       case "interested-candidates": return <AdminInterestedCandidatesPage />;
       case "general-enquiries": return <AdminGeneralEnquiriesPage />;

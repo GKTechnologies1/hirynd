@@ -13,36 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
+import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
+import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
 import {
   Search, ExternalLink, RefreshCw, Briefcase, Building, MapPin,
   Calendar, Eye, Copy, ChevronLeft, ChevronRight, Award,
-  ShieldCheck, Users, Check, Sparkles, UserCheck
+  ShieldCheck, Users, Check, Sparkles, UserCheck, AlertTriangle
 } from "lucide-react";
-
-const getVisaGradeBadge = (grade?: string, score?: number) => {
-  if (!grade) {
-    return (
-      <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 font-normal text-[11px]">
-        Unrated
-      </Badge>
-    );
-  }
-
-  const g = grade.toUpperCase();
-  let colorClass = "bg-slate-100 text-slate-700 border-slate-300";
-  if (g === "A") colorClass = "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold";
-  else if (g === "B") colorClass = "bg-blue-100 text-blue-800 border-blue-300 font-semibold";
-  else if (g === "C") colorClass = "bg-amber-100 text-amber-800 border-amber-300 font-medium";
-  else if (g === "D") colorClass = "bg-orange-100 text-orange-800 border-orange-300";
-  else if (g === "E" || g === "F") colorClass = "bg-red-100 text-red-800 border-red-300";
-
-  return (
-    <Badge variant="outline" className={`${colorClass} px-1.5 py-0.5 text-[11px] flex items-center gap-1`}>
-      <Award className="h-3 w-3" />
-      Grade {g} {score !== undefined && score > 0 ? `(${score})` : ""}
-    </Badge>
-  );
-};
 
 const safeUrl = (url?: string): string => {
   if (!url) return "#";
@@ -106,6 +83,117 @@ export const RecruiterJobDiscoveryPage = () => {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+
+  // Mark as Applied modal & state
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [targetJobForApply, setTargetJobForApply] = useState<any>(null);
+  const [selectedCandidateForApply, setSelectedCandidateForApply] = useState<string>("");
+  const [applyNotes, setApplyNotes] = useState<string>("");
+  const [submittingApply, setSubmittingApply] = useState<boolean>(false);
+
+  const handleOpenApplyModal = (job: any) => {
+    setTargetJobForApply(job);
+    setApplyNotes("");
+
+    // Determine default candidate
+    if (selectedCandidate !== "all") {
+      setSelectedCandidateForApply(selectedCandidate);
+    } else {
+      const unapplied = (job.matching_candidates || []).find((c: any) => !c.has_applied);
+      if (unapplied) {
+        setSelectedCandidateForApply(unapplied.id);
+      } else if (job.matching_candidates && job.matching_candidates.length > 0) {
+        setSelectedCandidateForApply(job.matching_candidates[0].id);
+      } else if (filterOptions.candidates.length > 0) {
+        setSelectedCandidateForApply(filterOptions.candidates[0].id);
+      }
+    }
+    setApplyModalOpen(true);
+  };
+
+  const handleConfirmMarkApplied = async () => {
+    if (!targetJobForApply || !selectedCandidateForApply) {
+      toast({
+        title: "Selection Required",
+        description: "Please select an assigned candidate to mark as applied.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmittingApply(true);
+    try {
+      const res = await recruiterJobDiscoveryApi.markApplied(targetJobForApply.id, {
+        candidate_id: selectedCandidateForApply,
+        notes: applyNotes,
+      });
+
+      toast({
+        title: "Application Tracked",
+        description: res.data?.message || "Job marked as Applied successfully.",
+      });
+
+      // Update candidate application status live in local state
+      const candIdStr = String(selectedCandidateForApply);
+      const appliedDate = res.data?.applied_date || new Date().toISOString().split("T")[0];
+
+      setJobs((prevJobs) =>
+        prevJobs
+          .map((j) => {
+            if (j.id === targetJobForApply.id) {
+              const updatedCands = (j.matching_candidates || []).map((mc: any) => {
+                if (String(mc.id) === candIdStr) {
+                  return {
+                    ...mc,
+                    has_applied: true,
+                    application_status: "applied",
+                    applied_date: appliedDate,
+                  };
+                }
+                return mc;
+              });
+              const allApplied = updatedCands.length > 0 && updatedCands.every((c: any) => c.has_applied);
+              return {
+                ...j,
+                matching_candidates: updatedCands,
+                has_applied_any: true,
+                all_applied: allApplied,
+              };
+            }
+            return j;
+          })
+          // If viewing specific candidate, remove job immediately from their unapplied list
+          .filter((j) => {
+            if (selectedCandidate !== "all" && selectedCandidate === candIdStr && j.id === targetJobForApply.id) {
+              return false;
+            }
+            return true;
+          })
+      );
+
+      // Also update selectedJob if open
+      if (selectedJob && selectedJob.id === targetJobForApply.id) {
+        setSelectedJob((prev: any) => ({
+          ...prev,
+          matching_candidates: (prev.matching_candidates || []).map((mc: any) =>
+            String(mc.id) === candIdStr ? { ...mc, has_applied: true, application_status: "applied" } : mc
+          ),
+          has_applied_any: true,
+        }));
+      }
+
+      setApplyModalOpen(false);
+    } catch (err: any) {
+      const errMsg = err.response?.data?.error || err.response?.data?.message || "Failed to mark job as applied.";
+      toast({
+        title: "Action Failed",
+        description: errMsg,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingApply(false);
+    }
+  };
 
   // Fetch recruiter statistics
   const fetchStats = useCallback(async () => {
@@ -458,26 +546,27 @@ export const RecruiterJobDiscoveryPage = () => {
               <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-semibold">
                 <tr>
                   <th className="py-2.5 px-3">Opportunity</th>
-                  <th className="py-2.5 px-3">Candidate Match</th>
+                  <th className="py-2.5 px-3">Candidate Match / Status</th>
                   <th className="py-2.5 px-3">Visa Intelligence</th>
                   <th className="py-2.5 px-3">Location</th>
                   <th className="py-2.5 px-3">Salary</th>
                   <th className="py-2.5 px-3">Portal</th>
-                  <th className="py-2.5 px-3">Posted</th>
+                  <th className="py-2.5 px-3">Scraped Date</th>
+                  <th className="py-2.5 px-3">Posted Date</th>
                   <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading candidate matched opportunities...
                     </td>
                   </tr>
                 ) : !hasCandidates ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                    <td colSpan={9} className="py-12 text-center text-slate-500">
                       <Users className="h-8 w-8 mx-auto mb-2 text-slate-400" />
                       <p className="font-semibold text-slate-700">No active candidates assigned to your account</p>
                       <p className="text-xs text-slate-500 mt-1">
@@ -487,7 +576,7 @@ export const RecruiterJobDiscoveryPage = () => {
                   </tr>
                 ) : jobs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       No opportunities match your assigned candidate roles under the current filters.
                     </td>
@@ -495,31 +584,49 @@ export const RecruiterJobDiscoveryPage = () => {
                 ) : (
                   jobs.map((job) => (
                     <tr key={job.id} className="hover:bg-slate-50/80 transition-colors">
-                      {/* Title & Company */}
-                      <td className="py-2.5 px-3 max-w-[240px]">
-                        <button
-                          onClick={() => handleOpenDetail(job.id)}
-                          className="font-semibold text-slate-900 hover:text-primary hover:underline text-left block truncate text-xs"
-                        >
-                          {job.title}
-                        </button>
-                        <span className="text-slate-500 text-[11px] block truncate mt-0.5">
-                          {job.company_name}
-                        </span>
+                      {/* Title, Company & Restrictions */}
+                      <td className="py-2.5 px-3 max-w-[260px]">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleOpenDetail(job.id)}
+                            className="font-semibold text-slate-900 hover:text-primary hover:underline text-left block text-xs line-clamp-2 leading-tight"
+                          >
+                            {job.title}
+                          </button>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-slate-600 font-medium text-[11px] truncate max-w-[140px]">
+                              {job.company_name}
+                            </span>
+                            {job.detected_restrictions && job.detected_restrictions.length > 0 && (
+                              <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
+                            )}
+                          </div>
+                        </div>
                       </td>
 
-                      {/* Candidate Match Badges */}
-                      <td className="py-2.5 px-3 max-w-[200px]">
+                      {/* Candidate Match & Application Status */}
+                      <td className="py-2.5 px-3 max-w-[220px]">
                         <div className="flex flex-col gap-1 items-start">
                           {job.matching_candidates && job.matching_candidates.length > 0 ? (
                             job.matching_candidates.map((mc: any) => (
-                              <Badge
-                                key={mc.id}
-                                variant="secondary"
-                                className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium truncate max-w-[190px]"
-                              >
-                                Match: {mc.name}
-                              </Badge>
+                              mc.has_applied ? (
+                                <Badge
+                                  key={mc.id}
+                                  variant="outline"
+                                  className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px] font-semibold flex items-center gap-1 truncate max-w-[200px]"
+                                >
+                                  <Check className="h-2.5 w-2.5 text-emerald-600 shrink-0" />
+                                  <span>Applied: {mc.name}</span>
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  key={mc.id}
+                                  variant="secondary"
+                                  className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-medium truncate max-w-[200px]"
+                                >
+                                  Match: {mc.name}
+                                </Badge>
+                              )
                             ))
                           ) : (
                             <Badge variant="outline" className="text-[10px] text-slate-500">
@@ -530,13 +637,19 @@ export const RecruiterJobDiscoveryPage = () => {
                       </td>
 
                       {/* Visa Intelligence */}
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 whitespace-nowrap">
                         <div className="flex flex-col gap-1 items-start">
-                          {getVisaGradeBadge(job.visa_grade, job.visa_friendly_score)}
+                          <VisaGradeBadge
+                            grade={job.visa_grade}
+                            score={job.visa_friendly_score}
+                            visaMatched={job.visa_matched}
+                            matchConfidence={job.company_match_confidence}
+                            filingsCount={job.h1b_filings_recent}
+                          />
                           <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                            {job.h1b_filings_recent > 0 ? (
+                            {job.h1b_filings_recent > 0 && (
                               <span>{job.h1b_filings_recent.toLocaleString()} filings</span>
-                            ) : null}
+                            )}
                             {job.everify_enrolled && (
                               <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 py-0 px-1 text-[9px]">
                                 E-Verify
@@ -569,9 +682,17 @@ export const RecruiterJobDiscoveryPage = () => {
                         </span>
                       </td>
 
+                      {/* Date Scraped */}
+                      <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap text-[11px]">
+                        <div className="flex items-center gap-1 text-slate-600 font-medium">
+                          <Calendar className="h-3 w-3 text-slate-400" />
+                          <span>{formatDate(job.created_at)}</span>
+                        </div>
+                      </td>
+
                       {/* Date Posted */}
-                      <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                        {job.date_posted ? formatDate(job.date_posted) : "Recent"}
+                      <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap text-[11px]">
+                        {job.date_posted ? formatDate(job.date_posted) : "—"}
                       </td>
 
                       {/* Actions */}
@@ -592,11 +713,25 @@ export const RecruiterJobDiscoveryPage = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenDetail(job.id)}
-                            className="h-7 px-2.5 text-xs font-medium"
+                            className="h-7 px-2 text-xs font-medium"
                           >
                             <Eye className="h-3.5 w-3.5 mr-1 text-slate-500" />
                             View
                           </Button>
+                          {job.all_applied ? (
+                            <Badge variant="outline" className="h-7 px-2 text-[10px] bg-slate-50 text-slate-500 border-slate-200">
+                              All Applied
+                            </Badge>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenApplyModal(job)}
+                              className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1"
+                            >
+                              <UserCheck className="h-3.5 w-3.5" />
+                              Mark Applied
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -648,8 +783,14 @@ export const RecruiterJobDiscoveryPage = () => {
           {selectedJob && (
             <>
               <DialogHeader>
-                <div className="flex items-center gap-2 mb-1">
-                  {getVisaGradeBadge(selectedJob.visa_grade, selectedJob.visa_friendly_score)}
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <VisaGradeBadge
+                    grade={selectedJob.visa_grade}
+                    score={selectedJob.visa_friendly_score}
+                    visaMatched={selectedJob.visa_matched}
+                    matchConfidence={selectedJob.company_match_confidence}
+                    filingsCount={selectedJob.h1b_filings_recent}
+                  />
                   <Badge variant="outline" className="text-xs capitalize font-normal">
                     {selectedJob.source_portal}
                   </Badge>
@@ -657,6 +798,9 @@ export const RecruiterJobDiscoveryPage = () => {
                     <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700">
                       Remote
                     </Badge>
+                  )}
+                  {selectedJob.detected_restrictions && selectedJob.detected_restrictions.length > 0 && (
+                    <JobRestrictionBadges restrictions={selectedJob.detected_restrictions} compact={false} />
                   )}
                 </div>
                 <DialogTitle className="text-lg font-bold text-slate-900">
@@ -668,6 +812,9 @@ export const RecruiterJobDiscoveryPage = () => {
                   <span className="mx-1">•</span>
                   <MapPin className="h-3.5 w-3.5" />
                   {selectedJob.city ? `${selectedJob.city}, ${selectedJob.state_code || selectedJob.state}` : (selectedJob.location_raw || "USA")}
+                  <span className="mx-1">•</span>
+                  <Calendar className="h-3.5 w-3.5" />
+                  Scraped: {formatDate(selectedJob.created_at)}
                 </DialogDescription>
               </DialogHeader>
 
@@ -684,9 +831,13 @@ export const RecruiterJobDiscoveryPage = () => {
                         {selectedJob.matching_candidates.map((c: any) => (
                           <span
                             key={c.id}
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-emerald-800 border border-emerald-300"
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                              c.has_applied
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                : "bg-white text-emerald-800 border-emerald-300"
+                            }`}
                           >
-                            {c.name} ({c.email})
+                            {c.has_applied ? "✓ Applied: " : ""}{c.name} ({c.email})
                           </span>
                         ))}
                       </div>
@@ -737,7 +888,13 @@ export const RecruiterJobDiscoveryPage = () => {
                       <ShieldCheck className="h-4 w-4 text-primary" />
                       <span className="font-semibold text-slate-900 text-xs">Employer Visa Sponsorship</span>
                     </div>
-                    {getVisaGradeBadge(selectedJob.visa_grade, selectedJob.visa_friendly_score)}
+                    <VisaGradeBadge
+                      grade={selectedJob.visa_grade}
+                      score={selectedJob.visa_friendly_score}
+                      visaMatched={selectedJob.visa_matched}
+                      matchConfidence={selectedJob.company_match_confidence}
+                      filingsCount={selectedJob.h1b_filings_recent}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-xs">
@@ -779,7 +936,15 @@ export const RecruiterJobDiscoveryPage = () => {
                 </div>
               </div>
 
-              <DialogFooter className="flex justify-end gap-2 border-t pt-3">
+              <DialogFooter className="flex items-center justify-between border-t pt-3">
+                <Button
+                  size="sm"
+                  onClick={() => handleOpenApplyModal(selectedJob)}
+                  className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Mark as Applied for Candidate
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -791,6 +956,84 @@ export const RecruiterJobDiscoveryPage = () => {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark as Applied Modal */}
+      <Dialog open={applyModalOpen} onOpenChange={setApplyModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-emerald-600" />
+              Mark Job as Applied
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600">
+              Track this opportunity for an assigned candidate in Hyrind.
+            </DialogDescription>
+          </DialogHeader>
+
+          {targetJobForApply && (
+            <div className="space-y-3.5 py-2 text-xs">
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="font-semibold text-slate-900">{targetJobForApply.title}</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">
+                  {targetJobForApply.company_name} • {targetJobForApply.location_raw || targetJobForApply.city || "USA"}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Select Assigned Candidate *</Label>
+                <Select
+                  value={selectedCandidateForApply}
+                  onValueChange={setSelectedCandidateForApply}
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue placeholder="Choose candidate..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(targetJobForApply.matching_candidates && targetJobForApply.matching_candidates.length > 0
+                      ? targetJobForApply.matching_candidates
+                      : filterOptions.candidates
+                    ).map((cand: any) => (
+                      <SelectItem key={cand.id} value={cand.id} className="text-xs">
+                        {cand.name} {cand.has_applied ? "(Already Applied)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Application Notes (Optional)</Label>
+                <Input
+                  value={applyNotes}
+                  onChange={(e) => setApplyNotes(e.target.value)}
+                  placeholder="e.g., Applied via LinkedIn / customized resume submitted"
+                  className="text-xs h-9"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex justify-end gap-2 border-t pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setApplyModalOpen(false)}
+              disabled={submittingApply}
+              className="h-8 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmMarkApplied}
+              disabled={submittingApply || !selectedCandidateForApply}
+              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              {submittingApply ? "Saving Application..." : "Confirm Applied"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

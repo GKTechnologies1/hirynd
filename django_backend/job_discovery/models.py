@@ -30,6 +30,8 @@ class ScraperExecution(models.Model):
     total_inserted = models.IntegerField(default=0)
     total_updated = models.IntegerField(default=0)
     total_duplicates = models.IntegerField(default=0)
+    total_cost_usd = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
+    api_calls_count = models.IntegerField(default=0)
     error_message = models.TextField(blank=True, null=True)
     started_at = models.DateTimeField(default=timezone.now)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -103,6 +105,9 @@ class DiscoveredJob(models.Model):
     visa_friendly_score = models.IntegerField(default=0, db_index=True)
     company_match_confidence = models.CharField(max_length=20, default='none')
 
+    # Job Restrictions / Eligibility detection
+    detected_restrictions = models.JSONField(default=list, blank=True)
+
     execution = models.ForeignKey(
         ScraperExecution, null=True, blank=True, on_delete=models.SET_NULL, related_name='jobs'
     )
@@ -152,6 +157,19 @@ class CompanyVisaHistory(models.Model):
     everify_enrolled = models.BooleanField(null=True, blank=True)
     visa_friendly_score = models.IntegerField(default=0, db_index=True)
     visa_grade = models.CharField(max_length=2, null=True, blank=True, db_index=True)
+
+    # Employer Intelligence fields
+    website = models.URLField(max_length=500, blank=True, null=True)
+    industry = models.CharField(max_length=150, blank=True, null=True, db_index=True)
+    headquarters = models.CharField(max_length=255, blank=True, null=True)
+    contact_name = models.CharField(max_length=150, blank=True, null=True)
+    contact_email = models.CharField(max_length=255, blank=True, null=True)
+    contact_phone = models.CharField(max_length=50, blank=True, null=True)
+    verification_status = models.CharField(max_length=30, default='VERIFIED', db_index=True)
+    data_sources = models.JSONField(default=list, blank=True)
+    placement_count = models.IntegerField(default=0, db_index=True)
+    notes = models.TextField(blank=True, null=True)
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -174,3 +192,94 @@ class CompanyAlias(models.Model):
 
     def __str__(self):
         return f"{self.alias_norm} -> {self.target_norm}"
+
+
+class RecruiterJobAssignment(models.Model):
+    """
+    Tracks administrative distribution of discovered jobs from a scraping session to recruiters.
+    Preserves the global scraped job identity without data duplication.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job = models.ForeignKey(DiscoveredJob, on_delete=models.CASCADE, related_name='recruiter_assignments')
+    recruiter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assigned_discovered_jobs')
+    assigned_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_job_assignments'
+    )
+    execution = models.ForeignKey(
+        ScraperExecution, null=True, blank=True, on_delete=models.SET_NULL, related_name='recruiter_assignments'
+    )
+    notes = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'recruiter_job_assignments'
+        unique_together = ('job', 'recruiter')
+        indexes = [
+            models.Index(fields=['recruiter', '-created_at'], name='idx_rja_recruiter_created'),
+            models.Index(fields=['job', 'recruiter'], name='idx_rja_job_recruiter'),
+        ]
+
+    def __str__(self):
+        return f"Assignment: Job {self.job_id} -> Recruiter {self.recruiter_id}"
+
+
+class ScraperCostRecord(models.Model):
+    """
+    Audited cost and API usage breakdown for scraping executions.
+    Strictly admin-accessible.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    execution = models.ForeignKey(ScraperExecution, on_delete=models.CASCADE, related_name='cost_records')
+    initiated_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='scraper_costs'
+    )
+    role_name = models.CharField(max_length=150, db_index=True)
+    source_portal = models.CharField(max_length=50, db_index=True)
+    api_calls = models.IntegerField(default=1)
+    cost_usd = models.DecimalField(max_digits=10, decimal_places=4, default=0.0000)
+    cost_type = models.CharField(max_length=20, default='ACTUAL')  # ACTUAL, ESTIMATED, UNAVAILABLE
+    provider = models.CharField(max_length=50, default='Apify')
+    run_id = models.CharField(max_length=100, blank=True, null=True)
+    items_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'scraper_cost_records'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['execution', '-created_at'], name='idx_scr_exec_created'),
+            models.Index(fields=['role_name', '-created_at'], name='idx_scr_role_created'),
+            models.Index(fields=['source_portal', '-created_at'], name='idx_scr_portal_created'),
+        ]
+
+    def __str__(self):
+        return f"Cost: ${self.cost_usd} for {self.role_name} on {self.source_portal} ({self.cost_type})"
+
+
+class EmployerPlacement(models.Model):
+    """
+    Enriches central Employer Intelligence with placement and offer history from Hyrind.
+    Distinct from historical USCIS filings.
+    """
+    id = models.BigAutoField(primary_key=True)
+    company = models.ForeignKey(CompanyVisaHistory, on_delete=models.CASCADE, related_name='placements')
+    placement_closure = models.ForeignKey(
+        'candidates.PlacementClosure', null=True, blank=True, on_delete=models.SET_NULL, related_name='employer_placements'
+    )
+    candidate_name = models.CharField(max_length=255, blank=True, null=True)
+    role_title = models.CharField(max_length=255)
+    offer_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=10, default='USD')
+    start_date = models.DateField(null=True, blank=True)
+    hr_contact = models.CharField(max_length=255, blank=True, null=True)
+    verification_status = models.CharField(max_length=30, default='VERIFIED')
+    offer_letter_url = models.CharField(max_length=500, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'employer_placements'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Placement @ {self.company.company_name} - {self.role_title}"

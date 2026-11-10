@@ -16,7 +16,7 @@ from .models import RecruiterAssignment, DailySubmissionLog, JobLinkEntry
 from job_discovery.models import DiscoveredJob
 from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
-    DiscoveredJobAlertSerializer,
+    DiscoveredJobAlertSerializer, PublicDiscoveredJobAlertSerializer,
     RecruiterProfileSerializer, RecruiterBankDetailsSerializer,
     AdminRecruiterFullSerializer, MyAssignmentSerializer, DailyJournalSerializer,
     TeamMemberDetailSerializer,
@@ -977,16 +977,23 @@ def public_job_alerts(request):
     except (ValueError, TypeError):
         page_size = 0
 
+    is_admin = (
+        request.user and
+        request.user.is_authenticated and
+        (request.user.role == 'admin' or getattr(request.user, 'is_staff', False))
+    )
+    SerializerClass = DiscoveredJobAlertSerializer if is_admin else PublicDiscoveredJobAlertSerializer
+
     if page > 0 and page_size > 0:
         start = (page - 1) * page_size
         sliced_jobs = jobs[start:start + page_size]
         return Response({
             'total': total,
             'unfiltered_total': unfiltered_total,
-            'results': DiscoveredJobAlertSerializer(sliced_jobs, many=True).data,
+            'results': SerializerClass(sliced_jobs, many=True).data,
         })
 
-    return Response(DiscoveredJobAlertSerializer(jobs, many=True).data)
+    return Response(SerializerClass(jobs, many=True).data)
 
 
 @api_view(['GET'])
@@ -1073,13 +1080,19 @@ def public_job_alert_filter_options(request):
 
     total_count = base_qs.count()
 
+    is_admin = (
+        request.user and
+        request.user.is_authenticated and
+        (request.user.role == 'admin' or getattr(request.user, 'is_staff', False))
+    )
+
     result = {
         'roles': sorted(list(set(roles))),
         'locations': locations_data,
         'employment_types': normalized_emp_types,
         'work_modes': work_modes,
         'experience_levels': exp_levels,
-        'visa_eligibilities': visa_options,
+        'visa_eligibilities': visa_options if is_admin else [],
         'salary_ranges': ["$50,000+", "$100,000+", "$150,000+", "$200,000+"],
         'total_count': total_count,
     }

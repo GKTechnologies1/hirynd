@@ -1,10 +1,24 @@
 from rest_framework import serializers
 from datetime import datetime
-from .models import ScraperExecution, DiscoveredJob, CompanyVisaHistory, CompanyAlias
+from .models import (
+    ScraperExecution, DiscoveredJob, CompanyVisaHistory, CompanyAlias,
+    RecruiterJobAssignment, ScraperCostRecord, EmployerPlacement
+)
+
+
+class EmployerPlacementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmployerPlacement
+        fields = [
+            'id', 'company', 'placement_closure', 'candidate_name', 'role_title',
+            'offer_salary', 'currency', 'start_date', 'hr_contact',
+            'verification_status', 'offer_letter_url', 'notes', 'created_at'
+        ]
 
 
 class CompanyVisaHistorySerializer(serializers.ModelSerializer):
     aliases = serializers.SerializerMethodField()
+    placements = EmployerPlacementSerializer(many=True, read_only=True)
 
     class Meta:
         model = CompanyVisaHistory
@@ -13,11 +27,47 @@ class CompanyVisaHistorySerializer(serializers.ModelSerializer):
             'h1b_approvals', 'h1b_denials', 'h1b_approval_rate', 'h1b_avg_salary',
             'h1b_last_filing_year', 'perm_total_filings', 'perm_last_year',
             'green_card_sponsor', 'everify_enrolled', 'visa_friendly_score',
-            'visa_grade', 'updated_at', 'aliases'
+            'visa_grade', 'website', 'industry', 'headquarters', 'contact_name',
+            'contact_email', 'contact_phone', 'verification_status', 'data_sources',
+            'placement_count', 'notes', 'updated_at', 'aliases', 'placements'
         ]
 
     def get_aliases(self, obj):
         return list(CompanyAlias.objects.filter(target_norm=obj.company_name_norm).values_list('alias_norm', flat=True))
+
+
+class ScraperCostRecordSerializer(serializers.ModelSerializer):
+    initiated_by_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ScraperCostRecord
+        fields = [
+            'id', 'execution', 'initiated_by', 'initiated_by_email', 'role_name',
+            'source_portal', 'api_calls', 'cost_usd', 'cost_type', 'provider',
+            'run_id', 'items_count', 'created_at'
+        ]
+
+    def get_initiated_by_email(self, obj):
+        return obj.initiated_by.email if obj.initiated_by else 'System / Anonymous'
+
+
+class RecruiterJobAssignmentSerializer(serializers.ModelSerializer):
+    recruiter_name = serializers.SerializerMethodField()
+    recruiter_email = serializers.CharField(source='recruiter.email', read_only=True)
+    job_title = serializers.CharField(source='job.title', read_only=True)
+    company_name = serializers.CharField(source='job.company_name', read_only=True)
+
+    class Meta:
+        model = RecruiterJobAssignment
+        fields = [
+            'id', 'job', 'job_title', 'company_name', 'recruiter', 'recruiter_name',
+            'recruiter_email', 'assigned_by', 'execution', 'notes', 'created_at'
+        ]
+
+    def get_recruiter_name(self, obj):
+        if hasattr(obj.recruiter, 'profile') and obj.recruiter.profile and obj.recruiter.profile.full_name:
+            return obj.recruiter.profile.full_name
+        return obj.recruiter.email.split('@')[0].title()
 
 
 class ScraperExecutionSerializer(serializers.ModelSerializer):
@@ -29,8 +79,8 @@ class ScraperExecutionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'trigger_type', 'triggered_by', 'triggered_by_email', 'status',
             'config', 'total_roles', 'total_jobs_found', 'total_inserted',
-            'total_updated', 'total_duplicates', 'error_message',
-            'started_at', 'completed_at', 'duration_seconds', 'created_at'
+            'total_updated', 'total_duplicates', 'total_cost_usd', 'api_calls_count',
+            'error_message', 'started_at', 'completed_at', 'duration_seconds', 'created_at'
         ]
 
     def get_triggered_by_email(self, obj) -> str:
@@ -60,7 +110,9 @@ class DiscoveredJobListSerializer(serializers.ModelSerializer):
             # Visa Intelligence fields
             'visa_matched', 'h1b_sponsor', 'h1b_filings_recent', 'everify_enrolled',
             'green_card_sponsor', 'visa_grade', 'visa_friendly_score',
-            'company_match_confidence'
+            'company_match_confidence',
+            # Job restrictions / eligibility
+            'detected_restrictions'
         ]
 
     def get_reviewed_by_email(self, obj) -> str:
@@ -87,7 +139,9 @@ class DiscoveredJobDetailSerializer(serializers.ModelSerializer):
             'visa_matched', 'h1b_sponsor', 'h1b_filings_recent', 'h1b_approvals',
             'h1b_denials', 'h1b_approval_rate', 'h1b_avg_salary', 'perm_filings',
             'green_card_sponsor', 'everify_enrolled', 'visa_grade',
-            'visa_friendly_score', 'company_match_confidence', 'score_factors'
+            'visa_friendly_score', 'company_match_confidence', 'score_factors',
+            # Job restrictions / eligibility
+            'detected_restrictions'
         ]
 
     def get_reviewed_by_email(self, obj) -> str:

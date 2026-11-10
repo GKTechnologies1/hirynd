@@ -127,6 +127,8 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
             if timezone.is_aware(p_date):
                 p_date = timezone.make_naive(p_date)
 
+    from .restriction_detector import detect_job_restrictions
+
     # 2. Check if this exact job_id was already saved
     existing = DiscoveredJob.objects.filter(job_id=job.jobId).first()
 
@@ -167,6 +169,9 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         if p_date:
             existing.date_posted = p_date
         existing.execution = execution
+        existing.detected_restrictions = detect_job_restrictions(
+            f"{existing.title} {target_role} {existing.job_description or ''}"
+        )
         existing.save()
         return 'updated'
 
@@ -189,6 +194,9 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
     if raw_url and not (raw_url.startswith('http://') or raw_url.startswith('https://')):
         raw_url = 'https://' + raw_url
 
+    desc_content = str(job.jobDescription) if job.jobDescription else ''
+    restrictions = detect_job_restrictions(f"{job.title} {target_role} {desc_content}")
+
     DiscoveredJob.objects.create(
         job_id=job.jobId,
         content_hash=job.contentHash,
@@ -199,7 +207,7 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         company_name_norm=job.companyNameNorm,
         target_role=target_role,
         job_url=raw_url,
-        job_description=str(job.jobDescription) if job.jobDescription else '',
+        job_description=desc_content,
         location_raw=str(job.locationRaw) if job.locationRaw else '',
         city=str(job.city) if job.city else '',
         state=str(job.state) if job.state else '',
@@ -216,6 +224,7 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         date_posted=p_date,
         execution=execution,
         review_status='ALREADY_EXISTS' if is_duplicate else 'PENDING_REVIEW',
+        detected_restrictions=restrictions,
     )
 
     return 'duplicate' if is_duplicate else 'inserted'
@@ -317,6 +326,28 @@ def execute_scraping_run(execution_id: UUID) -> None:
                     run = apify.run_actor_detailed(actor_id, inp)
                     raw_items = run.items or []
 
+                    # Record audited cost and API usage
+                    try:
+                        from ..models import ScraperCostRecord
+                        cost_usd = float(run.costUsd) if run.costUsd is not None else 0.0050
+                        cost_type = 'ACTUAL' if run.costUsd is not None else 'ESTIMATED'
+                        ScraperCostRecord.objects.create(
+                            execution=execution,
+                            initiated_by=execution.triggered_by,
+                            role_name=role_name,
+                            source_portal=source,
+                            api_calls=1,
+                            cost_usd=cost_usd,
+                            cost_type=cost_type,
+                            provider='Apify',
+                            run_id=run.runId or '',
+                            items_count=len(raw_items),
+                        )
+                        execution.total_cost_usd = (execution.total_cost_usd or 0) + cost_usd
+                        execution.api_calls_count = (execution.api_calls_count or 0) + 1
+                    except Exception as cost_err:
+                        logger.warning(f"[JobScraper] Failed to save ScraperCostRecord: {cost_err}")
+
                     logger.info(f"[JobScraper] Source '{source}' for '{role_name}' returned {len(raw_items)} items.")
 
                     for raw in raw_items:
@@ -343,7 +374,8 @@ def execute_scraping_run(execution_id: UUID) -> None:
                     execution.total_updated = total_upd
                     execution.total_duplicates = total_dup
                     execution.save(update_fields=[
-                        'total_jobs_found', 'total_inserted', 'total_updated', 'total_duplicates', 'updated_at'
+                        'total_jobs_found', 'total_inserted', 'total_updated', 'total_duplicates',
+                        'total_cost_usd', 'api_calls_count', 'updated_at'
                     ])
 
                 except Exception as src_err:
