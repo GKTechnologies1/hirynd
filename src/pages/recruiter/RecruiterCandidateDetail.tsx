@@ -2566,7 +2566,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                       </div>
                       {credForm.custom_platforms?.map((cp: any, idx: number) => (
                         <div key={idx} className="p-3 bg-white/60 rounded-xl border border-amber-100 relative group">
-                          <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+                          <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors" title="Remove platform" onClick={() => {
                             const n = [...credForm.custom_platforms]; n.splice(idx, 1);
                             setCredForm({ ...credForm, custom_platforms: n });
                           }}>
@@ -3192,7 +3192,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 <div className="grid gap-4 lg:grid-cols-2">
                   {jobLinks.map((job, idx) => (
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={idx} className="rounded-2xl border border-border/50 p-4 bg-muted/5 space-y-3 relative group">
-                      <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeJobLink(idx)}>
+                      <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors shadow-xs" title="Remove application card" onClick={() => removeJobLink(idx)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                       <div className="grid gap-3 grid-cols-2">

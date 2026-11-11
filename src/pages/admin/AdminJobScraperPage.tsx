@@ -268,7 +268,7 @@ export const AdminJobScraperPage = () => {
         companies: scrapeMode === "VISA_FILTERED" ? selectedCompanies.map(c => c.company_name) : [],
         sources: selectedSources,
         mode: scrapeMode,
-        minimum_score: scrapeMode === "VISA_FILTERED" ? minimumScore : 0,
+        minimum_score: minimumScore,
       });
 
       toast({
@@ -549,33 +549,31 @@ export const AdminJobScraperPage = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Visa Score Qualification Threshold (Mode B) */}
-              {scrapeMode === "VISA_FILTERED" && (
-                <div className="p-3 bg-emerald-50/80 rounded-lg border border-emerald-200 space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-emerald-950 flex items-center gap-1.5">
-                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                      Minimum Qualification Visa Score Threshold:
-                    </span>
-                    <Badge className="bg-emerald-600 text-white font-mono">{minimumScore} / 100</Badge>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
-                      value={minimumScore}
-                      onChange={(e) => setMinimumScore(parseInt(e.target.value) || 0)}
-                      className="w-full h-1.5 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
-                    />
-                    <span className="text-xs font-mono font-bold text-emerald-800 w-10 text-right">{minimumScore}</span>
-                  </div>
-                  <p className="text-[11px] text-emerald-700">
-                    All collected vacancies will be preserved and scored. Listings with Visa score &ge; {minimumScore} will be distinguished as qualified.
-                  </p>
+              {/* Visa Score Qualification Threshold (Mode A & Mode B) */}
+              <div className="p-3 bg-emerald-50/80 rounded-lg border border-emerald-200 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-emerald-950 flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                    Minimum Qualification Visa Score Threshold:
+                  </span>
+                  <Badge className="bg-emerald-600 text-white font-mono">{minimumScore} / 100</Badge>
                 </div>
-              )}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={minimumScore}
+                    onChange={(e) => setMinimumScore(parseInt(e.target.value) || 0)}
+                    className="w-full h-1.5 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                  />
+                  <span className="text-xs font-mono font-bold text-emerald-800 w-10 text-right">{minimumScore}</span>
+                </div>
+                <p className="text-[11px] text-emerald-700">
+                  All collected vacancies will be preserved and scored. Listings with Visa score &ge; {minimumScore} will be distinguished as qualified.
+                </p>
+              </div>
               {/* Selected Companies Chips */}
               {selectedCompanies.length > 0 && (
                 <div>
@@ -822,6 +820,7 @@ export const AdminJobScraperPage = () => {
                   <th className="py-2.5 px-3">Roles</th>
                   <th className="py-2.5 px-3">Found</th>
                   <th className="py-2.5 px-3">New Inserted</th>
+                  <th className="py-2.5 px-3">Updated</th>
                   <th className="py-2.5 px-3">Duplicates</th>
                   <th className="py-2.5 px-3">Cost (USD)</th>
                   <th className="py-2.5 px-3">Status</th>
@@ -832,14 +831,14 @@ export const AdminJobScraperPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {loadingExecutions ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
+                    <td colSpan={11} className="py-8 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading executions...
                     </td>
                   </tr>
                 ) : executions.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
+                    <td colSpan={11} className="py-8 text-center text-slate-400">
                       No executions recorded yet. Run a scraper above or wait for the daily 6:00 PM IST schedule.
                     </td>
                   </tr>
@@ -860,6 +859,9 @@ export const AdminJobScraperPage = () => {
                       </td>
                       <td className="py-2 px-3 font-semibold text-green-700">
                         {e.total_inserted || 0}
+                      </td>
+                      <td className="py-2 px-3 text-sky-700">
+                        {e.total_updated || 0}
                       </td>
                       <td className="py-2 px-3 text-amber-700">
                         {e.total_duplicates || 0}

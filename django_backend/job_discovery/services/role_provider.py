@@ -2,84 +2,117 @@ import re
 import unicodedata
 from typing import List
 from candidates.models import RoleSuggestion, RoleConfirmation
-from jobs.models import JobOpening
-from recruiters.models import JobLinkEntry
+
+
+def clean_role_display(title: str) -> str:
+    """Format role title nicely: trim whitespace, capitalize words, preserve known acronyms."""
+    if not title:
+        return ""
+    normalized = unicodedata.normalize('NFKC', str(title))
+    normalized = re.sub(r'[_]+$', '', normalized)
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+    words = normalized.split()
+    acronyms = {
+        'qa': 'QA', 'sqa': 'SQA', 'ui': 'UI', 'ux': 'UX', 'ai': 'AI', 'ml': 'ML',
+        'ai/ml': 'AI/ML', 'aws': 'AWS', 'devops': 'DevOps', 'it': 'IT', 'cisco': 'Cisco',
+        'se': 'SE', 'sde': 'SDE', 'sre': 'SRE', 'sdn': 'SDN', 'bi': 'BI', 'etl': 'ETL'
+    }
+    formatted = []
+    for w in words:
+        wl = w.lower()
+        if wl in acronyms:
+            formatted.append(acronyms[wl])
+        elif '/' in w:
+            parts = [acronyms.get(p.lower(), p.capitalize()) for p in w.split('/') if p]
+            formatted.append('/'.join(parts))
+        else:
+            formatted.append(w.capitalize())
+    return ' '.join(formatted)
 
 
 def normalize_role_title(title: str) -> str:
     """Normalize role string for deduplication."""
-    if not title:
-        return ""
-    normalized = unicodedata.normalize('NFKC', str(title))
-    normalized = re.sub(r'[_]+$', '', normalized)  # Clean trailing underscores
-    normalized = re.sub(r'\s+', ' ', normalized).strip()
-    return normalized
+    return clean_role_display(title)
 
 
 def get_eligible_roles(limit: int = 50) -> List[dict]:
     """
-    Retrieves distinct active job roles from Candidate Role Suggestions/Confirmations,
-    internal Job Openings, and recruiter Job Link Entries.
+    Retrieves distinct active job roles from Candidate Role Suggestions/Confirmations.
+    Ensures:
+      1. Role names are cleanly formatted and trimmed without collapsing distinct disciplines.
+      2. Multi-role / comma-separated values are handled properly.
+      3. The count displayed equals the number of DISTINCT candidates with that confirmed role.
+      4. Double counting is completely eliminated.
     Returns list of dicts: [{'role': 'Software Engineer', 'source': 'candidate_confirmed', 'count': 5}, ...]
     """
-    seen = {}
+    role_map = {}  # norm_key -> {'role': display, 'source': 'candidate_confirmed', 'candidate_ids': set()}
 
-    # 1. Candidate confirmed/suggested roles
+    # 1. Candidate confirmed suggestions
     confirmed_suggestions = RoleSuggestion.objects.filter(
         candidate_confirmed=True
-    ).values_list('role_title', flat=True)
+    ).values('candidate_id', 'role_title')
 
-    for r in confirmed_suggestions:
-        norm = normalize_role_title(r)
-        if norm and len(norm) > 2:
-            key = norm.lower()
-            if key not in seen:
-                seen[key] = {'role': norm, 'source': 'candidate_confirmed', 'count': 1}
-            else:
-                seen[key]['count'] += 1
+    for item in confirmed_suggestions:
+        cand_id = item['candidate_id']
+        raw = item.get('role_title')
+        if not raw:
+            continue
+        # Support comma-separated or multi-role values properly
+        parts = [p.strip() for p in raw.split(',') if p.strip()]
+        for p in parts:
+            display = clean_role_display(p)
+            if len(display) < 2:
+                continue
+            key = display.lower()
+            if key not in role_map:
+                role_map[key] = {
+                    'role': display,
+                    'source': 'candidate_confirmed',
+                    'candidate_ids': set()
+                }
+            role_map[key]['candidate_ids'].add(cand_id)
 
-    all_suggestions = RoleSuggestion.objects.filter(
-        role_title__isnull=False
-    ).exclude(role_title='').values_list('role_title', flat=True)
+    # 2. Confirmed custom role confirmations
+    confirmed_rcs = RoleConfirmation.objects.filter(
+        response='confirmed'
+    ).select_related('suggestion').values('candidate_id', 'custom_role_title', 'suggestion__role_title')
 
-    for r in all_suggestions:
-        norm = normalize_role_title(r)
-        if norm and len(norm) > 2:
-            key = norm.lower()
-            if key not in seen:
-                seen[key] = {'role': norm, 'source': 'candidate_suggested', 'count': 1}
-            else:
-                seen[key]['count'] += 1
+    for rc in confirmed_rcs:
+        cand_id = rc['candidate_id']
+        raw = rc.get('custom_role_title') or rc.get('suggestion__role_title')
+        if not raw:
+            continue
+        parts = [p.strip() for p in raw.split(',') if p.strip()]
+        for p in parts:
+            display = clean_role_display(p)
+            if len(display) < 2:
+                continue
+            key = display.lower()
+            if key not in role_map:
+                role_map[key] = {
+                    'role': display,
+                    'source': 'candidate_confirmed',
+                    'candidate_ids': set()
+                }
+            role_map[key]['candidate_ids'].add(cand_id)
 
-    # 2. Internal Job Openings
-    open_jobs = JobOpening.objects.filter(status='open').values_list('title', flat=True)
-    for r in open_jobs:
-        norm = normalize_role_title(r)
-        if norm and len(norm) > 2:
-            key = norm.lower()
-            if key not in seen:
-                seen[key] = {'role': norm, 'source': 'job_opening', 'count': 1}
-            else:
-                seen[key]['count'] += 1
-
-    # 3. Recent recruiter Job Link Entries
-    recent_roles = JobLinkEntry.objects.values_list('role_title', flat=True)[:100]
-    for r in recent_roles:
-        norm = normalize_role_title(r)
-        if norm and len(norm) > 2:
-            key = norm.lower()
-            if key not in seen:
-                seen[key] = {'role': norm, 'source': 'recruiter_activity', 'count': 1}
-            else:
-                seen[key]['count'] += 1
+    # Convert sets to distinct candidate counts
+    result = []
+    for k, data in role_map.items():
+        result.append({
+            'role': data['role'],
+            'source': data['source'],
+            'count': len(data['candidate_ids'])
+        })
 
     # Fallback default roles if database has minimal data
     defaults = ['Software Engineer', 'Data Engineer', 'Data Analyst', 'Product Manager', 'DevOps Engineer']
     for d in defaults:
         key = d.lower()
-        if key not in seen:
-            seen[key] = {'role': d, 'source': 'default', 'count': 0}
+        if key not in role_map:
+            result.append({'role': d, 'source': 'default', 'count': 0})
 
-    # Sort by count descending, then role name
-    sorted_roles = sorted(seen.values(), key=lambda x: (-x['count'], x['role']))
-    return sorted_roles[:limit]
+    # Sort by count descending, then role name alphabetically
+    result.sort(key=lambda x: (-x['count'], x['role']))
+    return result[:limit]
+

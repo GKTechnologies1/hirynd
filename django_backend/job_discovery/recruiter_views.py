@@ -51,14 +51,23 @@ def list_recruiter_jobs(request):
         role_filter=role_filter
     )
 
-    # Search keyword filter (title, company, description)
+    # Search keyword filter (title, company, normalized company, role, description, location)
     search = request.GET.get('search', '').strip()
     if search:
-        qs = qs.filter(
-            Q(title__icontains=search) |
-            Q(company_name__icontains=search) |
-            Q(job_description__icontains=search)
-        )
+        search_terms = search.split()
+        search_q = Q()
+        for term in search_terms:
+            search_q &= (
+                Q(title__icontains=term) |
+                Q(company_name__icontains=term) |
+                Q(company_name_norm__icontains=term) |
+                Q(target_role__icontains=term) |
+                Q(job_description__icontains=term) |
+                Q(city__icontains=term) |
+                Q(state__icontains=term) |
+                Q(country__icontains=term)
+            )
+        qs = qs.filter(search_q)
 
     # Portal source filter
     source = request.GET.get('source', '').strip()
@@ -144,14 +153,43 @@ def list_recruiter_jobs(request):
     serializer = DiscoveredJobListSerializer(page_obj.object_list, many=True)
     serialized_jobs = serializer.data
 
+    app_status = request.GET.get('status', 'all').strip().upper()
+
     # Dynamically attach candidate context
     enriched_jobs = attach_matching_candidate_context(serialized_jobs, scope)
 
+    # Expand into individual records per matched candidate
+    expanded_records = []
+    for job in enriched_jobs:
+        matching_cands = job.get('matching_candidates') or []
+        if matching_cands:
+            for mc in matching_cands:
+                item = dict(job)
+                item['opportunity_id'] = f"{job['id']}_{mc['id']}"
+                item['candidate'] = mc
+                item['candidate_id'] = mc['id']
+                item['status'] = mc.get('status') or 'NOT_APPLIED'
+                item['rejection_reason'] = mc.get('rejection_reason')
+                item['has_applied'] = (item['status'] == 'APPLIED')
+                expanded_records.append(item)
+        else:
+            item = dict(job)
+            item['opportunity_id'] = str(job['id'])
+            item['candidate'] = None
+            item['candidate_id'] = None
+            item['status'] = 'NOT_APPLIED'
+            item['rejection_reason'] = None
+            item['has_applied'] = False
+            expanded_records.append(item)
+
+    if app_status and app_status != 'ALL':
+        expanded_records = [r for r in expanded_records if r['status'] == app_status]
+
     return Response({
-        'count': paginator.count,
+        'count': len(expanded_records) if app_status != 'ALL' or len(expanded_records) != len(enriched_jobs) else paginator.count,
         'num_pages': paginator.num_pages,
         'current_page': page,
-        'results': enriched_jobs,
+        'results': expanded_records,
         'assigned_candidates': scope['candidates'],
         'recruiter_roles': scope['roles'],
     })
@@ -374,7 +412,14 @@ def mark_job_as_applied(request, job_id):
 
     sal_val = job.salary_raw or ""
     if not sal_val and job.salary_min:
-        sal_val = f"${int(job.salary_min):,}"
+        period_str = f" / {job.salary_period.title()}" if job.salary_period else ""
+        if job.salary_max and job.salary_max != job.salary_min:
+            sal_val = f"${int(job.salary_min):,} – ${int(job.salary_max):,}{period_str}"
+        else:
+            sal_val = f"${int(job.salary_min):,}{period_str}"
+
+    work_mode_val = 'Remote' if job.is_remote else ('Hybrid' if job.is_hybrid else 'Onsite')
+    exp_val = job.experience_level or 'Not Specified'
 
     entry = JobLinkEntry.objects.create(
         submission_log=log,
@@ -385,6 +430,8 @@ def mark_job_as_applied(request, job_id):
         job_description=job.job_description or '',
         application_status='applied',
         employment_type=job.employment_type or 'Full-Time',
+        experience_required=exp_val,
+        work_mode=work_mode_val,
         city=job.city or '',
         state=job.state or '',
         country=job.country or 'USA',
@@ -393,6 +440,19 @@ def mark_job_as_applied(request, job_id):
         notes=f"Applied from Job Discovery. {notes}".strip(),
         submitted_by=request.user,
         is_public=True,
+    )
+
+    # Track candidate-job opportunity state
+    from .models import CandidateJobOpportunity
+    CandidateJobOpportunity.objects.update_or_create(
+        candidate=candidate,
+        job=job,
+        defaults={
+            'status': 'APPLIED',
+            'recruiter': request.user,
+            'job_link_entry': entry,
+            'applied_at': timezone.now(),
+        }
     )
 
     # Update daily log counts
@@ -406,5 +466,69 @@ def mark_job_as_applied(request, job_id):
         'application_status': 'applied',
         'applied_date': entry.created_at.date().isoformat() if entry.created_at else today.isoformat(),
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([IsApproved, IsRecruiter])
+def reject_job(request, job_id):
+    """
+    POST /api/recruiter/job-discovery/jobs/<job_id>/reject/
+    Marks a discovered job opportunity as REJECTED for a specific candidate with a mandatory reason.
+    Rejecting for Candidate A does NOT affect Candidate B for the same shared job.
+    """
+    candidate_id = request.data.get('candidate_id')
+    reason = request.data.get('reason', '').strip()
+
+    if not candidate_id:
+        return Response({'error': 'candidate_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    if not reason:
+        return Response({'error': 'A rejection reason is mandatory'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate assignment (Admins bypass isolation)
+    if request.user.role != 'admin':
+        from recruiters.models import RecruiterAssignment
+        is_assigned = RecruiterAssignment.objects.filter(
+            recruiter=request.user,
+            candidate_id=candidate_id,
+            is_active=True
+        ).exists()
+        if not is_assigned:
+            return Response(
+                {'error': 'You are not assigned to manage this candidate.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    try:
+        job = DiscoveredJob.objects.get(id=job_id)
+    except DiscoveredJob.DoesNotExist:
+        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    from candidates.models import Candidate
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    from .models import CandidateJobOpportunity
+    opp, _ = CandidateJobOpportunity.objects.update_or_create(
+        candidate=candidate,
+        job=job,
+        defaults={
+            'status': 'REJECTED',
+            'rejection_reason': reason,
+            'recruiter': request.user,
+            'rejected_at': timezone.now(),
+        }
+    )
+
+    return Response({
+        'status': 'success',
+        'message': f'Job successfully marked as Rejected for {candidate.user.email}.',
+        'opportunity_id': str(opp.id),
+        'candidate_id': str(candidate.id),
+        'job_id': str(job.id),
+        'opportunity_status': 'REJECTED',
+        'rejection_reason': reason,
+    })
 
 

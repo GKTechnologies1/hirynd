@@ -16,7 +16,7 @@ import { formatDate } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar, ChevronDown, X, Search } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar, ChevronDown, X, Search, Download } from "lucide-react";
 
 const navItems = [
   { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -276,8 +276,62 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
   const completed = logs.filter(l => l.outcome === "completed").length;
   const offers = logs.filter(l => l.outcome === "selected").length;
 
+  const handleDownloadInterviewsCSV = () => {
+    const listToDownload = filteredLogs.length > 0 ? filteredLogs : logs;
+    if (listToDownload.length === 0) {
+      toast({ title: "No interviews to download", variant: "destructive" });
+      return;
+    }
+    const headers = [
+      "ID",
+      "Company Name",
+      "Role Title",
+      "Interview Type",
+      "Date",
+      "Time",
+      "Round / Stage",
+      "Outcome",
+      "Interviewer Name",
+      "Interviewer Email",
+      "Meeting Link",
+      "Notes"
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val == null) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = listToDownload.map((l: any) => [
+      escapeCsv(l.id || ""),
+      escapeCsv(l.company_name),
+      escapeCsv(l.role_title),
+      escapeCsv(l.log_type || ""),
+      escapeCsv(l.interview_date || ""),
+      escapeCsv(l.interview_time || ""),
+      escapeCsv(l.round || l.stage_round || ""),
+      escapeCsv(l.outcome || ""),
+      escapeCsv(l.interviewer_name || ""),
+      escapeCsv(l.interviewer_email || ""),
+      escapeCsv(l.call_link || ""),
+      escapeCsv(l.notes || l.feedback_notes || "")
+    ].join(","));
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const cleanName = candidate?.user?.email?.split('@')[0] || "Candidate";
+    a.download = `${cleanName}_Interviews_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export complete", description: `Downloaded ${listToDownload.length} interviews.` });
+  };
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       {loading ? <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading interviews...</p></div> : (
         <div className="space-y-6">
           {/* Summary */}
@@ -385,7 +439,19 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
 
           {/* History Table */}
           <Card>
-            <CardHeader><CardTitle>Interview History</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Interview History ({logs.length})</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadInterviewsCSV}
+                className="h-8 text-xs font-semibold gap-1.5"
+                title="Download CSV export"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download Interviews
+              </Button>
+            </CardHeader>
             <CardContent>
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-5 mb-6 items-end">
                 <div className="space-y-1">

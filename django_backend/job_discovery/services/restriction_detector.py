@@ -98,7 +98,7 @@ def detect_job_restrictions(text: Optional[str]) -> List[Dict[str, Any]]:
             if not NEGATION_CHECK.search(evidence):
                 results.append({
                     'type': 'NO_TEMPORARY_VISA',
-                    'label': 'No Temporary Visa Holders',
+                    'label': 'No Visa Sponsorship',
                     'badge_variant': 'warning',
                     'matched_phrase': match.group(0),
                     'evidence': evidence,

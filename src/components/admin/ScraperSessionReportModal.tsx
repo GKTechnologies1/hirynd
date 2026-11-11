@@ -191,7 +191,7 @@ export const ScraperSessionReportModal: React.FC<ScraperSessionReportModalProps>
 
             {/* TAB 1: SESSION SUMMARY */}
             <TabsContent value="summary" className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                 <Card className="p-3 bg-slate-50 border-slate-200">
                   <span className="text-[10px] text-slate-500 uppercase font-bold block">Requested</span>
                   <span className="text-xl font-extrabold text-slate-900">
@@ -205,9 +205,15 @@ export const ScraperSessionReportModal: React.FC<ScraperSessionReportModalProps>
                   </span>
                 </Card>
                 <Card className="p-3 bg-emerald-50/50 border-emerald-200">
-                  <span className="text-[10px] text-emerald-600 uppercase font-bold block">Unique New</span>
+                  <span className="text-[10px] text-emerald-600 uppercase font-bold block">New Inserted</span>
                   <span className="text-xl font-extrabold text-emerald-700">
                     {report?.total_unique_jobs ?? execution.total_inserted}
+                  </span>
+                </Card>
+                <Card className="p-3 bg-sky-50/50 border-sky-200">
+                  <span className="text-[10px] text-sky-600 uppercase font-bold block">Updated</span>
+                  <span className="text-xl font-extrabold text-sky-700">
+                    {report?.total_updated ?? execution.total_updated ?? 0}
                   </span>
                 </Card>
                 <Card className="p-3 bg-amber-50/50 border-amber-200">
@@ -218,11 +224,17 @@ export const ScraperSessionReportModal: React.FC<ScraperSessionReportModalProps>
                 </Card>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                 <Card className="p-3 bg-purple-50/50 border-purple-200">
                   <span className="text-[10px] text-purple-600 uppercase font-bold block">Scored</span>
                   <span className="text-xl font-extrabold text-purple-700">
                     {report?.total_scored_jobs ?? 0}
+                  </span>
+                </Card>
+                <Card className="p-3 bg-emerald-50/50 border-emerald-200">
+                  <span className="text-[10px] text-emerald-600 uppercase font-bold block">Qualified</span>
+                  <span className="text-xl font-extrabold text-emerald-700">
+                    {report?.total_qualified ?? Math.max(0, (report?.total_jobs_collected ?? execution.total_jobs_found ?? 0) - (report?.total_below_threshold ?? 0))}
                   </span>
                 </Card>
                 <Card className="p-3 bg-rose-50/50 border-rose-200">

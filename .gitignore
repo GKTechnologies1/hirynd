@@ -95,5 +95,6 @@ data/**/*.xlsx
 data/**/*.xls
 data/**/*.csv
 *.pdf
+*.docx
 !data/**/.gitkeep
 

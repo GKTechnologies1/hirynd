@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatSalaryDisplay } from "@/lib/salaryFormatter";
 import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
 import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
 import {
@@ -76,6 +77,15 @@ export const AdminJobDiscoveryPage = () => {
 
   // Active Query filters
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
   const [selectedRole, setSelectedRole] = useState("all");
   const [selectedCompany, setSelectedCompany] = useState("all");
   const [selectedSource, setSelectedSource] = useState("all");
@@ -98,6 +108,7 @@ export const AdminJobDiscoveryPage = () => {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedDesc, setCopiedDesc] = useState(false);
 
   // Promotion to candidate application modal
   const [showPromoteModal, setShowPromoteModal] = useState(false);
@@ -144,7 +155,7 @@ export const AdminJobDiscoveryPage = () => {
         ordering: sortOrder,
       };
 
-      if (search.trim()) params.search = search.trim();
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (selectedRole !== "all") params.role = selectedRole;
       if (selectedCompany !== "all") params.company = selectedCompany;
       if (selectedSource !== "all") params.source = selectedSource;
@@ -168,7 +179,7 @@ export const AdminJobDiscoveryPage = () => {
       setLoading(false);
     }
   }, [
-    currentPage, pageSize, sortOrder, search, selectedRole, selectedCompany,
+    currentPage, pageSize, sortOrder, debouncedSearch, selectedRole, selectedCompany,
     selectedSource, selectedVisaGrade, minScore, h1bOnly, selectedStatus, isRemote, toast
   ]);
 
@@ -201,6 +212,14 @@ export const AdminJobDiscoveryPage = () => {
     setCopiedUrl(true);
     toast({ title: "Job link copied to clipboard!" });
     setTimeout(() => setCopiedUrl(false), 2000);
+  };
+
+  const handleCopyDescription = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedDesc(true);
+    setTimeout(() => setCopiedDesc(false), 2000);
+    toast({ title: "Copied", description: "Job description copied to clipboard." });
   };
 
   const handleResetFilters = () => {
@@ -574,7 +593,7 @@ export const AdminJobDiscoveryPage = () => {
 
                       {/* Salary */}
                       <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
-                        {job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : "Not Disclosed")}
+                        {formatSalaryDisplay(job)}
                       </td>
 
                       {/* Portal */}
@@ -826,7 +845,7 @@ export const AdminJobDiscoveryPage = () => {
                   <div>
                     <span className="text-slate-500 block text-[10px]">Compensation</span>
                     <span className="font-semibold text-slate-800">
-                      {selectedJob.salary_raw || "Not Disclosed"}
+                      {formatSalaryDisplay(selectedJob)}
                     </span>
                   </div>
                   <div>
@@ -851,9 +870,20 @@ export const AdminJobDiscoveryPage = () => {
 
                 {/* Job Description */}
                 <div>
-                  <Label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Job Description:
-                  </Label>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs font-semibold text-slate-700">
+                      Job Description:
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyDescription(selectedJob.job_description)}
+                      className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+                    >
+                      {copiedDesc ? <Check className="h-3 w-3 mr-1 text-emerald-600" /> : <Copy className="h-3 w-3 mr-1" />}
+                      {copiedDesc ? "Copied" : "Copy Description"}
+                    </Button>
+                  </div>
                   <div className="p-3 bg-white border border-slate-200 rounded-md max-h-56 overflow-y-auto whitespace-pre-wrap text-slate-700 text-xs leading-relaxed">
                     {selectedJob.job_description || "No full description text was captured for this listing."}
                   </div>

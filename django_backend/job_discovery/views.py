@@ -304,14 +304,23 @@ def list_discovered_jobs(request):
     """
     qs = DiscoveredJob.objects.all().select_related('reviewed_by')
 
-    # Search (title, company, description)
+    # Search (title, company, normalized company, role, description, location)
     search = request.GET.get('search', '').strip()
     if search:
-        qs = qs.filter(
-            Q(title__icontains=search) |
-            Q(company_name__icontains=search) |
-            Q(job_description__icontains=search)
-        )
+        search_terms = search.split()
+        search_q = Q()
+        for term in search_terms:
+            search_q &= (
+                Q(title__icontains=term) |
+                Q(company_name__icontains=term) |
+                Q(company_name_norm__icontains=term) |
+                Q(target_role__icontains=term) |
+                Q(job_description__icontains=term) |
+                Q(city__icontains=term) |
+                Q(state__icontains=term) |
+                Q(country__icontains=term)
+            )
+        qs = qs.filter(search_q)
 
     # Filters
     role = request.GET.get('role', '').strip()
@@ -661,10 +670,12 @@ def get_execution_session_report(request, execution_id):
         'total_jobs_requested': total_requested,
         'total_jobs_collected': total_collected,
         'total_unique_jobs': total_unique,
+        'total_updated': ex.total_updated,
         'total_duplicates': total_duplicates,
         'total_failed_jobs': total_failed,
         'total_scored_jobs': total_scored,
         'total_below_threshold': total_below_threshold,
+        'total_qualified': max(0, total_collected - total_below_threshold),
         'total_cost_usd': float(ex.total_cost_usd or 0.0),
         'api_calls_count': ex.api_calls_count,
         'error_message': ex.error_message,

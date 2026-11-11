@@ -98,6 +98,7 @@ export const CandidateDiscoveryJobsSection = ({
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedDesc, setCopiedDesc] = useState(false);
 
   // Fetch filter options (portal sources, roles)
   useEffect(() => {
@@ -276,6 +277,14 @@ export const CandidateDiscoveryJobsSection = ({
     setCopiedUrl(true);
     toast({ title: "Job link copied to clipboard!" });
     setTimeout(() => setCopiedUrl(false), 2000);
+  };
+
+  const handleCopyDescription = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedDesc(true);
+    setTimeout(() => setCopiedDesc(false), 2000);
+    toast({ title: "Copied", description: "Job description copied to clipboard." });
   };
 
   const handleResetFilters = () => {
@@ -1150,9 +1159,20 @@ export const CandidateDiscoveryJobsSection = ({
 
                 {/* Job Description */}
                 <div>
-                  <Label className="text-xs font-semibold text-foreground block mb-1">
-                    Job Description:
-                  </Label>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Job Description:
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyDescription(selectedJob.job_description)}
+                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      {copiedDesc ? <Check className="h-3 w-3 mr-1 text-emerald-600" /> : <Copy className="h-3 w-3 mr-1" />}
+                      {copiedDesc ? "Copied" : "Copy Description"}
+                    </Button>
+                  </div>
                   <div className="p-3 bg-muted/20 border border-border/50 rounded-md max-h-56 overflow-y-auto whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed">
                     {selectedJob.job_description || "No full description text was captured for this listing."}
                   </div>

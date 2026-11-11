@@ -393,8 +393,29 @@ def all_users(request):
     }
     db_order = ordering_map.get(ordering, '-created_at')
     qs = qs.order_by(db_order)
-    if role:
-        qs = qs.filter(role=role)
+    eligible_for_assignment = request.query_params.get('eligible_for_assignment')
+    if eligible_for_assignment and eligible_for_assignment.lower() == 'true':
+        qs = qs.filter(
+            role__in=['recruiter', 'team_lead', 'team_manager'],
+            approval_status='approved',
+            account_status='active',
+            is_active=True
+        )
+    else:
+        roles_param = request.query_params.get('roles')
+        if roles_param:
+            role_list = [r.strip() for r in roles_param.split(',') if r.strip()]
+            qs = qs.filter(role__in=role_list)
+        elif role:
+            qs = qs.filter(role=role)
+
+        approval_status = request.query_params.get('approval_status')
+        if approval_status:
+            qs = qs.filter(approval_status=approval_status)
+
+        account_status = request.query_params.get('account_status')
+        if account_status:
+            qs = qs.filter(account_status=account_status)
     if search:
         from django.db.models import Q
         qs = qs.filter(

@@ -349,7 +349,7 @@ export const authApi = {
   resetPassword: (data: any) => api.post('/auth/password-reset/confirm/', data),
   approveUser: (user_id: string, action: 'approved' | 'rejected') =>
     api.post('/auth/approve-user/', { user_id, action }),
-  allUsers: (params?: { role?: string; search?: string; page?: number; page_size?: number }) =>
+  allUsers: (params?: { role?: string; roles?: string; eligible_for_assignment?: boolean | string; search?: string; page?: number; page_size?: number }) =>
     api.get('/auth/users/', { params }),
   getUser: (userId: string) => api.get(`/auth/users/${userId}/`),
   updateUser: (userId: string, data: Record<string, any>) => api.patch(`/auth/users/${userId}/`, data),
@@ -674,6 +674,7 @@ export const recruiterJobDiscoveryApi = {
     role?: string;
     source?: string;
     visa_grade?: string;
+    status?: string;
     min_score?: number | string;
     max_score?: number | string;
     h1b_only?: boolean | string;
@@ -689,6 +690,8 @@ export const recruiterJobDiscoveryApi = {
   filters: () => api.get('/recruiter/job-discovery/filters/'),
   markApplied: (id: string, data: { candidate_id: string; notes?: string }) =>
     api.post(`/recruiter/job-discovery/jobs/${id}/mark-applied/`, data),
+  rejectJob: (id: string, data: { candidate_id: string; reason: string }) =>
+    api.post(`/recruiter/job-discovery/jobs/${id}/reject/`, data),
 };
 
 // ─── Employer Intelligence & Discovery (Admin) ───

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X, Search, Plus, Trash2, Loader2, Save, Sparkles, Pencil, Ban, XCircle, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X, Search, Plus, Trash2, Loader2, Save, Sparkles, Pencil, Ban, XCircle, MoreHorizontal, Download, Eye, Copy, Check } from "lucide-react";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -131,6 +131,8 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     salary?: string;
     visa_eligibility?: string;
   } | null>(null);
+  const [viewingApplication, setViewingApplication] = useState<any>(null);
+  const [copiedDesc, setCopiedDesc] = useState(false);
 
   // Form state for staff submit job application
   const [jobLinks, setJobLinks] = useState<Array<{
@@ -574,6 +576,66 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     });
   }, [jobPostings, searchRole, searchCompany, fromDate, toDate, actionFilter]);
 
+  const handleDownloadApplicationsCSV = () => {
+    const listToDownload = filteredJobPostings.length > 0 ? filteredJobPostings : jobPostings;
+    if (listToDownload.length === 0) {
+      toast({ title: "No applications to download", variant: "destructive" });
+      return;
+    }
+    const headers = [
+      "ID",
+      "Company Name",
+      "Role Title",
+      "Employment Type",
+      "Experience Required",
+      "Work Mode",
+      "City",
+      "State",
+      "Country",
+      "Salary",
+      "Visa Eligibility",
+      "Status",
+      "Job URL",
+      "Resume Used",
+      "Date Logged"
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val == null) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = listToDownload.map((j: any) => [
+      escapeCsv(`HYRSUB${j.id ? j.id.toString().slice(-6).toUpperCase() : ""}`),
+      escapeCsv(j.company_name),
+      escapeCsv(j.role_title),
+      escapeCsv(j.employment_type || ""),
+      escapeCsv(j.experience_required || ""),
+      escapeCsv(j.work_mode || ""),
+      escapeCsv(j.city || ""),
+      escapeCsv(j.state || ""),
+      escapeCsv(j.country || ""),
+      escapeCsv(j.salary || ""),
+      escapeCsv(j.visa_eligibility || ""),
+      escapeCsv(j.candidate_response_status || j.application_status || j.status || ""),
+      escapeCsv(j.job_url || ""),
+      escapeCsv(j.resume_used || ""),
+      escapeCsv(formatDateTime(j.created_at || j.log_date))
+    ].join(","));
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const cleanName = candidate?.user?.email?.split('@')[0] || "Candidate";
+    a.download = `${cleanName}_Applications_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export complete", description: `Downloaded ${listToDownload.length} applications.` });
+  };
+
   const handleOpenDescription = (jobOrCompany: any, role?: string, description?: string) => {
     if (typeof jobOrCompany === "string") {
       setActiveJobDesc({
@@ -705,7 +767,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     jobPostings.filter(j => (j.log_date || j.created_at)?.split("T")[0] >= monthAgo).length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       {loading ? <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading applications...</p></div> : (
         <div className="space-y-6">
           {/* Summary Cards */}
@@ -747,7 +809,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   <div className="grid gap-4 lg:grid-cols-2">
                     {jobLinks.map((job, idx) => (
                       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={idx} className="rounded-2xl border border-border/50 p-4 bg-muted/5 space-y-3 relative group">
-                        <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeJobLink(idx)}>
+                        <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors shadow-xs" title="Remove application card" onClick={() => removeJobLink(idx)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                         <div className="grid gap-3 grid-cols-2">
@@ -1011,11 +1073,21 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
 
           {/* Master Application Table */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Globe className="h-5 w-5 text-secondary" />
                 All Submissions ({jobPostings.length})
               </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadApplicationsCSV}
+                className="h-8 text-xs font-semibold gap-1.5"
+                title="Download CSV export"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download Applications
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <div className="px-6 pt-4 pb-2">
@@ -1264,6 +1336,20 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                       const isRejected = status === "rejected";
                       return (
                         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingApplication(j);
+                            }}
+                            className="h-7 px-2 text-[11px] font-semibold text-slate-700 border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center gap-1 cursor-pointer"
+                            title="View full application details"
+                          >
+                            <Eye className="h-3 w-3 text-slate-500" />
+                            View
+                          </Button>
+
                           <Select
                             value={j.candidate_response_status || j.application_status || ""}
                             onValueChange={(val) => handleStatusUpdate(j.id, val)}
@@ -1690,6 +1776,124 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Read-Only Application View Modal */}
+      <Dialog open={!!viewingApplication} onOpenChange={(open) => !open && setViewingApplication(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {viewingApplication && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground uppercase">
+                    {`HYRSUB${viewingApplication.id ? viewingApplication.id.toString().slice(-6).toUpperCase() : ""}`}
+                  </span>
+                  <StatusBadge status={viewingApplication.candidate_response_status || viewingApplication.application_status || viewingApplication.status} />
+                </div>
+                <DialogTitle className="text-lg font-bold text-slate-900">
+                  {viewingApplication.role_title}
+                </DialogTitle>
+                <p className="text-sm font-medium text-slate-600">
+                  {viewingApplication.company_name}
+                </p>
+              </DialogHeader>
+
+              <div className="space-y-4 py-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Employment Type</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.employment_type || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Experience Required</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.experience_required || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Work Mode</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.work_mode || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Location</span>
+                    <span className="font-semibold text-slate-800">
+                      {[viewingApplication.city, viewingApplication.state, viewingApplication.country].filter(Boolean).join(", ") || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Salary / Compensation</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.salary || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Visa Eligibility</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.visa_eligibility || "—"}</span>
+                  </div>
+                </div>
+
+                {viewingApplication.job_url && (
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Job Posting URL</span>
+                      <span className="text-primary truncate block text-xs underline">{viewingApplication.job_url}</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(viewingApplication.job_url, "_blank", "noopener,noreferrer")}
+                      className="h-7 text-xs shrink-0"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" /> Open URL
+                    </Button>
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs font-semibold text-slate-700">Job Description:</Label>
+                    {viewingApplication.job_description && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(viewingApplication.job_description);
+                          setCopiedDesc(true);
+                          setTimeout(() => setCopiedDesc(false), 2000);
+                        }}
+                        className="h-6 text-[11px] px-2 text-slate-500 hover:text-slate-900"
+                      >
+                        {copiedDesc ? <Check className="h-3 w-3 mr-1 text-green-600" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {copiedDesc ? "Copied!" : "Copy Description"}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="p-3 bg-white border border-slate-200 rounded-md max-h-56 overflow-y-auto whitespace-pre-wrap text-slate-700 text-xs leading-relaxed">
+                    {viewingApplication.job_description || "No description provided."}
+                  </div>
+                </div>
+
+                {viewingApplication.notes && (
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700 block mb-1">Notes:</Label>
+                    <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs text-slate-700">
+                      {viewingApplication.notes}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t">
+                  <span>Submitted: {formatDateTime(viewingApplication.created_at || viewingApplication.log_date)}</span>
+                  {viewingApplication.submitted_by_name && (
+                    <span>Submitted by: {viewingApplication.submitted_by_name}</span>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setViewingApplication(null)} className="h-8 text-xs">
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

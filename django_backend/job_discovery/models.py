@@ -283,3 +283,49 @@ class EmployerPlacement(models.Model):
 
     def __str__(self):
         return f"Placement @ {self.company.company_name} - {self.role_title}"
+
+
+class CandidateJobOpportunity(models.Model):
+    """
+    Candidate-specific discovery opportunity.
+    Tracks status (NOT_APPLIED, APPLIED, REJECTED) and rejection reason per candidate.
+    Enables shared jobs across candidates to be displayed and managed independently.
+    """
+    STATUS_CHOICES = [
+        ('NOT_APPLIED', 'Not Applied'),
+        ('APPLIED', 'Applied'),
+        ('REJECTED', 'Rejected'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    candidate = models.ForeignKey(
+        'candidates.Candidate', on_delete=models.CASCADE, related_name='job_opportunities'
+    )
+    job = models.ForeignKey(
+        DiscoveredJob, on_delete=models.CASCADE, related_name='candidate_opportunities'
+    )
+    recruiter = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='candidate_job_opportunities'
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='NOT_APPLIED', db_index=True)
+    rejection_reason = models.TextField(blank=True, null=True)
+    job_link_entry = models.ForeignKey(
+        'recruiters.JobLinkEntry', null=True, blank=True, on_delete=models.SET_NULL, related_name='discovery_opportunity'
+    )
+    applied_at = models.DateTimeField(null=True, blank=True)
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'candidate_job_opportunities'
+        unique_together = ('candidate', 'job')
+        indexes = [
+            models.Index(fields=['candidate', 'status'], name='idx_cjo_cand_status'),
+            models.Index(fields=['job', 'status'], name='idx_cjo_job_status'),
+            models.Index(fields=['recruiter', '-created_at'], name='idx_cjo_rec_created'),
+        ]
+
+    def __str__(self):
+        return f"Opportunity: Candidate {self.candidate_id} - Job {self.job_id} [{self.status}]"
+

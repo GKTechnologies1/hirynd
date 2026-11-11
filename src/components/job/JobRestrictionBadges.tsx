@@ -66,7 +66,8 @@ export const JobRestrictionBadges: React.FC<JobRestrictionBadgesProps> = ({
       <TooltipProvider delayDuration={150}>
         {restrictions.map((res, idx) => {
           const { colorClass, icon, shortLabel } = getStyleAndIcon(res.type);
-          const displayLabel = compact ? shortLabel : res.label;
+          const cleanLabel = res.type === "NO_TEMPORARY_VISA" ? "No Visa Sponsorship" : (res.label || shortLabel);
+          const displayLabel = compact ? shortLabel : cleanLabel;
 
           return (
             <Tooltip key={`${res.type}-${idx}`}>
@@ -82,7 +83,7 @@ export const JobRestrictionBadges: React.FC<JobRestrictionBadgesProps> = ({
               <TooltipContent className="max-w-xs text-xs p-2.5 space-y-1">
                 <p className="font-bold text-slate-900 flex items-center gap-1.5">
                   {icon}
-                  {res.label}
+                  {cleanLabel}
                 </p>
                 {res.evidence && (
                   <div className="bg-slate-50 p-1.5 rounded border border-slate-200 text-[11px] text-slate-700 italic">

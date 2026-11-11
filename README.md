@@ -214,24 +214,31 @@ Hyrind implements a two-tier deduplication engine to eliminate redundancy both a
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Tier 1: Cross-Portal Ingestion Deduplication
-1. **Deterministic Content Hash:** For every incoming job listing, the parser calculates a SHA-256 `content_hash` combining normalized fields:
+### Tier 1: Cross-Portal Ingestion Deduplication (Discovered Jobs)
+1. **Deterministic Content Hash:** For every incoming job listing, the scraper computes a deterministic SHA-256 `content_hash` combining normalized fields:
    $$\text{content\_hash} = \text{SHA256}(\text{trim}(\text{title}_{\text{lower}}) \parallel \text{trim}(\text{company}_{\text{lower}}) \parallel \text{city} \parallel \text{state\_code})$$
-2. **Identification:** When the identical position is published across multiple job boards (e.g. both LinkedIn and Indeed), both records produce an identical hash.
-3. **Database Tagging:** During upsert (`upsert_scraped_job`):
-   - The first scraped job is stored as canonical (`is_duplicate=False`).
-   - Subsequent matches are saved with `is_duplicate=True` and `canonical_job_id` referencing the primary job.
-4. **Dashboard Filtering:** Both Dashboard A and Dashboard B filter `is_duplicate=False` by default, ensuring recruiters never review duplicate listings.
+2. **Identification & Upsert Flow (`upsert_scraped_job`):**
+   - **Exact Job ID Match:** If a record already exists with the same portal `job_id`, it is refreshed in-place (`status = 'updated'`) with the latest description, salary, work mode, and execution link.
+   - **Cross-Board Duplicate:** If a different `job_id` arrives with an already-seen `content_hash` (e.g., the same vacancy posted on both LinkedIn and Indeed):
+     - The first scraped job remains canonical (`is_duplicate=False`).
+     - Subsequent duplicates are stored with `is_duplicate=True` and `canonical_job` pointing to the primary listing (`status = 'duplicate'`).
+   - **Brand New Vacancy:** If neither matches, it is inserted as a primary listing (`is_duplicate=False`, `status = 'inserted'`).
+3. **Queue Filtration:** Both Admin Job Discovery and Recruiter Discovery feeds automatically filter out duplicate listings (`is_duplicate=False`), ensuring recruiters and admins never waste time reviewing duplicate postings.
 
-### Tier 2: Candidate-Specific Application Deduplication
-1. **"Mark as Applied" Action:** When a recruiter submits an application for a candidate:
-   - The recruiter clicks **"Mark Applied"** and adds optional notes.
-   - The backend checks for an existing `JobLinkEntry` matching that candidate and job URL / company name.
-   - If not already applied, it creates a `JobLinkEntry` (`recruiters.models`) linked to the recruiter's active `DailySubmissionLog`.
-2. **Exclusion from Candidate A's Feed:** When viewing Dashboard B filtered for Candidate A:
-   - The query (`build_recruiter_jobs_queryset`) excludes all job postings matching Candidate A's applied URLs as well as exact `(company_name, role_title)` pairs.
-   - Candidate A will never see or be double-applied to that opening again.
-3. **Multi-Candidate Preservation:** The job is **not removed** for other candidates. If Candidate B also qualifies for the role, the job remains visible and actionable for Candidate B until Candidate B is also applied.
+### Tier 2: Candidate-Specific Application Deduplication & Pipeline Isolation
+1. **Independent Candidate Opportunity Records:**
+   - When a discovered job matches multiple assigned candidates, each candidate receives an isolated record in `CandidateJobOpportunity`.
+   - The recruiter table expands each opportunity per candidate with individual statuses (`NOT_APPLIED`, `APPLIED`, `REJECTED`).
+2. **"Apply for this" Application Tracking:**
+   - Clicking **"Apply for this"** opens the company portal in a new browser tab and triggers a confirmation modal.
+   - On confirmation ("Yes, Mark as Applied"), the backend checks for existing submissions (`JobLinkEntry`) to prevent double-submitting for that candidate.
+   - A `JobLinkEntry` is created with complete metadata (`experience_required`, `work_mode`, formatted salary), and the opportunity status changes to `APPLIED`.
+3. **Multi-Candidate Independence:**
+   - Applying Candidate A changes status for Candidate A only.
+   - If Candidate B also matches the job, Candidate B's row remains `NOT_APPLIED` and fully actionable until explicitly applied or rejected.
+4. **Candidate-Level Rejection:**
+   - Recruiters can reject an opportunity for a candidate with a mandatory reason.
+   - The rejection is tracked per-candidate and does not affect other matching candidates.
 
 ---
 
@@ -283,11 +290,18 @@ Hyrind tracks the exact financial expenditure of every scraping execution down t
      - **By Target Role:** Cost incurred per candidate job role.
      - **By User Profile:** Automated daily cron vs individual admin runs.
 
-### Scraping Session Execution Report
-Every scraping session generates an audit report accessible via Admin Scraper History:
-- **Metrics Tracked:** Total Requested, Collected, Unique, Duplicate, Failed, Scored, Below-Threshold.
-- **Per-Role Breakdown:** Detailed table breakdown showing vacancies collected, duplicates, scored, and failure counts per role (`GET /api/admin/job-scraper/executions/<id>/roles/`).
-- **Recruiter Distribution & Assignment:** View which recruiters received jobs from the crawl. Admins can distribute discovered jobs to recruiters directly without duplicate database entries (`RecruiterJobAssignment`).
+### Scraping Session Execution Report & Count Reconciliation
+
+Every scraping session reconciles its counts with complete mathematical transparency across the table and modal:
+
+$$\text{Found (Collected)} = \text{New (Unique)} + \text{Updated} + \text{Duplicates}$$
+
+- **Collected / Found:** Total job vacancy rows returned by scraper actors.
+- **New (Unique):** First-time discovered job postings inserted into the database.
+- **Updated:** Pre-existing jobs re-scraped with fresh posting dates, updated salaries, or renewed descriptions.
+- **Duplicates:** Vacancies identical to an already ingested posting on another portal, linked to the canonical job.
+- **Qualified vs Below Threshold:** In Mode B, jobs meeting the qualification threshold ($\text{Visa Score} \ge \text{threshold}$) are marked Qualified, while others remain cataloged but flagged below-threshold.
+- **Per-Role Breakdown:** Vacancies collected, duplicates, scored, and failure counts per role (`GET /api/admin/job-scraper/executions/<id>/roles/`).
 
 ---
 
@@ -298,27 +312,6 @@ Accessible via Admin Dashboard $\to$ "Employer Intelligence" (`/admin-dashboard/
 - **Placement & Offer History:** Integrates with Hyrind's `PlacementClosure` records, showing which employers have successfully hired Hyrind candidates.
 - **Contact Management:** Direct HR and recruiting contact information (`contact_name`, `contact_email`, `contact_phone`, `notes`).
 - **Verification Management:** Verified vs Unverified employer status toggles.
-
----
-
-## 11. Admin Scraper Control Panel
-
-Accessible via Admin Dashboard $\to$ "Jobs Scraper" tab (`AdminJobScraperPage.tsx`). Supports two explicit execution modes:
-
-```
-┌──────────────────────────────────────┐  ┌──────────────────────────────────────┐
-│       MODE A: STANDARD SCRAPING      │  │     MODE B: VISA-FILTERED SCRAPING   │
-│                                      │  │                                      │
-│ • Unrestricted broad crawl           │  │ • Pre-filters searches to employers │
-│ • All companies on job boards        │  │   selected from company_visa_history │
-│ • Automatically scored post-scrape   │  │ • Sets Minimum Qualification Score   │
-│ • Preserves all collected records    │  │ • Distinguishes qualified vacancies │
-└──────────────────────────────────────┘  └──────────────────────────────────────┘
-```
-
-1. **Step 1:** Select target job roles from candidate database or input custom roles with per-role limits.
-2. **Step 2:** Select execution mode. In Mode B, search and pick target employers from the Visa Refresh database and set the minimum qualification score threshold (e.g., $\ge 70$).
-3. **Step 3:** Select target portals (LinkedIn, Indeed, Glassdoor, Dice) and trigger the crawl.
 
 ---
 

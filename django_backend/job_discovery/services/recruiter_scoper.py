@@ -195,11 +195,24 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
         .values('candidate_id', 'company_name', 'role_title', 'job_url', 'application_status', 'created_at')
     )
 
+    from ..models import CandidateJobOpportunity
+    job_ids = [j['id'] for j in jobs_data if 'id' in j]
+    opps = list(
+        CandidateJobOpportunity.objects.filter(
+            candidate_id__in=candidate_ids,
+            job_id__in=job_ids
+        ).values('candidate_id', 'job_id', 'status', 'rejection_reason', 'applied_at')
+    )
+    opp_map = {
+        (str(o['candidate_id']), str(o['job_id'])): o for o in opps
+    }
+
     for job in jobs_data:
         target_role = (job.get('target_role') or '').lower()
         title = (job.get('title') or '').lower()
         company = (job.get('company_name') or '').lower()
         job_url = (job.get('job_url') or '').strip()
+        job_id_str = str(job.get('id', ''))
 
         matching_cands = []
         matching_roles = set()
@@ -218,30 +231,41 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
                     break
 
             if c_matches:
-                # Check application status for this candidate on this job
-                has_applied = False
-                app_status = None
+                c_id_str = str(c['id'])
+                # Check CandidateJobOpportunity first
+                opp = opp_map.get((c_id_str, job_id_str))
+                c_status = 'NOT_APPLIED'
+                rejection_reason = None
                 applied_date = None
 
-                for app in existing_applications:
-                    if str(app['candidate_id']) == str(c['id']):
-                        app_url = (app.get('job_url') or '').strip()
-                        app_comp = (app.get('company_name') or '').lower()
-                        app_role = (app.get('role_title') or '').lower()
+                if opp:
+                    c_status = opp['status']
+                    rejection_reason = opp.get('rejection_reason')
+                    applied_date = opp['applied_at'].date().isoformat() if opp.get('applied_at') else None
+                else:
+                    # Fallback check from existing JobLinkEntry records
+                    for app in existing_applications:
+                        if str(app['candidate_id']) == c_id_str:
+                            app_url = (app.get('job_url') or '').strip()
+                            app_comp = (app.get('company_name') or '').lower()
+                            app_role = (app.get('role_title') or '').lower()
 
-                        # Match by URL or (company + role overlap)
-                        if (app_url and job_url and app_url == job_url) or (app_comp and app_comp == company and (app_role in title or app_role in target_role)):
-                            has_applied = True
-                            app_status = app.get('application_status') or 'applied'
-                            applied_date = app['created_at'].date().isoformat() if app.get('created_at') else None
-                            break
+                            # Match by URL or (company + role overlap)
+                            if (app_url and job_url and app_url == job_url) or (app_comp and app_comp == company and (app_role in title or app_role in target_role)):
+                                c_status = 'APPLIED'
+                                applied_date = app['created_at'].date().isoformat() if app.get('created_at') else None
+                                break
+
+                has_applied = (c_status == 'APPLIED')
 
                 matching_cands.append({
                     'id': c['id'],
                     'name': c['name'],
                     'email': c['email'],
+                    'status': c_status,
                     'has_applied': has_applied,
-                    'application_status': app_status,
+                    'application_status': c_status.lower(),
+                    'rejection_reason': rejection_reason,
                     'applied_date': applied_date,
                 })
 
