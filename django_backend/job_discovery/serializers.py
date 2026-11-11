@@ -2,8 +2,22 @@ from rest_framework import serializers
 from datetime import datetime
 from .models import (
     ScraperExecution, DiscoveredJob, CompanyVisaHistory, CompanyAlias,
-    RecruiterJobAssignment, ScraperCostRecord, EmployerPlacement
+    RecruiterJobAssignment, ScraperCostRecord, EmployerPlacement, EmployerContact
 )
+
+
+class EmployerContactSerializer(serializers.ModelSerializer):
+    created_by_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EmployerContact
+        fields = [
+            'id', 'company', 'name', 'email', 'email_norm', 'role_designation',
+            'phone_number', 'source', 'notes', 'created_by', 'created_by_email', 'created_at'
+        ]
+
+    def get_created_by_email(self, obj):
+        return obj.created_by.email if obj.created_by else None
 
 
 class EmployerPlacementSerializer(serializers.ModelSerializer):
@@ -19,6 +33,7 @@ class EmployerPlacementSerializer(serializers.ModelSerializer):
 class CompanyVisaHistorySerializer(serializers.ModelSerializer):
     aliases = serializers.SerializerMethodField()
     placements = EmployerPlacementSerializer(many=True, read_only=True)
+    contacts = EmployerContactSerializer(many=True, read_only=True)
 
     class Meta:
         model = CompanyVisaHistory
@@ -26,10 +41,11 @@ class CompanyVisaHistorySerializer(serializers.ModelSerializer):
             'id', 'company_name', 'company_name_norm', 'h1b_total_filings',
             'h1b_approvals', 'h1b_denials', 'h1b_approval_rate', 'h1b_avg_salary',
             'h1b_last_filing_year', 'perm_total_filings', 'perm_last_year',
-            'green_card_sponsor', 'everify_enrolled', 'visa_friendly_score',
+            'green_card_sponsor', 'everify_enrolled', 'h1b_sponsorship_willing',
+            'h1b_sponsorship_source', 'visa_friendly_score',
             'visa_grade', 'website', 'industry', 'headquarters', 'contact_name',
             'contact_email', 'contact_phone', 'verification_status', 'data_sources',
-            'placement_count', 'notes', 'updated_at', 'aliases', 'placements'
+            'placement_count', 'notes', 'updated_at', 'aliases', 'placements', 'contacts'
         ]
 
     def get_aliases(self, obj):

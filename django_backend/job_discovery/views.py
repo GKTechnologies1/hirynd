@@ -1184,3 +1184,81 @@ def manage_employer_placements(request, company_id):
     placements = company.placements.all()
     return Response(EmployerPlacementSerializer(placements, many=True).data)
 
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdmin])
+def manage_employer_contacts(request, company_id):
+    """
+    GET /api/admin/employers/<company_id>/contacts/
+    POST /api/admin/employers/<company_id>/contacts/
+    Lists or adds contacts for an employer in the central Employer Contact Directory.
+    """
+    from .models import CompanyVisaHistory, EmployerContact
+    from .serializers import EmployerContactSerializer
+
+    try:
+        company = CompanyVisaHistory.objects.get(id=company_id)
+    except CompanyVisaHistory.DoesNotExist:
+        return Response({'error': 'Employer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'POST':
+        data = request.data
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        phone = data.get('phone_number', '').strip()
+        role = data.get('role_designation', '').strip()
+        source = data.get('source', 'MANUAL_ENTRY').strip()
+        notes = data.get('notes', '').strip()
+
+        if not name and not email:
+            return Response({'error': 'Either Name or Email is required for contact'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email_norm = email.lower() if email else ''
+        if email_norm:
+            contact = EmployerContact.objects.filter(company=company, email_norm=email_norm).first()
+            if contact:
+                if name:
+                    contact.name = name
+                if phone:
+                    contact.phone_number = phone
+                if role:
+                    contact.role_designation = role
+                if notes:
+                    contact.notes = f"{contact.notes or ''}\n{notes}".strip()
+                contact.save()
+                return Response(EmployerContactSerializer(contact).data, status=status.HTTP_200_OK)
+
+        contact = EmployerContact.objects.create(
+            company=company,
+            name=name or (email.split('@')[0] if email else 'Contact'),
+            email=email,
+            email_norm=email_norm,
+            role_designation=role,
+            phone_number=phone,
+            source=source,
+            notes=notes,
+            created_by=request.user,
+        )
+        return Response(EmployerContactSerializer(contact).data, status=status.HTTP_201_CREATED)
+
+    contacts = company.contacts.all().order_by('-created_at')
+    return Response(EmployerContactSerializer(contacts, many=True).data)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdmin])
+def delete_employer_contact(request, company_id, contact_id):
+    """
+    DELETE /api/admin/employers/<company_id>/contacts/<contact_id>/
+    Removes a contact record from the employer directory.
+    """
+    from .models import EmployerContact
+    try:
+        contact = EmployerContact.objects.get(id=contact_id, company_id=company_id)
+    except EmployerContact.DoesNotExist:
+        return Response({'error': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    contact.delete()
+    return Response({'status': 'success', 'message': 'Contact deleted successfully'})
+
+

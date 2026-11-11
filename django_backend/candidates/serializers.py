@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation,
-    CredentialVersion, Referral, InterviewLog, PlacementClosure,
+    CredentialVersion, Referral, InterviewLog, PlacementClosure, PlacementAuditLog,
     CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate, GeneralEnquiry,
     WorkExperience, Certification,
 )
@@ -304,17 +304,36 @@ class InterviewLogSerializer(serializers.ModelSerializer):
         return ''
 
 
+class PlacementAuditLogSerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlacementAuditLog
+        fields = ['id', 'placement', 'changed_by', 'changed_by_name', 'changes', 'change_reason', 'created_at']
+
+    def get_changed_by_name(self, obj):
+        if obj.changed_by and hasattr(obj.changed_by, 'profile'):
+            return obj.changed_by.profile.full_name
+        return obj.changed_by.email if obj.changed_by else 'System'
+
+
 class PlacementClosureSerializer(serializers.ModelSerializer):
     notes = serializers.CharField(source='placement_notes', required=False, allow_blank=True, allow_null=True)
+    audit_logs = serializers.SerializerMethodField()
 
     class Meta:
         model = PlacementClosure
         fields = [
             'id', 'candidate', 'company_name', 'role_title', 'salary', 'currency',
-            'start_date', 'hr_email', 'interviewer_email', 'bgv_company_name',
-            'offer_letter_url', 'placement_notes', 'notes', 'closed_by', 'created_at'
+            'start_date', 'hr_name', 'hr_email', 'hr_phone', 'interviewer_email', 'bgv_company_name',
+            'offer_letter_url', 'placement_notes', 'notes', 'everified_employer', 'h1b_sponsorship_willing',
+            'additional_contacts', 'closed_by', 'updated_by', 'created_at', 'updated_at', 'audit_logs'
         ]
-        read_only_fields = ['id', 'closed_by', 'created_at']
+        read_only_fields = ['id', 'closed_by', 'updated_by', 'created_at', 'updated_at', 'audit_logs']
+
+    def get_audit_logs(self, obj):
+        logs = obj.audit_logs.all()[:10]
+        return PlacementAuditLogSerializer(logs, many=True).data
 
 
 class PaymentSerializer(serializers.ModelSerializer):

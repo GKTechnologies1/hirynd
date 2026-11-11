@@ -16,7 +16,7 @@ import {
   Building2, Search, Filter, RefreshCw, Plus, ExternalLink,
   ShieldCheck, Award, Users, DollarSign, Calendar, MapPin,
   Globe, Mail, Phone, CheckCircle2, ChevronLeft, ChevronRight,
-  Eye, Edit3, Briefcase, FileCheck
+  Eye, Edit3, Briefcase, FileCheck, Trash2
 } from "lucide-react";
 
 export const AdminEmployerDiscoveryPage: React.FC = () => {
@@ -79,6 +79,55 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
     notes: "",
   });
   const [savingPlacement, setSavingPlacement] = useState(false);
+
+  // Employer Contacts Directory state
+  const [showAddContactForm, setShowAddContactForm] = useState(false);
+  const [contactFormData, setContactFormData] = useState({
+    name: "",
+    email: "",
+    phone_number: "",
+    role_designation: "",
+    notes: "",
+  });
+  const [savingContact, setSavingContact] = useState(false);
+
+  const handleAddContactSubmit = async () => {
+    if (!selectedEmployer) return;
+    if (!contactFormData.name.trim() && !contactFormData.email.trim()) {
+      toast({ title: "Name or Email Required", description: "Please enter at least a contact name or email.", variant: "destructive" });
+      return;
+    }
+
+    setSavingContact(true);
+    try {
+      const res = await employerDiscoveryApi.addContact(selectedEmployer.id, contactFormData);
+      toast({ title: "Contact Added", description: `Added contact for ${selectedEmployer.company_name}.` });
+      const current = selectedEmployer.contacts || [];
+      const updated = [res.data, ...current.filter((c: any) => c.id !== res.data.id)];
+      setSelectedEmployer({ ...selectedEmployer, contacts: updated });
+      setContactFormData({ name: "", email: "", phone_number: "", role_designation: "", notes: "" });
+      setShowAddContactForm(false);
+    } catch (err: any) {
+      toast({ title: "Error Adding Contact", description: err.response?.data?.error || err.message, variant: "destructive" });
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  const handleDeleteContact = async (contactId: number) => {
+    if (!selectedEmployer) return;
+    try {
+      await employerDiscoveryApi.deleteContact(selectedEmployer.id, contactId);
+      toast({ title: "Contact Deleted" });
+      const current = selectedEmployer.contacts || [];
+      setSelectedEmployer({
+        ...selectedEmployer,
+        contacts: current.filter((c: any) => c.id !== contactId)
+      });
+    } catch (err: any) {
+      toast({ title: "Error Deleting Contact", description: err.response?.data?.error || err.message, variant: "destructive" });
+    }
+  };
 
   // Fetch overview statistics
   const fetchStats = useCallback(async () => {
@@ -710,15 +759,18 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
               </DialogHeader>
 
               <Tabs value={detailTab} onValueChange={setDetailTab} className="w-full text-xs">
-                <TabsList className="grid grid-cols-3 w-full h-8 mb-3">
+                <TabsList className="grid grid-cols-4 w-full h-8 mb-3">
                   <TabsTrigger value="overview" className="text-xs">
-                    Overview & Contacts
+                    Overview
                   </TabsTrigger>
                   <TabsTrigger value="visa" className="text-xs">
                     USCIS & LCA History
                   </TabsTrigger>
                   <TabsTrigger value="placements" className="text-xs">
                     Placements ({selectedEmployer.placements?.length || 0})
+                  </TabsTrigger>
+                  <TabsTrigger value="contacts" className="text-xs">
+                    Contacts ({selectedEmployer.contacts?.length || 0})
                   </TabsTrigger>
                 </TabsList>
 
@@ -885,6 +937,143 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
                           <tr>
                             <td colSpan={6} className="py-6 text-center text-slate-400">
                               No placements recorded yet for this employer.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </TabsContent>
+
+                {/* TAB 4: EMPLOYER CONTACTS DIRECTORY */}
+                <TabsContent value="contacts" className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-900 text-xs block">
+                        Employer Contact Directory:
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        Synchronized contacts from interview logs, case closures, and verified talent acquisition records.
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowAddContactForm(!showAddContactForm)}
+                      className="h-7 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="h-3 w-3" />
+                      {showAddContactForm ? "Cancel" : "Add Contact"}
+                    </Button>
+                  </div>
+
+                  {/* Inline Add Contact Form */}
+                  {showAddContactForm && (
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-xs">
+                      <p className="font-bold text-slate-800 text-xs">New Contact Record</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px] text-slate-500">Contact Name</Label>
+                          <Input
+                            value={contactFormData.name}
+                            onChange={e => setContactFormData({ ...contactFormData, name: e.target.value })}
+                            placeholder="e.g. John Doe"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-slate-500">Email Address</Label>
+                          <Input
+                            type="email"
+                            value={contactFormData.email}
+                            onChange={e => setContactFormData({ ...contactFormData, email: e.target.value })}
+                            placeholder="john.doe@company.com"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-slate-500">Phone Number</Label>
+                          <Input
+                            type="tel"
+                            value={contactFormData.phone_number}
+                            onChange={e => setContactFormData({ ...contactFormData, phone_number: e.target.value })}
+                            placeholder="+1 (555) 123-4567"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-slate-500">Role / Designation</Label>
+                          <Input
+                            value={contactFormData.role_designation}
+                            onChange={e => setContactFormData({ ...contactFormData, role_designation: e.target.value })}
+                            placeholder="e.g. Lead Technical Recruiter"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAddContactForm(false)}
+                          className="h-7 text-xs"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={savingContact || (!contactFormData.name.trim() && !contactFormData.email.trim())}
+                          onClick={handleAddContactSubmit}
+                          className="h-7 text-xs font-semibold"
+                        >
+                          {savingContact ? "Saving..." : "Save Contact"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Contacts Table */}
+                  <div className="rounded-md border border-slate-200 overflow-x-auto text-xs">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50 border-b text-slate-700 font-semibold">
+                        <tr>
+                          <th className="py-2 px-3">Name</th>
+                          <th className="py-2 px-3">Email</th>
+                          <th className="py-2 px-3">Phone</th>
+                          <th className="py-2 px-3">Role / Designation</th>
+                          <th className="py-2 px-3">Source</th>
+                          <th className="py-2 px-3 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {selectedEmployer.contacts && selectedEmployer.contacts.length > 0 ? (
+                          selectedEmployer.contacts.map((ct: any) => (
+                            <tr key={ct.id} className="hover:bg-slate-50/60">
+                              <td className="py-2 px-3 font-semibold text-slate-900">{ct.name || "—"}</td>
+                              <td className="py-2 px-3 text-primary">{ct.email || "—"}</td>
+                              <td className="py-2 px-3 text-slate-600">{ct.phone_number || "—"}</td>
+                              <td className="py-2 px-3 text-slate-700">{ct.role_designation || "—"}</td>
+                              <td className="py-2 px-3">
+                                <Badge variant="outline" className="text-[9px] py-0 px-1 bg-slate-50">
+                                  {ct.source || "DIRECTORY"}
+                                </Badge>
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteContact(ct.id)}
+                                  className="h-6 w-6 p-0 text-slate-400 hover:text-rose-600 cursor-pointer"
+                                  title="Delete Contact"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="py-6 text-center text-slate-400">
+                              No contacts recorded yet for this employer.
                             </td>
                           </tr>
                         )}

@@ -690,6 +690,10 @@ export const recruiterJobDiscoveryApi = {
   filters: () => api.get('/recruiter/job-discovery/filters/'),
   markApplied: (id: string, data: { candidate_id: string; notes?: string }) =>
     api.post(`/recruiter/job-discovery/jobs/${id}/mark-applied/`, data),
+  dismissJob: (id: string, data: { candidate_id: string; reason: string; comments?: string }) =>
+    api.post(`/recruiter/job-discovery/jobs/${id}/dismiss/`, data),
+  restoreJob: (id: string, data: { candidate_id: string }) =>
+    api.post(`/recruiter/job-discovery/jobs/${id}/restore/`, data),
   rejectJob: (id: string, data: { candidate_id: string; reason: string }) =>
     api.post(`/recruiter/job-discovery/jobs/${id}/reject/`, data),
 };
@@ -715,5 +719,8 @@ export const employerDiscoveryApi = {
   create: (data: Record<string, any>) => api.post('/admin/employers/create/', data),
   placements: (id: number | string) => api.get(`/admin/employers/${id}/placements/`),
   addPlacement: (id: number | string, data: Record<string, any>) => api.post(`/admin/employers/${id}/placements/`, data),
+  contacts: (id: number | string) => api.get(`/admin/employers/${id}/contacts/`),
+  addContact: (id: number | string, data: Record<string, any>) => api.post(`/admin/employers/${id}/contacts/`, data),
+  deleteContact: (id: number | string, contactId: number | string) => api.delete(`/admin/employers/${id}/contacts/${contactId}/`),
 };
 

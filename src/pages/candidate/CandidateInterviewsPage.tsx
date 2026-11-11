@@ -197,6 +197,9 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
   const [interviewDate, setInterviewDate] = useState("");
   const [round, setRound] = useState("");
   const [outcome, setOutcome] = useState("scheduled");
+  const [interviewerName, setInterviewerName] = useState("");
+  const [interviewerEmail, setInterviewerEmail] = useState("");
+  const [interviewerPhone, setInterviewerPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [difficultQuestions, setDifficultQuestions] = useState("");
   const [supportNeeded, setSupportNeeded] = useState(false);
@@ -247,6 +250,9 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
         interview_date: toISODate(interviewDate),
         stage_round: round,
         outcome,
+        interviewer_name: interviewerName.trim(),
+        interviewer_email: interviewerEmail.trim(),
+        interviewer_phone: interviewerPhone.trim(),
         feedback_notes: notes.trim(),
         notes: notes.trim(),
         difficult_questions: difficultQuestions.trim(),
@@ -265,7 +271,8 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
 
   const resetForm = () => {
     setLogType("screening_call"); setCompanyName(""); setRoleTitle(""); setInterviewDate("");
-    setRound(""); setOutcome("scheduled"); setNotes(""); setDifficultQuestions("");
+    setRound(""); setOutcome("scheduled"); setInterviewerName(""); setInterviewerEmail(""); setInterviewerPhone("");
+    setNotes(""); setDifficultQuestions("");
     setSupportNeeded(false); setSupportNotes("");
   };
 
@@ -402,6 +409,32 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
                         {OUTCOMES.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div>
+                    <Label>Interviewer / HR Name</Label>
+                    <Input
+                      value={interviewerName}
+                      onChange={e => setInterviewerName(e.target.value)}
+                      placeholder="e.g. John Doe / Jane Smith"
+                    />
+                  </div>
+                  <div>
+                    <Label>Interviewer Email ID</Label>
+                    <Input
+                      type="email"
+                      value={interviewerEmail}
+                      onChange={e => setInterviewerEmail(e.target.value)}
+                      placeholder="e.g. interviewer@company.com"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Interviewed Contact Number (Optional)</Label>
+                    <Input
+                      type="tel"
+                      value={interviewerPhone}
+                      onChange={e => setInterviewerPhone(e.target.value)}
+                      placeholder="e.g. +1 (555) 123-4567"
+                    />
                   </div>
                 </div>
                 <div>

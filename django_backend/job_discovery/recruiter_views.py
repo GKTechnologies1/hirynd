@@ -154,6 +154,13 @@ def list_recruiter_jobs(request):
     serialized_jobs = serializer.data
 
     app_status = request.GET.get('status', 'all').strip().upper()
+    disc_filter = request.GET.get('discovery_status', '').strip().upper()
+    if not disc_filter:
+        if app_status == 'DISMISSED':
+            disc_filter = 'DISMISSED'
+            app_status = 'ALL'
+        else:
+            disc_filter = 'ACTIVE'
 
     # Dynamically attach candidate context
     enriched_jobs = attach_matching_candidate_context(serialized_jobs, scope)
@@ -169,6 +176,12 @@ def list_recruiter_jobs(request):
                 item['candidate'] = mc
                 item['candidate_id'] = mc['id']
                 item['status'] = mc.get('status') or 'NOT_APPLIED'
+                item['discovery_status'] = mc.get('discovery_status') or 'ACTIVE'
+                item['is_dismissed'] = mc.get('is_dismissed', False)
+                item['dismissal_reason'] = mc.get('dismissal_reason')
+                item['dismissal_comments'] = mc.get('dismissal_comments')
+                item['dismissed_date'] = mc.get('dismissed_date')
+                item['dismissed_by'] = mc.get('dismissed_by')
                 item['rejection_reason'] = mc.get('rejection_reason')
                 item['has_applied'] = (item['status'] == 'APPLIED')
                 expanded_records.append(item)
@@ -178,9 +191,20 @@ def list_recruiter_jobs(request):
             item['candidate'] = None
             item['candidate_id'] = None
             item['status'] = 'NOT_APPLIED'
+            item['discovery_status'] = 'ACTIVE'
+            item['is_dismissed'] = False
+            item['dismissal_reason'] = None
+            item['dismissal_comments'] = None
+            item['dismissed_date'] = None
+            item['dismissed_by'] = None
             item['rejection_reason'] = None
             item['has_applied'] = False
             expanded_records.append(item)
+
+    if disc_filter == 'ACTIVE':
+        expanded_records = [r for r in expanded_records if not r.get('is_dismissed')]
+    elif disc_filter == 'DISMISSED':
+        expanded_records = [r for r in expanded_records if r.get('is_dismissed')]
 
     if app_status and app_status != 'ALL':
         expanded_records = [r for r in expanded_records if r['status'] == app_status]
@@ -530,5 +554,148 @@ def reject_job(request, job_id):
         'opportunity_status': 'REJECTED',
         'rejection_reason': reason,
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsApproved, IsRecruiter])
+def dismiss_job(request, job_id):
+    """
+    POST /api/recruiter/job-discovery/jobs/<job_id>/dismiss/
+    Dismisses a recommendation for a specific candidate.
+    Requires candidate_id and a valid dismissal reason.
+    If reason is 'Other', comments are mandatory.
+    Cannot dismiss if the job has already been applied for by this candidate.
+    Candidate A's dismissal never impacts Candidate B.
+    """
+    candidate_id = request.data.get('candidate_id')
+    reason = (request.data.get('reason') or '').strip()
+    comments = (request.data.get('comments') or '').strip()
+
+    if not candidate_id:
+        return Response({'error': 'candidate_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    if not reason:
+        return Response({'error': 'Dismissal reason is required'}, status=status.HTTP_400_BAD_REQUEST)
+    if reason.lower() == 'other' and not comments:
+        return Response({'error': 'Please provide an explanation when selecting "Other" as the reason.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Permission check for recruiter assignment
+    if request.user.role != 'admin':
+        from recruiters.models import RecruiterAssignment
+        is_assigned = RecruiterAssignment.objects.filter(
+            recruiter=request.user,
+            candidate_id=candidate_id,
+            is_active=True
+        ).exists()
+        if not is_assigned:
+            return Response({'error': 'You are not assigned to manage this candidate.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        job = DiscoveredJob.objects.get(id=job_id)
+    except DiscoveredJob.DoesNotExist:
+        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    from candidates.models import Candidate
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    from .models import CandidateJobOpportunity
+    opp = CandidateJobOpportunity.objects.filter(candidate=candidate, job=job).first()
+    if opp and opp.status == 'APPLIED':
+        return Response({'error': 'This job has already been applied for and cannot be dismissed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    now = timezone.now()
+    if not opp:
+        opp = CandidateJobOpportunity.objects.create(
+            candidate=candidate,
+            job=job,
+            recruiter=request.user,
+            status='NOT_APPLIED',
+            discovery_status='DISMISSED',
+            dismissal_reason=reason,
+            dismissal_comments=comments,
+            dismissed_by=request.user,
+            dismissed_at=now,
+            previous_discovery_status='ACTIVE'
+        )
+    else:
+        opp.previous_discovery_status = opp.discovery_status
+        opp.discovery_status = 'DISMISSED'
+        opp.dismissal_reason = reason
+        opp.dismissal_comments = comments
+        opp.dismissed_by = request.user
+        opp.dismissed_at = now
+        opp.recruiter = request.user
+        opp.save()
+
+    return Response({
+        'status': 'success',
+        'message': f'Job recommendation successfully dismissed for {candidate.user.email}.',
+        'opportunity_id': f"{job.id}_{candidate.id}",
+        'candidate_id': str(candidate.id),
+        'job_id': str(job.id),
+        'discovery_status': 'DISMISSED',
+        'dismissal_reason': reason,
+        'dismissal_comments': comments,
+        'dismissed_at': now.isoformat(),
+        'dismissed_by': request.user.email,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsApproved, IsRecruiter])
+def restore_job(request, job_id):
+    """
+    POST /api/recruiter/job-discovery/jobs/<job_id>/restore/
+    Restores a dismissed job recommendation back to ACTIVE status for a candidate.
+    """
+    candidate_id = request.data.get('candidate_id')
+    if not candidate_id:
+        return Response({'error': 'candidate_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.user.role != 'admin':
+        from recruiters.models import RecruiterAssignment
+        is_assigned = RecruiterAssignment.objects.filter(
+            recruiter=request.user,
+            candidate_id=candidate_id,
+            is_active=True
+        ).exists()
+        if not is_assigned:
+            return Response({'error': 'You are not assigned to manage this candidate.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        job = DiscoveredJob.objects.get(id=job_id)
+    except DiscoveredJob.DoesNotExist:
+        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    from candidates.models import Candidate
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+    except Candidate.DoesNotExist:
+        return Response({'error': 'Candidate not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    from .models import CandidateJobOpportunity
+    opp = CandidateJobOpportunity.objects.filter(candidate=candidate, job=job).first()
+    if not opp or opp.discovery_status != 'DISMISSED':
+        return Response({'message': 'Job recommendation is already active.', 'discovery_status': 'ACTIVE'})
+
+    opp.previous_discovery_status = opp.discovery_status
+    opp.discovery_status = 'ACTIVE'
+    opp.dismissal_reason = None
+    opp.dismissal_comments = None
+    opp.dismissed_by = None
+    opp.dismissed_at = None
+    opp.save()
+
+    return Response({
+        'status': 'success',
+        'message': f'Job recommendation restored to active recommendations for {candidate.user.email}.',
+        'opportunity_id': f"{job.id}_{candidate.id}",
+        'candidate_id': str(candidate.id),
+        'job_id': str(job.id),
+        'discovery_status': 'ACTIVE',
+    })
+
 
 

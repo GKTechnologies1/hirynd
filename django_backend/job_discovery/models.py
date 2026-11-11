@@ -168,6 +168,12 @@ class CompanyVisaHistory(models.Model):
     verification_status = models.CharField(max_length=30, default='VERIFIED', db_index=True)
     data_sources = models.JSONField(default=list, blank=True)
     placement_count = models.IntegerField(default=0, db_index=True)
+    h1b_sponsorship_willing = models.CharField(
+        max_length=30,
+        choices=[('yes', 'Yes'), ('no', 'No'), ('unknown', 'Unknown / Not Confirmed')],
+        default='unknown'
+    )
+    h1b_sponsorship_source = models.CharField(max_length=100, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
 
     updated_at = models.DateTimeField(auto_now=True)
@@ -178,6 +184,38 @@ class CompanyVisaHistory(models.Model):
 
     def __str__(self):
         return f"{self.company_name} (Grade: {self.visa_grade}, Score: {self.visa_friendly_score})"
+
+
+class EmployerContact(models.Model):
+    SOURCE_CHOICES = [
+        ('interview_log', 'Interview Log'),
+        ('case_closure', 'Case Closure'),
+        ('manual_entry', 'Manual Entry'),
+        ('visa_refresh', 'Visa Refresh'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(CompanyVisaHistory, on_delete=models.CASCADE, related_name='contacts')
+    name = models.CharField(max_length=255)
+    email = models.EmailField(db_index=True)
+    email_norm = models.CharField(max_length=255, db_index=True)
+    role_designation = models.CharField(max_length=150, blank=True, null=True)
+    phone_number = models.CharField(max_length=50, blank=True, null=True)
+    source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default='manual_entry')
+    notes = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_employer_contacts')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'employer_contacts'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['company', 'email_norm'], name='idx_ec_comp_email'),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.email}) - {self.company.company_name}"
 
 
 class CompanyAlias(models.Model):
@@ -297,6 +335,11 @@ class CandidateJobOpportunity(models.Model):
         ('REJECTED', 'Rejected'),
     ]
 
+    DISCOVERY_STATUS_CHOICES = [
+        ('ACTIVE', 'Active'),
+        ('DISMISSED', 'Dismissed'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.ForeignKey(
         'candidates.Candidate', on_delete=models.CASCADE, related_name='job_opportunities'
@@ -307,8 +350,18 @@ class CandidateJobOpportunity(models.Model):
     recruiter = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name='candidate_job_opportunities'
     )
+    discovery_status = models.CharField(
+        max_length=20, choices=DISCOVERY_STATUS_CHOICES, default='ACTIVE', db_index=True
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='NOT_APPLIED', db_index=True)
     rejection_reason = models.TextField(blank=True, null=True)
+    dismissal_reason = models.CharField(max_length=255, blank=True, null=True)
+    dismissal_comments = models.TextField(blank=True, null=True)
+    dismissed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='dismissed_opportunities'
+    )
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+    previous_discovery_status = models.CharField(max_length=20, default='ACTIVE')
     job_link_entry = models.ForeignKey(
         'recruiters.JobLinkEntry', null=True, blank=True, on_delete=models.SET_NULL, related_name='discovery_opportunity'
     )
@@ -322,6 +375,7 @@ class CandidateJobOpportunity(models.Model):
         unique_together = ('candidate', 'job')
         indexes = [
             models.Index(fields=['candidate', 'status'], name='idx_cjo_cand_status'),
+            models.Index(fields=['candidate', 'discovery_status'], name='idx_cjo_cand_disc_status'),
             models.Index(fields=['job', 'status'], name='idx_cjo_job_status'),
             models.Index(fields=['recruiter', '-created_at'], name='idx_cjo_rec_created'),
         ]

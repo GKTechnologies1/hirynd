@@ -201,7 +201,10 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
         CandidateJobOpportunity.objects.filter(
             candidate_id__in=candidate_ids,
             job_id__in=job_ids
-        ).values('candidate_id', 'job_id', 'status', 'rejection_reason', 'applied_at')
+        ).values(
+            'candidate_id', 'job_id', 'status', 'discovery_status',
+            'dismissal_reason', 'dismissal_comments', 'dismissed_at', 'dismissed_by__email', 'applied_at'
+        )
     )
     opp_map = {
         (str(o['candidate_id']), str(o['job_id'])): o for o in opps
@@ -235,12 +238,22 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
                 # Check CandidateJobOpportunity first
                 opp = opp_map.get((c_id_str, job_id_str))
                 c_status = 'NOT_APPLIED'
+                c_disc_status = 'ACTIVE'
                 rejection_reason = None
+                dismissal_reason = None
+                dismissal_comments = None
+                dismissed_date = None
+                dismissed_by = None
                 applied_date = None
 
                 if opp:
                     c_status = opp['status']
+                    c_disc_status = opp.get('discovery_status') or 'ACTIVE'
                     rejection_reason = opp.get('rejection_reason')
+                    dismissal_reason = opp.get('dismissal_reason')
+                    dismissal_comments = opp.get('dismissal_comments')
+                    dismissed_date = opp['dismissed_at'].isoformat() if opp.get('dismissed_at') else None
+                    dismissed_by = opp.get('dismissed_by__email')
                     applied_date = opp['applied_at'].date().isoformat() if opp.get('applied_at') else None
                 else:
                     # Fallback check from existing JobLinkEntry records
@@ -263,6 +276,12 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
                     'name': c['name'],
                     'email': c['email'],
                     'status': c_status,
+                    'discovery_status': c_disc_status,
+                    'is_dismissed': (c_disc_status == 'DISMISSED'),
+                    'dismissal_reason': dismissal_reason,
+                    'dismissal_comments': dismissal_comments,
+                    'dismissed_date': dismissed_date,
+                    'dismissed_by': dismissed_by,
                     'has_applied': has_applied,
                     'application_status': c_status.lower(),
                     'rejection_reason': rejection_reason,

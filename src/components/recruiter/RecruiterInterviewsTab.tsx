@@ -157,6 +157,8 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
     outcome: "scheduled",
     meeting_link: "",
     interviewer_name: "",
+    interviewer_email: "",
+    interviewer_phone: "",
     notes: "",
     difficult_questions: "",
     support_needed: false,
@@ -250,6 +252,9 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
   const [interviewDate, setInterviewDate] = useState("");
   const [round, setRound] = useState("");
   const [outcome, setOutcome] = useState("scheduled");
+  const [interviewerName, setInterviewerName] = useState("");
+  const [interviewerEmail, setInterviewerEmail] = useState("");
+  const [interviewerPhone, setInterviewerPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [difficultQuestions, setDifficultQuestions] = useState("");
   const [supportNeeded, setSupportNeeded] = useState(false);
@@ -310,6 +315,9 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
         interview_date: toISODate(interviewDate),
         stage_round: round,
         outcome,
+        interviewer_name: interviewerName.trim(),
+        interviewer_email: interviewerEmail.trim(),
+        interviewer_phone: interviewerPhone.trim(),
         feedback_notes: notes.trim(),
         notes: notes.trim(),
         difficult_questions: difficultQuestions.trim(),
@@ -328,7 +336,8 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
 
   const resetForm = () => {
     setLogType("screening_call"); setCompanyName(""); setRoleTitle(""); setInterviewDate("");
-    setRound(""); setOutcome("scheduled"); setNotes(""); setDifficultQuestions("");
+    setRound(""); setOutcome("scheduled"); setInterviewerName(""); setInterviewerEmail(""); setInterviewerPhone("");
+    setNotes(""); setDifficultQuestions("");
     setSupportNeeded(false); setSupportNotes("");
   };
 
@@ -344,6 +353,8 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
       outcome: l.outcome || "scheduled",
       meeting_link: l.meeting_link || "",
       interviewer_name: l.interviewer_name || "",
+      interviewer_email: l.interviewer_email || "",
+      interviewer_phone: l.interviewer_phone || "",
       notes: l.notes || l.feedback_notes || "",
       difficult_questions: l.difficult_questions || "",
       support_needed: !!l.support_needed,
@@ -371,6 +382,8 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
         outcome: editForm.outcome,
         meeting_link: editForm.meeting_link.trim() || null,
         interviewer_name: editForm.interviewer_name.trim() || null,
+        interviewer_email: editForm.interviewer_email.trim() || null,
+        interviewer_phone: editForm.interviewer_phone.trim() || null,
         notes: editForm.notes.trim(),
         feedback_notes: editForm.notes.trim(),
         difficult_questions: editForm.difficult_questions.trim(),
@@ -516,6 +529,9 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
                   <SelectContent>{OUTCOMES.map(o => <SelectItem key={o} value={o}>{o.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div><Label>Interviewer / HR Name</Label><Input value={interviewerName} onChange={e => setInterviewerName(e.target.value)} placeholder="e.g. John Doe / Jane Smith" /></div>
+              <div><Label>Interviewer Email ID</Label><Input type="email" value={interviewerEmail} onChange={e => setInterviewerEmail(e.target.value)} placeholder="e.g. interviewer@company.com" /></div>
+              <div className="sm:col-span-2"><Label>Interviewed Contact Number (Optional)</Label><Input type="tel" value={interviewerPhone} onChange={e => setInterviewerPhone(e.target.value)} placeholder="e.g. +1 (555) 123-4567" /></div>
             </div>
             <div><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} /></div>
             <div><Label>Difficult Questions</Label><Textarea value={difficultQuestions} onChange={e => setDifficultQuestions(e.target.value)} /></div>
@@ -887,6 +903,28 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
                   value={editForm.interviewer_name}
                   onChange={(e) => setEditForm({ ...editForm, interviewer_name: e.target.value })}
                   placeholder="e.g. John Doe (Hiring Manager)"
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Interviewer Email</Label>
+                <Input
+                  type="email"
+                  value={editForm.interviewer_email}
+                  onChange={(e) => setEditForm({ ...editForm, interviewer_email: e.target.value })}
+                  placeholder="e.g. interviewer@company.com"
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Interviewer Phone Number</Label>
+                <Input
+                  type="tel"
+                  value={editForm.interviewer_phone}
+                  onChange={(e) => setEditForm({ ...editForm, interviewer_phone: e.target.value })}
+                  placeholder="e.g. +1 (555) 123-4567"
                   className="h-9 text-xs"
                 />
               </div>

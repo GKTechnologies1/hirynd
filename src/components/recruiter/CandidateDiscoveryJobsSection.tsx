@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
@@ -19,8 +20,24 @@ import {
   Search, ExternalLink, RefreshCw, Briefcase, Building, MapPin,
   Eye, Copy, ChevronLeft, ChevronRight, Award,
   ShieldCheck, Check, UserCheck, Compass, X, LayoutGrid, Table,
-  Clock, DollarSign, Home, Loader2
+  Clock, DollarSign, Home, Loader2, Ban, RotateCcw, XCircle, FileText
 } from "lucide-react";
+
+export const DISMISSAL_REASONS = [
+  "Job role does not match candidate profile",
+  "Required skills or keywords do not match",
+  "Experience requirement mismatch",
+  "Location mismatch",
+  "Work mode mismatch",
+  "Salary or compensation mismatch",
+  "H1B / Visa sponsorship concern",
+  "Citizenship or security clearance requirement",
+  "Company not suitable",
+  "Job description is irrelevant or inaccurate",
+  "Job appears expired or closed",
+  "Duplicate or previously considered opportunity",
+  "Other",
+];
 
 export const JOB_STATUSES = [
   "Applied",
@@ -84,6 +101,15 @@ export const CandidateDiscoveryJobsSection = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
 
+  // Discovery Tabs: Active vs Dismissed
+  const [discoveryTab, setDiscoveryTab] = useState<"active" | "dismissed">("active");
+
+  // Dismissal modal state
+  const [dismissTargetJob, setDismissTargetJob] = useState<any | null>(null);
+  const [dismissReason, setDismissReason] = useState("");
+  const [dismissComments, setDismissComments] = useState("");
+  const [isSubmittingDismiss, setIsSubmittingDismiss] = useState(false);
+
   // Available portal sources from filters API
   const [availableSources, setAvailableSources] = useState<string[]>([]);
 
@@ -121,6 +147,7 @@ export const CandidateDiscoveryJobsSection = ({
     try {
       const params: any = {
         candidate_id: candidateId,
+        discovery_status: discoveryTab.toUpperCase(),
         page: currentPage,
         page_size: pageSize,
         ordering: sortOrder,
@@ -148,7 +175,7 @@ export const CandidateDiscoveryJobsSection = ({
       setLoading(false);
     }
   }, [
-    candidateId, currentPage, pageSize, sortOrder, search,
+    candidateId, discoveryTab, currentPage, pageSize, sortOrder, search,
     selectedRole, selectedSource, selectedVisaGrade, minScore,
     h1bOnly, isRemote, toast
   ]);
@@ -279,12 +306,88 @@ export const CandidateDiscoveryJobsSection = ({
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
-  const handleCopyDescription = (text: string) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopiedDesc(true);
-    setTimeout(() => setCopiedDesc(false), 2000);
-    toast({ title: "Copied", description: "Job description copied to clipboard." });
+  const handleCopyDescription = async (text: string) => {
+    if (!text) {
+      toast({ title: "No description", description: "No job description text available to copy.", variant: "destructive" });
+      return;
+    }
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopiedDesc(true);
+      setTimeout(() => setCopiedDesc(false), 2000);
+      toast({ title: "Job Description Copied", description: "Complete job description copied to clipboard successfully." });
+    } catch (err) {
+      toast({ title: "Copy Failed", description: "Unable to copy description automatically. Please select and copy manually.", variant: "destructive" });
+    }
+  };
+
+  const handleOpenDismissModal = (job: any) => {
+    setDismissTargetJob(job);
+    setDismissReason("");
+    setDismissComments("");
+  };
+
+  const handleConfirmDismiss = async () => {
+    if (!dismissTargetJob) return;
+    if (!dismissReason) {
+      toast({ title: "Reason Required", description: "Please select a dismissal reason.", variant: "destructive" });
+      return;
+    }
+    if (dismissReason === "Other" && !dismissComments.trim()) {
+      toast({ title: "Explanation Required", description: "Please provide a short explanation when selecting 'Other'.", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmittingDismiss(true);
+    try {
+      await recruiterJobDiscoveryApi.dismissJob(dismissTargetJob.id, {
+        candidate_id: candidateId,
+        reason: dismissReason,
+        comments: dismissComments.trim(),
+      });
+      toast({
+        title: "Recommendation Dismissed",
+        description: `Opportunity for ${dismissTargetJob.company_name} has been dismissed for ${candidateName}.`,
+      });
+      setDismissTargetJob(null);
+      fetchJobs();
+    } catch (err: any) {
+      toast({
+        title: "Dismissal Failed",
+        description: err.response?.data?.error || err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingDismiss(false);
+    }
+  };
+
+  const handleRestoreRecommendation = async (job: any) => {
+    try {
+      await recruiterJobDiscoveryApi.restoreJob(job.id, { candidate_id: candidateId });
+      toast({
+        title: "Recommendation Restored",
+        description: `Opportunity for ${job.company_name} is now restored to active recommendations.`,
+      });
+      fetchJobs();
+    } catch (err: any) {
+      toast({
+        title: "Restore Failed",
+        description: err.response?.data?.error || err.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleResetFilters = () => {
@@ -328,7 +431,37 @@ export const CandidateDiscoveryJobsSection = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Recommendations Status: Active vs Dismissed */}
+            <div className="flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/50">
+              <button
+                type="button"
+                onClick={() => { setDiscoveryTab("active"); setCurrentPage(1); }}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                  discoveryTab === "active"
+                    ? "bg-background text-primary shadow-xs font-extrabold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Compass className="h-3.5 w-3.5" />
+                Active
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDiscoveryTab("dismissed"); setCurrentPage(1); }}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                  discoveryTab === "dismissed"
+                    ? "bg-background text-amber-600 shadow-xs font-extrabold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Dismissed
+              </button>
+            </div>
+
             {/* View Mode Switcher: Cards vs Table (same as JobAlert.tsx) */}
             <div className="flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/50">
               <button
@@ -553,11 +686,10 @@ export const CandidateDiscoveryJobsSection = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {jobs.map((job) => {
                   const existingApp = findExistingApplication(job);
-                  const currentStatus = existingApp
-                    ? (existingApp.application_status || existingApp.status || "applied").toLowerCase().replace(/ /g, "_")
-                    : "";
                   const isUpdating = updatingJobId === job.id;
-                  const isApplied = !!existingApp;
+                  const isApplied = !!existingApp || job.status === "APPLIED" || job.has_applied === true;
+                  const isDismissed = job.discovery_status === "DISMISSED" || job.is_dismissed === true;
+                  const isRejected = job.status === "REJECTED";
                   const companyName = job.company_name || "Company";
                   const roleTitle = job.title || "Job Opportunity";
                   const postedDate = job.date_posted ? formatDate(job.date_posted) : "Recent";
@@ -655,56 +787,97 @@ export const CandidateDiscoveryJobsSection = ({
                         </div>
                       </div>
 
+                      {/* Dismissal Reason Note if dismissed */}
+                      {isDismissed && (
+                        <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300">
+                          <div className="font-bold flex items-center gap-1.5">
+                            <XCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                            Dismissed: {job.dismissal_reason || "Not Proceeding"}
+                          </div>
+                          {job.dismissal_comments && (
+                            <p className="text-[10px] text-muted-foreground mt-1 italic">
+                              &ldquo;{job.dismissal_comments}&rdquo;
+                            </p>
+                          )}
+                          {job.dismissed_by && (
+                            <p className="text-[9px] text-muted-foreground mt-0.5">
+                              Recorded by {job.dismissed_by} {job.dismissed_date ? `• ${formatDate(job.dismissed_date)}` : ''}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {/* Footer Actions Row */}
                       <div className="pt-2.5 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
-                        {/* Status Dropdown */}
+                        {/* Authoritative Status Badge */}
                         <div className="flex items-center gap-1.5">
-                          <Select
-                            value={currentStatus || "__NONE__"}
-                            onValueChange={(val) => handleApplyDirectly(job, val)}
-                            disabled={isUpdating}
-                          >
-                            <SelectTrigger className={cn(
-                              "w-32 h-7 text-[10px] font-bold border-none transition-colors",
-                              isApplied
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                : "bg-muted/50 text-muted-foreground"
-                            )}>
-                              <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__NONE__" className="text-xs text-muted-foreground">
-                                -- Not Applied --
-                              </SelectItem>
-                              {JOB_STATUSES.map(s => (
-                                <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs">
-                                  {s}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {isDismissed ? (
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 text-[11px] font-semibold flex items-center gap-1">
+                              <XCircle className="h-3 w-3 text-amber-600" />
+                              Dismissed
+                            </Badge>
+                          ) : isApplied ? (
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 text-[11px] font-bold flex items-center gap-1">
+                              <Check className="h-3 w-3 text-emerald-600" />
+                              Applied
+                            </Badge>
+                          ) : isRejected ? (
+                            <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1">
+                              <X className="h-3 w-3 text-rose-600" />
+                              Rejected
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[11px] font-medium">
+                              Not Applied
+                            </Badge>
+                          )}
                         </div>
 
-                        {/* Right Buttons: Applied & View */}
+                        {/* Action Buttons */}
                         <div className="flex items-center gap-1.5">
-                          {/* Applied Button: Automatically adds to pipeline */}
-                          {isApplied ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
-                              <Check className="h-3.5 w-3.5" />
-                              Applied
-                            </span>
-                          ) : (
+                          {isDismissed ? (
                             <Button
                               type="button"
                               size="sm"
-                              onClick={() => handleApplyDirectly(job, "applied")}
+                              variant="outline"
+                              onClick={() => handleRestoreRecommendation(job)}
                               disabled={isUpdating}
-                              className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-                              title="Automatically add this job to the application submission pipeline"
+                              className="h-7 px-2.5 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 flex items-center gap-1 cursor-pointer"
+                              title="Restore recommendation to active list"
                             >
-                              {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                              Applied
+                              <RotateCcw className="h-3 w-3" />
+                              Restore
                             </Button>
+                          ) : isApplied ? (
+                            <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mr-1 flex items-center gap-1">
+                              <Check className="h-3 w-3" /> In Pipeline
+                            </span>
+                          ) : (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleApplyDirectly(job, "applied")}
+                                disabled={isUpdating}
+                                className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+                                title="Add this job to candidate application pipeline"
+                              >
+                                {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                Apply
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleOpenDismissModal(job)}
+                                disabled={isUpdating}
+                                className="h-7 px-2 text-xs text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1 cursor-pointer"
+                                title="Dismiss recommendation for this candidate"
+                              >
+                                <Ban className="h-3 w-3 text-rose-500" />
+                                Dismiss
+                              </Button>
+                            </>
                           )}
 
                           {/* Read Details */}
@@ -774,11 +947,10 @@ export const CandidateDiscoveryJobsSection = ({
                 ) : (
                   jobs.map((job) => {
                     const existingApp = findExistingApplication(job);
-                    const currentStatus = existingApp
-                      ? (existingApp.application_status || existingApp.status || "applied").toLowerCase().replace(/ /g, "_")
-                      : "";
                     const isUpdating = updatingJobId === job.id;
-                    const isApplied = !!existingApp;
+                    const isApplied = !!existingApp || job.status === "APPLIED" || job.has_applied === true;
+                    const isDismissed = job.discovery_status === "DISMISSED" || job.is_dismissed === true;
+                    const isRejected = job.status === "REJECTED";
 
                     return (
                       <tr key={job.id} className="hover:bg-muted/20 transition-colors">
@@ -858,57 +1030,98 @@ export const CandidateDiscoveryJobsSection = ({
                           {job.date_posted ? formatDate(job.date_posted) : "Recent"}
                         </td>
 
-                        {/* Application Status (Same as existing Submit Job Application) */}
+                        {/* Authoritative Application Status */}
                         <td className="py-3 px-4 whitespace-nowrap">
-                          <Select
-                            value={currentStatus || "__NONE__"}
-                            onValueChange={(val) => handleApplyDirectly(job, val)}
-                            disabled={isUpdating}
-                          >
-                            <SelectTrigger className={cn(
-                              "w-36 h-8 text-[11px] font-bold border-none transition-colors",
-                              isApplied
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700"
-                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                            )}>
-                              <SelectValue placeholder="Update status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__NONE__" className="text-xs text-muted-foreground">
-                                -- Not Applied --
-                              </SelectItem>
-                              {JOB_STATUSES.map(s => (
-                                <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs font-medium">
-                                  {s}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {isDismissed ? (
+                            <div className="flex flex-col gap-0.5">
+                              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 text-[10px] font-semibold flex items-center gap-1 w-fit">
+                                <XCircle className="h-3 w-3 text-amber-600" />
+                                Dismissed
+                              </Badge>
+                              {job.dismissal_reason && (
+                                <span className="text-[10px] text-muted-foreground truncate max-w-[140px]" title={job.dismissal_reason}>
+                                  {job.dismissal_reason}
+                                </span>
+                              )}
+                            </div>
+                          ) : isApplied ? (
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px] font-bold flex items-center gap-1 w-fit">
+                              <Check className="h-3 w-3 text-emerald-600" />
+                              Applied
+                            </Badge>
+                          ) : isRejected ? (
+                            <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[10px] font-semibold flex items-center gap-1 w-fit">
+                              <X className="h-3 w-3 text-rose-600" />
+                              Rejected
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px] font-medium w-fit">
+                              Not Applied
+                            </Badge>
+                          )}
                         </td>
 
                         {/* Actions */}
                         <td className="py-3 px-4 text-center whitespace-nowrap">
                           <div className="flex items-center justify-center gap-1.5">
-                            {/* Applied Button: Automatically adds all details to submission pipeline */}
-                            {isApplied ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                <Check className="h-3.5 w-3.5" />
-                                Applied
-                              </span>
-                            ) : (
+                            {isDismissed ? (
                               <Button
                                 type="button"
                                 size="sm"
-                                onClick={() => handleApplyDirectly(job, "applied")}
+                                variant="outline"
+                                onClick={() => handleRestoreRecommendation(job)}
                                 disabled={isUpdating}
-                                className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-                                title="Automatically add this job to the application submission pipeline"
+                                className="h-7 px-2.5 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 flex items-center gap-1 cursor-pointer"
+                                title="Restore recommendation to active list"
                               >
-                                {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                Applied
+                                <RotateCcw className="h-3 w-3" />
+                                Restore
                               </Button>
+                            ) : isApplied ? (
+                              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mr-1 flex items-center gap-1">
+                                <Check className="h-3 w-3" /> In Pipeline
+                              </span>
+                            ) : (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => handleApplyDirectly(job, "applied")}
+                                  disabled={isUpdating}
+                                  className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+                                  title="Add this job to candidate application pipeline"
+                                >
+                                  {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                  Apply
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenDismissModal(job)}
+                                  disabled={isUpdating}
+                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
+                                  title="Dismiss recommendation for this candidate"
+                                >
+                                  <Ban className="h-3 w-3 text-rose-500" />
+                                  Dismiss
+                                </Button>
+                              </>
                             )}
 
+                            {/* Details Button */}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenDetail(job.id)}
+                              className="h-7 px-2 text-xs font-medium"
+                            >
+                              <Eye className="h-3 w-3 mr-1 text-muted-foreground" />
+                              Details
+                            </Button>
+
+                            {/* External Job Link */}
                             {job.job_url && (
                               <a
                                 href={safeUrl(job.job_url)}
@@ -920,16 +1133,6 @@ export const CandidateDiscoveryJobsSection = ({
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </a>
                             )}
-
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenDetail(job.id)}
-                              className="h-7 px-2 text-[10px] font-medium"
-                            >
-                              <Eye className="h-3 w-3 mr-1 text-muted-foreground" />
-                              View
-                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -1027,51 +1230,77 @@ export const CandidateDiscoveryJobsSection = ({
                     </span>
                   </div>
 
-                  {/* Quick status update from modal */}
+                  {/* Authoritative Status & Action Banner in Modal */}
                   {(() => {
                     const existingApp = findExistingApplication(selectedJob);
-                    const currentStatus = existingApp
-                      ? (existingApp.application_status || existingApp.status || "applied").toLowerCase().replace(/ /g, "_")
-                      : "";
-                    const isApplied = !!existingApp;
+                    const isApplied = !!existingApp || selectedJob.status === "APPLIED" || selectedJob.has_applied === true;
+                    const isDismissed = selectedJob.discovery_status === "DISMISSED" || selectedJob.is_dismissed === true;
+                    const isRejected = selectedJob.status === "REJECTED";
 
                     return (
                       <div className="flex items-center gap-2">
-                        {isApplied ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
-                            <Check className="h-3 w-3" />
-                            Applied
+                        {isDismissed ? (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-bold px-2.5 py-1 flex items-center gap-1">
+                              <XCircle className="h-3.5 w-3.5 text-amber-600" />
+                              Dismissed
+                            </Badge>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                handleRestoreRecommendation(selectedJob);
+                                setSelectedJob(null);
+                              }}
+                              className="h-8 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 cursor-pointer"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                              Restore Recommendation
+                            </Button>
+                          </div>
+                        ) : isApplied ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            Applied to Pipeline
                           </span>
+                        ) : isRejected ? (
+                          <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 text-xs font-semibold px-2.5 py-1">
+                            Rejected
+                          </Badge>
                         ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => handleApplyDirectly(selectedJob, "applied")}
-                            disabled={updatingJobId === selectedJob.id}
-                            className="h-8 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
-                          >
-                            <Check className="h-3 w-3" />
-                            Applied
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-muted-foreground border border-border">
+                              Not Applied
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                handleApplyDirectly(selectedJob, "applied");
+                                setSelectedJob(null);
+                              }}
+                              disabled={updatingJobId === selectedJob.id}
+                              className="h-8 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              Apply for this
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                handleOpenDismissModal(selectedJob);
+                                setSelectedJob(null);
+                              }}
+                              className="h-8 px-2.5 text-xs text-rose-600 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Ban className="h-3.5 w-3.5 text-rose-500" />
+                              Dismiss
+                            </Button>
+                          </div>
                         )}
-                        <Select
-                          value={currentStatus || "__NONE__"}
-                          onValueChange={(val) => handleApplyDirectly(selectedJob, val)}
-                        >
-                          <SelectTrigger className="w-32 h-8 text-[11px] font-bold bg-background">
-                            <SelectValue placeholder="Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__NONE__" className="text-xs text-muted-foreground">
-                              -- Not Applied --
-                            </SelectItem>
-                            {JOB_STATUSES.map(s => (
-                              <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs">
-                                {s}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
                       </div>
                     );
                   })()}
@@ -1157,23 +1386,26 @@ export const CandidateDiscoveryJobsSection = ({
                   </div>
                 </div>
 
-                {/* Job Description */}
+                {/* Job Description with One-Click Copy */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-xs font-semibold text-foreground">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-primary" />
                       Job Description:
                     </Label>
                     <Button
-                      variant="ghost"
+                      type="button"
+                      variant="outline"
                       size="sm"
                       onClick={() => handleCopyDescription(selectedJob.job_description)}
-                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      className="h-7 px-2.5 text-xs font-semibold bg-background hover:bg-muted text-foreground flex items-center gap-1.5 border-border shadow-2xs cursor-pointer"
+                      title="Copy complete original job description to clipboard"
                     >
-                      {copiedDesc ? <Check className="h-3 w-3 mr-1 text-emerald-600" /> : <Copy className="h-3 w-3 mr-1" />}
-                      {copiedDesc ? "Copied" : "Copy Description"}
+                      {copiedDesc ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedDesc ? "Copied to clipboard" : "Copy Job Description"}
                     </Button>
                   </div>
-                  <div className="p-3 bg-muted/20 border border-border/50 rounded-md max-h-56 overflow-y-auto whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed">
+                  <div className="p-3 bg-muted/20 border border-border/50 rounded-md max-h-56 overflow-y-auto whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed select-text font-normal">
                     {selectedJob.job_description || "No full description text was captured for this listing."}
                   </div>
                 </div>
@@ -1182,7 +1414,28 @@ export const CandidateDiscoveryJobsSection = ({
               <DialogFooter className="flex items-center justify-between gap-2 border-t pt-3">
                 {(() => {
                   const existingApp = findExistingApplication(selectedJob);
-                  if (existingApp) {
+                  const isApplied = !!existingApp || selectedJob.status === "APPLIED" || selectedJob.has_applied === true;
+                  const isDismissed = selectedJob.discovery_status === "DISMISSED" || selectedJob.is_dismissed === true;
+
+                  if (isDismissed) {
+                    return (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          handleRestoreRecommendation(selectedJob);
+                          setSelectedJob(null);
+                        }}
+                        className="h-8 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 cursor-pointer"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                        Restore Recommendation
+                      </Button>
+                    );
+                  }
+
+                  if (isApplied) {
                     return (
                       <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-300">
                         <Check className="h-3.5 w-3.5" />
@@ -1190,19 +1443,35 @@ export const CandidateDiscoveryJobsSection = ({
                       </span>
                     );
                   }
+
                   return (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        handleApplyDirectly(selectedJob, "applied");
-                        setSelectedJob(null);
-                      }}
-                      className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                      Applied (Add to Pipeline)
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          handleApplyDirectly(selectedJob, "applied");
+                          setSelectedJob(null);
+                        }}
+                        className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 cursor-pointer"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Apply (Add to Pipeline)
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          handleOpenDismissModal(selectedJob);
+                          setSelectedJob(null);
+                        }}
+                        className="h-8 text-xs text-rose-600 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Ban className="h-3.5 w-3.5 text-rose-500" />
+                        Dismiss
+                      </Button>
+                    </div>
                   );
                 })()}
 
@@ -1210,13 +1479,82 @@ export const CandidateDiscoveryJobsSection = ({
                   variant="outline"
                   size="sm"
                   onClick={() => setSelectedJob(null)}
-                  className="h-8 text-xs"
+                  className="h-8 text-xs cursor-pointer"
                 >
                   Close
                 </Button>
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dismiss Recommendation Confirmation Dialog */}
+      <Dialog open={!!dismissTargetJob} onOpenChange={(open) => { if (!open) setDismissTargetJob(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Ban className="h-5 w-5 text-rose-600" />
+              Dismiss Recommendation
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Record why you do not want to proceed with this opportunity for <span className="font-semibold text-foreground">{candidateName}</span>.
+              This decision is candidate-specific and will not affect any other candidates.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60">
+              <p className="font-bold text-foreground text-xs">{dismissTargetJob?.title}</p>
+              <p className="text-muted-foreground text-[11px]">{dismissTargetJob?.company_name} • {dismissTargetJob?.target_role}</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                Dismissal Reason <span className="text-rose-500">*</span>
+              </Label>
+              <Select value={dismissReason} onValueChange={setDismissReason}>
+                <SelectTrigger className="w-full text-xs">
+                  <SelectValue placeholder="Select reason..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {DISMISSAL_REASONS.map((r) => (
+                    <SelectItem key={r} value={r} className="text-xs">
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                Additional Comments {dismissReason === "Other" && <span className="text-rose-500 font-bold">* (Mandatory for Other)</span>}
+              </Label>
+              <Textarea
+                value={dismissComments}
+                onChange={(e) => setDismissComments(e.target.value)}
+                placeholder={dismissReason === "Other" ? "Explain why this opportunity is being dismissed..." : "Optional internal notes..."}
+                rows={3}
+                className="text-xs resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDismissTargetJob(null)} className="cursor-pointer">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={isSubmittingDismiss || !dismissReason || (dismissReason === "Other" && !dismissComments.trim())}
+              onClick={handleConfirmDismiss}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer"
+            >
+              {isSubmittingDismiss ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+              Confirm Dismissal
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>

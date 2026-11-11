@@ -1203,6 +1203,13 @@ def interviews(request, candidate_id):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        # Sync contact to central Employer Contact Directory
+        try:
+            from job_discovery.services.employer_directory import sync_interview_contact
+            sync_interview_contact(serializer.instance, user=request.user)
+        except Exception:
+            pass
+
         # Touch candidate to update updated_at
         try:
             candidate = Candidate.objects.get(id=candidate_id)
@@ -1218,6 +1225,13 @@ def interviews(request, candidate_id):
     serializer = InterviewLogSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     serializer.save(submitted_by=request.user)
+
+    # Sync contact to central Employer Contact Directory
+    try:
+        from job_discovery.services.employer_directory import sync_interview_contact
+        sync_interview_contact(serializer.instance, user=request.user)
+    except Exception:
+        pass
 
     # Touch candidate to update updated_at
     try:
@@ -1307,54 +1321,90 @@ def placement(request, candidate_id):
     if 'notes' in data and 'placement_notes' not in data:
         data['placement_notes'] = data['notes']
     
+    is_update = False
+    instance = None
     try:
         instance = PlacementClosure.objects.get(candidate_id=candidate_id)
-        serializer = PlacementClosureSerializer(instance, data=data)
+        is_update = True
+        serializer = PlacementClosureSerializer(instance, data=data, partial=True)
     except PlacementClosure.DoesNotExist:
         serializer = PlacementClosureSerializer(data=data)
         
     serializer.is_valid(raise_exception=True)
-    serializer.save(closed_by=request.user)
 
-    Candidate.objects.filter(id=candidate_id).update(status='placed_closed')
-    log_action(request.user, 'placement_closed', str(candidate_id), 'candidate', data)
+    if is_update and instance:
+        # Audit history tracking
+        from .models import PlacementAuditLog
+        fields_to_track = [
+            'company_name', 'role_title', 'salary', 'start_date', 'hr_name', 'hr_email',
+            'hr_phone', 'interviewer_email', 'bgv_company_name', 'offer_letter_url',
+            'placement_notes', 'everified_employer', 'h1b_sponsorship_willing', 'additional_contacts'
+        ]
+        changes = {}
+        for f in fields_to_track:
+            old_val = getattr(instance, f, None)
+            new_val = serializer.validated_data.get(f, old_val)
+            if str(old_val) != str(new_val):
+                changes[f] = {'old': old_val, 'new': new_val}
 
-    # ── Placement Closure Emails ──
-    try:
-        candidate = Candidate.objects.get(id=candidate_id)
-        cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
-        
-        # 1. Send Congratulations email to Candidate
-        send_email(
-            to=candidate.user.email,
-            subject='Congratulations – Your Placement Has Been Confirmed',
-            html=get_styled_email_html(
-                cand_name,
-                f'<p>Fantastic news! Your placement at <strong>{serializer.data.get("company_name", "your new employer")}</strong> as a <strong>{serializer.data.get("role_title", "Placed Role")}</strong> has been confirmed.</p>'
-                f'<p>We are incredibly proud of your achievement and wish you all the best in your new career journey!</p>'
-                f'<p>Thank you for partnering with HYRIND.</p>',
-                action_label="Go to Portal",
-                action_url="/"
+        if changes:
+            PlacementAuditLog.objects.create(
+                placement=instance,
+                changed_by=request.user,
+                changes=changes,
+                change_reason=request.data.get('change_reason', 'Edited placement details via Case Closure Form')
             )
-        )
+        serializer.save(updated_by=request.user)
+        log_action(request.user, 'placement_updated', str(candidate_id), 'candidate', changes)
+    else:
+        serializer.save(closed_by=request.user)
+        Candidate.objects.filter(id=candidate_id).update(status='placed_closed')
+        log_action(request.user, 'placement_closed', str(candidate_id), 'candidate', data)
 
-        # 2. Send placement confirmation to Admin team
-        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
-        send_email(
-            to=admin_email,
-            subject='Congratulations – Your Placement Has Been Confirmed',
-            html=f'<p><strong>Placement Closure Confirmed</strong></p>'
-                 f'<p>Candidate: {cand_name} ({candidate.user.email})</p>'
-                 f'<p>Employer: {serializer.data.get("company_name")}</p>'
-                 f'<p>Role: {serializer.data.get("role_title")}</p>'
-                 f'<p>Salary: {serializer.data.get("salary")} {serializer.data.get("currency")}</p>'
-                 f'<p>Start Date: {serializer.data.get("start_date")}</p>'
-                 f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View Candidate in Admin</a></p>',
-            email_type='admin_notification'
-        )
-    except Exception:
+    # Sync employer information and contacts to central Employer Intelligence
+    try:
+        from job_discovery.services.employer_directory import sync_case_closure_contacts
+        sync_case_closure_contacts(serializer.instance, user=request.user)
+    except Exception as emp_err:
         pass
-    return Response(serializer.data, status=status.HTTP_201_CREATED if serializer.instance.id is None else status.HTTP_200_OK)
+
+    # ── Placement Closure Emails (Only on initial placement creation, not on edits) ──
+    if not is_update:
+        try:
+            candidate = Candidate.objects.get(id=candidate_id)
+            cand_name = candidate.user.profile.full_name if hasattr(candidate.user, 'profile') else candidate.user.email
+            
+            # 1. Send Congratulations email to Candidate
+            send_email(
+                to=candidate.user.email,
+                subject='Congratulations – Your Placement Has Been Confirmed',
+                html=get_styled_email_html(
+                    cand_name,
+                    f'<p>Fantastic news! Your placement at <strong>{serializer.data.get("company_name", "your new employer")}</strong> as a <strong>{serializer.data.get("role_title", "Placed Role")}</strong> has been confirmed.</p>'
+                    f'<p>We are incredibly proud of your achievement and wish you all the best in your new career journey!</p>'
+                    f'<p>Thank you for partnering with HYRIND.</p>',
+                    action_label="Go to Portal",
+                    action_url="/"
+                )
+            )
+
+            # 2. Send placement confirmation to Admin team
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'hyrind.operations@gmail.com')
+            send_email(
+                to=admin_email,
+                subject='Congratulations – Your Placement Has Been Confirmed',
+                html=f'<p><strong>Placement Closure Confirmed</strong></p>'
+                     f'<p>Candidate: {cand_name} ({candidate.user.email})</p>'
+                     f'<p>Employer: {serializer.data.get("company_name")}</p>'
+                     f'<p>Role: {serializer.data.get("role_title")}</p>'
+                     f'<p>Salary: {serializer.data.get("salary")} {serializer.data.get("currency")}</p>'
+                     f'<p>Start Date: {serializer.data.get("start_date")}</p>'
+                     f'<p><a href="{settings.SITE_URL}/admin-dashboard/candidates/{candidate.id}">View Candidate in Admin</a></p>',
+                email_type='admin_notification'
+            )
+        except Exception:
+            pass
+    return Response(serializer.data, status=status.HTTP_200_OK if is_update else status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])
