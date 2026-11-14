@@ -146,7 +146,8 @@ def build_recruiter_jobs_queryset(
     recruiter_user: User,
     candidate_id: Optional[str] = None,
     role_filter: Optional[str] = None,
-    base_qs: Optional[QuerySet] = None
+    base_qs: Optional[QuerySet] = None,
+    disc_filter: Optional[str] = None
 ) -> QuerySet:
     """
     Returns a QuerySet of DiscoveredJob restricted strictly to the candidate roles
@@ -199,26 +200,71 @@ def build_recruiter_jobs_queryset(
 
     qs = base_qs.filter(final_q).distinct()
 
-    # CANDIDATE-SPECIFIC DUPLICATE EXCLUSION:
-    # If candidate_id is selected, exclude all jobs for which this candidate has an application in JobLinkEntry.
+    # CANDIDATE-SPECIFIC SCOPING & STATUS HANDLING:
     if candidate_id and candidate_id != 'all':
-        applied_entries = JobLinkEntry.objects.filter(
-            candidate_id=candidate_id
-        ).values('company_name', 'role_title', 'job_url')
+        from ..models import CandidateJobOpportunity
 
-        applied_urls = [e['job_url'].strip() for e in applied_entries if e.get('job_url') and len(e['job_url'].strip()) > 10]
-        if applied_urls:
-            qs = qs.exclude(job_url__in=applied_urls)
+        if disc_filter in ('DISMISSED', 'REJECTED'):
+            # Only include jobs that are dismissed or rejected for this candidate!
+            opp_job_ids = list(
+                CandidateJobOpportunity.objects.filter(
+                    candidate_id=candidate_id
+                ).filter(
+                    Q(discovery_status__in=['DISMISSED', 'REJECTED']) | Q(status='REJECTED')
+                ).values_list('job_id', flat=True)
+            )
 
-        # Also exclude exact company + role matches
-        for entry in applied_entries:
-            comp = (entry.get('company_name') or '').strip()
-            role = (entry.get('role_title') or '').strip()
-            if comp and role:
-                qs = qs.exclude(
-                    (Q(company_name__iexact=comp) | Q(company_name_norm__iexact=comp.lower())) &
-                    (Q(title__icontains=role) | Q(target_role__iexact=role))
-                )
+            # Match DiscoveredJobs from rejected JobLinkEntry records
+            rejected_entries = list(
+                JobLinkEntry.objects.filter(
+                    candidate_id=candidate_id,
+                    application_status__iexact='rejected'
+                ).values('company_name', 'role_title', 'job_url')
+            )
+            rej_urls = [e['job_url'].strip() for e in rejected_entries if e.get('job_url') and len(e['job_url'].strip()) > 10]
+            
+            rej_q = Q(id__in=opp_job_ids)
+            if rej_urls:
+                rej_q |= Q(job_url__in=rej_urls)
+            for entry in rejected_entries:
+                comp = (entry.get('company_name') or '').strip()
+                role = (entry.get('role_title') or '').strip()
+                if comp and role:
+                    rej_q |= (
+                        (Q(company_name__iexact=comp) | Q(company_name_norm__iexact=comp.lower())) &
+                        (Q(title__icontains=role) | Q(target_role__iexact=role))
+                    )
+            return base_qs.filter(rej_q).distinct()
+
+        else:
+            # Active view: exclude jobs that this candidate already applied for or rejected
+            applied_entries = JobLinkEntry.objects.filter(
+                candidate_id=candidate_id
+            ).values('company_name', 'role_title', 'job_url')
+
+            applied_urls = [e['job_url'].strip() for e in applied_entries if e.get('job_url') and len(e['job_url'].strip()) > 10]
+            if applied_urls:
+                qs = qs.exclude(job_url__in=applied_urls)
+
+            for entry in applied_entries:
+                comp = (entry.get('company_name') or '').strip()
+                role = (entry.get('role_title') or '').strip()
+                if comp and role:
+                    qs = qs.exclude(
+                        (Q(company_name__iexact=comp) | Q(company_name_norm__iexact=comp.lower())) &
+                        (Q(title__icontains=role) | Q(target_role__iexact=role))
+                    )
+
+            # Also exclude jobs marked dismissed or rejected in CandidateJobOpportunity
+            opp_excluded_ids = list(
+                CandidateJobOpportunity.objects.filter(
+                    candidate_id=candidate_id
+                ).filter(
+                    Q(discovery_status__in=['DISMISSED', 'REJECTED']) | Q(status='REJECTED')
+                ).values_list('job_id', flat=True)
+            )
+            if opp_excluded_ids:
+                qs = qs.exclude(id__in=opp_excluded_ids)
 
     return qs
 
@@ -343,14 +389,14 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
                     'email': c['email'],
                     'status': c_status,
                     'discovery_status': c_disc_status,
-                    'is_dismissed': (c_disc_status == 'DISMISSED'),
-                    'dismissal_reason': dismissal_reason,
+                    'is_dismissed': (c_disc_status == 'DISMISSED' or c_status == 'REJECTED'),
+                    'dismissal_reason': dismissal_reason or rejection_reason,
                     'dismissal_comments': dismissal_comments,
                     'dismissed_date': dismissed_date,
                     'dismissed_by': dismissed_by,
                     'has_applied': has_applied,
                     'application_status': c_status.lower(),
-                    'rejection_reason': rejection_reason,
+                    'rejection_reason': rejection_reason or dismissal_reason,
                     'applied_date': applied_date,
                 })
 

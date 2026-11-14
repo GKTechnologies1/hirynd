@@ -21,8 +21,11 @@ def _client():
     """One ApifyClient per thread (boards run on several threads at once)."""
     c = getattr(_local, 'client', None)
     if c is None:
+        import os
         from apify_client import ApifyClient
-        c = ApifyClient(token=conf.env('APIFY_API_TOKEN'))
+        raw_token = conf.env('APIFY_API_TOKEN') or os.environ.get('APIFY_API_TOKEN') or ''
+        clean_token = raw_token.strip().replace(' ', '').replace('\t', '').replace('\r', '').replace('\n', '')
+        c = ApifyClient(token=clean_token or None)
         _local.client = c
     return c
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { employerDiscoveryApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import {
   Building2, Search, Filter, RefreshCw, Plus, ExternalLink,
   ShieldCheck, Award, Users, DollarSign, Calendar, MapPin,
   Globe, Mail, Phone, CheckCircle2, ChevronLeft, ChevronRight,
-  Eye, Edit3, Briefcase, FileCheck, Trash2
+  Eye, Edit3, Briefcase, FileCheck, Trash2, FileText
 } from "lucide-react";
 
 export const AdminEmployerDiscoveryPage: React.FC = () => {
@@ -184,9 +185,9 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
     fetchEmployers();
   }, [fetchEmployers]);
 
-  const handleOpenDetail = async (companyId: number) => {
+  const handleOpenDetail = async (companyId: number, defaultTab: string = "overview") => {
     setLoadingDetail(true);
-    setDetailTab("overview");
+    setDetailTab(defaultTab);
     try {
       const res = await employerDiscoveryApi.detail(companyId);
       setSelectedEmployer(res.data);
@@ -587,6 +588,12 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
                             </a>
                           )}
                         </div>
+                        {emp.contact_name && (
+                          <div className="text-[10px] text-slate-600 truncate mt-0.5">
+                            <span className="font-semibold text-slate-700">HR:</span> {emp.contact_name}
+                            {emp.contact_email && <span className="text-slate-500"> ({emp.contact_email})</span>}
+                          </div>
+                        )}
                       </td>
 
                       {/* Visa Grade Badge */}
@@ -628,9 +635,19 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
                       {/* Hyrind Placements Count */}
                       <td className="py-2.5 px-3 text-center">
                         {emp.placement_count > 0 ? (
-                          <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2">
-                            {emp.placement_count} Placed
-                          </Badge>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleOpenDetail(emp.id, "placements");
+                            }}
+                            className="inline-flex cursor-pointer"
+                            title="Click to view verified case closure and placement details"
+                          >
+                            <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2 shadow-xs flex items-center gap-1">
+                              <Award className="h-3 w-3" />
+                              {emp.placement_count} Placed
+                            </Badge>
+                          </button>
                         ) : (
                           <span className="text-slate-400">0</span>
                         )}
@@ -821,18 +838,132 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
                     <div className="grid grid-cols-3 gap-2 pt-1 text-slate-700">
                       <div>
                         <span className="text-slate-500 block text-[10px]">Contact Person:</span>
-                        <strong className="text-slate-900">{selectedEmployer.contact_name || "—"}</strong>
+                        <strong className="text-slate-900">{selectedEmployer.contact_name || selectedEmployer.placements?.[0]?.hr_name || "—"}</strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[10px]">Official Email:</span>
-                        <span className="text-slate-900">{selectedEmployer.contact_email || "—"}</span>
+                        <span className="text-slate-900">{selectedEmployer.contact_email || selectedEmployer.placements?.[0]?.hr_email || "—"}</span>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[10px]">Phone Number:</span>
-                        <span className="text-slate-900">{selectedEmployer.contact_phone || "—"}</span>
+                        <span className="text-slate-900">{selectedEmployer.contact_phone || selectedEmployer.placements?.[0]?.hr_phone || "—"}</span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Case Closure & Verified Placement Intelligence Card */}
+                  {selectedEmployer.placements && selectedEmployer.placements.length > 0 && (
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-emerald-900 text-xs flex items-center gap-1.5">
+                          <Award className="h-4 w-4 text-emerald-600" />
+                          Verified Placement & Case Closure Intelligence
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDetailTab("placements")}
+                          className="h-6 px-2 text-[11px] text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100/70 font-semibold cursor-pointer"
+                        >
+                          View {selectedEmployer.placements.length} Placement{selectedEmployer.placements.length > 1 ? "s" : ""} &rarr;
+                        </Button>
+                      </div>
+
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-700 text-xs">
+                        <div className="p-2 bg-white/90 rounded border border-emerald-100">
+                          <span className="text-[10px] text-slate-500 block">E-Verify Status</span>
+                          <span className="font-semibold text-slate-800">
+                            {selectedEmployer.everify_enrolled ? "Yes (Verified Enrolled)" : "Not Confirmed"}
+                          </span>
+                        </div>
+                        <div className="p-2 bg-white/90 rounded border border-emerald-100">
+                          <span className="text-[10px] text-slate-500 block">H1B Sponsorship Willing</span>
+                          <span className="font-semibold text-slate-800">
+                            {selectedEmployer.h1b_sponsorship_willing ? selectedEmployer.h1b_sponsorship_willing.toUpperCase() : "UNKNOWN"}
+                          </span>
+                        </div>
+                        <div className="p-2 bg-white/90 rounded border border-emerald-100">
+                          <span className="text-[10px] text-slate-500 block">Intelligence Source</span>
+                          <span className="font-semibold text-slate-800">
+                            {selectedEmployer.h1b_sponsorship_source || "Case Closure Form"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Latest Placement Breakdown on Overview */}
+                      {selectedEmployer.placements[0] && (
+                        <div className="p-2.5 bg-white rounded-lg border border-emerald-200/80 space-y-2 text-xs">
+                          <div className="flex flex-wrap items-center justify-between gap-1 pb-1.5 border-b border-slate-100">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-900">{selectedEmployer.placements[0].role_title}</span>
+                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9px] py-0">
+                                Case Closure
+                              </Badge>
+                            </div>
+                            <div className="font-bold text-emerald-700 text-xs">
+                              {selectedEmployer.placements[0].offer_salary
+                                ? `$${Number(selectedEmployer.placements[0].offer_salary).toLocaleString()} ${selectedEmployer.placements[0].currency || "USD"}`
+                                : "Salary Undisclosed"}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-0.5">
+                            <div>
+                              <span className="text-[10px] text-slate-500 block">Candidate:</span>
+                              {selectedEmployer.placements[0].candidate_id ? (
+                                <Link
+                                  to={`/admin-dashboard/candidates/${selectedEmployer.placements[0].candidate_id}`}
+                                  className="font-semibold text-primary hover:underline inline-flex items-center gap-0.5"
+                                >
+                                  {selectedEmployer.placements[0].candidate_name || "Placed Candidate"}
+                                  <ExternalLink className="h-2.5 w-2.5" />
+                                </Link>
+                              ) : (
+                                <span className="font-semibold text-slate-800">
+                                  {selectedEmployer.placements[0].candidate_name || "Placed Candidate"}
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 block">Start Date:</span>
+                              <span className="font-medium text-slate-800">{selectedEmployer.placements[0].start_date || "—"}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 block">Interviewer Email:</span>
+                              <span className="text-slate-800">{selectedEmployer.placements[0].interviewer_email || "Not Provided"}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 block">BGV Company:</span>
+                              <span className="text-slate-800">{selectedEmployer.placements[0].bgv_company_name || "Not Specified"}</span>
+                            </div>
+                          </div>
+
+                          {(selectedEmployer.placements[0].offer_letter_url || selectedEmployer.placements[0].notes) && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[11px]">
+                              {selectedEmployer.placements[0].notes && (
+                                <div className="text-slate-600 truncate max-w-[320px]">
+                                  <span className="font-semibold text-slate-700">Notes: </span>
+                                  {selectedEmployer.placements[0].notes}
+                                </div>
+                              )}
+                              {selectedEmployer.placements[0].offer_letter_url && (
+                                <a
+                                  href={selectedEmployer.placements[0].offer_letter_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline inline-flex items-center gap-1 font-semibold text-xs ml-auto"
+                                >
+                                  <FileText className="h-3 w-3" /> View Offer Letter
+                                  <ExternalLink className="h-2.5 w-2.5" />
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {selectedEmployer.notes && (
                     <div className="p-2.5 bg-slate-50 rounded border text-slate-700 text-xs">
@@ -887,62 +1018,220 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
                   </div>
                 </TabsContent>
 
-                {/* TAB 3: HYRIND PLACEMENTS */}
-                <TabsContent value="placements" className="space-y-3">
+                {/* TAB 3: HYRIND PLACEMENTS & CASE CLOSURES */}
+                <TabsContent value="placements" className="space-y-3.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-900 text-xs">
-                      Hyrind Candidate Offers & Placements:
-                    </span>
+                    <div>
+                      <span className="font-bold text-slate-900 text-xs block">
+                        Verified Placement & Case Closure Intelligence:
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        Full candidate offer details, HR contacts, documentation, and compliance data submitted via Case Closure Forms.
+                      </span>
+                    </div>
                     <Button
                       size="sm"
                       onClick={() => setAddPlacementModalOpen(true)}
-                      className="h-7 text-xs font-semibold flex items-center gap-1"
+                      className="h-7 text-xs font-semibold flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="h-3 w-3" />
                       Add Placement Record
                     </Button>
                   </div>
 
-                  <div className="rounded-md border border-slate-200 overflow-x-auto text-xs">
-                    <table className="w-full text-left">
-                      <thead className="bg-slate-50 border-b text-slate-700 font-semibold">
-                        <tr>
-                          <th className="py-2 px-3">Role</th>
-                          <th className="py-2 px-3">Candidate</th>
-                          <th className="py-2 px-3 text-right">Offered Salary</th>
-                          <th className="py-2 px-3">Start Date</th>
-                          <th className="py-2 px-3">HR Contact</th>
-                          <th className="py-2 px-3">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {selectedEmployer.placements && selectedEmployer.placements.length > 0 ? (
-                          selectedEmployer.placements.map((plc: any) => (
-                            <tr key={plc.id} className="hover:bg-slate-50/60">
-                              <td className="py-2 px-3 font-semibold text-slate-900">{plc.role_title}</td>
-                              <td className="py-2 px-3 text-slate-700">{plc.candidate_name || "Placed Candidate"}</td>
-                              <td className="py-2 px-3 text-right font-bold text-emerald-700">
-                                {plc.offer_salary ? `$${Number(plc.offer_salary).toLocaleString()} ${plc.currency}` : "Undisclosed"}
-                              </td>
-                              <td className="py-2 px-3 text-slate-500">{plc.start_date || "—"}</td>
-                              <td className="py-2 px-3 text-slate-600">{plc.hr_contact || "—"}</td>
-                              <td className="py-2 px-3">
-                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px]">
+                  {selectedEmployer.placements && selectedEmployer.placements.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedEmployer.placements.map((plc: any) => (
+                        <div
+                          key={plc.id}
+                          className="p-3.5 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3 shadow-xs hover:border-slate-300 transition-colors"
+                        >
+                          {/* Card Header */}
+                          <div className="flex flex-wrap items-start justify-between gap-2 pb-2.5 border-b border-slate-200">
+                            <div className="space-y-0.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-900 text-sm">{plc.role_title}</span>
+                                {plc.source === "Case Closure Form" || plc.placement_closure ? (
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold flex items-center gap-1">
+                                    <Award className="h-3 w-3" /> Case Closure Form
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600">
+                                    Direct Record
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
                                   {plc.verification_status || "VERIFIED"}
                                 </Badge>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={6} className="py-6 text-center text-slate-400">
-                              No placements recorded yet for this employer.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                <span>Candidate:</span>
+                                {plc.candidate_id ? (
+                                  <Link
+                                    to={`/admin-dashboard/candidates/${plc.candidate_id}`}
+                                    className="font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                                    title="Open candidate details"
+                                  >
+                                    {plc.candidate_name || "Placed Candidate"}
+                                    <ExternalLink className="h-3 w-3" />
+                                  </Link>
+                                ) : (
+                                  <span className="font-semibold text-slate-800">{plc.candidate_name || "Placed Candidate"}</span>
+                                )}
+                                {plc.candidate_email && (
+                                  <span className="text-slate-500 text-[11px]">({plc.candidate_email})</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="text-sm font-bold text-emerald-700">
+                                {plc.offer_salary
+                                  ? `$${Number(plc.offer_salary).toLocaleString()} ${plc.currency || "USD"}`
+                                  : "Salary Undisclosed"}
+                              </div>
+                              <div className="text-[11px] text-slate-500">
+                                Start Date: <span className="font-medium text-slate-700">{plc.start_date || "—"}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Placement Intelligence Grid */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            <div className="p-2 bg-white rounded border border-slate-200">
+                              <span className="text-[10px] text-slate-500 block">E-Verified Employer</span>
+                              <span className="font-semibold text-slate-800">
+                                {plc.everified_employer
+                                  ? plc.everified_employer.toUpperCase() === "YES"
+                                    ? "Yes (Verified)"
+                                    : plc.everified_employer.toUpperCase() === "NO"
+                                    ? "No"
+                                    : "Unknown"
+                                  : selectedEmployer.everify_enrolled
+                                  ? "Yes (Verified)"
+                                  : "Not Confirmed"}
+                              </span>
+                            </div>
+
+                            <div className="p-2 bg-white rounded border border-slate-200">
+                              <span className="text-[10px] text-slate-500 block">Willing to Sponsor H1B</span>
+                              <span className="font-semibold text-slate-800">
+                                {plc.h1b_sponsorship_willing
+                                  ? plc.h1b_sponsorship_willing.toUpperCase() === "YES"
+                                    ? "Yes (Confirmed)"
+                                    : plc.h1b_sponsorship_willing.toUpperCase() === "NO"
+                                    ? "No"
+                                    : "Unknown"
+                                  : selectedEmployer.h1b_sponsorship_willing
+                                  ? selectedEmployer.h1b_sponsorship_willing.toUpperCase()
+                                  : "—"}
+                              </span>
+                            </div>
+
+                            <div className="p-2 bg-white rounded border border-slate-200">
+                              <span className="text-[10px] text-slate-500 block">BGV Company</span>
+                              <span className="font-semibold text-slate-800 truncate block">
+                                {plc.bgv_company_name || "Not Specified"}
+                              </span>
+                            </div>
+
+                            <div className="p-2 bg-white rounded border border-slate-200">
+                              <span className="text-[10px] text-slate-500 block">Interviewer Email</span>
+                              {plc.interviewer_email ? (
+                                <a href={`mailto:${plc.interviewer_email}`} className="text-primary hover:underline truncate block">
+                                  {plc.interviewer_email}
+                                </a>
+                              ) : (
+                                <span className="text-slate-400">Not Provided</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* HR Details & Documentation */}
+                          <div className="p-2.5 bg-white rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">HR Contact:</span>
+                                <span className="font-medium text-slate-800">
+                                  {plc.hr_name ? `${plc.hr_name} ` : ""}
+                                  {(plc.hr_email || plc.hr_contact) && (
+                                    <a href={`mailto:${plc.hr_email || plc.hr_contact}`} className="text-primary hover:underline">
+                                      ({plc.hr_email || plc.hr_contact})
+                                    </a>
+                                  )}
+                                </span>
+                              </div>
+                              {plc.hr_phone && (
+                                <div>
+                                  <span className="text-[10px] text-slate-500 block">HR Phone:</span>
+                                  <a href={`tel:${plc.hr_phone}`} className="text-slate-700 hover:underline">
+                                    {plc.hr_phone}
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+
+                            {plc.offer_letter_url ? (
+                              <a
+                                href={plc.offer_letter_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 rounded-md border border-primary/20 transition-colors cursor-pointer"
+                              >
+                                <FileText className="h-3.5 w-3.5" /> View Offer Letter
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 italic">No offer letter attached</span>
+                            )}
+                          </div>
+
+                          {/* Notes if available */}
+                          <div className="p-2 bg-amber-50/60 rounded border border-amber-200/70 text-xs text-amber-900">
+                            <span className="font-bold block text-[10px] text-amber-800">Placement Notes:</span>
+                            {plc.notes || <span className="text-slate-500 italic">No notes provided</span>}
+                          </div>
+
+                          {/* Additional Contacts from this Case Closure */}
+                          {plc.additional_contacts && plc.additional_contacts.length > 0 && (
+                            <div className="space-y-1.5 pt-1">
+                              <span className="text-[11px] font-semibold text-slate-700 block">
+                                Additional Employer Contacts from this Closure:
+                              </span>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                {plc.additional_contacts.map((c: any, i: number) => (
+                                  <div key={i} className="p-2 bg-white rounded border border-slate-200 text-xs flex items-center justify-between">
+                                    <div>
+                                      <strong className="text-slate-800">{c.name || "Contact"}</strong>
+                                      {c.role && <span className="text-slate-500 text-[11px]"> • {c.role}</span>}
+                                      {c.email && (
+                                        <a href={`mailto:${c.email}`} className="text-primary hover:underline block text-[11px]">
+                                          {c.email}
+                                        </a>
+                                      )}
+                                    </div>
+                                    {c.phone && <span className="text-[11px] text-slate-500">{c.phone}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Footer Metadata */}
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100">
+                            <span>Recorded: {formatDate(plc.created_at)}</span>
+                            {plc.closed_by_email && <span>Closed By: {plc.closed_by_email}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center border rounded-lg border-dashed text-slate-400 text-xs">
+                      <Award className="h-8 w-8 mx-auto text-slate-300 mb-1" />
+                      No placements or case closures recorded yet for this employer.
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* TAB 4: EMPLOYER CONTACTS DIRECTORY */}
@@ -1053,8 +1342,15 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
                               <td className="py-2 px-3 text-slate-600">{ct.phone_number || "—"}</td>
                               <td className="py-2 px-3 text-slate-700">{ct.role_designation || "—"}</td>
                               <td className="py-2 px-3">
-                                <Badge variant="outline" className="text-[9px] py-0 px-1 bg-slate-50">
-                                  {ct.source || "DIRECTORY"}
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    ct.source === "case_closure"
+                                      ? "text-[9px] py-0 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-300 font-bold"
+                                      : "text-[9px] py-0 px-1 bg-slate-50 text-slate-600"
+                                  }
+                                >
+                                  {ct.source === "case_closure" ? "CASE CLOSURE" : ct.source || "DIRECTORY"}
                                 </Badge>
                               </td>
                               <td className="py-2 px-3 text-center">

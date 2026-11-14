@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { recruitersApi } from "@/services/api";
+import { recruitersApi, candidatesApi } from "@/services/api";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -724,8 +724,8 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
         const [logsRes, jobsRes, rolesRes, credsRes] = await Promise.all([
           recruitersApi.getDailyLogs(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
           recruitersApi.getJobApplications(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
-          recruitersApi.getRoles(candidate.id).catch(() => ({ data: [] })),
-          recruitersApi.getCredentials(candidate.id).catch(() => ({ data: [] })),
+          candidatesApi.getRoles(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
+          candidatesApi.getCredentials(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
         ]);
         if (rolesRes?.data) setRoles(Array.isArray(rolesRes.data) ? rolesRes.data : []);
         if (credsRes?.data) setCredentials(Array.isArray(credsRes.data) ? credsRes.data : [credsRes.data]);
@@ -1156,7 +1156,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           )}
 
           {/* Discovered Jobs Section for this Candidate (Before Submission Pipeline) */}
-          {showDiscoveryJobs && (
+          {isStaff && showDiscoveryJobs && (
             <div ref={discoveryJobsRef} className="mt-6">
               <CandidateDiscoveryJobsSection
                 candidateId={candidate?.id}
@@ -1188,29 +1188,31 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                 All Submissions ({jobPostings.length})
               </CardTitle>
               <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const next = !showDiscoveryJobs;
-                    setShowDiscoveryJobs(next);
-                    if (next) {
-                      setTimeout(() => {
-                        discoveryJobsRef.current?.scrollIntoView({ behavior: "smooth" });
-                      }, 100);
-                    }
-                  }}
-                  className={cn(
-                    "h-8 text-xs font-semibold gap-1.5 transition-all",
-                    showDiscoveryJobs
-                      ? "bg-secondary text-secondary-foreground border-secondary font-bold"
-                      : "text-secondary hover:bg-secondary/5"
-                  )}
-                >
-                  <Compass className="h-3.5 w-3.5" />
-                  {showDiscoveryJobs ? "Hide Discovery Jobs" : "Discovery Jobs"}
-                </Button>
+                {isStaff && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const next = !showDiscoveryJobs;
+                      setShowDiscoveryJobs(next);
+                      if (next) {
+                        setTimeout(() => {
+                          discoveryJobsRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }, 100);
+                      }
+                    }}
+                    className={cn(
+                      "h-8 text-xs font-semibold gap-1.5 transition-all",
+                      showDiscoveryJobs
+                        ? "bg-secondary text-secondary-foreground border-secondary font-bold"
+                        : "text-secondary hover:bg-secondary/5"
+                    )}
+                  >
+                    <Compass className="h-3.5 w-3.5" />
+                    {showDiscoveryJobs ? "Hide Discovery Jobs" : "Discovery Jobs"}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"

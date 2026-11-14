@@ -423,6 +423,14 @@ export const recruitersApi = {
   submitDailyLog: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/daily-logs/`, data),
   getJobApplications: (candidateId: string, config?: any) => api.get(`/recruiters/${candidateId}/job-applications/`, config),
   submitJobApplications: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/job-applications/`, data),
+  getRoles: (id: string, config?: any) => api.get(`/candidates/${id}/roles/`, config),
+  getCredentials: (id: string, config?: any) => api.get(`/candidates/${id}/credentials/`, config),
+  createApplication: (payload: any) => {
+    const candidateId = payload.candidate_id || payload.candidate;
+    return api.post(`/recruiters/${candidateId}/job-applications/`, {
+      job_links: [payload],
+    });
+  },
   updateJobStatus: (jobId: string, status: string) => api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
   updateJobField: (jobId: string, data: Record<string, any>) => api.post(`/recruiters/jobs/${jobId}/status/`, data),
   deleteJobAlert: (jobId: string) => api.delete(`/recruiters/jobs/${jobId}/status/`),

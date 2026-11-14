@@ -292,6 +292,7 @@ class ReferralSerializer(serializers.ModelSerializer):
 
 class InterviewLogSerializer(serializers.ModelSerializer):
     submitted_by_name = serializers.SerializerMethodField()
+    job_url = serializers.SerializerMethodField()
 
     class Meta:
         model = InterviewLog
@@ -302,6 +303,29 @@ class InterviewLogSerializer(serializers.ModelSerializer):
         if obj.submitted_by and hasattr(obj.submitted_by, 'profile'):
             return obj.submitted_by.profile.full_name
         return ''
+
+    def get_job_url(self, obj):
+        if not obj.candidate_id or not obj.company_name:
+            return None
+        try:
+            from recruiters.models import JobLinkEntry
+            comp = obj.company_name.strip()
+            role = (obj.role_title or '').strip()
+            if role:
+                job = JobLinkEntry.objects.filter(
+                    candidate_id=obj.candidate_id,
+                    company_name__iexact=comp,
+                    role_title__iexact=role
+                ).exclude(job_url__isnull=True).exclude(job_url='').order_by('-created_at').first()
+                if job and job.job_url:
+                    return job.job_url
+            job_comp = JobLinkEntry.objects.filter(
+                candidate_id=obj.candidate_id,
+                company_name__iexact=comp
+            ).exclude(job_url__isnull=True).exclude(job_url='').order_by('-created_at').first()
+            return job_comp.job_url if job_comp else None
+        except Exception:
+            return None
 
 
 class PlacementAuditLogSerializer(serializers.ModelSerializer):

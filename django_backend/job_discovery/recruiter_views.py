@@ -56,11 +56,21 @@ def list_recruiter_jobs(request):
             'message': 'No active candidates with confirmed roles are currently assigned to you.'
         })
 
+    app_status = request.GET.get('status', 'all').strip().upper()
+    disc_filter = request.GET.get('discovery_status', '').strip().upper()
+    if not disc_filter:
+        if app_status == 'DISMISSED':
+            disc_filter = 'DISMISSED'
+            app_status = 'ALL'
+        else:
+            disc_filter = 'ACTIVE'
+
     # Build scoped queryset restricted strictly to recruiter's candidate roles
     qs = build_recruiter_jobs_queryset(
         recruiter_user=request.user,
         candidate_id=candidate_id,
-        role_filter=role_filter
+        role_filter=role_filter,
+        disc_filter=disc_filter
     )
 
     # Search keyword filter (title, company, normalized company, role, description, location)
@@ -165,15 +175,6 @@ def list_recruiter_jobs(request):
     serializer = DiscoveredJobListSerializer(page_obj.object_list, many=True)
     serialized_jobs = serializer.data
 
-    app_status = request.GET.get('status', 'all').strip().upper()
-    disc_filter = request.GET.get('discovery_status', '').strip().upper()
-    if not disc_filter:
-        if app_status == 'DISMISSED':
-            disc_filter = 'DISMISSED'
-            app_status = 'ALL'
-        else:
-            disc_filter = 'ACTIVE'
-
     # Dynamically attach candidate context
     enriched_jobs = attach_matching_candidate_context(serialized_jobs, scope)
 
@@ -214,9 +215,9 @@ def list_recruiter_jobs(request):
             expanded_records.append(item)
 
     if disc_filter == 'ACTIVE':
-        expanded_records = [r for r in expanded_records if not r.get('is_dismissed')]
-    elif disc_filter == 'DISMISSED':
-        expanded_records = [r for r in expanded_records if r.get('is_dismissed')]
+        expanded_records = [r for r in expanded_records if not r.get('is_dismissed') and r.get('status') != 'REJECTED']
+    elif disc_filter in ('DISMISSED', 'REJECTED'):
+        expanded_records = [r for r in expanded_records if r.get('is_dismissed') or r.get('status') == 'REJECTED' or r.get('discovery_status') in ('DISMISSED', 'REJECTED')]
 
     if app_status and app_status != 'ALL':
         expanded_records = [r for r in expanded_records if r['status'] == app_status]
@@ -436,19 +437,24 @@ def mark_job_as_applied(request, job_id):
 
     # Associate with or create today's DailySubmissionLog
     today = timezone.now().date()
-    log, _ = DailySubmissionLog.objects.get_or_create(
+    log = DailySubmissionLog.objects.filter(
         candidate=candidate,
         recruiter=request.user,
-        log_date=today,
-        defaults={
-            'notes': 'Job Discovery Application',
-            'is_manual': False,
-            'applications_count': 0,
-            'screening_count': 0,
-            'interview_count': 0,
-            'offer_count': 0,
-        }
-    )
+        log_date=today
+    ).order_by('-created_at').first()
+
+    if not log:
+        log = DailySubmissionLog.objects.create(
+            candidate=candidate,
+            recruiter=request.user,
+            log_date=today,
+            notes='Job Discovery Application',
+            is_manual=False,
+            applications_count=0,
+            screening_count=0,
+            interview_count=0,
+            offer_count=0,
+        )
 
     sal_val = job.salary_raw or ""
     if not sal_val and job.salary_min:
@@ -697,7 +703,7 @@ def restore_job(request, job_id):
 
     from .models import CandidateJobOpportunity
     opp = CandidateJobOpportunity.objects.filter(candidate=candidate, job=job).first()
-    if not opp or opp.discovery_status != 'DISMISSED':
+    if not opp or (opp.discovery_status != 'DISMISSED' and opp.status != 'REJECTED'):
         return Response({'message': 'Job recommendation is already active.', 'discovery_status': 'ACTIVE'})
 
     opp.previous_discovery_status = opp.discovery_status
@@ -706,6 +712,10 @@ def restore_job(request, job_id):
     opp.dismissal_comments = None
     opp.dismissed_by = None
     opp.dismissed_at = None
+    if opp.status == 'REJECTED':
+        opp.status = 'NOT_APPLIED'
+        opp.rejection_reason = None
+        opp.rejected_at = None
     opp.save()
 
     return Response({

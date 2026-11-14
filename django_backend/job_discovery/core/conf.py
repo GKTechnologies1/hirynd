@@ -19,15 +19,26 @@ def load_env_file() -> None:
         return
     _loaded = True
     path = os.environ.get('JOB_SCRAPER_ENV_FILE')
-    if path is None:
-        path = os.path.join(os.getcwd(), '.env')
-    if not path or not os.path.isfile(path):
-        return
+    if path and os.path.isfile(path):
+        env_path = path
+    else:
+        # Check cwd first, then django_backend root relative to this file
+        cwd_env = os.path.join(os.getcwd(), '.env')
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        backend_env = os.path.join(backend_dir, '.env')
+
+        if os.path.isfile(cwd_env):
+            env_path = cwd_env
+        elif os.path.isfile(backend_env):
+            env_path = backend_env
+        else:
+            return
+
     try:
         from dotenv import load_dotenv
     except ImportError:  # python-dotenv not installed: rely on the real environment
         return
-    load_dotenv(path, override=False)
+    load_dotenv(env_path, override=False)
 
 
 load_env_file()
@@ -35,7 +46,10 @@ load_env_file()
 
 def env(name: str) -> str | None:
     """The environment variable, or None when not set."""
-    return os.environ.get(name)
+    val = os.environ.get(name)
+    if val is not None and name == 'APIFY_API_TOKEN':
+        val = val.strip().replace(' ', '').replace('\t', '').replace('\r', '').replace('\n', '')
+    return val
 
 
 def environ() -> dict:

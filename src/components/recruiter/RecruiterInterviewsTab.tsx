@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi } from "@/services/api";
+import { candidatesApi, recruitersApi } from "@/services/api";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SuggestInput } from "@/components/ui/SuggestInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -261,6 +262,180 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
   const [supportNotes, setSupportNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Application recommendations state & refs
+  const roleInputRef = useRef<HTMLInputElement>(null);
+  const editRoleInputRef = useRef<HTMLInputElement>(null);
+  const [candidateApplications, setCandidateApplications] = useState<Array<{ company_name: string; role_title: string; job_url?: string }>>([]);
+
+  useEffect(() => {
+    if (!candidateId) return;
+    recruitersApi.getJobApplications(candidateId)
+      .then((res) => {
+        const raw = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        setCandidateApplications(
+          raw.map((a: any) => ({
+            company_name: (a.company_name || a.company || "").trim(),
+            role_title: (a.role_title || a.role || a.job_title || a.title || "").trim(),
+            job_url: (a.job_url || a.job_link || a.url || "").trim(),
+          })).filter((a: any) => a.company_name)
+        );
+      })
+      .catch(() => {});
+  }, [candidateId]);
+
+  const allApplications = useMemo(() => {
+    const list = [...candidateApplications];
+    const candLists = [
+      candidate?.job_applications,
+      candidate?.job_entries,
+      candidate?.job_postings,
+    ];
+    candLists.forEach((cl) => {
+      if (Array.isArray(cl)) {
+        cl.forEach((a: any) => {
+          const comp = (a.company_name || a.company || "").trim();
+          const role = (a.role_title || a.role || a.job_title || a.title || "").trim();
+          const url = (a.job_url || a.job_link || a.url || "").trim();
+          if (comp) {
+            list.push({ company_name: comp, role_title: role, job_url: url });
+          }
+        });
+      }
+    });
+    return list;
+  }, [candidateApplications, candidate]);
+
+  const safeUrl = (url: string) => {
+    if (!url) return "#";
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  const getJobUrlForLog = (l: any) => {
+    if (l.job_url && typeof l.job_url === "string" && l.job_url.trim()) {
+      return l.job_url.trim();
+    }
+    const comp = (l.company_name || "").trim().toLowerCase();
+    const role = (l.role_title || "").trim().toLowerCase();
+    if (!comp) return null;
+
+    if (role) {
+      const exact = allApplications.find(
+        (a) => a.company_name?.trim().toLowerCase() === comp && a.role_title?.trim().toLowerCase() === role && a.job_url
+      );
+      if (exact?.job_url) return exact.job_url;
+    }
+    const compMatch = allApplications.find(
+      (a) => a.company_name?.trim().toLowerCase() === comp && a.job_url
+    );
+    return compMatch?.job_url || null;
+  };
+
+  const companySuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    allApplications.forEach((app) => {
+      const c = app.company_name.trim();
+      if (c && !seen.has(c.toLowerCase())) {
+        seen.add(c.toLowerCase());
+        list.push(c);
+      }
+    });
+    return list;
+  }, [allApplications]);
+
+  const companyRolesMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    allApplications.forEach((app) => {
+      const c = app.company_name.toLowerCase().trim();
+      const r = app.role_title.trim();
+      if (!map.has(c)) {
+        map.set(c, new Set<string>());
+      }
+      if (r) {
+        map.get(c)!.add(r);
+      }
+    });
+    return map;
+  }, [allApplications]);
+
+  const getCompanyBadge = (compName: string) => {
+    const rolesSet = companyRolesMap.get(compName.toLowerCase().trim());
+    const count = rolesSet ? rolesSet.size : 0;
+    if (count > 1) return `${count} roles applied`;
+    if (count === 1) return "1 role applied";
+    return "Applied";
+  };
+
+  const roleSuggestions = useMemo(() => {
+    const trimmedComp = companyName.trim().toLowerCase();
+    if (trimmedComp) {
+      const exactSet = companyRolesMap.get(trimmedComp);
+      if (exactSet && exactSet.size > 0) {
+        return Array.from(exactSet);
+      }
+      const partialRoles = new Set<string>();
+      allApplications.forEach((app) => {
+        if (app.company_name.toLowerCase().includes(trimmedComp) && app.role_title) {
+          partialRoles.add(app.role_title);
+        }
+      });
+      if (partialRoles.size > 0) {
+        return Array.from(partialRoles);
+      }
+    }
+    const allRoles = new Set<string>();
+    allApplications.forEach((app) => {
+      if (app.role_title) allRoles.add(app.role_title);
+    });
+    return Array.from(allRoles);
+  }, [allApplications, companyName, companyRolesMap]);
+
+  const editRoleSuggestions = useMemo(() => {
+    const trimmedComp = editForm.company_name.trim().toLowerCase();
+    if (trimmedComp) {
+      const exactSet = companyRolesMap.get(trimmedComp);
+      if (exactSet && exactSet.size > 0) {
+        return Array.from(exactSet);
+      }
+      const partialRoles = new Set<string>();
+      allApplications.forEach((app) => {
+        if (app.company_name.toLowerCase().includes(trimmedComp) && app.role_title) {
+          partialRoles.add(app.role_title);
+        }
+      });
+      if (partialRoles.size > 0) {
+        return Array.from(partialRoles);
+      }
+    }
+    const allRoles = new Set<string>();
+    allApplications.forEach((app) => {
+      if (app.role_title) allRoles.add(app.role_title);
+    });
+    return Array.from(allRoles);
+  }, [allApplications, editForm.company_name, companyRolesMap]);
+
+  const handleSelectCompany = (selectedCompany: string) => {
+    setCompanyName(selectedCompany);
+    setTimeout(() => {
+      if (roleInputRef.current) {
+        roleInputRef.current.focus();
+        roleInputRef.current.click();
+      }
+    }, 60);
+  };
+
+  const handleSelectEditCompany = (selectedCompany: string) => {
+    setEditForm((prev) => ({ ...prev, company_name: selectedCompany }));
+    setTimeout(() => {
+      if (editRoleInputRef.current) {
+        editRoleInputRef.current.focus();
+        editRoleInputRef.current.click();
+      }
+    }, 60);
+  };
+
   const fetchLogs = async (showLoading = true, isPolling = false) => {
     if (showLoading) setLoading(true);
     const backgroundConfig = isPolling ? { headers: { 'X-Background-Request': 'true' } } : undefined;
@@ -512,8 +687,28 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
                   <SelectContent>{LOG_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Company *</Label><Input value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>
-              <div><Label>Role *</Label><Input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} /></div>
+              <div>
+                <Label>Company *</Label>
+                <SuggestInput
+                  value={companyName}
+                  onChange={setCompanyName}
+                  onSelectOption={handleSelectCompany}
+                  suggestions={companySuggestions}
+                  itemBadge={getCompanyBadge}
+                  placeholder="e.g. Google"
+                />
+              </div>
+              <div>
+                <Label>Role *</Label>
+                <SuggestInput
+                  ref={roleInputRef}
+                  value={roleTitle}
+                  onChange={setRoleTitle}
+                  suggestions={roleSuggestions}
+                  itemBadge={() => "Applied Role"}
+                  placeholder="e.g. Software Engineer"
+                />
+              </div>
               <div><Label>Date *</Label><DatePicker value={interviewDate} onChange={setInterviewDate} placeholder="MM/DD/YYYY" /></div>
               <div>
                 <Label>Round</Label>
@@ -689,7 +884,25 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
                 header: "Role", 
                 sortable: true,
                 accessorKey: "role_title",
-                render: (l: any) => <span className="text-sm">{l.role_title || "—"}</span>
+                render: (l: any) => {
+                  const jobUrl = getJobUrlForLog(l);
+                  if (jobUrl) {
+                    return (
+                      <a
+                        href={safeUrl(jobUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors group"
+                        title={`Open job posting for ${l.role_title || "Role"} at ${l.company_name || "Company"}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="truncate max-w-[220px]">{l.role_title || "View Job"}</span>
+                        <ExternalLink className="h-3.5 w-3.5 text-primary/70 group-hover:text-primary shrink-0 transition-opacity" />
+                      </a>
+                    );
+                  }
+                  return <span className="text-sm font-medium">{l.role_title || "—"}</span>;
+                }
               },
               { 
                 header: "Round", 
@@ -817,18 +1030,24 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">Company Name *</Label>
-                <Input
+                <SuggestInput
                   value={editForm.company_name}
-                  onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })}
+                  onChange={(val) => setEditForm((prev) => ({ ...prev, company_name: val }))}
+                  onSelectOption={handleSelectEditCompany}
+                  suggestions={companySuggestions}
+                  itemBadge={getCompanyBadge}
                   placeholder="e.g. Google"
                   className="h-9 text-xs"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">Role Title *</Label>
-                <Input
+                <SuggestInput
+                  ref={editRoleInputRef}
                   value={editForm.role_title}
-                  onChange={(e) => setEditForm({ ...editForm, role_title: e.target.value })}
+                  onChange={(val) => setEditForm((prev) => ({ ...prev, role_title: val }))}
+                  suggestions={editRoleSuggestions}
+                  itemBadge={() => "Applied Role"}
                   placeholder="e.g. Senior Frontend Engineer"
                   className="h-9 text-xs"
                 />

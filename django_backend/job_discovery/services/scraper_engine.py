@@ -246,7 +246,7 @@ def execute_scraping_run(execution_id: UUID) -> None:
     execution.started_at = timezone.now()
     execution.save(update_fields=['status', 'started_at'])
 
-    token = (conf.env('APIFY_API_TOKEN') or os.getenv('APIFY_API_TOKEN', '')).strip()
+    token = (conf.env('APIFY_API_TOKEN') or os.getenv('APIFY_API_TOKEN', '')).strip().replace(' ', '').replace('\t', '')
     config = execution.config or {}
     roles_config = config.get('roles', [])
     sources = config.get('sources', ['linkedin', 'indeed', 'glassdoor', 'dice'])

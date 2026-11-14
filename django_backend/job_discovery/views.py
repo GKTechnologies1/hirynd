@@ -560,19 +560,25 @@ def approve_for_job_management(request, job_id):
     if candidate_id:
         try:
             cand = Candidate.objects.get(id=candidate_id)
-            log, _ = DailySubmissionLog.objects.get_or_create(
+            today_date = timezone.now().date()
+            log = DailySubmissionLog.objects.filter(
                 candidate=cand,
                 recruiter=request.user,
-                log_date=timezone.now().date(),
-                defaults={
-                    'notes': 'Discovered Job Candidate Match',
-                    'is_manual': False,
-                    'applications_count': 0,
-                    'screening_count': 0,
-                    'interview_count': 0,
-                    'offer_count': 0,
-                }
-            )
+                log_date=today_date
+            ).order_by('-created_at').first()
+
+            if not log:
+                log = DailySubmissionLog.objects.create(
+                    candidate=cand,
+                    recruiter=request.user,
+                    log_date=today_date,
+                    notes='Discovered Job Candidate Match',
+                    is_manual=False,
+                    applications_count=0,
+                    screening_count=0,
+                    interview_count=0,
+                    offer_count=0,
+                )
             link_entry = JobLinkEntry.objects.create(
                 submission_log=log,
                 candidate=cand,
@@ -957,10 +963,24 @@ def list_employers(request):
     Returns paginated list of employers from central intelligence database.
     Filters: search, industry, location, min_filings, has_placements, verification_status.
     """
-    from .models import CompanyVisaHistory
+    from .models import CompanyVisaHistory, EmployerPlacement
     from .serializers import CompanyVisaHistorySerializer
+    from candidates.models import PlacementClosure
+    from .services.employer_directory import sync_all_case_closures
 
-    qs = CompanyVisaHistory.objects.all().prefetch_related('placements')
+    # Auto-sync any unsynced placement closures
+    if PlacementClosure.objects.count() > EmployerPlacement.objects.filter(placement_closure__isnull=False).count():
+        try:
+            sync_all_case_closures()
+        except Exception:
+            pass
+
+    qs = CompanyVisaHistory.objects.all().prefetch_related(
+        'placements__placement_closure',
+        'placements__placement_closure__candidate',
+        'placements__placement_closure__candidate__user',
+        'contacts'
+    )
 
     search = request.GET.get('search', '').strip()
     if search:
@@ -1071,7 +1091,12 @@ def get_or_update_employer_detail(request, company_id):
     from .serializers import CompanyVisaHistorySerializer
 
     try:
-        company = CompanyVisaHistory.objects.prefetch_related('placements').get(id=company_id)
+        company = CompanyVisaHistory.objects.prefetch_related(
+            'placements__placement_closure',
+            'placements__placement_closure__candidate',
+            'placements__placement_closure__candidate__user',
+            'contacts'
+        ).get(id=company_id)
     except CompanyVisaHistory.DoesNotExist:
         return Response({'error': 'Employer not found'}, status=status.HTTP_404_NOT_FOUND)
 

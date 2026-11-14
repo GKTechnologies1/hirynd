@@ -1,3 +1,4 @@
+import logging
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -26,6 +27,8 @@ from .serializers import (
     GeneralEnquirySerializer,
 )
 from billing.utils import ensure_default_subscription
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Candidate CRUD ───
@@ -1320,6 +1323,12 @@ def placement(request, candidate_id):
     # Map frontend 'notes' to backend 'placement_notes'
     if 'notes' in data and 'placement_notes' not in data:
         data['placement_notes'] = data['notes']
+
+    # Normalize choice fields to lowercase
+    if 'everified_employer' in data and isinstance(data['everified_employer'], str):
+        data['everified_employer'] = data['everified_employer'].lower().strip()
+    if 'h1b_sponsorship_willing' in data and isinstance(data['h1b_sponsorship_willing'], str):
+        data['h1b_sponsorship_willing'] = data['h1b_sponsorship_willing'].lower().strip()
     
     is_update = False
     instance = None
@@ -1366,7 +1375,7 @@ def placement(request, candidate_id):
         from job_discovery.services.employer_directory import sync_case_closure_contacts
         sync_case_closure_contacts(serializer.instance, user=request.user)
     except Exception as emp_err:
-        pass
+        logger.error(f"[CaseClosure] Failed to sync to employer directory: {emp_err}", exc_info=True)
 
     # ── Placement Closure Emails (Only on initial placement creation, not on edits) ──
     if not is_update:

@@ -103,24 +103,79 @@ def sync_case_closure_contacts(placement, user=None) -> List[EmployerContact]:
 
     # 1. Update verification and sponsorship willingness
     changed_company = False
-    if placement.everified_employer in ('yes', 'no'):
-        company.everify_enrolled = (placement.everified_employer == 'yes')
+    ev_val = (placement.everified_employer or '').lower()
+    if ev_val in ('yes', 'no'):
+        company.everify_enrolled = (ev_val == 'yes')
         changed_company = True
 
-    if placement.h1b_sponsorship_willing in ('yes', 'no', 'unknown'):
-        company.h1b_sponsorship_willing = placement.h1b_sponsorship_willing
+    h1b_val = (placement.h1b_sponsorship_willing or '').lower()
+    if h1b_val in ('yes', 'no', 'unknown'):
+        company.h1b_sponsorship_willing = h1b_val
         company.h1b_sponsorship_source = 'Case Closure'
+        changed_company = True
+
+    # Populate canonical company HR contacts from placement closure
+    if placement.hr_name and (not company.contact_name or company.contact_name == '—'):
+        company.contact_name = placement.hr_name.strip()
+        changed_company = True
+
+    if placement.hr_email and (not company.contact_email or company.contact_email == '—'):
+        company.contact_email = placement.hr_email.strip()
+        changed_company = True
+
+    if placement.hr_phone and (not company.contact_phone or company.contact_phone == '—'):
+        company.contact_phone = placement.hr_phone.strip()
+        changed_company = True
+
+    # Confirmed placement means the employer is VERIFIED
+    if company.verification_status != 'VERIFIED':
+        company.verification_status = 'VERIFIED'
+        changed_company = True
+
+    if not company.industry:
+        company.industry = 'Information Technology & Services'
+        changed_company = True
+
+    if not company.headquarters:
+        cand_loc = None
+        if hasattr(placement, 'candidate') and placement.candidate and placement.candidate.current_location:
+            cand_loc = placement.candidate.current_location
+        company.headquarters = cand_loc or 'United States'
+        changed_company = True
+
+    if not company.website and placement.hr_email and '@' in placement.hr_email:
+        domain = placement.hr_email.split('@')[-1].lower().strip()
+        if domain not in ('gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com'):
+            company.website = f"https://www.{domain}"
+            changed_company = True
+
+    if not company.notes and placement.placement_notes:
+        company.notes = placement.placement_notes
+        changed_company = True
+
+    sources = list(company.data_sources or [])
+    if 'Case Closure' not in sources:
+        sources.append('Case Closure')
+        company.data_sources = sources
         changed_company = True
 
     if changed_company:
         company.save()
 
     # 2. Increment placement count and link EmployerPlacement
+    cand_name = "Placed Candidate"
+    if hasattr(placement, 'candidate') and placement.candidate:
+        if hasattr(placement.candidate, 'user') and placement.candidate.user:
+            if hasattr(placement.candidate.user, 'profile') and placement.candidate.user.profile and placement.candidate.user.profile.full_name:
+                cand_name = placement.candidate.user.profile.full_name
+            else:
+                cand_name = placement.candidate.user.email
+
     EmployerPlacement.objects.update_or_create(
         placement_closure=placement,
         defaults={
             'company': company,
-            'candidate_name': placement.candidate.user.profile.full_name if hasattr(placement.candidate.user, 'profile') else placement.candidate.user.email,
+            'candidate_name': cand_name,
             'role_title': placement.role_title,
             'offer_salary': placement.salary,
             'currency': placement.currency or 'USD',
@@ -220,4 +275,20 @@ def sync_case_closure_contacts(placement, user=None) -> List[EmployerContact]:
 
     logger.info(f"[EmployerDirectory] Synced {len(saved_contacts)} contacts for '{company.company_name}' from PlacementClosure")
     return saved_contacts
+
+
+def sync_all_case_closures() -> int:
+    """
+    Syncs all existing PlacementClosure records to CompanyVisaHistory, EmployerPlacement, and EmployerContact.
+    """
+    from candidates.models import PlacementClosure
+    synced = 0
+    for placement in PlacementClosure.objects.select_related('candidate', 'candidate__user').all():
+        try:
+            sync_case_closure_contacts(placement)
+            synced += 1
+        except Exception as err:
+            logger.error(f"[EmployerDirectory] Error syncing placement {placement.id}: {err}", exc_info=True)
+    logger.info(f"[EmployerDirectory] Successfully verified/synced {synced} case closures.")
+    return synced
 

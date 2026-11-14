@@ -17,11 +17,12 @@ import { formatDate } from "@/lib/utils";
 import { formatSalaryDisplay } from "@/lib/salaryFormatter";
 import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
 import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
+import { DISMISSAL_REASONS } from "@/components/recruiter/CandidateDiscoveryJobsSection";
 import {
   Search, ExternalLink, RefreshCw, Briefcase, Building, MapPin,
   Calendar, Eye, Copy, ChevronLeft, ChevronRight, Award,
   ShieldCheck, Users, Check, Sparkles, UserCheck, AlertTriangle,
-  XCircle, DollarSign, X
+  XCircle, DollarSign, X, Loader2
 } from "lucide-react";
 
 const safeUrl = (url?: string): string => {
@@ -104,11 +105,12 @@ export const RecruiterJobDiscoveryPage = () => {
   const [applyNotes, setApplyNotes] = useState<string>("");
   const [submittingApply, setSubmittingApply] = useState<boolean>(false);
 
-  // Reject Modal state
-  const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [targetJobForReject, setTargetJobForReject] = useState<any>(null);
-  const [rejectionReason, setRejectionReason] = useState<string>("");
-  const [submittingReject, setSubmittingReject] = useState<boolean>(false);
+  // Reject / Dismiss recommendation state
+  const [dismissTargetJob, setDismissTargetJob] = useState<any | null>(null);
+  const [dismissReason, setDismissReason] = useState("");
+  const [dismissComments, setDismissComments] = useState("");
+  const [isSubmittingDismiss, setIsSubmittingDismiss] = useState(false);
+  const candidateName = dismissTargetJob?.candidate?.name || dismissTargetJob?.candidate_name || "this candidate";
 
   const handleApplyForThis = (job: any) => {
     // 1. Open external application in a new tab
@@ -177,24 +179,31 @@ export const RecruiterJobDiscoveryPage = () => {
   };
 
   const handleOpenRejectModal = (job: any) => {
-    setTargetJobForReject(job);
-    setRejectionReason("");
-    setRejectModalOpen(true);
+    setDismissTargetJob(job);
+    setDismissReason("");
+    setDismissComments("");
   };
 
-  const handleConfirmReject = async () => {
-    if (!targetJobForReject) return;
-    const trimmed = rejectionReason.trim();
-    if (!trimmed) {
+  const handleConfirmDismiss = async () => {
+    if (!dismissTargetJob) return;
+    if (!dismissReason) {
       toast({
         title: "Reason Required",
-        description: "Please provide a mandatory reason for rejecting this job.",
+        description: "Please select a rejection reason.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (dismissReason === "Other" && !dismissComments.trim()) {
+      toast({
+        title: "Explanation Required",
+        description: "Please provide a short explanation when selecting 'Other'.",
         variant: "destructive",
       });
       return;
     }
 
-    const candId = targetJobForReject.candidate?.id || targetJobForReject.candidate_id;
+    const candId = dismissTargetJob.candidate?.id || dismissTargetJob.candidate_id;
     if (!candId) {
       toast({
         title: "Candidate Required",
@@ -204,12 +213,18 @@ export const RecruiterJobDiscoveryPage = () => {
       return;
     }
 
-    setSubmittingReject(true);
+    const fullReason = dismissReason === "Other"
+      ? dismissComments.trim()
+      : dismissComments.trim()
+        ? `${dismissReason}: ${dismissComments.trim()}`
+        : dismissReason;
+
+    setIsSubmittingDismiss(true);
     try {
-      const jobId = targetJobForReject.job_uuid || targetJobForReject.id.split("_")[0];
+      const jobId = dismissTargetJob.job_uuid || dismissTargetJob.id.split("_")[0];
       const res = await recruiterJobDiscoveryApi.rejectJob(jobId, {
         candidate_id: candId,
-        reason: trimmed,
+        reason: fullReason,
       });
 
       toast({
@@ -218,21 +233,21 @@ export const RecruiterJobDiscoveryPage = () => {
       });
 
       // Update state: job remains visible with Rejected badge & reason
-      const oppId = targetJobForReject.opportunity_id || targetJobForReject.id;
+      const oppId = dismissTargetJob.opportunity_id || dismissTargetJob.id;
       setJobs((prev) =>
         prev.map((j) => {
           if (j.id === oppId || j.opportunity_id === oppId) {
             return {
               ...j,
               status: "REJECTED",
-              rejection_reason: trimmed,
+              rejection_reason: fullReason,
             };
           }
           return j;
         })
       );
 
-      setRejectModalOpen(false);
+      setDismissTargetJob(null);
     } catch (err: any) {
       const errMsg = err.response?.data?.error || err.response?.data?.message || "Failed to reject job.";
       toast({
@@ -241,7 +256,7 @@ export const RecruiterJobDiscoveryPage = () => {
         variant: "destructive",
       });
     } finally {
-      setSubmittingReject(false);
+      setIsSubmittingDismiss(false);
     }
   };
 
@@ -794,7 +809,7 @@ export const RecruiterJobDiscoveryPage = () => {
                       {/* Actions */}
                       <td className="py-2.5 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
-                          {job.job_url && (
+                          {/* {job.job_url && (
                             <a
                               href={safeUrl(job.job_url)}
                               target="_blank"
@@ -804,7 +819,7 @@ export const RecruiterJobDiscoveryPage = () => {
                             >
                               <ExternalLink className="h-4 w-4" />
                             </a>
-                          )}
+                          )} */}
                           <Button
                             variant="outline"
                             size="sm"
@@ -944,11 +959,10 @@ export const RecruiterJobDiscoveryPage = () => {
                         {selectedJob.matching_candidates.map((c: any) => (
                           <span
                             key={c.id}
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
-                              c.has_applied
-                                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                : "bg-white text-emerald-800 border-emerald-300"
-                            }`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${c.has_applied
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                              : "bg-white text-emerald-800 border-emerald-300"
+                              }`}
                           >
                             {c.has_applied ? "✓ Applied: " : ""}{c.name} ({c.email})
                           </span>
@@ -1199,97 +1213,70 @@ export const RecruiterJobDiscoveryPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Reject Job Opportunity Modal */}
-      <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
+      {/* Reject Recommendation Confirmation Dialog */}
+      <Dialog open={!!dismissTargetJob} onOpenChange={(open) => { if (!open) setDismissTargetJob(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
               <XCircle className="h-5 w-5 text-rose-600" />
-              Reject Job Opportunity
+              Reject Recommendation
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-600">
-              Provide a mandatory reason why this job is not suitable for this candidate.
+            <DialogDescription className="text-xs text-muted-foreground">
+              Record why you do not want to proceed with this opportunity for <span className="font-semibold text-foreground">{candidateName}</span>.
+              This decision is candidate-specific and will not affect any other candidates.
             </DialogDescription>
           </DialogHeader>
 
-          {targetJobForReject && (
-            <div className="space-y-3 py-2 text-xs">
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Candidate:</span>
-                  <span className="font-semibold text-slate-900">
-                    {targetJobForReject.candidate?.name || "Assigned Candidate"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Job:</span>
-                  <span className="font-medium text-slate-900 truncate max-w-[220px]">
-                    {targetJobForReject.title} at {targetJobForReject.company_name}
-                  </span>
-                </div>
-              </div>
-
-              {/* Quick Preset Reasons */}
-              <div>
-                <Label className="text-xs font-semibold text-slate-700 block mb-1.5">Quick Presets:</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    "Lacks required experience",
-                    "Lacks required tech stack",
-                    "Location mismatch",
-                    "Salary mismatch",
-                    "No visa sponsorship / Citizenship required",
-                    "Role mismatch",
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setRejectionReason(preset)}
-                      className={`text-[11px] px-2 py-1 rounded border transition-colors ${
-                        rejectionReason === preset
-                          ? "bg-rose-100 text-rose-800 border-rose-300 font-medium"
-                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Mandatory Detailed Rejection Reason */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">
-                  Rejection Reason <span className="text-rose-600">*</span>
-                </Label>
-                <Textarea
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Explain why this position is not suitable for this candidate..."
-                  className="text-xs min-h-[80px]"
-                />
-              </div>
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60">
+              <p className="font-bold text-foreground text-xs">{dismissTargetJob?.title}</p>
+              <p className="text-muted-foreground text-[11px]">{dismissTargetJob?.company_name} • {dismissTargetJob?.target_role}</p>
             </div>
-          )}
 
-          <DialogFooter className="flex justify-end gap-2 border-t pt-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRejectModalOpen(false)}
-              disabled={submittingReject}
-              className="h-8 text-xs"
-            >
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                Rejection Reason <span className="text-rose-500">*</span>
+              </Label>
+              <Select value={dismissReason} onValueChange={setDismissReason}>
+                <SelectTrigger className="w-full text-xs">
+                  <SelectValue placeholder="Select reason..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {DISMISSAL_REASONS.map((r) => (
+                    <SelectItem key={r} value={r} className="text-xs">
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                Additional Comments {dismissReason === "Other" && <span className="text-rose-500 font-bold">* (Mandatory for Other)</span>}
+              </Label>
+              <Textarea
+                value={dismissComments}
+                onChange={(e) => setDismissComments(e.target.value)}
+                placeholder={dismissReason === "Other" ? "Explain why this opportunity is being rejected..." : "Optional internal notes..."}
+                rows={3}
+                className="text-xs resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDismissTargetJob(null)} className="cursor-pointer">
               Cancel
             </Button>
             <Button
               size="sm"
-              onClick={handleConfirmReject}
-              disabled={submittingReject || !rejectionReason.trim()}
-              className="h-8 text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold flex items-center gap-1.5"
+              disabled={isSubmittingDismiss || !dismissReason || (dismissReason === "Other" && !dismissComments.trim())}
+              onClick={handleConfirmDismiss}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer"
             >
-              <XCircle className="h-3.5 w-3.5" />
-              {submittingReject ? "Rejecting..." : "Confirm Rejection"}
+              {isSubmittingDismiss ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+              Confirm Rejection
             </Button>
           </DialogFooter>
         </DialogContent>

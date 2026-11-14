@@ -21,13 +21,87 @@ class EmployerContactSerializer(serializers.ModelSerializer):
 
 
 class EmployerPlacementSerializer(serializers.ModelSerializer):
+    candidate_id = serializers.SerializerMethodField()
+    candidate_email = serializers.SerializerMethodField()
+    hr_name = serializers.SerializerMethodField()
+    hr_email = serializers.SerializerMethodField()
+    hr_phone = serializers.SerializerMethodField()
+    interviewer_email = serializers.SerializerMethodField()
+    bgv_company_name = serializers.SerializerMethodField()
+    everified_employer = serializers.SerializerMethodField()
+    h1b_sponsorship_willing = serializers.SerializerMethodField()
+    additional_contacts = serializers.SerializerMethodField()
+    source = serializers.SerializerMethodField()
+    closed_by_email = serializers.SerializerMethodField()
+
     class Meta:
         model = EmployerPlacement
         fields = [
-            'id', 'company', 'placement_closure', 'candidate_name', 'role_title',
-            'offer_salary', 'currency', 'start_date', 'hr_contact',
-            'verification_status', 'offer_letter_url', 'notes', 'created_at'
+            'id', 'company', 'placement_closure', 'candidate_name', 'candidate_id',
+            'candidate_email', 'role_title', 'offer_salary', 'currency', 'start_date',
+            'hr_contact', 'hr_name', 'hr_email', 'hr_phone', 'interviewer_email',
+            'bgv_company_name', 'everified_employer', 'h1b_sponsorship_willing',
+            'additional_contacts', 'verification_status', 'offer_letter_url',
+            'notes', 'source', 'closed_by_email', 'created_at'
         ]
+
+    def get_candidate_id(self, obj):
+        if obj.placement_closure and obj.placement_closure.candidate:
+            return str(obj.placement_closure.candidate.id)
+        return None
+
+    def get_candidate_email(self, obj):
+        if obj.placement_closure and obj.placement_closure.candidate and hasattr(obj.placement_closure.candidate, 'user'):
+            return obj.placement_closure.candidate.user.email
+        return None
+
+    def get_hr_name(self, obj):
+        if obj.placement_closure:
+            return obj.placement_closure.hr_name or None
+        return None
+
+    def get_hr_email(self, obj):
+        if obj.placement_closure:
+            return obj.placement_closure.hr_email or obj.hr_contact
+        return obj.hr_contact
+
+    def get_hr_phone(self, obj):
+        if obj.placement_closure:
+            return obj.placement_closure.hr_phone or None
+        return None
+
+    def get_interviewer_email(self, obj):
+        if obj.placement_closure:
+            return obj.placement_closure.interviewer_email or None
+        return None
+
+    def get_bgv_company_name(self, obj):
+        if obj.placement_closure:
+            return obj.placement_closure.bgv_company_name or None
+        return None
+
+    def get_everified_employer(self, obj):
+        if obj.placement_closure:
+            return obj.placement_closure.everified_employer
+        return None
+
+    def get_h1b_sponsorship_willing(self, obj):
+        if obj.placement_closure:
+            return obj.placement_closure.h1b_sponsorship_willing
+        return None
+
+    def get_additional_contacts(self, obj):
+        if obj.placement_closure:
+            return obj.placement_closure.additional_contacts or []
+        return []
+
+    def get_source(self, obj):
+        return 'Case Closure Form' if obj.placement_closure else 'Direct Record'
+
+    def get_closed_by_email(self, obj):
+        if obj.placement_closure and obj.placement_closure.closed_by:
+            return obj.placement_closure.closed_by.email
+        return None
 
 
 class CompanyVisaHistorySerializer(serializers.ModelSerializer):
@@ -50,6 +124,19 @@ class CompanyVisaHistorySerializer(serializers.ModelSerializer):
 
     def get_aliases(self, obj):
         return list(CompanyAlias.objects.filter(target_norm=obj.company_name_norm).values_list('alias_norm', flat=True))
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Fallback missing company-level contact details to latest placement closure HR contact
+        if data.get('placements') and len(data['placements']) > 0:
+            latest_plc = data['placements'][0]
+            if not data.get('contact_name') and latest_plc.get('hr_name'):
+                data['contact_name'] = latest_plc['hr_name']
+            if not data.get('contact_email') and latest_plc.get('hr_email'):
+                data['contact_email'] = latest_plc['hr_email']
+            if not data.get('contact_phone') and latest_plc.get('hr_phone'):
+                data['contact_phone'] = latest_plc['hr_phone']
+        return data
 
 
 class ScraperCostRecordSerializer(serializers.ModelSerializer):

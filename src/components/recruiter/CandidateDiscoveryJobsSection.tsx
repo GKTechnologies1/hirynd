@@ -23,7 +23,7 @@ import {
   Clock, DollarSign, Home, Loader2, Ban, RotateCcw, XCircle, FileText
 } from "lucide-react";
 
-export const DISMISSAL_REASONS = [
+export const REJECTION_REASONS = [
   "Job role does not match candidate profile",
   "Required skills or keywords do not match",
   "Experience requirement mismatch",
@@ -38,6 +38,8 @@ export const DISMISSAL_REASONS = [
   "Duplicate or previously considered opportunity",
   "Other",
 ];
+
+export const DISMISSAL_REASONS = REJECTION_REASONS;
 
 export const JOB_STATUSES = [
   "Applied",
@@ -125,6 +127,12 @@ export const CandidateDiscoveryJobsSection = ({
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedDesc, setCopiedDesc] = useState(false);
+
+  // Apply for this Confirmation Modal state (redirect to URL + pop out confirmation modal)
+  const [confirmApplyModalOpen, setConfirmApplyModalOpen] = useState(false);
+  const [targetJobForConfirmApply, setTargetJobForConfirmApply] = useState<any>(null);
+  const [applyNotes, setApplyNotes] = useState<string>("");
+  const [submittingApply, setSubmittingApply] = useState<boolean>(false);
 
   // Fetch filter options (portal sources, roles)
   useEffect(() => {
@@ -219,7 +227,7 @@ export const CandidateDiscoveryJobsSection = ({
   }, [jobPostings]);
 
   // Automatically submit application and move it to the pipeline
-  const handleApplyDirectly = async (job: any, statusVal: string = "applied") => {
+  const handleApplyDirectly = async (job: any, statusVal: string = "applied", notesVal?: string) => {
     setUpdatingJobId(job.id);
     const existingApp = findExistingApplication(job);
 
@@ -246,6 +254,7 @@ export const CandidateDiscoveryJobsSection = ({
         const cleanCompany = (job.company_name || "Company").trim().slice(0, 255);
         const cleanTitle = (job.title || job.target_role || "Job Opening").trim().slice(0, 255);
         const cleanDesc = (job.job_description || cleanTitle).trim();
+        const defaultNotes = notesVal || (statusVal.toLowerCase() === "rejected" ? "Rejected from Job Discovery" : "Applied from Discovery Jobs");
 
         const res = await recruitersApi.submitJobApplications(candidateId, {
           job_links: [{
@@ -255,6 +264,7 @@ export const CandidateDiscoveryJobsSection = ({
             job_description: cleanDesc,
             resume_used: resumeUsed,
             status: statusVal.toLowerCase().replace(/ /g, "_"),
+            notes: defaultNotes,
             employment_type: job.employment_type || alwaysShowDefaults?.employment_type || "Full-Time",
             experience_required: job.experience_level || alwaysShowDefaults?.experience_required || "0–2 Years",
             work_mode: job.is_remote ? "Remote" : (alwaysShowDefaults?.work_mode || "Onsite"),
@@ -281,12 +291,12 @@ export const CandidateDiscoveryJobsSection = ({
           if (statusVal.toLowerCase() === "rejected") {
             await recruiterJobDiscoveryApi.rejectJob(rawJobId, {
               candidate_id: candidateId,
-              reason: "Rejected from Discovery Jobs",
+              reason: notesVal || "Rejected from Discovery Jobs",
             });
           } else {
             await recruiterJobDiscoveryApi.markApplied(rawJobId, {
               candidate_id: candidateId,
-              notes: "Applied from Discovery Jobs",
+              notes: notesVal || "Applied from Discovery Jobs",
             });
           }
         } catch (syncErr) {
@@ -325,6 +335,37 @@ export const CandidateDiscoveryJobsSection = ({
       });
     } finally {
       setUpdatingJobId(null);
+    }
+  };
+
+  // Handle "Apply for this": redirects to external URL in new tab & pops out confirmation modal
+  const handleApplyForThis = (job: any) => {
+    // 1. Open external application in a new tab
+    if (job.job_url) {
+      window.open(safeUrl(job.job_url), "_blank", "noopener,noreferrer");
+    }
+
+    // 2. Open confirmation pop out modal on this page
+    setTargetJobForConfirmApply(job);
+    setApplyNotes("");
+    setConfirmApplyModalOpen(true);
+  };
+
+  const handleConfirmApply = async () => {
+    if (!targetJobForConfirmApply) return;
+    setSubmittingApply(true);
+    try {
+      await handleApplyDirectly(targetJobForConfirmApply, "applied", applyNotes);
+      setConfirmApplyModalOpen(false);
+      setTargetJobForConfirmApply(null);
+    } catch (err: any) {
+      toast({
+        title: "Error Applying",
+        description: err.response?.data?.error || err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingApply(false);
     }
   };
 
@@ -388,7 +429,7 @@ export const CandidateDiscoveryJobsSection = ({
   const handleConfirmDismiss = async () => {
     if (!dismissTargetJob) return;
     if (!dismissReason) {
-      toast({ title: "Reason Required", description: "Please select a dismissal reason.", variant: "destructive" });
+      toast({ title: "Reason Required", description: "Please select a rejection reason.", variant: "destructive" });
       return;
     }
     if (dismissReason === "Other" && !dismissComments.trim()) {
@@ -398,20 +439,49 @@ export const CandidateDiscoveryJobsSection = ({
 
     setIsSubmittingDismiss(true);
     try {
-      await recruiterJobDiscoveryApi.dismissJob(dismissTargetJob.id, {
-        candidate_id: candidateId,
-        reason: dismissReason,
-        comments: dismissComments.trim(),
-      });
+      const rawJobId = dismissTargetJob.id || dismissTargetJob.opportunity_id;
+      await Promise.allSettled([
+        recruiterJobDiscoveryApi.dismissJob(rawJobId, {
+          candidate_id: candidateId,
+          reason: dismissReason,
+          comments: dismissComments.trim(),
+        }),
+        recruiterJobDiscoveryApi.rejectJob(rawJobId, {
+          candidate_id: candidateId,
+          reason: dismissReason + (dismissComments.trim() ? `: ${dismissComments.trim()}` : ""),
+        }),
+      ]);
+
+      // Register rejected entry in candidate application pipeline
+      try {
+        const payload = {
+          candidate_id: candidateId,
+          job_title: dismissTargetJob.title || dismissTargetJob.target_role || "Job Application",
+          role_title: dismissTargetJob.title || dismissTargetJob.target_role || "Job Application",
+          company_name: dismissTargetJob.company_name || "Unknown Company",
+          job_url: dismissTargetJob.job_url || "",
+          work_mode: (dismissTargetJob.work_mode || "remote").toLowerCase(),
+          country: dismissTargetJob.country || "USA",
+          state: dismissTargetJob.state || "",
+          city: dismissTargetJob.city || "",
+          application_status: "rejected",
+          notes: `Rejected from Job Discovery. Reason: ${dismissReason}${dismissComments.trim() ? ` - ${dismissComments.trim()}` : ""}`,
+        };
+        await recruitersApi.createApplication(payload);
+        if (onRefreshApplications) await onRefreshApplications();
+      } catch (pipelineErr) {
+        console.warn("Could not record rejected application in pipeline:", pipelineErr);
+      }
+
       toast({
-        title: "Recommendation Dismissed",
-        description: `Opportunity for ${dismissTargetJob.company_name} has been dismissed for ${candidateName}.`,
+        title: "Recommendation Rejected",
+        description: `Opportunity for ${dismissTargetJob.company_name} has been rejected for ${candidateName}.`,
       });
       setDismissTargetJob(null);
       fetchJobs();
     } catch (err: any) {
       toast({
-        title: "Dismissal Failed",
+        title: "Rejection Failed",
         description: err.response?.data?.error || err.message,
         variant: "destructive",
       });
@@ -422,7 +492,8 @@ export const CandidateDiscoveryJobsSection = ({
 
   const handleRestoreRecommendation = async (job: any) => {
     try {
-      await recruiterJobDiscoveryApi.restoreJob(job.id, { candidate_id: candidateId });
+      const rawJobId = job.id || job.opportunity_id;
+      await recruiterJobDiscoveryApi.restoreJob(rawJobId, { candidate_id: candidateId });
       toast({
         title: "Recommendation Restored",
         description: `Opportunity for ${job.company_name} is now restored to active recommendations.`,
@@ -461,6 +532,102 @@ export const CandidateDiscoveryJobsSection = ({
     return list;
   }, [roles]);
 
+  // Process jobs and guarantee rejected applications from jobPostings are reflected in the Rejected tab
+  const displayedJobs = useMemo(() => {
+    const processed = jobs.map((job) => {
+      const existingApp = findExistingApplication(job);
+      const isUpdating = updatingJobId === job.id;
+      const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
+      const isRejected = existingStatus === "rejected" || job.status === "REJECTED";
+      const isApplied = (!!existingApp && !isRejected) || job.status === "APPLIED" || job.has_applied === true;
+      const isDismissed = job.discovery_status === "DISMISSED" || job.is_dismissed === true || isRejected;
+
+      return {
+        ...job,
+        _existingApp: existingApp,
+        _isUpdating: isUpdating,
+        _existingStatus: existingStatus,
+        _isRejected: isRejected,
+        _isApplied: isApplied,
+        _isDismissed: isDismissed,
+      };
+    });
+
+    if (discoveryTab === "active") {
+      return processed.filter(j => !j._isDismissed);
+    }
+
+    // discoveryTab === "dismissed" (the Rejected tab)
+    const dismissedFromApi = processed.filter(j => j._isDismissed);
+
+    // Also bring in any rejected application from jobPostings that didn't match a discovered job
+    if (jobPostings && jobPostings.length > 0) {
+      const normalizeUrl = (u?: string) => {
+        if (!u) return "";
+        return u.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
+      };
+      const normalizeText = (t?: string) => {
+        if (!t) return "";
+        return t.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      };
+
+      const rejectedApps = jobPostings.filter((app: any) => {
+        const status = (app.application_status || app.status || app.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
+        return status === "rejected";
+      });
+
+      for (const app of rejectedApps) {
+        const appUrlNorm = normalizeUrl(app.job_url || app.job_link);
+        const appCompNorm = normalizeText(app.company_name);
+        const appTitleNorm = normalizeText(app.role_title || app.title);
+
+        const alreadyIncluded = dismissedFromApi.some((j: any) => {
+          const jUrlNorm = normalizeUrl(j.job_url);
+          if (appUrlNorm && jUrlNorm && appUrlNorm === jUrlNorm) return true;
+          const jCompNorm = normalizeText(j.company_name);
+          const jTitleNorm = normalizeText(j.title || j.target_role);
+          if (appCompNorm && jCompNorm && (appCompNorm.includes(jCompNorm) || jCompNorm.includes(appCompNorm))) {
+            if (appTitleNorm && jTitleNorm && (appTitleNorm.includes(jTitleNorm) || jTitleNorm.includes(appTitleNorm))) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        if (!alreadyIncluded) {
+          dismissedFromApi.push({
+            id: `app_rej_${app.id}`,
+            opportunity_id: `app_rej_${app.id}`,
+            title: app.role_title || app.title || "Job Application",
+            company_name: app.company_name || "Company",
+            job_url: app.job_url || app.job_link || "",
+            city: app.city || "",
+            state: app.state || "",
+            country: app.country || "USA",
+            is_remote: (app.work_mode || "").toLowerCase() === "remote",
+            salary_raw: app.salary || "Not Disclosed",
+            discovery_status: "DISMISSED",
+            is_dismissed: true,
+            status: "REJECTED",
+            dismissal_reason: app.notes || "Rejected Application",
+            rejection_reason: app.notes || "Rejected Application",
+            date_posted: app.created_at || app.log_date,
+            created_at: app.created_at || app.log_date,
+            source_portal: "Pipeline",
+            _existingApp: app,
+            _isUpdating: false,
+            _existingStatus: "rejected",
+            _isRejected: true,
+            _isApplied: false,
+            _isDismissed: true,
+          });
+        }
+      }
+    }
+
+    return dismissedFromApi;
+  }, [jobs, discoveryTab, jobPostings, updatingJobId, findExistingApplication]);
+
   return (
     <Card className="border-none shadow-sm bg-card/60">
       <CardHeader className="pb-3 px-6 pt-5 border-b border-border/40">
@@ -470,7 +637,7 @@ export const CandidateDiscoveryJobsSection = ({
               <Compass className="h-4 w-4 text-primary" />
               Job Discovery for {candidateName}
               <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">
-                {totalCount} Opportunities
+                {discoveryTab === "active" ? (totalCount || displayedJobs.length) : displayedJobs.length} Opportunities
               </span>
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -479,7 +646,7 @@ export const CandidateDiscoveryJobsSection = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Recommendations Status: Active vs Dismissed */}
+            {/* Recommendations Status: Active vs Rejected */}
             <div className="flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/50">
               <button
                 type="button"
@@ -500,12 +667,12 @@ export const CandidateDiscoveryJobsSection = ({
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
                   discoveryTab === "dismissed"
-                    ? "bg-background text-amber-600 shadow-xs font-extrabold"
+                    ? "bg-background text-rose-600 shadow-xs font-extrabold"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Ban className="h-3.5 w-3.5" />
-                Dismissed
+                <XCircle className="h-3.5 w-3.5" />
+                Rejected
               </button>
             </div>
 
@@ -723,21 +890,28 @@ export const CandidateDiscoveryJobsSection = ({
                 <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
                 Loading matching discovered opportunities...
               </div>
-            ) : jobs.length === 0 ? (
+            ) : displayedJobs.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground space-y-2">
                 <Briefcase className="h-10 w-10 mx-auto opacity-30" />
-                <p className="font-bold text-sm text-foreground">No discovered opportunities match {candidateName}&apos;s profile.</p>
-                <p className="text-xs">Try adjusting your keywords or clearing the filters.</p>
+                <p className="font-bold text-sm text-foreground">
+                  {discoveryTab === "dismissed"
+                    ? `No rejected opportunities recorded for ${candidateName}.`
+                    : `No discovered opportunities match ${candidateName}'s profile.`}
+                </p>
+                <p className="text-xs">
+                  {discoveryTab === "dismissed"
+                    ? "Rejected recommendations and pipeline applications will appear here."
+                    : "Try adjusting your keywords or clearing the filters."}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {jobs.map((job) => {
-                  const existingApp = findExistingApplication(job);
-                  const isUpdating = updatingJobId === job.id;
-                  const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
-                  const isRejected = existingStatus === "rejected" || job.status === "REJECTED";
-                  const isApplied = (!!existingApp && !isRejected) || job.status === "APPLIED" || job.has_applied === true;
-                  const isDismissed = job.discovery_status === "DISMISSED" || job.is_dismissed === true;
+                {displayedJobs.map((job) => {
+                  const existingApp = job._existingApp;
+                  const isUpdating = job._isUpdating;
+                  const isRejected = job._isRejected;
+                  const isApplied = job._isApplied;
+                  const isDismissed = job._isDismissed;
                   const companyName = job.company_name || "Company";
                   const roleTitle = job.title || "Job Opportunity";
                   const postedDate = job.date_posted ? formatDate(job.date_posted) : "Recent";
@@ -835,12 +1009,12 @@ export const CandidateDiscoveryJobsSection = ({
                         </div>
                       </div>
 
-                      {/* Dismissal Reason Note if dismissed */}
+                      {/* Rejection Reason Note if rejected */}
                       {isDismissed && (
-                        <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300">
+                        <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-800 dark:text-rose-300">
                           <div className="font-bold flex items-center gap-1.5">
-                            <XCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                            Dismissed: {job.dismissal_reason || "Not Proceeding"}
+                            <XCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                            Rejected: {job.dismissal_reason || job.rejection_reason || "Not Proceeding"}
                           </div>
                           {job.dismissal_comments && (
                             <p className="text-[10px] text-muted-foreground mt-1 italic">
@@ -860,9 +1034,9 @@ export const CandidateDiscoveryJobsSection = ({
                         {/* Authoritative Status Badge */}
                         <div className="flex items-center gap-1.5">
                           {isDismissed ? (
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 text-[11px] font-semibold flex items-center gap-1">
-                              <XCircle className="h-3 w-3 text-amber-600" />
-                              Dismissed
+                            <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1">
+                              <XCircle className="h-3 w-3 text-rose-600" />
+                              Rejected
                             </Badge>
                           ) : isApplied ? (
                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 text-[11px] font-bold flex items-center gap-1">
@@ -890,7 +1064,7 @@ export const CandidateDiscoveryJobsSection = ({
                               variant="outline"
                               onClick={() => handleRestoreRecommendation(job)}
                               disabled={isUpdating}
-                              className="h-7 px-2.5 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 flex items-center gap-1 cursor-pointer"
+                              className="h-7 px-2.5 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1 cursor-pointer"
                               title="Restore recommendation to active list"
                             >
                               <RotateCcw className="h-3 w-3" />
@@ -909,37 +1083,25 @@ export const CandidateDiscoveryJobsSection = ({
                               <Button
                                 type="button"
                                 size="sm"
-                                onClick={() => handleApplyDirectly(job, "applied")}
+                                onClick={() => handleApplyForThis(job)}
                                 disabled={isUpdating}
                                 className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-                                title="Add this job to candidate application pipeline"
+                                title="Apply and add this job to candidate application pipeline"
                               >
-                                {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                Applied
+                                {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+                                Apply for this
                               </Button>
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleApplyDirectly(job, "rejected")}
-                                disabled={isUpdating}
-                                className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
-                                title="Mark this job as rejected in candidate application pipeline"
-                              >
-                                <X className="h-3 w-3" />
-                                Reject
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
                                 onClick={() => handleOpenDismissModal(job)}
                                 disabled={isUpdating}
-                                className="h-7 px-2 text-xs text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1 cursor-pointer"
-                                title="Dismiss recommendation for this candidate"
+                                className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                                title="Reject recommendation for this candidate"
                               >
-                                <Ban className="h-3 w-3 text-rose-500" />
-                                Dismiss
+                                <XCircle className="h-3 w-3 text-rose-600" />
+                                Reject
                               </Button>
                             </>
                           )}
@@ -1001,21 +1163,22 @@ export const CandidateDiscoveryJobsSection = ({
                       Loading matching discovered opportunities...
                     </td>
                   </tr>
-                ) : jobs.length === 0 ? (
+                ) : displayedJobs.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-muted-foreground">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                      No discovered opportunities match {candidateName}&apos;s profile with the current filters.
+                      {discoveryTab === "dismissed"
+                        ? `No rejected opportunities recorded for ${candidateName}.`
+                        : `No discovered opportunities match ${candidateName}'s profile with the current filters.`}
                     </td>
                   </tr>
                 ) : (
-                  jobs.map((job) => {
-                    const existingApp = findExistingApplication(job);
-                    const isUpdating = updatingJobId === job.id;
-                    const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
-                    const isRejected = existingStatus === "rejected" || job.status === "REJECTED";
-                    const isApplied = (!!existingApp && !isRejected) || job.status === "APPLIED" || job.has_applied === true;
-                    const isDismissed = job.discovery_status === "DISMISSED" || job.is_dismissed === true;
+                  displayedJobs.map((job) => {
+                    const existingApp = job._existingApp;
+                    const isUpdating = job._isUpdating;
+                    const isRejected = job._isRejected;
+                    const isApplied = job._isApplied;
+                    const isDismissed = job._isDismissed;
 
                     return (
                       <tr key={job.id} className="hover:bg-muted/20 transition-colors">
@@ -1099,13 +1262,13 @@ export const CandidateDiscoveryJobsSection = ({
                         <td className="py-3 px-4 whitespace-nowrap">
                           {isDismissed ? (
                             <div className="flex flex-col gap-0.5">
-                              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 text-[10px] font-semibold flex items-center gap-1 w-fit">
-                                <XCircle className="h-3 w-3 text-amber-600" />
-                                Dismissed
+                              <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[10px] font-semibold flex items-center gap-1 w-fit">
+                                <XCircle className="h-3 w-3 text-rose-600" />
+                                Rejected
                               </Badge>
-                              {job.dismissal_reason && (
-                                <span className="text-[10px] text-muted-foreground truncate max-w-[140px]" title={job.dismissal_reason}>
-                                  {job.dismissal_reason}
+                              {(job.dismissal_reason || job.rejection_reason) && (
+                                <span className="text-[10px] text-muted-foreground truncate max-w-[140px]" title={job.dismissal_reason || job.rejection_reason}>
+                                  {job.dismissal_reason || job.rejection_reason}
                                 </span>
                               )}
                             </div>
@@ -1136,7 +1299,7 @@ export const CandidateDiscoveryJobsSection = ({
                                 variant="outline"
                                 onClick={() => handleRestoreRecommendation(job)}
                                 disabled={isUpdating}
-                                className="h-7 px-2.5 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 flex items-center gap-1 cursor-pointer"
+                                className="h-7 px-2.5 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
                                 title="Restore recommendation to active list"
                               >
                                 <RotateCcw className="h-3 w-3" />
@@ -1155,37 +1318,25 @@ export const CandidateDiscoveryJobsSection = ({
                                 <Button
                                   type="button"
                                   size="sm"
-                                  onClick={() => handleApplyDirectly(job, "applied")}
+                                  onClick={() => handleApplyForThis(job)}
                                   disabled={isUpdating}
-                                  className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-                                  title="Add this job to candidate application pipeline"
+                                  className="h-7 px-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+                                  title="Apply and add this job to candidate application pipeline"
                                 >
-                                  {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                  Applied
+                                  {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+                                  Apply for this
                                 </Button>
                                 <Button
                                   type="button"
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleApplyDirectly(job, "rejected")}
-                                  disabled={isUpdating}
-                                  className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
-                                  title="Mark this job as rejected in candidate application pipeline"
-                                >
-                                  <X className="h-3 w-3" />
-                                  Reject
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
                                   onClick={() => handleOpenDismissModal(job)}
                                   disabled={isUpdating}
-                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
-                                  title="Dismiss recommendation for this candidate"
+                                  className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                                  title="Reject recommendation for this candidate"
                                 >
-                                  <Ban className="h-3 w-3 text-rose-500" />
-                                  Dismiss
+                                  <XCircle className="h-3 w-3 text-rose-600" />
+                                  Reject
                                 </Button>
                               </>
                             )}
@@ -1317,15 +1468,15 @@ export const CandidateDiscoveryJobsSection = ({
                     const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
                     const isRejected = existingStatus === "rejected" || selectedJob.status === "REJECTED";
                     const isApplied = (!!existingApp && !isRejected) || selectedJob.status === "APPLIED" || selectedJob.has_applied === true;
-                    const isDismissed = selectedJob.discovery_status === "DISMISSED" || selectedJob.is_dismissed === true;
+                    const isDismissed = selectedJob.discovery_status === "DISMISSED" || selectedJob.is_dismissed === true || isRejected;
 
                     return (
                       <div className="flex items-center gap-2">
                         {isDismissed ? (
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-bold px-2.5 py-1 flex items-center gap-1">
-                              <XCircle className="h-3.5 w-3.5 text-amber-600" />
-                              Dismissed
+                            <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-xs font-bold px-2.5 py-1 flex items-center gap-1">
+                              <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                              Rejected
                             </Badge>
                             <Button
                               type="button"
@@ -1335,7 +1486,7 @@ export const CandidateDiscoveryJobsSection = ({
                                 handleRestoreRecommendation(selectedJob);
                                 setSelectedJob(null);
                               }}
-                              className="h-8 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 cursor-pointer"
+                              className="h-8 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 cursor-pointer"
                             >
                               <RotateCcw className="h-3.5 w-3.5 mr-1" />
                               Restore Recommendation
@@ -1360,41 +1511,30 @@ export const CandidateDiscoveryJobsSection = ({
                               type="button"
                               size="sm"
                               onClick={() => {
-                                handleApplyDirectly(selectedJob, "applied");
+                                const current = selectedJob;
                                 setSelectedJob(null);
+                                handleApplyForThis(current);
                               }}
                               disabled={updatingJobId === selectedJob.id}
                               className="h-8 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
                             >
-                              {updatingJobId === selectedJob.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                              Applied
+                              {updatingJobId === selectedJob.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                              Apply for this
                             </Button>
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
                               onClick={() => {
-                                handleApplyDirectly(selectedJob, "rejected");
+                                const target = selectedJob;
                                 setSelectedJob(null);
+                                handleOpenDismissModal(target);
                               }}
                               disabled={updatingJobId === selectedJob.id}
                               className="h-8 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 rounded-lg flex items-center gap-1 cursor-pointer"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <XCircle className="h-3.5 w-3.5 text-rose-600" />
                               Reject
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                handleOpenDismissModal(selectedJob);
-                                setSelectedJob(null);
-                              }}
-                              className="h-8 px-2.5 text-xs text-rose-600 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
-                            >
-                              <Ban className="h-3.5 w-3.5 text-rose-500" />
-                              Dismiss
                             </Button>
                           </div>
                         )}
@@ -1514,7 +1654,7 @@ export const CandidateDiscoveryJobsSection = ({
                   const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
                   const isRejected = existingStatus === "rejected" || selectedJob.status === "REJECTED";
                   const isApplied = (!!existingApp && !isRejected) || selectedJob.status === "APPLIED" || selectedJob.has_applied === true;
-                  const isDismissed = selectedJob.discovery_status === "DISMISSED" || selectedJob.is_dismissed === true;
+                  const isDismissed = selectedJob.discovery_status === "DISMISSED" || selectedJob.is_dismissed === true || isRejected;
 
                   if (isDismissed) {
                     return (
@@ -1526,7 +1666,7 @@ export const CandidateDiscoveryJobsSection = ({
                           handleRestoreRecommendation(selectedJob);
                           setSelectedJob(null);
                         }}
-                        className="h-8 text-xs text-amber-700 border-amber-300 hover:bg-amber-50 cursor-pointer"
+                        className="h-8 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 cursor-pointer"
                       >
                         <RotateCcw className="h-3.5 w-3.5 mr-1" />
                         Restore Recommendation
@@ -1558,39 +1698,28 @@ export const CandidateDiscoveryJobsSection = ({
                         type="button"
                         size="sm"
                         onClick={() => {
-                          handleApplyDirectly(selectedJob, "applied");
+                          const current = selectedJob;
                           setSelectedJob(null);
+                          handleApplyForThis(current);
                         }}
                         className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 cursor-pointer"
                       >
-                        <Check className="h-3.5 w-3.5" />
-                        Apply (Add to Pipeline)
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Apply for this
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          handleApplyDirectly(selectedJob, "rejected");
+                          const target = selectedJob;
                           setSelectedJob(null);
+                          handleOpenDismissModal(target);
                         }}
                         className="h-8 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
                       >
-                        <X className="h-3.5 w-3.5" />
-                        Reject Application
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          handleOpenDismissModal(selectedJob);
-                          setSelectedJob(null);
-                        }}
-                        className="h-8 text-xs text-rose-600 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
-                      >
-                        <Ban className="h-3.5 w-3.5 text-rose-500" />
-                        Dismiss
+                        <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                        Reject
                       </Button>
                     </div>
                   );
@@ -1610,13 +1739,13 @@ export const CandidateDiscoveryJobsSection = ({
         </DialogContent>
       </Dialog>
 
-      {/* Dismiss Recommendation Confirmation Dialog */}
+      {/* Reject Recommendation Confirmation Dialog */}
       <Dialog open={!!dismissTargetJob} onOpenChange={(open) => { if (!open) setDismissTargetJob(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <Ban className="h-5 w-5 text-rose-600" />
-              Dismiss Recommendation
+              <XCircle className="h-5 w-5 text-rose-600" />
+              Reject Recommendation
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Record why you do not want to proceed with this opportunity for <span className="font-semibold text-foreground">{candidateName}</span>.
@@ -1632,7 +1761,7 @@ export const CandidateDiscoveryJobsSection = ({
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
-                Dismissal Reason <span className="text-rose-500">*</span>
+                Rejection Reason <span className="text-rose-500">*</span>
               </Label>
               <Select value={dismissReason} onValueChange={setDismissReason}>
                 <SelectTrigger className="w-full text-xs">
@@ -1655,7 +1784,7 @@ export const CandidateDiscoveryJobsSection = ({
               <Textarea
                 value={dismissComments}
                 onChange={(e) => setDismissComments(e.target.value)}
-                placeholder={dismissReason === "Other" ? "Explain why this opportunity is being dismissed..." : "Optional internal notes..."}
+                placeholder={dismissReason === "Other" ? "Explain why this opportunity is being rejected..." : "Optional internal notes..."}
                 rows={3}
                 className="text-xs resize-none"
               />
@@ -1673,7 +1802,86 @@ export const CandidateDiscoveryJobsSection = ({
               className="bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer"
             >
               {isSubmittingDismiss ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
-              Confirm Dismissal
+              Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm External Application Modal (Pop Out) */}
+      <Dialog open={confirmApplyModalOpen} onOpenChange={setConfirmApplyModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-emerald-600" />
+              Confirm Application Submission
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              The external job posting was opened in a new tab. Have you submitted the application for <span className="font-semibold text-foreground">{candidateName}</span>?
+            </DialogDescription>
+          </DialogHeader>
+
+          {targetJobForConfirmApply && (
+            <div className="space-y-3 py-2 text-xs">
+              <div className="p-3 bg-muted/40 rounded-lg border border-border/60 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-medium">Candidate:</span>
+                  <span className="font-semibold text-foreground">{candidateName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-medium">Target Role:</span>
+                  <span className="font-medium text-foreground">
+                    {targetJobForConfirmApply.candidate_role || targetJobForConfirmApply.target_role || "Job Opportunity"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-medium">Job Title:</span>
+                  <span className="font-medium text-foreground truncate max-w-[220px]">
+                    {targetJobForConfirmApply.title}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-medium">Company:</span>
+                  <span className="font-medium text-foreground">
+                    {targetJobForConfirmApply.company_name}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-900 dark:text-blue-300 text-xs">
+                <p className="font-medium">Have you successfully submitted this candidate&apos;s application on the external job portal?</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Application Notes (Optional)</Label>
+                <Input
+                  value={applyNotes}
+                  onChange={(e) => setApplyNotes(e.target.value)}
+                  placeholder="e.g. Applied via Company Portal / submitted customized resume"
+                  className="text-xs h-9"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex justify-end gap-2 border-t pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmApplyModalOpen(false)}
+              disabled={submittingApply}
+              className="h-8 text-xs cursor-pointer"
+            >
+              No, Keep as Not Applied
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmApply}
+              disabled={submittingApply}
+              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 cursor-pointer"
+            >
+              {submittingApply ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              {submittingApply ? "Saving Application..." : "Yes, Mark as Applied"}
             </Button>
           </DialogFooter>
         </DialogContent>
