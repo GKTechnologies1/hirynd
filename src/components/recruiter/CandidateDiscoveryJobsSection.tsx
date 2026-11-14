@@ -12,6 +12,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, cn } from "@/lib/utils";
 import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
@@ -647,30 +649,54 @@ export const CandidateDiscoveryJobsSection = ({
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* Recommendations Status: Active vs Rejected */}
-            <div className="flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/50">
+            <div className="relative flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/50">
               <button
                 type="button"
-                onClick={() => { setDiscoveryTab("active"); setCurrentPage(1); }}
+                onClick={() => {
+                  if (discoveryTab !== "active") {
+                    setDiscoveryTab("active");
+                    setCurrentPage(1);
+                  }
+                }}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                  "relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
                   discoveryTab === "active"
-                    ? "bg-background text-primary shadow-xs font-extrabold"
+                    ? "text-primary font-extrabold"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
+                {discoveryTab === "active" && (
+                  <motion.div
+                    layoutId="discoveryTabHighlight"
+                    className="absolute inset-0 bg-background rounded-lg shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
                 <Compass className="h-3.5 w-3.5" />
                 Active
               </button>
               <button
                 type="button"
-                onClick={() => { setDiscoveryTab("dismissed"); setCurrentPage(1); }}
+                onClick={() => {
+                  if (discoveryTab !== "dismissed") {
+                    setDiscoveryTab("dismissed");
+                    setCurrentPage(1);
+                  }
+                }}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                  "relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
                   discoveryTab === "dismissed"
-                    ? "bg-background text-rose-600 shadow-xs font-extrabold"
+                    ? "text-rose-600 font-extrabold"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
+                {discoveryTab === "dismissed" && (
+                  <motion.div
+                    layoutId="discoveryTabHighlight"
+                    className="absolute inset-0 bg-background rounded-lg shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
                 <XCircle className="h-3.5 w-3.5" />
                 Rejected
               </button>
@@ -732,7 +758,7 @@ export const CandidateDiscoveryJobsSection = ({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className="p-0 overflow-hidden">
         {/* Filters Toolbar */}
         <div className="px-6 pt-4 pb-3 border-b border-border/30 bg-muted/5 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -817,7 +843,7 @@ export const CandidateDiscoveryJobsSection = ({
             <div className="flex flex-wrap items-center gap-2">
               {/* Min Visa Score */}
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-muted-foreground font-medium">Min Score:</span>
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Min Score:</span>
                 <Select value={minScore} onValueChange={(v) => { setMinScore(v); setCurrentPage(1); }}>
                   <SelectTrigger className="w-24 h-7 text-[10px] bg-muted/30">
                     <SelectValue placeholder="Any" />
@@ -855,7 +881,7 @@ export const CandidateDiscoveryJobsSection = ({
 
             {/* Sorting & Clear */}
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground font-medium">Sort:</span>
+              <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Sort:</span>
               <Select value={sortOrder} onValueChange={setSortOrder}>
                 <SelectTrigger className="w-36 h-7 text-[10px] bg-muted/30">
                   <SelectValue placeholder="Sort Order" />
@@ -882,15 +908,70 @@ export const CandidateDiscoveryJobsSection = ({
           </div>
         </div>
 
-        {/* ===================== VIEW MODE 1: CARDS VIEW ===================== */}
-        {viewMode === "cards" ? (
-          <div className="p-4 md:p-6 space-y-4">
-            {loading ? (
-              <div className="py-12 text-center text-muted-foreground">
-                <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
-                Loading matching discovered opportunities...
-              </div>
-            ) : displayedJobs.length === 0 ? (
+        {/* ===================== ANIMATED CONTENT: ACTIVE VS REJECTED LISTS ===================== */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={discoveryTab}
+            initial={{ opacity: 0, x: discoveryTab === "active" ? -24 : 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: discoveryTab === "active" ? 24 : -24 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            {/* ===================== VIEW MODE 1: CARDS VIEW ===================== */}
+            {viewMode === "cards" ? (
+              <div className="p-4 md:p-6 space-y-4">
+                {loading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {Array.from({ length: 6 }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-card border border-border/70 rounded-xl p-4 shadow-2xs space-y-3 flex flex-col justify-between"
+                      >
+                        {/* Top Header Row Skeleton */}
+                        <div className="flex items-start gap-3">
+                          {/* Company Logo Skeleton */}
+                          <Skeleton className="w-10 h-10 rounded-xl shrink-0 mt-0.5" />
+
+                          {/* Title and Badges Info Skeleton */}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Skeleton className="h-4 w-16 rounded-md" />
+                              <Skeleton className="h-4 w-20 rounded-md" />
+                              <Skeleton className="h-4 w-14 rounded-md" />
+                            </div>
+                            <Skeleton className="h-5 w-4/5 rounded-md" />
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="h-4 w-1/3 rounded-md" />
+                              <Skeleton className="h-4 w-20 rounded-md" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Middle Details Grid Skeleton */}
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40">
+                          <div className="space-y-1.5">
+                            <Skeleton className="h-4 w-3/4 rounded-md" />
+                            <Skeleton className="h-4 w-1/2 rounded-md" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Skeleton className="h-4 w-2/3 rounded-md" />
+                            <Skeleton className="h-4 w-4/5 rounded-md" />
+                          </div>
+                        </div>
+
+                        {/* Footer Actions Row Skeleton */}
+                        <div className="pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
+                          <Skeleton className="h-6 w-20 rounded-md" />
+                          <div className="flex items-center gap-1.5">
+                            <Skeleton className="h-7 w-20 rounded-lg" />
+                            <Skeleton className="h-7 w-16 rounded-lg" />
+                            <Skeleton className="h-7 w-7 rounded-lg" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : displayedJobs.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground space-y-2">
                 <Briefcase className="h-10 w-10 mx-auto opacity-30" />
                 <p className="font-bold text-sm text-foreground">
@@ -1141,28 +1222,78 @@ export const CandidateDiscoveryJobsSection = ({
         ) : (
           /* ===================== VIEW MODE 2: TABLE VIEW ===================== */
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+            <table className="w-full min-w-[1150px] text-xs text-left">
               <thead className="bg-muted/40 text-muted-foreground border-b border-border/40 font-semibold uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Opportunity</th>
-                  <th className="py-3 px-3">Candidate Match</th>
-                  <th className="py-3 px-3">Visa Intelligence</th>
-                  <th className="py-3 px-3">Location</th>
-                  <th className="py-3 px-3">Salary</th>
-                  <th className="py-3 px-3">Portal</th>
-                  <th className="py-3 px-3">Posted</th>
-                  <th className="py-3 px-4">Application Status</th>
-                  <th className="py-3 px-4 text-center">Actions</th>
+                  <th className="py-3 px-4 min-w-[260px] max-w-[320px] text-left">Opportunity</th>
+                  <th className="py-3 px-3 min-w-[150px] text-left">Candidate Match</th>
+                  <th className="py-3 px-3 min-w-[170px] text-left">Visa Intelligence</th>
+                  <th className="py-3 px-3 min-w-[130px] text-left">Location</th>
+                  <th className="py-3 px-3 min-w-[110px] text-left">Salary</th>
+                  <th className="py-3 px-3 min-w-[90px] text-left">Portal</th>
+                  <th className="py-3 px-3 min-w-[95px] text-left">Posted</th>
+                  <th className="py-3 px-4 min-w-[140px] text-left">Application Status</th>
+                  <th className="py-3 px-4 min-w-[170px] text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
                 {loading ? (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center text-muted-foreground">
-                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
-                      Loading matching discovered opportunities...
-                    </td>
-                  </tr>
+                  Array.from({ length: 6 }).map((_, idx) => (
+                    <tr key={idx} className="border-b border-border/30 align-middle">
+                      {/* Opportunity Skeleton */}
+                      <td className="py-3.5 px-4 min-w-[260px] max-w-[320px]">
+                        <Skeleton className="h-4 w-44 mb-1.5 rounded-md" />
+                        <Skeleton className="h-3 w-28 rounded-md" />
+                      </td>
+
+                      {/* Candidate Match Skeleton */}
+                      <td className="py-3.5 px-3 min-w-[150px]">
+                        <Skeleton className="h-5 w-24 rounded-md" />
+                      </td>
+
+                      {/* Visa Intelligence Skeleton */}
+                      <td className="py-3.5 px-3 min-w-[170px]">
+                        <div className="space-y-1">
+                          <Skeleton className="h-5 w-28 rounded-md" />
+                          <Skeleton className="h-3 w-20 rounded-md" />
+                        </div>
+                      </td>
+
+                      {/* Location Skeleton */}
+                      <td className="py-3.5 px-3 min-w-[130px]">
+                        <Skeleton className="h-4 w-20 rounded-md" />
+                      </td>
+
+                      {/* Salary Skeleton */}
+                      <td className="py-3.5 px-3 min-w-[110px]">
+                        <Skeleton className="h-4 w-16 rounded-md" />
+                      </td>
+
+                      {/* Portal Skeleton */}
+                      <td className="py-3.5 px-3 min-w-[90px]">
+                        <Skeleton className="h-4 w-12 rounded-md" />
+                      </td>
+
+                      {/* Posted Skeleton */}
+                      <td className="py-3.5 px-3 min-w-[95px]">
+                        <Skeleton className="h-4 w-16 rounded-md" />
+                      </td>
+
+                      {/* Application Status Skeleton */}
+                      <td className="py-3.5 px-4 min-w-[140px]">
+                        <Skeleton className="h-6 w-20 rounded-md" />
+                      </td>
+
+                      {/* Actions Skeleton */}
+                      <td className="py-3.5 px-4 min-w-[170px] text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Skeleton className="h-7 w-16 rounded-md" />
+                          <Skeleton className="h-7 w-16 rounded-md" />
+                          <Skeleton className="h-7 w-7 rounded-md" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : displayedJobs.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-muted-foreground">
@@ -1181,34 +1312,42 @@ export const CandidateDiscoveryJobsSection = ({
                     const isDismissed = job._isDismissed;
 
                     return (
-                      <tr key={job.id} className="hover:bg-muted/20 transition-colors">
+                      <tr key={job.id} className="hover:bg-muted/20 transition-colors align-middle">
                         {/* Opportunity: Title & Company */}
-                        <td className="py-3 px-4 max-w-[220px]">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDetail(job.id)}
-                            className="font-bold text-foreground hover:text-primary hover:underline text-left block truncate text-xs cursor-pointer"
-                            title={job.title}
-                          >
-                            {job.title}
-                          </button>
-                          <span className="text-muted-foreground text-[11px] block truncate mt-0.5" title={job.company_name}>
-                            {job.company_name}
-                          </span>
+                        <td className="py-3.5 px-4 min-w-[260px] max-w-[320px] align-middle">
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDetail(job.id)}
+                              className="font-bold text-foreground hover:text-primary hover:underline text-left text-xs line-clamp-2 leading-snug cursor-pointer transition-colors"
+                              title={job.title}
+                            >
+                              {job.title}
+                            </button>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-muted-foreground text-[11px] font-medium truncate max-w-[180px]" title={job.company_name}>
+                                {job.company_name}
+                              </span>
+                              {job.detected_restrictions && job.detected_restrictions.length > 0 && (
+                                <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
+                              )}
+                            </div>
+                          </div>
                         </td>
 
                         {/* Candidate Match Badges */}
-                        <td className="py-3 px-3 max-w-[160px]">
+                        <td className="py-3.5 px-3 min-w-[150px] align-middle">
                           <Badge
                             variant="secondary"
-                            className="bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-[10px] font-medium truncate max-w-[150px]"
+                            className="bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-[10px] font-semibold truncate max-w-[140px] inline-flex items-center"
+                            title={job.target_role || "Role Match"}
                           >
                             {job.target_role || "Role Match"}
                           </Badge>
                         </td>
 
                         {/* Visa Intelligence */}
-                        <td className="py-3 px-3 whitespace-nowrap">
+                        <td className="py-3.5 px-3 min-w-[170px] whitespace-nowrap align-middle">
                           <div className="flex flex-col gap-1 items-start">
                             <VisaGradeBadge
                               grade={job.visa_grade}
@@ -1231,37 +1370,39 @@ export const CandidateDiscoveryJobsSection = ({
                         </td>
 
                         {/* Location */}
-                        <td className="py-3 px-3 text-muted-foreground max-w-[130px] truncate whitespace-nowrap">
+                        <td className="py-3.5 px-3 min-w-[130px] text-muted-foreground whitespace-nowrap align-middle">
                           {job.is_remote ? (
-                            <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 text-[10px] py-0 px-1.5">
+                            <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 text-[10px] py-0 px-1.5 font-medium">
                               Remote
                             </Badge>
                           ) : (
-                            <span>{job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA")}</span>
+                            <span className="text-[11px] font-medium" title={job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA")}>
+                              {job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA")}
+                            </span>
                           )}
                         </td>
 
                         {/* Salary */}
-                        <td className="py-3 px-3 text-muted-foreground whitespace-nowrap font-medium">
+                        <td className="py-3.5 px-3 min-w-[110px] text-muted-foreground whitespace-nowrap font-medium text-[11px] align-middle">
                           {job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : "Not Disclosed")}
                         </td>
 
                         {/* Portal */}
-                        <td className="py-3 px-3">
+                        <td className="py-3.5 px-3 min-w-[90px] whitespace-nowrap align-middle">
                           <span className="capitalize font-semibold text-foreground text-[11px]">
                             {job.source_portal || "Web"}
                           </span>
                         </td>
 
                         {/* Posted */}
-                        <td className="py-3 px-3 text-muted-foreground whitespace-nowrap text-[11px]">
+                        <td className="py-3.5 px-3 min-w-[95px] text-muted-foreground whitespace-nowrap text-[11px] align-middle">
                           {job.date_posted ? formatDate(job.date_posted) : "Recent"}
                         </td>
 
                         {/* Authoritative Application Status */}
-                        <td className="py-3 px-4 whitespace-nowrap">
+                        <td className="py-3.5 px-4 min-w-[140px] whitespace-nowrap align-middle">
                           {isDismissed ? (
-                            <div className="flex flex-col gap-0.5">
+                            <div className="flex flex-col gap-0.5 items-start">
                               <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[10px] font-semibold flex items-center gap-1 w-fit">
                                 <XCircle className="h-3 w-3 text-rose-600" />
                                 Rejected
@@ -1290,7 +1431,7 @@ export const CandidateDiscoveryJobsSection = ({
                         </td>
 
                         {/* Actions */}
-                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <td className="py-3.5 px-4 min-w-[170px] text-center whitespace-nowrap align-middle">
                           <div className="flex items-center justify-center gap-1.5">
                             {isDismissed ? (
                               <Button
@@ -1375,6 +1516,8 @@ export const CandidateDiscoveryJobsSection = ({
             </table>
           </div>
         )}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Pagination Footer */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3 border-t border-border/40 text-xs text-muted-foreground">
