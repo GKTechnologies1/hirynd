@@ -44,11 +44,22 @@ def load_env_file() -> None:
 load_env_file()
 
 
+def sanitize_token(val: str | None) -> str | None:
+    """Strips quotes, bearer prefix, spaces, and whitespace from tokens."""
+    if not val:
+        return None
+    cleaned = val.strip().strip('"\'')
+    if cleaned.lower().startswith('bearer '):
+        cleaned = cleaned[7:].strip().strip('"\'')
+    cleaned = cleaned.replace(' ', '').replace('\t', '').replace('\r', '').replace('\n', '')
+    return cleaned or None
+
+
 def env(name: str) -> str | None:
     """The environment variable, or None when not set."""
     val = os.environ.get(name)
     if val is not None and name == 'APIFY_API_TOKEN':
-        val = val.strip().replace(' ', '').replace('\t', '').replace('\r', '').replace('\n', '')
+        return sanitize_token(val)
     return val
 
 

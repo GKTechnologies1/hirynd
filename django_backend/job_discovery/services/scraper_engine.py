@@ -246,7 +246,14 @@ def execute_scraping_run(execution_id: UUID) -> None:
     execution.started_at = timezone.now()
     execution.save(update_fields=['status', 'started_at'])
 
-    token = (conf.env('APIFY_API_TOKEN') or os.getenv('APIFY_API_TOKEN', '')).strip().replace(' ', '').replace('\t', '')
+    raw_tok = conf.env('APIFY_API_TOKEN') or os.getenv('APIFY_API_TOKEN', '')
+    token = getattr(conf, 'sanitize_token', lambda v: v)(raw_tok) if raw_tok else None
+    if not token and raw_tok:
+        token = raw_tok.strip().strip('"\'').replace(' ', '').replace('\t', '').replace('\r', '').replace('\n', '')
+
+    masked_tok = f"{token[:8]}...{token[-4:]} (len: {len(token)})" if token else "NOT CONFIGURED"
+    logger.info(f"[JobScraper] Apify token status: {masked_tok}")
+
     config = execution.config or {}
     roles_config = config.get('roles', [])
     sources = config.get('sources', ['linkedin', 'indeed', 'glassdoor', 'dice'])
@@ -317,7 +324,15 @@ def execute_scraping_run(execution_id: UUID) -> None:
                         continue
 
                     if not token:
-                        logger.warning(f"[JobScraper] APIFY_API_TOKEN is not configured. Skipping live scrape for {source}.")
+                        err_msg = "APIFY_API_TOKEN is not configured in the server environment. Please set APIFY_API_TOKEN to run scraper jobs."
+                        logger.error(f"[JobScraper] {err_msg}")
+                        errors.append(f"{source}: {err_msg}")
+                        continue
+
+                    if not token.startswith('apify_api_'):
+                        err_msg = f"Invalid APIFY_API_TOKEN configured (starts with '{token[:10]}', expected 'apify_api_...'). Please check environment variables."
+                        logger.error(f"[JobScraper] {err_msg}")
+                        errors.append(f"{source}: {err_msg}")
                         continue
 
                     actor_id = actor_payload['actorId']

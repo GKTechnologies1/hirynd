@@ -24,7 +24,9 @@ def _client():
         import os
         from apify_client import ApifyClient
         raw_token = conf.env('APIFY_API_TOKEN') or os.environ.get('APIFY_API_TOKEN') or ''
-        clean_token = raw_token.strip().replace(' ', '').replace('\t', '').replace('\r', '').replace('\n', '')
+        clean_token = getattr(conf, 'sanitize_token', lambda v: v)(raw_token) if raw_token else None
+        if not clean_token and raw_token:
+            clean_token = raw_token.strip().strip('"\'').replace(' ', '').replace('\t', '').replace('\r', '').replace('\n', '')
         c = ApifyClient(token=clean_token or None)
         _local.client = c
     return c
