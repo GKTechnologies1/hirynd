@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { candidatesApi } from "@/services/api";
+import { candidatesApi, recruitersApi } from "@/services/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SuggestInput } from "@/components/ui/SuggestInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,7 +17,7 @@ import { formatDate } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar, ChevronDown, X, Search } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, Phone, Plus, Calendar, ChevronDown, X, Search, Download, ExternalLink } from "lucide-react";
 
 const navItems = [
   { label: "Overview", path: "/candidate-dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -139,6 +140,7 @@ const OutcomeDropdown = ({
 
 const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateInterviewsPageProps) => {
   const { user } = useAuth();
+  const isStaff = user?.role === 'recruiter' || user?.role === 'admin' || user?.role === 'team_lead' || user?.role === 'team_manager';
   const { toast } = useToast();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,11 +199,153 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
   const [interviewDate, setInterviewDate] = useState("");
   const [round, setRound] = useState("");
   const [outcome, setOutcome] = useState("scheduled");
+  const [interviewerName, setInterviewerName] = useState("");
+  const [interviewerEmail, setInterviewerEmail] = useState("");
+  const [interviewerPhone, setInterviewerPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [difficultQuestions, setDifficultQuestions] = useState("");
   const [supportNeeded, setSupportNeeded] = useState(false);
   const [supportNotes, setSupportNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Application recommendations state & refs
+  const roleInputRef = useRef<HTMLInputElement>(null);
+  const [candidateApplications, setCandidateApplications] = useState<Array<{ company_name: string; role_title: string; job_url?: string }>>([]);
+
+  useEffect(() => {
+    if (!candidate?.id) return;
+    recruitersApi.getJobApplications(candidate.id)
+      .then((res) => {
+        const raw = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        setCandidateApplications(
+          raw.map((a: any) => ({
+            company_name: (a.company_name || a.company || "").trim(),
+            role_title: (a.role_title || a.role || a.job_title || a.title || "").trim(),
+            job_url: (a.job_url || a.job_link || a.url || "").trim(),
+          })).filter((a: any) => a.company_name)
+        );
+      })
+      .catch(() => {});
+  }, [candidate?.id]);
+
+  const allApplications = useMemo(() => {
+    const list = [...candidateApplications];
+    const candLists = [
+      candidate?.job_applications,
+      candidate?.job_entries,
+      candidate?.job_postings,
+    ];
+    candLists.forEach((cl) => {
+      if (Array.isArray(cl)) {
+        cl.forEach((a: any) => {
+          const comp = (a.company_name || a.company || "").trim();
+          const role = (a.role_title || a.role || a.job_title || a.title || "").trim();
+          const url = (a.job_url || a.job_link || a.url || "").trim();
+          if (comp) {
+            list.push({ company_name: comp, role_title: role, job_url: url });
+          }
+        });
+      }
+    });
+    return list;
+  }, [candidateApplications, candidate]);
+
+  const safeUrl = (url: string) => {
+    if (!url) return "#";
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  const getJobUrlForLog = (l: any) => {
+    if (l.job_url && typeof l.job_url === "string" && l.job_url.trim()) {
+      return l.job_url.trim();
+    }
+    const comp = (l.company_name || "").trim().toLowerCase();
+    const role = (l.role_title || "").trim().toLowerCase();
+    if (!comp) return null;
+
+    if (role) {
+      const exact = allApplications.find(
+        (a) => a.company_name?.trim().toLowerCase() === comp && a.role_title?.trim().toLowerCase() === role && a.job_url
+      );
+      if (exact?.job_url) return exact.job_url;
+    }
+    const compMatch = allApplications.find(
+      (a) => a.company_name?.trim().toLowerCase() === comp && a.job_url
+    );
+    return compMatch?.job_url || null;
+  };
+
+  const companySuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    allApplications.forEach((app) => {
+      const c = app.company_name.trim();
+      if (c && !seen.has(c.toLowerCase())) {
+        seen.add(c.toLowerCase());
+        list.push(c);
+      }
+    });
+    return list;
+  }, [allApplications]);
+
+  const companyRolesMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    allApplications.forEach((app) => {
+      const c = app.company_name.toLowerCase().trim();
+      const r = app.role_title.trim();
+      if (!map.has(c)) {
+        map.set(c, new Set<string>());
+      }
+      if (r) {
+        map.get(c)!.add(r);
+      }
+    });
+    return map;
+  }, [allApplications]);
+
+  const getCompanyBadge = (compName: string) => {
+    const rolesSet = companyRolesMap.get(compName.toLowerCase().trim());
+    const count = rolesSet ? rolesSet.size : 0;
+    if (count > 1) return `${count} roles applied`;
+    if (count === 1) return "1 role applied";
+    return "Applied";
+  };
+
+  const roleSuggestions = useMemo(() => {
+    const trimmedComp = companyName.trim().toLowerCase();
+    if (trimmedComp) {
+      const exactSet = companyRolesMap.get(trimmedComp);
+      if (exactSet && exactSet.size > 0) {
+        return Array.from(exactSet);
+      }
+      const partialRoles = new Set<string>();
+      allApplications.forEach((app) => {
+        if (app.company_name.toLowerCase().includes(trimmedComp) && app.role_title) {
+          partialRoles.add(app.role_title);
+        }
+      });
+      if (partialRoles.size > 0) {
+        return Array.from(partialRoles);
+      }
+    }
+    const allRoles = new Set<string>();
+    allApplications.forEach((app) => {
+      if (app.role_title) allRoles.add(app.role_title);
+    });
+    return Array.from(allRoles);
+  }, [allApplications, companyName, companyRolesMap]);
+
+  const handleSelectCompany = (selectedCompany: string) => {
+    setCompanyName(selectedCompany);
+    setTimeout(() => {
+      if (roleInputRef.current) {
+        roleInputRef.current.focus();
+        roleInputRef.current.click();
+      }
+    }, 60);
+  };
 
   const fetchLogs = async (showLoading = true, isPolling = false) => {
     if (!candidate?.id) return;
@@ -247,6 +391,9 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
         interview_date: toISODate(interviewDate),
         stage_round: round,
         outcome,
+        interviewer_name: interviewerName.trim(),
+        interviewer_email: interviewerEmail.trim(),
+        interviewer_phone: interviewerPhone.trim(),
         feedback_notes: notes.trim(),
         notes: notes.trim(),
         difficult_questions: difficultQuestions.trim(),
@@ -265,7 +412,8 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
 
   const resetForm = () => {
     setLogType("screening_call"); setCompanyName(""); setRoleTitle(""); setInterviewDate("");
-    setRound(""); setOutcome("scheduled"); setNotes(""); setDifficultQuestions("");
+    setRound(""); setOutcome("scheduled"); setInterviewerName(""); setInterviewerEmail(""); setInterviewerPhone("");
+    setNotes(""); setDifficultQuestions("");
     setSupportNeeded(false); setSupportNotes("");
   };
 
@@ -276,8 +424,62 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
   const completed = logs.filter(l => l.outcome === "completed").length;
   const offers = logs.filter(l => l.outcome === "selected").length;
 
+  const handleDownloadInterviewsCSV = () => {
+    const listToDownload = filteredLogs.length > 0 ? filteredLogs : logs;
+    if (listToDownload.length === 0) {
+      toast({ title: "No interviews to download", variant: "destructive" });
+      return;
+    }
+    const headers = [
+      "ID",
+      "Company Name",
+      "Role Title",
+      "Interview Type",
+      "Date",
+      "Time",
+      "Round / Stage",
+      "Outcome",
+      "Interviewer Name",
+      "Interviewer Email",
+      "Meeting Link",
+      "Notes"
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val == null) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = listToDownload.map((l: any) => [
+      escapeCsv(l.id || ""),
+      escapeCsv(l.company_name),
+      escapeCsv(l.role_title),
+      escapeCsv(l.log_type || ""),
+      escapeCsv(l.interview_date || ""),
+      escapeCsv(l.interview_time || ""),
+      escapeCsv(l.round || l.stage_round || ""),
+      escapeCsv(l.outcome || ""),
+      escapeCsv(l.interviewer_name || ""),
+      escapeCsv(l.interviewer_email || ""),
+      escapeCsv(l.call_link || ""),
+      escapeCsv(l.notes || l.feedback_notes || "")
+    ].join(","));
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const cleanName = candidate?.user?.email?.split('@')[0] || "Candidate";
+    a.download = `${cleanName}_Interviews_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export complete", description: `Downloaded ${listToDownload.length} interviews.` });
+  };
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       {loading ? <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading interviews...</p></div> : (
         <div className="space-y-6">
           {/* Summary */}
@@ -298,14 +500,16 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
           </div>
 
           {/* Add Button */}
-          <div className="flex justify-end">
-            <Button onClick={() => setShowForm(!showForm)}>
-              <Plus className="mr-1 h-4 w-4" /> Log Interview / Call
-            </Button>
-          </div>
+          {isStaff && (
+            <div className="flex justify-end">
+              <Button onClick={() => setShowForm(!showForm)}>
+                <Plus className="mr-1 h-4 w-4" /> Log Interview / Call
+              </Button>
+            </div>
+          )}
 
           {/* Form */}
-          {showForm && (
+          {isStaff && showForm && (
             <Card>
               <CardHeader><CardTitle>New Interview / Call Log</CardTitle></CardHeader>
               <CardContent className="space-y-4">
@@ -321,11 +525,25 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
                   </div>
                   <div>
                     <Label>Company Name *</Label>
-                    <Input value={companyName} onChange={e => setCompanyName(e.target.value)} />
+                    <SuggestInput
+                      value={companyName}
+                      onChange={setCompanyName}
+                      onSelectOption={handleSelectCompany}
+                      suggestions={companySuggestions}
+                      itemBadge={getCompanyBadge}
+                      placeholder="e.g. Google"
+                    />
                   </div>
                   <div>
                     <Label>Role Title *</Label>
-                    <Input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} />
+                    <SuggestInput
+                      ref={roleInputRef}
+                      value={roleTitle}
+                      onChange={setRoleTitle}
+                      suggestions={roleSuggestions}
+                      itemBadge={() => "Applied Role"}
+                      placeholder="e.g. Software Engineer"
+                    />
                   </div>
                   <div>
                     <Label>Date *</Label>
@@ -348,6 +566,32 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
                         {OUTCOMES.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div>
+                    <Label>Interviewer / HR Name</Label>
+                    <Input
+                      value={interviewerName}
+                      onChange={e => setInterviewerName(e.target.value)}
+                      placeholder="e.g. John Doe / Jane Smith"
+                    />
+                  </div>
+                  <div>
+                    <Label>Interviewer Email ID</Label>
+                    <Input
+                      type="email"
+                      value={interviewerEmail}
+                      onChange={e => setInterviewerEmail(e.target.value)}
+                      placeholder="e.g. interviewer@company.com"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Interviewed Contact Number (Optional)</Label>
+                    <Input
+                      type="tel"
+                      value={interviewerPhone}
+                      onChange={e => setInterviewerPhone(e.target.value)}
+                      placeholder="e.g. +1 (555) 123-4567"
+                    />
                   </div>
                 </div>
                 <div>
@@ -385,7 +629,19 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
 
           {/* History Table */}
           <Card>
-            <CardHeader><CardTitle>Interview History</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Interview History ({logs.length})</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadInterviewsCSV}
+                className="h-8 text-xs font-semibold gap-1.5"
+                title="Download CSV export"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download Interviews
+              </Button>
+            </CardHeader>
             <CardContent>
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-5 mb-6 items-end">
                 <div className="space-y-1">
@@ -496,7 +752,26 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
                     header: "Role", 
                     accessorKey: "role_title",
                     sortable: true,
-                    className: "text-sm"
+                    className: "text-sm",
+                    render: (l: any) => {
+                      const jobUrl = getJobUrlForLog(l);
+                      if (jobUrl) {
+                        return (
+                          <a
+                            href={safeUrl(jobUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors group"
+                            title={`Open job posting for ${l.role_title || "Role"} at ${l.company_name || "Company"}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className="truncate max-w-[220px]">{l.role_title || "View Job"}</span>
+                            <ExternalLink className="h-3.5 w-3.5 text-primary/70 group-hover:text-primary shrink-0 transition-opacity" />
+                          </a>
+                        );
+                      }
+                      return <span className="text-sm font-medium">{l.role_title || "—"}</span>;
+                    }
                   },
                   { 
                     header: "Round", 

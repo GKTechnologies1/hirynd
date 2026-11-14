@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { recruitersApi } from "@/services/api";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { recruitersApi, candidatesApi } from "@/services/api";
 import { DataTable } from "@/components/ui/DataTable";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X, Search, Plus, Trash2, Loader2, Save, Sparkles, Pencil, Ban, XCircle, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, FileText, Briefcase, KeyRound, DollarSign, ClipboardList, UserPlus, ExternalLink, MessageSquare, Globe, ChevronDown, X, Search, Plus, Trash2, Loader2, Save, Sparkles, Pencil, Ban, XCircle, MoreHorizontal, Download, Eye, Copy, Check, Compass } from "lucide-react";
 import DocumentPreview from "@/components/dashboard/DocumentPreview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/DatePicker";
 import SuggestInput from "@/components/ui/SuggestInput";
+import { CandidateDiscoveryJobsSection } from "@/components/recruiter/CandidateDiscoveryJobsSection";
 import {
   RECOMMENDED_COUNTRIES,
   US_STATE_OPTIONS,
@@ -131,6 +132,58 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     salary?: string;
     visa_eligibility?: string;
   } | null>(null);
+  const [viewingApplication, setViewingApplication] = useState<any>(null);
+  const [copiedDesc, setCopiedDesc] = useState(false);
+
+  // Discovery Jobs Section State & Refs
+  const [showDiscoveryJobs, setShowDiscoveryJobs] = useState(false);
+  const discoveryJobsRef = useRef<HTMLDivElement>(null);
+  const submissionPipelineRef = useRef<HTMLDivElement>(null);
+  const [roles, setRoles] = useState<any[]>(candidate?.roles || []);
+  const [credentials, setCredentials] = useState<any[]>(candidate?.credentials || []);
+
+  const resumes = useMemo(() => {
+    if (!credentials.length || !credentials[0]?.data) {
+      if (candidate?.profile?.resume_url) return [{ label: "Primary Resume", url: candidate.profile.resume_url }];
+      if (candidate?.resume_url) return [{ label: "Primary Resume", url: candidate.resume_url }];
+      return [];
+    }
+    const data = credentials[0].data;
+    const list: Array<{ label: string; url: string }> = [];
+    if (data.primary_resume) list.push({ label: "Primary Resume", url: data.primary_resume });
+    if (data.alternate_resume_versions && Array.isArray(data.alternate_resume_versions)) {
+      data.alternate_resume_versions.forEach((url: string, i: number) => {
+        list.push({ label: `Resume Version ${i + 1}`, url });
+      });
+    }
+    return list;
+  }, [credentials, candidate]);
+
+  const handleJobMovedToPipeline = (createdEntries?: any) => {
+    if (createdEntries) {
+      const list = Array.isArray(createdEntries) ? createdEntries : [createdEntries];
+      setJobPostings(prev => {
+        const prevIds = new Set(prev.map(p => p.id));
+        const fresh = list.filter(item => !prevIds.has(item.id));
+        return [...fresh, ...prev];
+      });
+    }
+    if (candidate?.id) {
+      recruitersApi.getJobApplications(candidate.id).then(res => {
+        const rawJobs = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        if (rawJobs.length > 0) {
+          setJobPostings(prev => {
+            const map = new Map();
+            [...rawJobs, ...prev].forEach(j => map.set(j.id, j));
+            return Array.from(map.values());
+          });
+        }
+      }).catch(() => {});
+    }
+    setTimeout(() => {
+      submissionPipelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+  };
 
   // Form state for staff submit job application
   const [jobLinks, setJobLinks] = useState<Array<{
@@ -487,10 +540,6 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
   };
 
   const handleRejectJob = async (job: any) => {
-    if (!isStaff) {
-      toast({ title: "Permission Denied", description: "Only admin and staff can reject applications.", variant: "destructive" });
-      return;
-    }
     if (!job?.id) return;
     const jobId = job.id;
     setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, status: "rejected", application_status: "rejected", candidate_response_status: "rejected" } : j));
@@ -501,6 +550,12 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
 
     try {
       await recruitersApi.updateJobStatus(jobId, "rejected");
+      if (candidate?.id) {
+        recruitersApi.getJobApplications(candidate.id).then(res => {
+          const rawJobs = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          if (rawJobs.length > 0) setJobPostings(rawJobs);
+        }).catch(() => {});
+      }
     } catch (e: any) {
       toast({ title: "Rejection failed", description: e.response?.data?.error || e.message, variant: "destructive" });
     }
@@ -567,12 +622,72 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
         if (fromDate || toDate) matchDate = false;
       }
 
-      const currentStatus = j.candidate_response_status || j.status || j.application_status;
-      const matchAction = actionFilter === "all" || currentStatus?.toLowerCase() === actionFilter.toLowerCase();
+      const currentStatus = (j.application_status || j.status || j.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
+      const matchAction = actionFilter === "all" || currentStatus === actionFilter.toLowerCase().replace(/ /g, "_");
 
       return matchRole && matchCompany && matchDate && matchAction;
     });
   }, [jobPostings, searchRole, searchCompany, fromDate, toDate, actionFilter]);
+
+  const handleDownloadApplicationsCSV = () => {
+    const listToDownload = filteredJobPostings.length > 0 ? filteredJobPostings : jobPostings;
+    if (listToDownload.length === 0) {
+      toast({ title: "No applications to download", variant: "destructive" });
+      return;
+    }
+    const headers = [
+      "ID",
+      "Company Name",
+      "Role Title",
+      "Employment Type",
+      "Experience Required",
+      "Work Mode",
+      "City",
+      "State",
+      "Country",
+      "Salary",
+      "Visa Eligibility",
+      "Status",
+      "Job URL",
+      "Resume Used",
+      "Date Logged"
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val == null) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = listToDownload.map((j: any) => [
+      escapeCsv(`HYRSUB${j.id ? j.id.toString().slice(-6).toUpperCase() : ""}`),
+      escapeCsv(j.company_name),
+      escapeCsv(j.role_title),
+      escapeCsv(j.employment_type || ""),
+      escapeCsv(j.experience_required || ""),
+      escapeCsv(j.work_mode || ""),
+      escapeCsv(j.city || ""),
+      escapeCsv(j.state || ""),
+      escapeCsv(j.country || ""),
+      escapeCsv(j.salary || ""),
+      escapeCsv(j.visa_eligibility || ""),
+      escapeCsv(j.candidate_response_status || j.application_status || j.status || ""),
+      escapeCsv(j.job_url || ""),
+      escapeCsv(j.resume_used || ""),
+      escapeCsv(formatDateTime(j.created_at || j.log_date))
+    ].join(","));
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const cleanName = candidate?.user?.email?.split('@')[0] || "Candidate";
+    a.download = `${cleanName}_Applications_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export complete", description: `Downloaded ${listToDownload.length} applications.` });
+  };
 
   const handleOpenDescription = (jobOrCompany: any, role?: string, description?: string) => {
     if (typeof jobOrCompany === "string") {
@@ -606,10 +721,15 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       if (isFirstLoad) setLoading(true);
       const backgroundConfig = !isFirstLoad ? { headers: { 'X-Background-Request': 'true' } } : undefined;
       try {
-        const [logsRes, jobsRes] = await Promise.all([
+        const [logsRes, jobsRes, rolesRes, credsRes] = await Promise.all([
           recruitersApi.getDailyLogs(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
           recruitersApi.getJobApplications(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
+          candidatesApi.getRoles(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
+          candidatesApi.getCredentials(candidate.id, backgroundConfig).catch(() => ({ data: [] })),
         ]);
+        if (rolesRes?.data) setRoles(Array.isArray(rolesRes.data) ? rolesRes.data : []);
+        if (credsRes?.data) setCredentials(Array.isArray(credsRes.data) ? credsRes.data : [credsRes.data]);
+
         const logsData = Array.isArray(logsRes.data) ? logsRes.data : (logsRes.data?.results || []);
         setDailyLogs(logsData);
 
@@ -673,10 +793,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
 
   const handleStatusUpdate = async (jobId: string, newStatus: string) => {
     setUpdatingJob(jobId);
+    const normalizedStatus = newStatus.toLowerCase().replace(/ /g, "_");
+    setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, candidate_response_status: normalizedStatus, application_status: normalizedStatus, status: normalizedStatus } : j));
     try {
-      await recruitersApi.updateJobStatus(jobId, newStatus);
-      toast({ title: "Status updated" });
-      setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, candidate_response_status: newStatus, application_status: newStatus } : j));
+      await recruitersApi.updateJobStatus(jobId, normalizedStatus);
+      toast({ title: "Application status updated" });
       setStatusNotes(prev => ({ ...prev, [jobId]: "" }));
     } catch (err: any) {
       toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
@@ -705,7 +826,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
     jobPostings.filter(j => (j.log_date || j.created_at)?.split("T")[0] >= monthAgo).length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       {loading ? <div className="flex items-center justify-center p-12"><p className="text-muted-foreground animate-pulse">Loading applications...</p></div> : (
         <div className="space-y-6">
           {/* Summary Cards */}
@@ -733,9 +854,34 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b pb-2 mb-2">
                     <h4 className="text-sm font-bold flex items-center gap-2">Jobs & URLs <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">{jobLinks.length}</span></h4>
-                    <Button variant="ghost" size="sm" onClick={addJobLink} className="h-8 text-[11px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 rounded-lg border border-secondary/20">
-                      <Plus className="mr-1 h-3 w-3" /> Add Job Application Link
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const next = !showDiscoveryJobs;
+                          setShowDiscoveryJobs(next);
+                          if (next) {
+                            setTimeout(() => {
+                              discoveryJobsRef.current?.scrollIntoView({ behavior: "smooth" });
+                            }, 100);
+                          }
+                        }}
+                        className={cn(
+                          "h-8 text-[11px] font-bold uppercase tracking-widest rounded-lg border transition-all flex items-center gap-1.5",
+                          showDiscoveryJobs
+                            ? "bg-secondary text-secondary-foreground border-secondary shadow-xs font-extrabold"
+                            : "text-secondary hover:bg-secondary/5 border-secondary/20"
+                        )}
+                      >
+                        <Compass className="mr-1 h-3.5 w-3.5" />
+                        {showDiscoveryJobs ? "Hide Discovery Jobs" : "Discovery Jobs"}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={addJobLink} className="h-8 text-[11px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 rounded-lg border border-secondary/20">
+                        <Plus className="mr-1 h-3 w-3" /> Add Job Application Link
+                      </Button>
+                    </div>
                   </div>
 
                   {jobLinks.length === 0 && (
@@ -747,7 +893,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   <div className="grid gap-4 lg:grid-cols-2">
                     {jobLinks.map((job, idx) => (
                       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={idx} className="rounded-2xl border border-border/50 p-4 bg-muted/5 space-y-3 relative group">
-                        <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeJobLink(idx)}>
+                        <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors shadow-xs" title="Remove application card" onClick={() => removeJobLink(idx)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                         <div className="grid gap-3 grid-cols-2">
@@ -1009,13 +1155,75 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
             </Card>
           )}
 
+          {/* Discovered Jobs Section for this Candidate (Before Submission Pipeline) */}
+          {isStaff && showDiscoveryJobs && (
+            <div ref={discoveryJobsRef} className="mt-6">
+              <CandidateDiscoveryJobsSection
+                candidateId={candidate?.id}
+                candidate={candidate}
+                roles={roles}
+                jobPostings={jobPostings}
+                resumes={resumes}
+                alwaysShowDefaults={{}}
+                onUpdateJobStatus={handleStatusUpdate}
+                onRefreshApplications={() => {
+                  if (candidate?.id) {
+                    recruitersApi.getJobApplications(candidate.id).then(res => {
+                      const rawJobs = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+                      setJobPostings(rawJobs);
+                    }).catch(() => {});
+                  }
+                }}
+                onMovedToPipeline={handleJobMovedToPipeline}
+                onClose={() => setShowDiscoveryJobs(false)}
+              />
+            </div>
+          )}
+
           {/* Master Application Table */}
-          <Card>
-            <CardHeader>
+          <Card ref={submissionPipelineRef} id="submission-pipeline-card">
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Globe className="h-5 w-5 text-secondary" />
                 All Submissions ({jobPostings.length})
               </CardTitle>
+              <div className="flex items-center gap-2">
+                {isStaff && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const next = !showDiscoveryJobs;
+                      setShowDiscoveryJobs(next);
+                      if (next) {
+                        setTimeout(() => {
+                          discoveryJobsRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }, 100);
+                      }
+                    }}
+                    className={cn(
+                      "h-8 text-xs font-semibold gap-1.5 transition-all",
+                      showDiscoveryJobs
+                        ? "bg-secondary text-secondary-foreground border-secondary font-bold"
+                        : "text-secondary hover:bg-secondary/5"
+                    )}
+                  >
+                    <Compass className="h-3.5 w-3.5" />
+                    {showDiscoveryJobs ? "Hide Discovery Jobs" : "Discovery Jobs"}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadApplicationsCSV}
+                  className="h-8 text-xs font-semibold gap-1.5"
+                  title="Download CSV export"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download Applications
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="px-6 pt-4 pb-2">
@@ -1092,11 +1300,14 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all" className="text-xs">All Actions</SelectItem>
-                        {CANDIDATE_STATUSES.map((s) => (
-                          <SelectItem key={s.value} value={s.value} className="text-xs">
-                            {s.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="applied" className="text-xs">Applied</SelectItem>
+                        <SelectItem value="screening" className="text-xs">Screening</SelectItem>
+                        <SelectItem value="screening_scheduled" className="text-xs">Screening Scheduled</SelectItem>
+                        <SelectItem value="interview" className="text-xs">Interview</SelectItem>
+                        <SelectItem value="interview_scheduled" className="text-xs">Interview Scheduled</SelectItem>
+                        <SelectItem value="offer" className="text-xs">Offer</SelectItem>
+                        <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
+                        <SelectItem value="no_response" className="text-xs">No Response</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1243,10 +1454,26 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     )
                   },
                   {
-                    header: "Recruiter Status",
-                    sortable: true,
-                    accessorKey: "candidate_response_status",
-                    render: (j: any) => <StatusBadge status={j.candidate_response_status || j.status || j.application_status} />
+                    header: "Application Status",
+                    className: "px-6 py-4",
+                    render: (j: any) => (
+                      <Select
+                        value={(j.application_status || j.status || j.candidate_response_status || "").toLowerCase().replace(/ /g, "_")}
+                        onValueChange={(v) => handleStatusUpdate(j.id, v)}
+                        disabled={updatingJob === j.id}
+                      >
+                        <SelectTrigger className="w-40 h-8 text-[11px] font-bold border-none bg-muted/50 focus-visible:ring-0">
+                          <SelectValue placeholder="Update status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {JOB_STATUSES.map(s => (
+                            <SelectItem key={s} value={s.toLowerCase().replace(/ /g, "_")} className="text-xs">
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
                   },
                   {
                     header: "Logged Date & Time",
@@ -1257,109 +1484,110 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                   },
                   {
                     header: "Actions",
-                    className: "pr-6 text-right whitespace-nowrap",
+                    className: "px-4 py-3 text-center whitespace-nowrap sticky right-0 bg-background shadow-xs",
                     render: (j: any) => {
-                      const status = (j.candidate_response_status || j.application_status || j.status || "").toLowerCase();
+                      const status = (j.application_status || j.status || j.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
                       const isExpired = status === "expired";
                       const isRejected = status === "rejected";
                       return (
-                        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                          <Select
-                            value={j.candidate_response_status || j.application_status || ""}
-                            onValueChange={(val) => handleStatusUpdate(j.id, val)}
-                            disabled={updatingJob === j.id}
+                        <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingApplication(j);
+                            }}
+                            className="h-7 px-2 text-[11px] font-semibold text-slate-700 border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center gap-1 cursor-pointer"
+                            title="View full application details"
                           >
-                            <SelectTrigger className="w-28 h-7 text-[10px] font-bold border-none bg-muted-50">
-                              <SelectValue placeholder="Update..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {CANDIDATE_STATUSES.map(s => (
-                                <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            <Eye className="h-3 w-3 text-slate-500" />
+                            View
+                          </Button>
 
                           {isStaff && (
-                            <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                handleOpenEditJob(j);
+                              }}
+                              className="h-7 px-2.5 text-xs font-semibold text-blue-700 border-blue-200 bg-blue-50/80 hover:bg-blue-100 flex items-center gap-1 cursor-pointer"
+                              title="Edit application details"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Edit
+                            </Button>
+                          )}
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  handleOpenEditJob(j);
-                                }}
-                                className="h-7 px-2 text-[11px] font-semibold text-blue-700 border-blue-200 bg-blue-50/80 hover:bg-blue-100 flex items-center gap-1 cursor-pointer"
-                                title="Edit application details"
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground border-border/60 bg-muted/20 hover:bg-muted/60 cursor-pointer"
+                                title="More actions"
                               >
-                                <Pencil className="h-3 w-3" />
-                                Edit
+                                <MoreHorizontal className="h-3.5 w-3.5" />
                               </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover rounded-xl shadow-lg border border-border p-1 min-w-[160px] z-50">
+                              {isStaff && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditJob(j);
+                                  }}
+                                  className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                >
+                                  <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                  Edit Details
+                                </DropdownMenuItem>
+                              )}
 
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground border-border/60 bg-muted/20 hover:bg-muted/60 cursor-pointer"
-                                    title="More actions"
-                                  >
-                                    <MoreHorizontal className="h-3.5 w-3.5" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-popover rounded-xl shadow-lg border border-border p-1 min-w-[160px] z-50">
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenEditJob(j);
-                                    }}
-                                    className="text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-900 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5 text-blue-600" />
-                                    Edit Details
-                                  </DropdownMenuItem>
+                              {!isExpired && isStaff && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMarkExpired(j);
+                                  }}
+                                  className="text-xs font-medium text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                >
+                                  <Ban className="h-3.5 w-3.5 text-rose-600" />
+                                  Mark Expired
+                                </DropdownMenuItem>
+                              )}
 
-                                  {!isExpired && (
-                                    <DropdownMenuItem
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleMarkExpired(j);
-                                      }}
-                                      className="text-xs font-medium text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                                    >
-                                      <Ban className="h-3.5 w-3.5 text-rose-600" />
-                                      Mark Expired
-                                    </DropdownMenuItem>
-                                  )}
+                              {!isRejected && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRejectJob(j);
+                                  }}
+                                  className="text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                >
+                                  <XCircle className="h-3.5 w-3.5 text-amber-600" />
+                                  Reject Application
+                                </DropdownMenuItem>
+                              )}
 
-                                  {!isRejected && (
-                                    <DropdownMenuItem
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleRejectJob(j);
-                                      }}
-                                      className="text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                                    >
-                                      <XCircle className="h-3.5 w-3.5 text-amber-600" />
-                                      Reject Application
-                                    </DropdownMenuItem>
-                                  )}
-
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDeleteJobTarget(j);
-                                    }}
-                                    className="text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                                    Delete Application
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </>
-                          )}
+                              {isStaff && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteJobTarget(j);
+                                  }}
+                                  className="text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer px-2.5 py-1.5 flex items-center gap-2"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                  Delete Application
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       );
                     }
@@ -1690,6 +1918,124 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Read-Only Application View Modal */}
+      <Dialog open={!!viewingApplication} onOpenChange={(open) => !open && setViewingApplication(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {viewingApplication && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground uppercase">
+                    {`HYRSUB${viewingApplication.id ? viewingApplication.id.toString().slice(-6).toUpperCase() : ""}`}
+                  </span>
+                  <StatusBadge status={viewingApplication.candidate_response_status || viewingApplication.application_status || viewingApplication.status} />
+                </div>
+                <DialogTitle className="text-lg font-bold text-slate-900">
+                  {viewingApplication.role_title}
+                </DialogTitle>
+                <p className="text-sm font-medium text-slate-600">
+                  {viewingApplication.company_name}
+                </p>
+              </DialogHeader>
+
+              <div className="space-y-4 py-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Employment Type</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.employment_type || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Experience Required</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.experience_required || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Work Mode</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.work_mode || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Location</span>
+                    <span className="font-semibold text-slate-800">
+                      {[viewingApplication.city, viewingApplication.state, viewingApplication.country].filter(Boolean).join(", ") || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Salary / Compensation</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.salary || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Visa Eligibility</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.visa_eligibility || "—"}</span>
+                  </div>
+                </div>
+
+                {viewingApplication.job_url && (
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Job Posting URL</span>
+                      <span className="text-primary truncate block text-xs underline">{viewingApplication.job_url}</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(viewingApplication.job_url, "_blank", "noopener,noreferrer")}
+                      className="h-7 text-xs shrink-0"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" /> Open URL
+                    </Button>
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs font-semibold text-slate-700">Job Description:</Label>
+                    {viewingApplication.job_description && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(viewingApplication.job_description);
+                          setCopiedDesc(true);
+                          setTimeout(() => setCopiedDesc(false), 2000);
+                        }}
+                        className="h-6 text-[11px] px-2 text-slate-500 hover:text-slate-900"
+                      >
+                        {copiedDesc ? <Check className="h-3 w-3 mr-1 text-green-600" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {copiedDesc ? "Copied!" : "Copy Description"}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="p-3 bg-white border border-slate-200 rounded-md max-h-56 overflow-y-auto whitespace-pre-wrap text-slate-700 text-xs leading-relaxed">
+                    {viewingApplication.job_description || "No description provided."}
+                  </div>
+                </div>
+
+                {viewingApplication.notes && (
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-700 block mb-1">Notes:</Label>
+                    <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs text-slate-700">
+                      {viewingApplication.notes}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t">
+                  <span>Submitted: {formatDateTime(viewingApplication.created_at || viewingApplication.log_date)}</span>
+                  {viewingApplication.submitted_by_name && (
+                    <span>Submitted by: {viewingApplication.submitted_by_name}</span>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setViewingApplication(null)} className="h-8 text-xs">
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

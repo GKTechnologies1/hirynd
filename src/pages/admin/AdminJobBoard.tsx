@@ -125,6 +125,7 @@ const JobCardItem = ({
   const employmentType = job.employment_type || job.job_type || "-";
   const expLevel = job.experience_required || job.experience_level || job.level || "-";
   const salary = formatSalaryDisplay(job.salary || job.salary_range || job.pay_range);
+  const salary_type = job.salary_period ? String(job.salary_period).replace(/^_/, "").toLowerCase() : (job.salary_type || null);
   const visaEligibility = job.visa_eligibility || null;
   const applicantsCount = job.applicants_count || "-";
 
@@ -150,6 +151,11 @@ const JobCardItem = ({
               <Clock className="h-3 w-3 text-blue-600" />
               {postedDate}
             </span>
+            {job.source_portal && (
+              <span className="bg-sky-50 text-sky-800 border border-sky-200/60 px-2 py-0.5 rounded-md uppercase text-[9px] font-bold">
+                {job.source_portal}
+              </span>
+            )}
             {visaEligibility && (
               <span className="bg-amber-50 text-amber-800 border border-amber-200/60 px-2 py-0.5 rounded-md">
                 Visa: {visaEligibility}
@@ -249,6 +255,11 @@ const JobCardItem = ({
           <div className="flex items-center gap-2">
             <DollarSign className="h-4 w-4 text-blue-600 shrink-0" />
             <span className="font-bold text-blue-700">{salary}</span>
+            {salary_type && salary !== "Not Disclosed" && (
+              <span className="font-semibold text-blue-600/80 text-xs truncate">
+                / {salary_type}
+              </span>
+            )}
           </div>
           {visaEligibility && (
             <div className="flex items-center gap-2 text-xs text-amber-700 font-semibold">
@@ -687,10 +698,10 @@ const AdminJobBoard = () => {
   }, [filterOptions.visa_eligibilities]);
 
   const dynamicSalaryRanges = useMemo(() => {
-    if (filterOptions.salary_ranges && filterOptions.salary_ranges.length > 0) {
-      return filterOptions.salary_ranges;
-    }
-    return ["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"];
+    const raw = filterOptions.salary_ranges && filterOptions.salary_ranges.length > 0
+      ? filterOptions.salary_ranges
+      : ["$50,000+", "$100,000+", "$150,000+", "$200,000+"];
+    return raw.filter((item: string) => item.toLowerCase() !== "disclosed only");
   }, [filterOptions.salary_ranges]);
 
   // Admin Modal States
@@ -732,11 +743,16 @@ const AdminJobBoard = () => {
         jobsApi.listSubmissions().catch(() => ({ data: { results: [] } })),
       ]);
 
+      const formatJobs = (jobsList: any[]) => (jobsList || []).map((job: any) => ({
+        ...job,
+        display_id: job.display_id || `HYRJOB${job.id?.toString().slice(-6).toUpperCase()}`,
+      }));
+
       if (Array.isArray(res.data)) {
-        setJobPostings(res.data);
+        setJobPostings(formatJobs(res.data));
         setTotalJobs(res.data.length);
       } else if (res.data && Array.isArray(res.data.results)) {
-        setJobPostings(res.data.results);
+        setJobPostings(formatJobs(res.data.results));
         setTotalJobs(typeof res.data.total === "number" ? res.data.total : res.data.results.length);
         if (typeof res.data.unfiltered_total === "number") {
           setTotalUnfilteredJobs(res.data.unfiltered_total);
@@ -855,6 +871,9 @@ const AdminJobBoard = () => {
       const locationParts = [j.city, j.state, j.country].filter(Boolean).join(", ");
       const skillsStr = Array.isArray(j.skills) ? j.skills.join(", ") : (j.skills || "");
       const postedDateStr = formatDate(j.log_date || j.created_at);
+      const rawSal = formatSalaryDisplay(j.salary || j.salary_range || j.pay_range);
+      const st = j.salary_period ? String(j.salary_period).replace(/^_/, "").toLowerCase() : (j.salary_type || null);
+      const fullSal = st && rawSal !== "Not Disclosed" ? `${rawSal} / ${st}` : rawSal;
       setActiveJobDesc({
         company: j.company_name || j.company || "",
         role: j.role_title || j.title || j.role || "",
@@ -863,7 +882,7 @@ const AdminJobBoard = () => {
         experience_required: j.experience_required || j.experience_level,
         work_mode: j.work_mode || j.work_type || j.remote_type,
         location: locationParts || j.location,
-        salary: formatSalaryDisplay(j.salary || j.salary_range || j.pay_range),
+        salary: fullSal,
         visa_eligibility: j.visa_eligibility,
         skills: skillsStr,
         job_url: j.job_url,
@@ -1259,7 +1278,7 @@ const AdminJobBoard = () => {
                   className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-[#0d47a1] hover:bg-[#1565c0] text-white font-bold transition-all whitespace-nowrap cursor-pointer text-xs shadow-xs"
                 >
                   <X className="h-3 w-3" />
-                  All Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}
+                  Clear All Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}
                 </button>
               </div>
             </CardContent>
@@ -1406,10 +1425,32 @@ const AdminJobBoard = () => {
                   }}
                   columns={[
                     {
+                      header: "ID",
+                      accessorKey: "display_id",
+                      sortable: true,
+                      className: "py-4 pl-4 text-xs font-mono",
+                      render: (job: any) => (
+                        <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase whitespace-nowrap font-mono">
+                          {job.display_id || `HYRJOB${job.id?.toString().slice(-6).toUpperCase()}`}
+                        </span>
+                      ),
+                    },
+                    {
                       header: "Company Name",
                       accessorKey: "company_name",
                       sortable: true,
                       className: "font-semibold text-foreground text-sm py-4",
+                    },
+                    {
+                      header: "Portal",
+                      accessorKey: "source_portal",
+                      sortable: true,
+                      className: "py-4 text-xs font-semibold",
+                      render: (job: any) => job.source_portal ? (
+                        <span className="bg-sky-50 text-sky-800 border border-sky-200/60 px-2 py-0.5 rounded uppercase text-[10px] font-bold">
+                          {job.source_portal}
+                        </span>
+                      ) : <span className="text-muted-foreground">—</span>
                     },
                     {
                       header: "Role Title",
@@ -1476,7 +1517,18 @@ const AdminJobBoard = () => {
                       accessorKey: "salary",
                       sortable: true,
                       className: "py-4 text-xs font-bold text-foreground",
-                      render: (job: any) => formatSalaryDisplay(job.salary || job.salary_range || job.pay_range)
+                      render: (job: any) => {
+                        const s = formatSalaryDisplay(job.salary || job.salary_range || job.pay_range);
+                        const st = job.salary_period ? String(job.salary_period).replace(/^_/, "").toLowerCase() : (job.salary_type || null);
+                        return (
+                          <span>
+                            {s}
+                            {st && s !== "Not Disclosed" && (
+                              <span className="text-[10px] text-muted-foreground font-normal ml-1">/ {st}</span>
+                            )}
+                          </span>
+                        );
+                      }
                     },
                     {
                       header: "Visa Eligibility",

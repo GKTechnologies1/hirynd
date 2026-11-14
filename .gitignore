@@ -25,6 +25,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!src/lib/
 parts/
 sdist/
 var/
@@ -88,4 +89,13 @@ django_backend/backfill_invoices.py
 /tmp/
 django_backend/db.sqlite3
 cache
-implementation_plan.md
+implementation_plan.md
+
+# Raw Government Disclosures & Reference Docs
+data/**/*.xlsx
+data/**/*.xls
+data/**/*.csv
+*.pdf
+*.docx
+!data/**/.gitkeep
+

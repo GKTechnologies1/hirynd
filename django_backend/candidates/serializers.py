@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Candidate, ClientIntake, RoleSuggestion, RoleConfirmation,
-    CredentialVersion, Referral, InterviewLog, PlacementClosure,
+    CredentialVersion, Referral, InterviewLog, PlacementClosure, PlacementAuditLog,
     CandidateLegacyPayment, TrainingScheduleClick, InterestedCandidate, GeneralEnquiry,
     WorkExperience, Certification,
 )
@@ -61,6 +61,8 @@ class CandidateSerializer(serializers.ModelSerializer):
     has_completed_payment = serializers.SerializerMethodField()
     has_submitted_credentials = serializers.SerializerMethodField()
     roles_status = serializers.SerializerMethodField()
+    approval_status = serializers.SerializerMethodField()
+    account_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
@@ -142,6 +144,16 @@ class CandidateSerializer(serializers.ModelSerializer):
         from .models import InterviewLog
         return InterviewLog.objects.filter(candidate=obj).count()
 
+    def get_approval_status(self, obj):
+        if hasattr(obj, 'user') and obj.user:
+            return getattr(obj.user, 'approval_status', 'pending')
+        return 'pending' if obj.status == 'pending_approval' else 'approved'
+
+    def get_account_status(self, obj):
+        if hasattr(obj, 'user') and obj.user:
+            return getattr(obj.user, 'account_status', 'active') or ('active' if obj.user.is_active else 'inactive')
+        return 'active'
+
     def to_representation(self, instance):
         try:
             sub = instance.subscription
@@ -158,15 +170,27 @@ class CandidateListSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
     total_applications = serializers.SerializerMethodField()
     total_interviews = serializers.SerializerMethodField()
+    approval_status = serializers.SerializerMethodField()
+    account_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
         fields = [
-            'id', 'display_id', 'status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
+            'id', 'display_id', 'status', 'approval_status', 'account_status', 'full_name', 'email', 'visa_status', 'created_at', 'updated_at',
             'university', 'degree', 'major', 'graduation_year', 'graduation_date', 'referral_source',
             'referral_friend_name', 'current_location', 'preferred_locations', 'notes',
             'total_applications', 'total_interviews'
         ]
+
+    def get_approval_status(self, obj):
+        if hasattr(obj, 'user') and obj.user:
+            return getattr(obj.user, 'approval_status', 'pending')
+        return 'pending' if obj.status == 'pending_approval' else 'approved'
+
+    def get_account_status(self, obj):
+        if hasattr(obj, 'user') and obj.user:
+            return getattr(obj.user, 'account_status', 'active') or ('active' if obj.user.is_active else 'inactive')
+        return 'active'
 
     def get_full_name(self, obj):
         return obj.user.profile.full_name if hasattr(obj.user, 'profile') else ''
@@ -268,6 +292,7 @@ class ReferralSerializer(serializers.ModelSerializer):
 
 class InterviewLogSerializer(serializers.ModelSerializer):
     submitted_by_name = serializers.SerializerMethodField()
+    job_url = serializers.SerializerMethodField()
 
     class Meta:
         model = InterviewLog
@@ -279,18 +304,60 @@ class InterviewLogSerializer(serializers.ModelSerializer):
             return obj.submitted_by.profile.full_name
         return ''
 
+    def get_job_url(self, obj):
+        if not obj.candidate_id or not obj.company_name:
+            return None
+        try:
+            from recruiters.models import JobLinkEntry
+            comp = obj.company_name.strip()
+            role = (obj.role_title or '').strip()
+            if role:
+                job = JobLinkEntry.objects.filter(
+                    candidate_id=obj.candidate_id,
+                    company_name__iexact=comp,
+                    role_title__iexact=role
+                ).exclude(job_url__isnull=True).exclude(job_url='').order_by('-created_at').first()
+                if job and job.job_url:
+                    return job.job_url
+            job_comp = JobLinkEntry.objects.filter(
+                candidate_id=obj.candidate_id,
+                company_name__iexact=comp
+            ).exclude(job_url__isnull=True).exclude(job_url='').order_by('-created_at').first()
+            return job_comp.job_url if job_comp else None
+        except Exception:
+            return None
+
+
+class PlacementAuditLogSerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlacementAuditLog
+        fields = ['id', 'placement', 'changed_by', 'changed_by_name', 'changes', 'change_reason', 'created_at']
+
+    def get_changed_by_name(self, obj):
+        if obj.changed_by and hasattr(obj.changed_by, 'profile'):
+            return obj.changed_by.profile.full_name
+        return obj.changed_by.email if obj.changed_by else 'System'
+
 
 class PlacementClosureSerializer(serializers.ModelSerializer):
     notes = serializers.CharField(source='placement_notes', required=False, allow_blank=True, allow_null=True)
+    audit_logs = serializers.SerializerMethodField()
 
     class Meta:
         model = PlacementClosure
         fields = [
             'id', 'candidate', 'company_name', 'role_title', 'salary', 'currency',
-            'start_date', 'hr_email', 'interviewer_email', 'bgv_company_name',
-            'offer_letter_url', 'placement_notes', 'notes', 'closed_by', 'created_at'
+            'start_date', 'hr_name', 'hr_email', 'hr_phone', 'interviewer_email', 'bgv_company_name',
+            'offer_letter_url', 'placement_notes', 'notes', 'everified_employer', 'h1b_sponsorship_willing',
+            'additional_contacts', 'closed_by', 'updated_by', 'created_at', 'updated_at', 'audit_logs'
         ]
-        read_only_fields = ['id', 'closed_by', 'created_at']
+        read_only_fields = ['id', 'closed_by', 'updated_by', 'created_at', 'updated_at', 'audit_logs']
+
+    def get_audit_logs(self, obj):
+        logs = obj.audit_logs.all()[:10]
+        return PlacementAuditLogSerializer(logs, many=True).data
 
 
 class PaymentSerializer(serializers.ModelSerializer):

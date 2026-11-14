@@ -1733,7 +1733,7 @@ const AdminCandidateDetail = ({ candidateId, onLoaded }: AdminCandidateDetailPro
                       </div>
                       {credForm.custom_platforms?.map((cp: any, idx: number) => (
                         <div key={idx} className="p-3 bg-white/60 rounded-xl border border-amber-100 relative group">
-                          <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+                          <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors" title="Remove platform" onClick={() => {
                             const n = [...credForm.custom_platforms]; n.splice(idx, 1);
                             setCredForm({ ...credForm, custom_platforms: n });
                           }}>

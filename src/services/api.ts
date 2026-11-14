@@ -349,7 +349,7 @@ export const authApi = {
   resetPassword: (data: any) => api.post('/auth/password-reset/confirm/', data),
   approveUser: (user_id: string, action: 'approved' | 'rejected') =>
     api.post('/auth/approve-user/', { user_id, action }),
-  allUsers: (params?: { role?: string; search?: string; page?: number; page_size?: number }) =>
+  allUsers: (params?: { role?: string; roles?: string; eligible_for_assignment?: boolean | string; search?: string; page?: number; page_size?: number }) =>
     api.get('/auth/users/', { params }),
   getUser: (userId: string) => api.get(`/auth/users/${userId}/`),
   updateUser: (userId: string, data: Record<string, any>) => api.patch(`/auth/users/${userId}/`, data),
@@ -423,6 +423,14 @@ export const recruitersApi = {
   submitDailyLog: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/daily-logs/`, data),
   getJobApplications: (candidateId: string, config?: any) => api.get(`/recruiters/${candidateId}/job-applications/`, config),
   submitJobApplications: (candidateId: string, data: any) => api.post(`/recruiters/${candidateId}/job-applications/`, data),
+  getRoles: (id: string, config?: any) => api.get(`/candidates/${id}/roles/`, config),
+  getCredentials: (id: string, config?: any) => api.get(`/candidates/${id}/credentials/`, config),
+  createApplication: (payload: any) => {
+    const candidateId = payload.candidate_id || payload.candidate;
+    return api.post(`/recruiters/${candidateId}/job-applications/`, {
+      job_links: [payload],
+    });
+  },
   updateJobStatus: (jobId: string, status: string) => api.post(`/recruiters/jobs/${jobId}/status/`, { status }),
   updateJobField: (jobId: string, data: Record<string, any>) => api.post(`/recruiters/jobs/${jobId}/status/`, data),
   deleteJobAlert: (jobId: string) => api.delete(`/recruiters/jobs/${jobId}/status/`),
@@ -601,3 +609,126 @@ export const analyticsApi = {
   trackPageView: (data: Record<string, any>) => api.post('/analytics/track/', data, { headers: { 'X-Background-Request': 'true' } }),
   getDashboardStats: (range: string) => api.get('/analytics/dashboard/', { params: { range } }),
 };
+
+// ─── Job Scraper ───
+export const jobScraperApi = {
+  roles: (limit?: number) => api.get('/admin/job-scraper/roles/', { params: { limit } }),
+  companies: (params?: {
+    search?: string;
+    grade?: string;
+    min_score?: number;
+    min_filings?: number;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get('/admin/job-scraper/companies/', { params }),
+  companyVisaDetail: (id: number | string) =>
+    api.get(`/admin/job-scraper/companies/${id}/visa-details/`),
+  run: (data: {
+    roles: { role: string; limit: number }[];
+    companies?: string[];
+    sources?: string[];
+    mode?: 'STANDARD' | 'VISA_FILTERED';
+    minimum_score?: number;
+  }) => api.post('/admin/job-scraper/run/', data),
+  executions: (params?: { status?: string; page?: number; page_size?: number }) =>
+    api.get('/admin/job-scraper/executions/', { params }),
+  executionDetail: (id: string) => api.get(`/admin/job-scraper/executions/${id}/`),
+  sessionReport: (id: string) => api.get(`/admin/job-scraper/executions/${id}/report/`),
+  rolesBreakdown: (id: string) => api.get(`/admin/job-scraper/executions/${id}/roles/`),
+  distribution: (id: string) => api.get(`/admin/job-scraper/executions/${id}/distribution/`),
+  assign: (id: string, data: { recruiter_ids: string[]; role_names?: string[]; job_ids?: string[]; notes?: string }) =>
+    api.post(`/admin/job-scraper/executions/${id}/assign/`, data),
+  costReports: (params?: { date_from?: string; date_to?: string; portal?: string; role?: string; initiated_by?: string }) =>
+    api.get('/admin/job-scraper/cost-reports/', { params }),
+};
+
+// ─── Job Discovery (Dashboard A - Global View) ───
+export const jobDiscoveryApi = {
+  statistics: () => api.get('/admin/job-discovery/statistics/'),
+  jobs: (params?: {
+    search?: string;
+    role?: string;
+    company?: string;
+    source?: string;
+    visa_grade?: string;
+    min_score?: number | string;
+    max_score?: number | string;
+    h1b_only?: boolean | string;
+    review_status?: string;
+    is_remote?: boolean | string;
+    location?: string;
+    is_duplicate?: boolean | string;
+    date_from?: string;
+    date_to?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get('/admin/job-discovery/jobs/', { params }),
+  jobDetail: (id: string) => api.get(`/admin/job-discovery/jobs/${id}/`),
+  reviewJob: (id: string, data: { review_status: string; review_notes?: string }) =>
+    api.patch(`/admin/job-discovery/jobs/${id}/review/`, data),
+  filters: () => api.get('/admin/job-discovery/filters/'),
+  approveForJobManagement: (id: string, data: { candidate_id?: string; create_job_opening?: boolean; notes?: string }) =>
+    api.post(`/admin/job-discovery/jobs/${id}/approve-for-job-management/`, data),
+};
+
+// ─── Recruiter Job Discovery (Dashboard B - Personalized View) ───
+export const recruiterJobDiscoveryApi = {
+  statistics: () => api.get('/recruiter/job-discovery/statistics/'),
+  jobs: (params?: {
+    search?: string;
+    candidate_id?: string;
+    role?: string;
+    source?: string;
+    visa_grade?: string;
+    status?: string;
+    min_score?: number | string;
+    max_score?: number | string;
+    h1b_only?: boolean | string;
+    is_remote?: boolean | string;
+    location?: string;
+    date_from?: string;
+    date_to?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get('/recruiter/job-discovery/jobs/', { params }),
+  jobDetail: (id: string) => api.get(`/recruiter/job-discovery/jobs/${id}/`),
+  filters: () => api.get('/recruiter/job-discovery/filters/'),
+  markApplied: (id: string, data: { candidate_id: string; notes?: string }) =>
+    api.post(`/recruiter/job-discovery/jobs/${id}/mark-applied/`, data),
+  dismissJob: (id: string, data: { candidate_id: string; reason: string; comments?: string }) =>
+    api.post(`/recruiter/job-discovery/jobs/${id}/dismiss/`, data),
+  restoreJob: (id: string, data: { candidate_id: string }) =>
+    api.post(`/recruiter/job-discovery/jobs/${id}/restore/`, data),
+  rejectJob: (id: string, data: { candidate_id: string; reason: string }) =>
+    api.post(`/recruiter/job-discovery/jobs/${id}/reject/`, data),
+};
+
+// ─── Employer Intelligence & Discovery (Admin) ───
+export const employerDiscoveryApi = {
+  list: (params?: {
+    search?: string;
+    industry?: string;
+    location?: string;
+    grade?: string;
+    has_placements?: boolean | string;
+    has_h1b?: boolean | string;
+    has_lca?: boolean | string;
+    verification_status?: string;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+  }) => api.get('/admin/employers/', { params }),
+  statistics: () => api.get('/admin/employers/statistics/'),
+  detail: (id: number | string) => api.get(`/admin/employers/${id}/`),
+  update: (id: number | string, data: Record<string, any>) => api.patch(`/admin/employers/${id}/`, data),
+  create: (data: Record<string, any>) => api.post('/admin/employers/create/', data),
+  placements: (id: number | string) => api.get(`/admin/employers/${id}/placements/`),
+  addPlacement: (id: number | string, data: Record<string, any>) => api.post(`/admin/employers/${id}/placements/`, data),
+  contacts: (id: number | string) => api.get(`/admin/employers/${id}/contacts/`),
+  addContact: (id: number | string, data: Record<string, any>) => api.post(`/admin/employers/${id}/contacts/`, data),
+  deleteContact: (id: number | string, contactId: number | string) => api.delete(`/admin/employers/${id}/contacts/${contactId}/`),
+};
+

@@ -80,7 +80,9 @@ class Candidate(models.Model):
     @property
     def display_id(self):
         """Delegates to the user's branded display ID (e.g. HYRCDT000001)"""
-        return self.user.display_id
+        if hasattr(self, 'user') and self.user:
+            return self.user.display_id
+        return f"HYRCDT{str(self.id)[:6].upper()}"
 
 
 class WorkExperience(models.Model):
@@ -179,7 +181,7 @@ class InterestedCandidate(models.Model):
     def display_id(self):
         """Branded display ID: HYRLD0001"""
         if self.seq_number is None:
-            return str(self.id)[:8].upper()
+            return f"HYRLD{str(self.id)[:4].upper()}"
         return f"HYRLD{self.seq_number:04d}"
 
     def save(self, *args, **kwargs):
@@ -371,6 +373,8 @@ class InterviewLog(models.Model):
     interview_time = models.TimeField(blank=True, null=True)
     time_zone = models.CharField(max_length=50, default='America/New_York')
     interviewer_name = models.CharField(max_length=255, blank=True, null=True)
+    interviewer_email = models.EmailField(blank=True, null=True)
+    interviewer_phone = models.CharField(max_length=50, blank=True, null=True)
     interview_mode = models.CharField(max_length=20, choices=INTERVIEW_MODE_CHOICES, default='video')
     meeting_link = models.URLField(blank=True, null=True)
     outcome = models.CharField(max_length=30, choices=OUTCOME_CHOICES, default='scheduled')
@@ -393,6 +397,17 @@ class InterviewLog(models.Model):
 
 
 class PlacementClosure(models.Model):
+    EVERIFIED_CHOICES = [
+        ('yes', 'Yes'),
+        ('no', 'No'),
+        ('unknown', 'Unknown / Not Provided'),
+    ]
+    H1B_SPONSOR_CHOICES = [
+        ('yes', 'Yes'),
+        ('no', 'No'),
+        ('unknown', 'Unknown / Not Confirmed'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.OneToOneField(Candidate, on_delete=models.CASCADE, related_name='placement')
     company_name = models.CharField(max_length=255)
@@ -400,19 +415,42 @@ class PlacementClosure(models.Model):
     salary = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=10, default='USD')
     start_date = models.DateField()
+    hr_name = models.CharField(max_length=255, blank=True, null=True)
     hr_email = models.EmailField()
+    hr_phone = models.CharField(max_length=50, blank=True, null=True)
     interviewer_email = models.EmailField(blank=True, null=True)
     bgv_company_name = models.CharField(max_length=255, blank=True, null=True)
     offer_letter_url = models.URLField(blank=True, null=True)
     placement_notes = models.TextField(blank=True, null=True)
-    closed_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    everified_employer = models.CharField(max_length=30, choices=EVERIFIED_CHOICES, default='unknown')
+    h1b_sponsorship_willing = models.CharField(max_length=30, choices=H1B_SPONSOR_CHOICES, default='unknown')
+    additional_contacts = models.JSONField(default=list, blank=True)
+    closed_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='closed_placements')
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='updated_placements')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'placement_closures'
 
     def __str__(self):
         return f"Placement: {self.company_name} - {self.candidate.user.email}"
+
+
+class PlacementAuditLog(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    placement = models.ForeignKey(PlacementClosure, on_delete=models.CASCADE, related_name='audit_logs')
+    changed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='placement_audits')
+    changes = models.JSONField(default=dict)
+    change_reason = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'placement_audit_logs'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Audit: Placement {self.placement_id} edited by {self.changed_by_id} on {self.created_at}"
 
 
 class CandidateLegacyPayment(models.Model):

@@ -13,8 +13,10 @@ from candidates.models import Candidate
 from audit.utils import log_action
 from notifications.utils import send_email, get_styled_email_html, create_notification
 from .models import RecruiterAssignment, DailySubmissionLog, JobLinkEntry
+from job_discovery.models import DiscoveredJob
 from .serializers import (
     RecruiterAssignmentSerializer, DailySubmissionLogSerializer, JobLinkEntrySerializer,
+    DiscoveredJobAlertSerializer, PublicDiscoveredJobAlertSerializer,
     RecruiterProfileSerializer, RecruiterBankDetailsSerializer,
     AdminRecruiterFullSerializer, MyAssignmentSerializer, DailyJournalSerializer,
     TeamMemberDetailSerializer,
@@ -307,20 +309,20 @@ def job_applications(request, candidate_id):
                 entry = JobLinkEntry.objects.create(
                     submission_log=log,
                     candidate_id=candidate_id,
-                    company_name=str(jl.get('company_name', '') or '').strip(),
-                    role_title=str(jl.get('role_title', '') or '').strip(),
+                    company_name=str(jl.get('company_name', '') or '').strip()[:255],
+                    role_title=str(jl.get('role_title', '') or '').strip()[:255],
                     job_url=raw_url,
                     job_description=str(jl.get('job_description', '') or ''),
                     resume_used=raw_resume,
                     application_status=app_status,
-                    employment_type=str(jl.get('employment_type', '') or '').strip(),
-                    experience_required=str(jl.get('experience_required', '') or '').strip(),
-                    work_mode=str(jl.get('work_mode', '') or '').strip(),
-                    city=str(jl.get('city', '') or '').strip(),
-                    state=str(jl.get('state', '') or '').strip(),
-                    country=str(jl.get('country', '') or '').strip(),
-                    salary=str(jl.get('salary', 'Not Disclosed') or 'Not Disclosed').strip(),
-                    visa_eligibility=str(jl.get('visa_eligibility', '') or '').strip(),
+                    employment_type=str(jl.get('employment_type', '') or '').strip()[:100],
+                    experience_required=str(jl.get('experience_required', '') or '').strip()[:100],
+                    work_mode=str(jl.get('work_mode', '') or '').strip()[:100],
+                    city=str(jl.get('city', '') or '').strip()[:255],
+                    state=str(jl.get('state', '') or '').strip()[:255],
+                    country=str(jl.get('country', '') or '').strip()[:255],
+                    salary=str(jl.get('salary', 'Not Disclosed') or 'Not Disclosed').strip()[:255],
+                    visa_eligibility=str(jl.get('visa_eligibility', '') or '').strip()[:255],
                     submitted_by=request.user
                 )
                 created_entries.append(entry)
@@ -344,10 +346,16 @@ def job_applications(request, candidate_id):
 @api_view(['POST', 'PATCH', 'DELETE'])
 @permission_classes([IsApproved])
 def update_job_status(request, job_id):
+    job = None
+    is_discovered = False
     try:
-        job = JobLinkEntry.objects.get(id=job_id)
-    except JobLinkEntry.DoesNotExist:
-        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        job = DiscoveredJob.objects.get(id=job_id)
+        is_discovered = True
+    except (DiscoveredJob.DoesNotExist, ValueError):
+        try:
+            job = JobLinkEntry.objects.get(id=job_id)
+        except (JobLinkEntry.DoesNotExist, ValueError):
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
     is_staff = (
         request.user.role in ('admin', 'recruiter', 'team_lead', 'team_manager', 'super_admin') or
@@ -366,6 +374,58 @@ def update_job_status(request, job_id):
         except Exception:
             pass
         return Response({'message': 'Deleted successfully'})
+
+    if is_discovered:
+        if not is_staff:
+            return Response({'error': 'Permission denied. Only admin or staff can edit job details.'}, status=status.HTTP_403_FORBIDDEN)
+        new_status = request.data.get('status') or request.data.get('application_status')
+        if new_status:
+            status_lower = str(new_status).lower()
+            if status_lower in ('rejected', 'closed'):
+                job.review_status = 'REJECTED'
+            elif status_lower == 'expired':
+                job.is_active = False
+            elif status_lower in ('applied', 'open', 'approved'):
+                job.review_status = 'APPROVED'
+                job.is_active = True
+
+        if 'role_title' in request.data:
+            job.title = request.data['role_title'][:300]
+        elif 'title' in request.data:
+            job.title = request.data['title'][:300]
+        if 'company_name' in request.data:
+            job.company_name = request.data['company_name'][:255]
+        if 'job_description' in request.data:
+            job.job_description = request.data['job_description']
+        if 'job_url' in request.data:
+            job.job_url = request.data['job_url']
+        if 'city' in request.data:
+            job.city = request.data['city']
+        if 'state' in request.data:
+            job.state = request.data['state']
+        if 'country' in request.data:
+            job.country = request.data['country']
+        if 'employment_type' in request.data:
+            job.employment_type = request.data['employment_type']
+        if 'experience_required' in request.data:
+            job.experience_level = request.data['experience_required']
+        if 'work_mode' in request.data:
+            wm = str(request.data['work_mode']).lower()
+            job.is_remote = (wm == 'remote')
+            job.is_hybrid = (wm == 'hybrid')
+        if 'salary' in request.data:
+            job.salary_raw = request.data['salary']
+        if 'is_public' in request.data:
+            job.is_active = bool(request.data['is_public'])
+
+        job.save()
+        try:
+            from django.core.cache import cache
+            cache.delete('public_job_alerts_total')
+            cache.delete('job_alert_filter_options')
+        except Exception:
+            pass
+        return Response(DiscoveredJobAlertSerializer(job).data)
 
     new_status = request.data.get('status') or request.data.get('application_status') or request.data.get('candidate_response_status')
     if new_status:
@@ -636,15 +696,39 @@ def admin_productivity_report(request):
 def public_job_alerts(request):
     from django.db.models import Q
     import datetime
+    import uuid
 
     if request.method == 'POST':
         if not request.user or not request.user.is_authenticated:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-        serializer = JobLinkEntrySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        job = serializer.save(submitted_by=request.user, is_public=True)
+        data = request.data
+        role_title = (data.get('role_title') or data.get('title') or 'Job Opening').strip()
+        company_name = (data.get('company_name') or 'Company').strip()
+        work_mode_str = str(data.get('work_mode') or '').strip().lower()
 
-        # Invalidate cached totals/filter options when a new public job is posted
+        job = DiscoveredJob.objects.create(
+            job_id=f"manual_{uuid.uuid4().hex[:12]}",
+            content_hash=uuid.uuid4().hex,
+            title=role_title[:300],
+            company_name=company_name[:255],
+            target_role=role_title[:150],
+            job_url=data.get('job_url') or '',
+            job_description=data.get('job_description') or '',
+            city=data.get('city') or '',
+            state=data.get('state') or '',
+            country=data.get('country') or 'USA',
+            is_remote=(work_mode_str == 'remote'),
+            is_hybrid=(work_mode_str == 'hybrid'),
+            employment_type=data.get('employment_type') or 'Full-Time',
+            experience_level=data.get('experience_required') or data.get('experience_level') or '2–5 Years',
+            salary_raw=data.get('salary') or '',
+            source_portal='manual',
+            review_status='APPROVED',
+            reviewed_by=request.user,
+            reviewed_at=timezone.now(),
+            is_active=True,
+        )
+
         try:
             from django.core.cache import cache
             cache.delete('public_job_alerts_total')
@@ -652,39 +736,51 @@ def public_job_alerts(request):
         except Exception:
             pass
 
-        return Response(JobLinkEntrySerializer(job).data, status=status.HTTP_201_CREATED)
+        return Response(DiscoveredJobAlertSerializer(job).data, status=status.HTTP_201_CREATED)
 
-    # 1. Base queryset (Only last 30 days records)
-    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
-    thirty_days_ago_date = thirty_days_ago.date()
-
-    include_hidden = request.query_params.get('include_hidden', '').lower() in ('true', '1') or request.query_params.get('is_hidden', '').lower() in ('true', '1')
-    if include_hidden:
-        jobs = JobLinkEntry.objects.all().select_related('submission_log')
+    # 1. Base queryset: Show public approved / manual jobs, hiding internal raw scraped jobs
+    include_hidden = (
+        request.query_params.get('include_hidden', '').lower() in ('true', '1') or
+        request.query_params.get('is_hidden', '').lower() in ('true', '1')
+    )
+    if include_hidden and request.user and request.user.is_authenticated and (getattr(request.user, 'role', '') == 'admin' or getattr(request.user, 'is_staff', False)):
+        jobs = DiscoveredJob.objects.all()
     else:
-        jobs = JobLinkEntry.objects.filter(is_public=True).select_related('submission_log')
-
-    jobs = jobs.filter(Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date))
+        # Strictly scope public listings to manually added or explicitly approved jobs
+        jobs = DiscoveredJob.objects.filter(is_active=True, is_duplicate=False).filter(
+            Q(source_portal='manual') | Q(review_status='APPROVED')
+        )
 
     # 2. Status filter
     status_param = request.query_params.get('status')
     if status_param and status_param != 'all':
-        if status_param == 'applied':
-            jobs = jobs.filter(Q(application_status='applied') | Q(application_status__isnull=True) | Q(application_status=''))
-        else:
-            jobs = jobs.filter(application_status=status_param)
+        status_lower = status_param.lower()
+        if status_lower in ('applied', 'open'):
+            jobs = jobs.filter(review_status__in=['PENDING_REVIEW', 'APPROVED'], is_active=True)
+        elif status_lower == 'rejected':
+            jobs = jobs.filter(review_status='REJECTED')
+        elif status_lower == 'expired':
+            jobs = jobs.filter(is_active=False)
+        elif status_lower == 'closed':
+            jobs = jobs.filter(Q(review_status='REJECTED') | Q(is_active=False))
+        elif status_lower == 'approved':
+            jobs = jobs.filter(review_status='APPROVED')
+        elif status_lower == 'pending_review':
+            jobs = jobs.filter(review_status='PENDING_REVIEW')
 
     # 3. Global search
     search = request.query_params.get('search', '').strip()
     if search:
         jobs = jobs.filter(
-            Q(role_title__icontains=search) |
+            Q(title__icontains=search) |
             Q(company_name__icontains=search) |
+            Q(target_role__icontains=search) |
             Q(job_description__icontains=search) |
             Q(city__icontains=search) |
             Q(state__icontains=search) |
             Q(country__icontains=search) |
-            Q(notes__icontains=search)
+            Q(location_raw__icontains=search) |
+            Q(source_portal__icontains=search)
         )
 
     # 4. Title / Role filter
@@ -694,37 +790,71 @@ def public_job_alerts(request):
         if title_list:
             q_title = Q()
             for t in title_list:
-                q_title |= Q(role_title__icontains=t)
+                q_title |= Q(title__icontains=t) | Q(target_role__icontains=t)
             jobs = jobs.filter(q_title)
 
     # 5. Company filter
     company = request.query_params.get('company')
     if company:
-        jobs = jobs.filter(company_name__icontains=company)
+        jobs = jobs.filter(Q(company_name__icontains=company) | Q(company_name_norm__icontains=company))
 
     # 6. Skills filter
     skills = request.query_params.get('skills', '').strip()
     if skills:
-        jobs = jobs.filter(Q(job_description__icontains=skills) | Q(notes__icontains=skills))
+        jobs = jobs.filter(job_description__icontains=skills)
 
-    # 7. Location filter (handles comma-separated multi-select values and City, State pairs)
+    # 7. Location filter
     location = request.query_params.get('location')
     if location:
         loc_list = parse_location_query(location)
         if loc_list:
-            q_loc = build_location_filter_q(loc_list)
+            q_loc = Q()
+            for loc in loc_list:
+                loc_s = loc.strip()
+                if loc_s.lower() in ('united states', 'usa', 'us'):
+                    q_loc |= (
+                        Q(country__icontains='United States') |
+                        Q(country__iexact='USA') |
+                        Q(country__iexact='US') |
+                        Q(country__isnull=True) |
+                        Q(country='')
+                    )
+                elif loc_s.lower() == 'remote':
+                    q_loc |= Q(is_remote=True) | Q(location_raw__icontains='remote')
+                else:
+                    city_st_match = re.match(r'^(.+?),\s*([A-Za-z]{2})$', loc_s)
+                    if city_st_match:
+                        c_name = city_st_match.group(1).strip()
+                        s_cd = city_st_match.group(2).upper()
+                        q_loc |= (
+                            (Q(city__icontains=c_name) & (Q(state_code__iexact=s_cd) | Q(state__icontains=s_cd))) |
+                            Q(location_raw__icontains=loc_s)
+                        )
+                    else:
+                        q_loc |= (
+                            Q(city__icontains=loc_s) |
+                            Q(state__icontains=loc_s) |
+                            Q(state_code__iexact=loc_s) |
+                            Q(location_raw__icontains=loc_s) |
+                            Q(country__icontains=loc_s)
+                        )
             if q_loc:
                 jobs = jobs.filter(q_loc)
 
     # 8. Work mode filter
     work_mode = request.query_params.get('work_mode')
     if work_mode:
-        wm_list = [w.strip() for w in work_mode.split(',') if w.strip()]
+        wm_list = [w.strip().lower() for w in work_mode.split(',') if w.strip()]
         if wm_list:
             q_wm = Q()
-            for w in wm_list:
-                q_wm |= Q(work_mode__icontains=w)
-            jobs = jobs.filter(q_wm)
+            if 'remote' in wm_list:
+                q_wm |= Q(is_remote=True) | Q(location_raw__icontains='remote')
+            if 'hybrid' in wm_list:
+                q_wm |= Q(is_hybrid=True) | Q(location_raw__icontains='hybrid')
+            if 'onsite' in wm_list:
+                q_wm |= Q(is_remote=False, is_hybrid=False)
+            if q_wm:
+                jobs = jobs.filter(q_wm)
 
     # 9. Employment type filter
     employment_type = request.query_params.get('employment_type')
@@ -743,7 +873,7 @@ def public_job_alerts(request):
         if exp_list:
             q_exp = Q()
             for x in exp_list:
-                q_exp |= Q(experience_required__icontains=x)
+                q_exp |= Q(experience_level__icontains=x)
             jobs = jobs.filter(q_exp)
 
     # 11. Visa eligibility filter
@@ -753,20 +883,50 @@ def public_job_alerts(request):
         if visa_list:
             q_visa = Q()
             for v in visa_list:
-                q_visa |= Q(visa_eligibility__icontains=v)
+                v_lower = v.lower()
+                if 'h1b' in v_lower:
+                    q_visa |= Q(h1b_sponsor=True) | Q(h1b_approvals__gt=0)
+                elif 'green card' in v_lower or 'perm' in v_lower:
+                    q_visa |= Q(green_card_sponsor=True) | Q(perm_filings__gt=0)
+                elif 'e-verify' in v_lower:
+                    q_visa |= Q(everify_enrolled=True)
+                elif 'grade' in v_lower:
+                    g = v.replace('Grade', '').strip()
+                    q_visa |= Q(visa_grade__iexact=g)
+                elif len(v.strip()) == 1 and v.strip().upper() in 'ABCDEF':
+                    q_visa |= Q(visa_grade__iexact=v.strip().upper())
+                else:
+                    q_visa |= Q(visa_grade__iexact=v)
             jobs = jobs.filter(q_visa)
 
     # 12. Salary filter
     salary = request.query_params.get('salary')
     if salary:
-        jobs = filter_jobs_by_salary(jobs, salary)
+        from .salary_utils import parse_salary_filter_criteria, parse_job_salary
+        criteria = parse_salary_filter_criteria(salary)
+        if criteria:
+            matching_ids = []
+            for j_id, s_min, s_max, s_raw in jobs.values_list('id', 'salary_min', 'salary_max', 'salary_raw'):
+                if s_min is not None and s_max is not None:
+                    j_min, j_max = float(s_min), float(s_max)
+                elif s_min is not None:
+                    j_min, j_max = float(s_min), float(s_min)
+                else:
+                    sal_range = parse_job_salary(s_raw)
+                    if sal_range:
+                        j_min, j_max = sal_range
+                    else:
+                        continue
+                if any(c(j_min, j_max) for c in criteria):
+                    matching_ids.append(j_id)
+            jobs = jobs.filter(id__in=matching_ids)
 
     # 13. Date Range filter
     from_date = request.query_params.get('from_date') or request.query_params.get('date_from')
     if from_date:
         try:
             from_dt = datetime.datetime.strptime(from_date.strip(), '%Y-%m-%d').date()
-            jobs = jobs.filter(Q(created_at__date__gte=from_dt) | Q(submission_log__log_date__gte=from_dt))
+            jobs = jobs.filter(Q(created_at__date__gte=from_dt) | Q(date_posted__date__gte=from_dt))
         except (ValueError, TypeError):
             pass
 
@@ -774,46 +934,43 @@ def public_job_alerts(request):
     if to_date:
         try:
             to_dt = datetime.datetime.strptime(to_date.strip(), '%Y-%m-%d').date()
-            jobs = jobs.filter(Q(created_at__date__lte=to_dt) | Q(submission_log__log_date__lte=to_dt))
+            jobs = jobs.filter(Q(created_at__date__lte=to_dt) | Q(date_posted__date__lte=to_dt))
         except (ValueError, TypeError):
             pass
 
-    # 13. Date timeframe filter (e.g. Posted Today, Past 3 Days, Past Week, Past Month)
+    # 14. Date timeframe filter
     date_preset = request.query_params.get('date_preset')
     if date_preset:
         today = timezone.now().date()
         if 'today' in date_preset.lower():
-            jobs = jobs.filter(Q(created_at__date=today) | Q(submission_log__log_date=today))
+            jobs = jobs.filter(Q(created_at__date=today) | Q(date_posted__date=today))
         elif '3' in date_preset:
             cutoff = today - datetime.timedelta(days=3)
-            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(date_posted__date__gte=cutoff))
         elif 'week' in date_preset.lower() or '7' in date_preset:
             cutoff = today - datetime.timedelta(days=7)
-            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(date_posted__date__gte=cutoff))
         elif 'month' in date_preset.lower() or '30' in date_preset:
             cutoff = today - datetime.timedelta(days=30)
-            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(submission_log__log_date__gte=cutoff))
+            jobs = jobs.filter(Q(created_at__date__gte=cutoff) | Q(date_posted__date__gte=cutoff))
 
-    # 14. Ordering
+    # 15. Ordering
     ordering = request.query_params.get('ordering') or request.query_params.get('sort')
     if ordering in ('created_at', 'oldest', 'Oldest First'):
         jobs = jobs.order_by('created_at')
     else:
         jobs = jobs.order_by('-created_at')
 
-    # 15. Pagination
+    # 16. Pagination
     total = jobs.count()
 
-    # Cache unfiltered_total to avoid an expensive full-table COUNT(*) on every request
     from django.core.cache import cache as django_cache
     unfiltered_total = django_cache.get('public_job_alerts_total')
     if unfiltered_total is None:
-        unfiltered_total = JobLinkEntry.objects.filter(
-            is_public=True
-        ).filter(
-            Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date)
+        unfiltered_total = DiscoveredJob.objects.filter(is_active=True, is_duplicate=False).filter(
+            Q(source_portal='manual') | Q(review_status='APPROVED')
         ).count()
-        django_cache.set('public_job_alerts_total', unfiltered_total, 300)  # 5 min
+        django_cache.set('public_job_alerts_total', unfiltered_total, 300)
 
     try:
         page = int(request.query_params.get('page', 0))
@@ -825,105 +982,127 @@ def public_job_alerts(request):
     except (ValueError, TypeError):
         page_size = 0
 
+    is_admin = (
+        request.user and
+        request.user.is_authenticated and
+        (request.user.role == 'admin' or getattr(request.user, 'is_staff', False))
+    )
+    SerializerClass = DiscoveredJobAlertSerializer if is_admin else PublicDiscoveredJobAlertSerializer
+
     if page > 0 and page_size > 0:
         start = (page - 1) * page_size
         sliced_jobs = jobs[start:start + page_size]
         return Response({
             'total': total,
             'unfiltered_total': unfiltered_total,
-            'results': JobLinkEntrySerializer(sliced_jobs, many=True).data,
+            'results': SerializerClass(sliced_jobs, many=True).data,
         })
 
-    return Response(JobLinkEntrySerializer(jobs, many=True).data)
+    return Response(SerializerClass(jobs, many=True).data)
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def public_job_alert_filter_options(request):
     """
-    Returns distinct filter options derived from live jobs created within the last 30 days.
-    Response is cached for 5 minutes to avoid 7+ distinct queries on every page load.
+    Returns distinct filter options derived from live discovered jobs.
+    Response is cached for 5 minutes.
     """
     from django.core.cache import cache as django_cache
-    from django.db.models import Q
     import datetime
 
     cached_result = django_cache.get('job_alert_filter_options')
     if cached_result is not None:
         return Response(cached_result)
 
-    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
-    thirty_days_ago_date = thirty_days_ago.date()
-
-    base_qs = JobLinkEntry.objects.filter(is_public=True).filter(
-        Q(created_at__gte=thirty_days_ago) | Q(submission_log__log_date__gte=thirty_days_ago_date)
-    )
+    base_qs = DiscoveredJob.objects.filter(is_active=True, is_duplicate=False)
 
     # Distinct Roles
     roles = list(
-        base_qs.exclude(role_title__isnull=True)
-        .exclude(role_title='')
-        .values_list('role_title', flat=True)
+        base_qs.exclude(target_role__isnull=True)
+        .exclude(target_role='')
+        .values_list('target_role', flat=True)
         .distinct()
-        .order_by('role_title')
+        .order_by('target_role')
     )
+    if not roles:
+        roles = list(
+            base_qs.exclude(title__isnull=True)
+            .exclude(title='')
+            .values_list('title', flat=True)
+            .distinct()
+            .order_by('title')
+        )
 
-    # Distinct Structured Locations (Restricted to United States with comprehensive states & cities)
+    # Structured Locations
     db_loc_entries = list(base_qs.values('city', 'state', 'country'))
     locations_data = get_us_locations_data(extra_db_records=db_loc_entries)
 
-    # Distinct Employment Types
-    employment_types = list(
+    # Employment Types
+    emp_types = list(
         base_qs.exclude(employment_type__isnull=True)
         .exclude(employment_type='')
         .values_list('employment_type', flat=True)
         .distinct()
         .order_by('employment_type')
     )
+    normalized_emp_types = []
+    for et in emp_types:
+        val = et.title() if et else et
+        if val not in normalized_emp_types:
+            normalized_emp_types.append(val)
+    if not normalized_emp_types:
+        normalized_emp_types = ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"]
 
-    # Distinct Work Modes
-    work_modes = list(
-        base_qs.exclude(work_mode__isnull=True)
-        .exclude(work_mode='')
-        .values_list('work_mode', flat=True)
-        .distinct()
-        .order_by('work_mode')
-    )
+    # Work Modes
+    work_modes = ["Remote", "Hybrid", "Onsite"]
 
-    # Distinct Experience Requirements
-    experience_levels = list(
-        base_qs.exclude(experience_required__isnull=True)
-        .exclude(experience_required='')
-        .values_list('experience_required', flat=True)
+    # Experience Levels
+    exp_levels = list(
+        base_qs.exclude(experience_level__isnull=True)
+        .exclude(experience_level='')
+        .values_list('experience_level', flat=True)
         .distinct()
-        .order_by('experience_required')
+        .order_by('experience_level')
     )
+    if not exp_levels:
+        exp_levels = ["Intern/New Grad", "0–2 Years", "2–5 Years", "5+ Years", "Senior Level", "Lead / Staff"]
 
-    # Distinct Visa Eligibilities
-    visa_eligibilities = list(
-        base_qs.exclude(visa_eligibility__isnull=True)
-        .exclude(visa_eligibility='')
-        .values_list('visa_eligibility', flat=True)
+    # Visa Eligibilities
+    visa_grades = list(
+        base_qs.exclude(visa_grade__isnull=True)
+        .exclude(visa_grade='')
+        .values_list('visa_grade', flat=True)
         .distinct()
-        .order_by('visa_eligibility')
+        .order_by('visa_grade')
     )
+    visa_options = ["H1B Sponsor", "Green Card Sponsor", "E-Verify"]
+    for vg in visa_grades:
+        label = f"Grade {vg.upper()}"
+        if label not in visa_options:
+            visa_options.append(label)
+    visa_options.append("All Work Authorization")
 
     total_count = base_qs.count()
 
+    is_admin = (
+        request.user and
+        request.user.is_authenticated and
+        (request.user.role == 'admin' or getattr(request.user, 'is_staff', False))
+    )
+
     result = {
-        'roles': roles,
+        'roles': sorted(list(set(roles))),
         'locations': locations_data,
-        'employment_types': employment_types,
+        'employment_types': normalized_emp_types,
         'work_modes': work_modes,
-        'experience_levels': experience_levels,
-        'visa_eligibilities': visa_eligibilities,
-        'salary_ranges': ["Disclosed Only", "$50,000+", "$100,000+", "$150,000+", "$200,000+"],
+        'experience_levels': exp_levels,
+        'visa_eligibilities': visa_options if is_admin else [],
+        'salary_ranges': ["$50,000+", "$100,000+", "$150,000+", "$200,000+"],
         'total_count': total_count,
     }
 
-    # Cache for 5 minutes — invalidated on job create/update/delete
     django_cache.set('job_alert_filter_options', result, 300)
-
     return Response(result)
 
 
