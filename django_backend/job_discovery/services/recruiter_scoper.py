@@ -14,10 +14,13 @@ from recruiters.models import RecruiterAssignment, JobLinkEntry
 from ..models import DiscoveredJob, RecruiterJobAssignment
 
 
-def get_recruiter_assigned_scope(recruiter_user: User) -> Dict[str, Any]:
+def get_recruiter_assigned_scope(recruiter_user: User, target_candidate_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Retrieves assigned candidates and their confirmed roles for the given recruiter.
+    Supports target_candidate_id for direct candidate queries by admin, recruiter, or candidate.
     """
+    from candidates.models import Candidate
+
     assignments = RecruiterAssignment.objects.filter(
         recruiter=recruiter_user,
         is_active=True
@@ -48,6 +51,48 @@ def get_recruiter_assigned_scope(recruiter_user: User) -> Dict[str, Any]:
             'status': cand.status,
             'roles': [],
         }
+
+    # If target_candidate_id provided, ensure candidate is in map (e.g. for Admin or direct candidate view)
+    if target_candidate_id and target_candidate_id != 'all':
+        tc_id = str(target_candidate_id)
+        if tc_id not in candidates_map:
+            try:
+                cand = Candidate.objects.select_related('user').get(id=target_candidate_id)
+                if cand.user:
+                    candidate_ids.append(cand.id)
+                    cand_name = None
+                    try:
+                        if hasattr(cand.user, 'profile') and cand.user.profile and cand.user.profile.full_name:
+                            cand_name = cand.user.profile.full_name.strip()
+                    except Exception:
+                        pass
+                    if not cand_name:
+                        cand_name = cand.user.email.split('@')[0].replace('.', ' ').title()
+                    candidates_map[tc_id] = {
+                        'id': tc_id,
+                        'name': cand_name,
+                        'email': cand.user.email,
+                        'status': cand.status,
+                        'roles': [],
+                    }
+            except Exception:
+                pass
+
+    # If logged-in user is a candidate, include self
+    if not candidate_ids and getattr(recruiter_user, 'role', None) == 'candidate':
+        try:
+            cand = Candidate.objects.select_related('user').get(user=recruiter_user)
+            c_id = str(cand.id)
+            candidate_ids.append(cand.id)
+            candidates_map[c_id] = {
+                'id': c_id,
+                'name': recruiter_user.email.split('@')[0].replace('.', ' ').title(),
+                'email': recruiter_user.email,
+                'status': cand.status,
+                'roles': [],
+            }
+        except Exception:
+            pass
 
     if not candidate_ids:
         return {
@@ -111,7 +156,7 @@ def build_recruiter_jobs_queryset(
     if base_qs is None:
         base_qs = DiscoveredJob.objects.all()
 
-    scope = get_recruiter_assigned_scope(recruiter_user)
+    scope = get_recruiter_assigned_scope(recruiter_user, target_candidate_id=candidate_id)
 
     # Fetch any jobs explicitly assigned to this recruiter by admin
     assigned_job_ids = list(
@@ -256,16 +301,37 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
                     dismissed_by = opp.get('dismissed_by__email')
                     applied_date = opp['applied_at'].date().isoformat() if opp.get('applied_at') else None
                 else:
+                    def _norm_url(u):
+                        if not u:
+                            return ''
+                        u = u.strip().lower()
+                        for p in ('https://', 'http://'):
+                            if u.startswith(p):
+                                u = u[len(p):]
+                                break
+                        if u.startswith('www.'):
+                            u = u[4:]
+                        return u.rstrip('/')
+
+                    job_url_norm = _norm_url(job_url)
+
                     # Fallback check from existing JobLinkEntry records
                     for app in existing_applications:
                         if str(app['candidate_id']) == c_id_str:
                             app_url = (app.get('job_url') or '').strip()
-                            app_comp = (app.get('company_name') or '').lower()
-                            app_role = (app.get('role_title') or '').lower()
+                            app_comp = (app.get('company_name') or '').lower().strip()
+                            app_role = (app.get('role_title') or '').lower().strip()
+                            app_status = (app.get('application_status') or '').lower()
 
-                            # Match by URL or (company + role overlap)
-                            if (app_url and job_url and app_url == job_url) or (app_comp and app_comp == company and (app_role in title or app_role in target_role)):
-                                c_status = 'APPLIED'
+                            # Match by normalized URL or (company + role overlap)
+                            url_match = bool(app_url and job_url_norm and _norm_url(app_url) == job_url_norm)
+                            comp_match = bool(app_comp and (app_comp in company or company in app_comp) and (app_role in title or app_role in target_role or title in app_role or target_role in app_role))
+
+                            if url_match or comp_match:
+                                if app_status == 'rejected':
+                                    c_status = 'REJECTED'
+                                else:
+                                    c_status = 'APPLIED'
                                 applied_date = app['created_at'].date().isoformat() if app.get('created_at') else None
                                 break
 

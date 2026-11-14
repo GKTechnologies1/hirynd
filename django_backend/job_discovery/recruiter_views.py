@@ -20,14 +20,29 @@ logger = logging.getLogger('job_discovery')
 
 
 @api_view(['GET'])
-@permission_classes([IsApproved, IsRecruiter])
+@permission_classes([IsApproved])
 def list_recruiter_jobs(request):
     """
     GET /api/recruiter/job-discovery/jobs/
     Returns ONLY job listings relevant to candidates assigned to the logged-in recruiter.
     Attaches matched candidate badge data to each returned job record.
     """
-    scope = get_recruiter_assigned_scope(request.user)
+    if request.user.role not in ('recruiter', 'team_lead', 'team_manager', 'admin', 'candidate'):
+        return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+    candidate_id = request.GET.get('candidate_id')
+    role_filter = request.GET.get('role')
+
+    # Candidates can only access their own profile jobs
+    if request.user.role == 'candidate':
+        from candidates.models import Candidate
+        try:
+            cand = Candidate.objects.get(user=request.user)
+            candidate_id = str(cand.id)
+        except Candidate.DoesNotExist:
+            return Response({'error': 'Candidate profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    scope = get_recruiter_assigned_scope(request.user, target_candidate_id=candidate_id)
 
     # Recruiter has no active assignments or no confirmed candidate roles
     if not scope['has_candidates'] or not scope['roles']:
@@ -40,9 +55,6 @@ def list_recruiter_jobs(request):
             'assigned_candidates': scope['candidates'],
             'message': 'No active candidates with confirmed roles are currently assigned to you.'
         })
-
-    candidate_id = request.GET.get('candidate_id')
-    role_filter = request.GET.get('role')
 
     # Build scoped queryset restricted strictly to recruiter's candidate roles
     qs = build_recruiter_jobs_queryset(
@@ -354,7 +366,7 @@ def get_recruiter_job_discovery_filters(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsApproved, IsRecruiter])
+@permission_classes([IsApproved])
 def mark_job_as_applied(request, job_id):
     """
     POST /api/recruiter/job-discovery/jobs/<job_id>/mark-applied/
@@ -367,30 +379,34 @@ def mark_job_as_applied(request, job_id):
     if not candidate_id:
         return Response({'error': 'candidate_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Validate candidate assignment (Admins bypass isolation)
-    if request.user.role != 'admin':
-        from recruiters.models import RecruiterAssignment
-        is_assigned = RecruiterAssignment.objects.filter(
-            recruiter=request.user,
-            candidate_id=candidate_id,
-            is_active=True
-        ).exists()
-        if not is_assigned:
-            return Response(
-                {'error': 'You are not assigned to manage this candidate.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-    try:
-        job = DiscoveredJob.objects.get(id=job_id)
-    except DiscoveredJob.DoesNotExist:
-        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
-
     from candidates.models import Candidate
     try:
         candidate = Candidate.objects.get(id=candidate_id)
     except Candidate.DoesNotExist:
         return Response({'error': 'Candidate not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate candidate assignment (Admins, Team Leads, Team Managers bypass isolation)
+    if request.user.role not in ('admin', 'team_lead', 'team_manager'):
+        if request.user.role == 'candidate':
+            if str(candidate.user_id) != str(request.user.id):
+                return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            from recruiters.models import RecruiterAssignment
+            is_assigned = RecruiterAssignment.objects.filter(
+                recruiter=request.user,
+                candidate_id=candidate_id,
+                is_active=True
+            ).exists()
+            if not is_assigned:
+                return Response(
+                    {'error': 'You are not assigned to manage this candidate.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+    try:
+        job = DiscoveredJob.objects.get(id=job_id)
+    except DiscoveredJob.DoesNotExist:
+        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
 
     from recruiters.models import JobLinkEntry, DailySubmissionLog
 
@@ -493,7 +509,7 @@ def mark_job_as_applied(request, job_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsApproved, IsRecruiter])
+@permission_classes([IsApproved])
 def reject_job(request, job_id):
     """
     POST /api/recruiter/job-discovery/jobs/<job_id>/reject/
@@ -508,30 +524,34 @@ def reject_job(request, job_id):
     if not reason:
         return Response({'error': 'A rejection reason is mandatory'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Validate assignment (Admins bypass isolation)
-    if request.user.role != 'admin':
-        from recruiters.models import RecruiterAssignment
-        is_assigned = RecruiterAssignment.objects.filter(
-            recruiter=request.user,
-            candidate_id=candidate_id,
-            is_active=True
-        ).exists()
-        if not is_assigned:
-            return Response(
-                {'error': 'You are not assigned to manage this candidate.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-    try:
-        job = DiscoveredJob.objects.get(id=job_id)
-    except DiscoveredJob.DoesNotExist:
-        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
-
     from candidates.models import Candidate
     try:
         candidate = Candidate.objects.get(id=candidate_id)
     except Candidate.DoesNotExist:
         return Response({'error': 'Candidate not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate assignment (Admins, Team Leads, Team Managers bypass isolation)
+    if request.user.role not in ('admin', 'team_lead', 'team_manager'):
+        if request.user.role == 'candidate':
+            if str(candidate.user_id) != str(request.user.id):
+                return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            from recruiters.models import RecruiterAssignment
+            is_assigned = RecruiterAssignment.objects.filter(
+                recruiter=request.user,
+                candidate_id=candidate_id,
+                is_active=True
+            ).exists()
+            if not is_assigned:
+                return Response(
+                    {'error': 'You are not assigned to manage this candidate.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+    try:
+        job = DiscoveredJob.objects.get(id=job_id)
+    except DiscoveredJob.DoesNotExist:
+        return Response({'error': 'Discovered job not found'}, status=status.HTTP_404_NOT_FOUND)
 
     from .models import CandidateJobOpportunity
     opp, _ = CandidateJobOpportunity.objects.update_or_create(

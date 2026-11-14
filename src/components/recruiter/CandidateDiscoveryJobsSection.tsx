@@ -186,16 +186,34 @@ export const CandidateDiscoveryJobsSection = ({
 
   // Find if a job has an existing application in jobPostings
   const findExistingApplication = useCallback((job: any) => {
-    const jobUrl = (job.job_url || "").trim().toLowerCase();
-    const jobTitle = (job.title || "").trim().toLowerCase();
-    const company = (job.company_name || "").trim().toLowerCase();
+    if (!job || !jobPostings || jobPostings.length === 0) return null;
+
+    const normalizeUrl = (u?: string) => {
+      if (!u) return "";
+      return u.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
+    };
+    const normalizeText = (t?: string) => {
+      if (!t) return "";
+      return t.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    };
+
+    const jobUrlNorm = normalizeUrl(job.job_url);
+    const jobTitleNorm = normalizeText(job.title || job.target_role);
+    const companyNorm = normalizeText(job.company_name);
 
     return jobPostings.find(app => {
-      const appUrl = (app.job_url || "").trim().toLowerCase();
-      if (jobUrl && appUrl && jobUrl === appUrl) return true;
-      const appRole = (app.role_title || "").trim().toLowerCase();
-      const appCompany = (app.company_name || "").trim().toLowerCase();
-      if (jobTitle && company && appRole === jobTitle && appCompany === company) return true;
+      // 1. Match by normalized URL
+      const appUrlNorm = normalizeUrl(app.job_url);
+      if (jobUrlNorm && appUrlNorm && jobUrlNorm === appUrlNorm) return true;
+
+      // 2. Match by company and role
+      const appCompanyNorm = normalizeText(app.company_name);
+      const appRoleNorm = normalizeText(app.role_title);
+      if (companyNorm && appCompanyNorm && (companyNorm === appCompanyNorm || companyNorm.includes(appCompanyNorm) || appCompanyNorm.includes(companyNorm))) {
+        if (jobTitleNorm && appRoleNorm && (jobTitleNorm.includes(appRoleNorm) || appRoleNorm.includes(jobTitleNorm))) {
+          return true;
+        }
+      }
       return false;
     });
   }, [jobPostings]);
@@ -249,19 +267,48 @@ export const CandidateDiscoveryJobsSection = ({
         });
 
         createdEntries = res.data;
+        const isRejection = statusVal.toLowerCase() === "rejected";
         toast({
-          title: "Moved to Submission Pipeline",
-          description: `${cleanTitle} at ${cleanCompany} has been moved to the submission pipeline.`,
+          title: isRejection ? "Application Rejected" : "Moved to Submission Pipeline",
+          description: `${cleanTitle} at ${cleanCompany} has been ${isRejection ? "marked as rejected in" : "moved to"} the submission pipeline.`,
         });
       }
 
-      // Remove the job from the current discovery list so it visibly MOVES to the pipeline
-      setJobs(prev => prev.filter(j => j.id !== job.id));
-      setTotalCount(prev => Math.max(0, prev - 1));
+      // Sync with Discovery Job Opportunity on backend
+      const rawJobId = job.job_uuid || (job.id ? String(job.id).split("_")[0] : null);
+      if (rawJobId && candidateId) {
+        try {
+          if (statusVal.toLowerCase() === "rejected") {
+            await recruiterJobDiscoveryApi.rejectJob(rawJobId, {
+              candidate_id: candidateId,
+              reason: "Rejected from Discovery Jobs",
+            });
+          } else {
+            await recruiterJobDiscoveryApi.markApplied(rawJobId, {
+              candidate_id: candidateId,
+              notes: "Applied from Discovery Jobs",
+            });
+          }
+        } catch (syncErr) {
+          console.warn("Could not sync candidate job opportunity state:", syncErr);
+        }
+      }
+
+      // Update the job status in local state so it immediately shows as APPLIED / IN PIPELINE
+      setJobs(prev => prev.map(j => {
+        if (j.id === job.id || (j.opportunity_id && j.opportunity_id === job.opportunity_id)) {
+          return {
+            ...j,
+            status: statusVal.toUpperCase(),
+            has_applied: statusVal.toLowerCase() === "applied",
+          };
+        }
+        return j;
+      }));
 
       // Close details modal if open
-      if (selectedJob && selectedJob.id === job.id) {
-        setSelectedJob(null);
+      if (selectedJob && (selectedJob.id === job.id || selectedJob.opportunity_id === job.opportunity_id)) {
+        setSelectedJob(prev => prev ? { ...prev, status: statusVal.toUpperCase(), has_applied: statusVal.toLowerCase() === "applied" } : null);
       }
 
       // Notify parent to add to pipeline table and scroll smoothly down to it
@@ -687,9 +734,10 @@ export const CandidateDiscoveryJobsSection = ({
                 {jobs.map((job) => {
                   const existingApp = findExistingApplication(job);
                   const isUpdating = updatingJobId === job.id;
-                  const isApplied = !!existingApp || job.status === "APPLIED" || job.has_applied === true;
+                  const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
+                  const isRejected = existingStatus === "rejected" || job.status === "REJECTED";
+                  const isApplied = (!!existingApp && !isRejected) || job.status === "APPLIED" || job.has_applied === true;
                   const isDismissed = job.discovery_status === "DISMISSED" || job.is_dismissed === true;
-                  const isRejected = job.status === "REJECTED";
                   const companyName = job.company_name || "Company";
                   const roleTitle = job.title || "Job Opportunity";
                   const postedDate = job.date_posted ? formatDate(job.date_posted) : "Recent";
@@ -852,6 +900,10 @@ export const CandidateDiscoveryJobsSection = ({
                             <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mr-1 flex items-center gap-1">
                               <Check className="h-3 w-3" /> In Pipeline
                             </span>
+                          ) : isRejected ? (
+                            <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 mr-1 flex items-center gap-1">
+                              <X className="h-3 w-3" /> Rejected in Pipeline
+                            </span>
                           ) : (
                             <>
                               <Button
@@ -863,7 +915,19 @@ export const CandidateDiscoveryJobsSection = ({
                                 title="Add this job to candidate application pipeline"
                               >
                                 {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                Apply
+                                Applied
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleApplyDirectly(job, "rejected")}
+                                disabled={isUpdating}
+                                className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                                title="Mark this job as rejected in candidate application pipeline"
+                              >
+                                <X className="h-3 w-3" />
+                                Reject
                               </Button>
                               <Button
                                 type="button"
@@ -948,9 +1012,10 @@ export const CandidateDiscoveryJobsSection = ({
                   jobs.map((job) => {
                     const existingApp = findExistingApplication(job);
                     const isUpdating = updatingJobId === job.id;
-                    const isApplied = !!existingApp || job.status === "APPLIED" || job.has_applied === true;
+                    const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
+                    const isRejected = existingStatus === "rejected" || job.status === "REJECTED";
+                    const isApplied = (!!existingApp && !isRejected) || job.status === "APPLIED" || job.has_applied === true;
                     const isDismissed = job.discovery_status === "DISMISSED" || job.is_dismissed === true;
-                    const isRejected = job.status === "REJECTED";
 
                     return (
                       <tr key={job.id} className="hover:bg-muted/20 transition-colors">
@@ -1081,6 +1146,10 @@ export const CandidateDiscoveryJobsSection = ({
                               <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mr-1 flex items-center gap-1">
                                 <Check className="h-3 w-3" /> In Pipeline
                               </span>
+                            ) : isRejected ? (
+                              <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 mr-1 flex items-center gap-1">
+                                <X className="h-3 w-3" /> Rejected in Pipeline
+                              </span>
                             ) : (
                               <>
                                 <Button
@@ -1092,7 +1161,19 @@ export const CandidateDiscoveryJobsSection = ({
                                   title="Add this job to candidate application pipeline"
                                 >
                                   {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                  Apply
+                                  Applied
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleApplyDirectly(job, "rejected")}
+                                  disabled={isUpdating}
+                                  className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                                  title="Mark this job as rejected in candidate application pipeline"
+                                >
+                                  <X className="h-3 w-3" />
+                                  Reject
                                 </Button>
                                 <Button
                                   type="button"
@@ -1233,9 +1314,10 @@ export const CandidateDiscoveryJobsSection = ({
                   {/* Authoritative Status & Action Banner in Modal */}
                   {(() => {
                     const existingApp = findExistingApplication(selectedJob);
-                    const isApplied = !!existingApp || selectedJob.status === "APPLIED" || selectedJob.has_applied === true;
+                    const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
+                    const isRejected = existingStatus === "rejected" || selectedJob.status === "REJECTED";
+                    const isApplied = (!!existingApp && !isRejected) || selectedJob.status === "APPLIED" || selectedJob.has_applied === true;
                     const isDismissed = selectedJob.discovery_status === "DISMISSED" || selectedJob.is_dismissed === true;
-                    const isRejected = selectedJob.status === "REJECTED";
 
                     return (
                       <div className="flex items-center gap-2">
@@ -1265,9 +1347,10 @@ export const CandidateDiscoveryJobsSection = ({
                             Applied to Pipeline
                           </span>
                         ) : isRejected ? (
-                          <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 text-xs font-semibold px-2.5 py-1">
-                            Rejected
-                          </Badge>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-800 border border-rose-300 dark:bg-rose-950/40 dark:text-rose-300">
+                            <X className="h-3.5 w-3.5 text-rose-600" />
+                            Rejected in Pipeline
+                          </span>
                         ) : (
                           <div className="flex items-center gap-2">
                             <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-muted-foreground border border-border">
@@ -1283,8 +1366,22 @@ export const CandidateDiscoveryJobsSection = ({
                               disabled={updatingJobId === selectedJob.id}
                               className="h-8 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
                             >
-                              <Check className="h-3.5 w-3.5" />
-                              Apply for this
+                              {updatingJobId === selectedJob.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                              Applied
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                handleApplyDirectly(selectedJob, "rejected");
+                                setSelectedJob(null);
+                              }}
+                              disabled={updatingJobId === selectedJob.id}
+                              className="h-8 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 rounded-lg flex items-center gap-1 cursor-pointer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              Reject
                             </Button>
                             <Button
                               type="button"
@@ -1414,7 +1511,9 @@ export const CandidateDiscoveryJobsSection = ({
               <DialogFooter className="flex items-center justify-between gap-2 border-t pt-3">
                 {(() => {
                   const existingApp = findExistingApplication(selectedJob);
-                  const isApplied = !!existingApp || selectedJob.status === "APPLIED" || selectedJob.has_applied === true;
+                  const existingStatus = (existingApp?.application_status || existingApp?.status || existingApp?.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
+                  const isRejected = existingStatus === "rejected" || selectedJob.status === "REJECTED";
+                  const isApplied = (!!existingApp && !isRejected) || selectedJob.status === "APPLIED" || selectedJob.has_applied === true;
                   const isDismissed = selectedJob.discovery_status === "DISMISSED" || selectedJob.is_dismissed === true;
 
                   if (isDismissed) {
@@ -1444,6 +1543,15 @@ export const CandidateDiscoveryJobsSection = ({
                     );
                   }
 
+                  if (isRejected) {
+                    return (
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-300">
+                        <X className="h-3.5 w-3.5" />
+                        Rejected in Pipeline
+                      </span>
+                    );
+                  }
+
                   return (
                     <div className="flex items-center gap-2">
                       <Button
@@ -1457,6 +1565,19 @@ export const CandidateDiscoveryJobsSection = ({
                       >
                         <Check className="h-3.5 w-3.5" />
                         Apply (Add to Pipeline)
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          handleApplyDirectly(selectedJob, "rejected");
+                          setSelectedJob(null);
+                        }}
+                        className="h-8 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Reject Application
                       </Button>
                       <Button
                         type="button"
