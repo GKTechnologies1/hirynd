@@ -304,13 +304,42 @@ def list_discovered_jobs(request):
     """
     qs = DiscoveredJob.objects.all().select_related('reviewed_by')
 
-    # Search (title, company, normalized company, role, description, location)
+    # Search (title, company, normalized company, role, description, location, restrictions)
     search = request.GET.get('search', '').strip()
     if search:
+        phrase_q = (
+            Q(title__icontains=search) |
+            Q(company_name__icontains=search) |
+            Q(company_name_norm__icontains=search) |
+            Q(target_role__icontains=search) |
+            Q(job_description__icontains=search) |
+            Q(city__icontains=search) |
+            Q(state__icontains=search) |
+            Q(detected_restrictions__icontains=search)
+        )
         search_terms = search.split()
-        search_q = Q()
-        for term in search_terms:
-            search_q &= (
+        if len(search_terms) > 1:
+            token_q = Q()
+            for term in search_terms:
+                t_lower = term.lower()
+                country_term_q = Q(country__iexact=term) if t_lower in ('us', 'usa', 'united states') else Q()
+                token_q &= (
+                    Q(title__icontains=term) |
+                    Q(company_name__icontains=term) |
+                    Q(company_name_norm__icontains=term) |
+                    Q(target_role__icontains=term) |
+                    Q(job_description__icontains=term) |
+                    Q(city__icontains=term) |
+                    Q(state__icontains=term) |
+                    Q(detected_restrictions__icontains=term) |
+                    country_term_q
+                )
+            qs = qs.filter(phrase_q | token_q)
+        else:
+            term = search
+            t_lower = term.lower()
+            country_term_q = Q(country__iexact=term) if t_lower in ('us', 'usa', 'united states') else Q()
+            single_q = (
                 Q(title__icontains=term) |
                 Q(company_name__icontains=term) |
                 Q(company_name_norm__icontains=term) |
@@ -318,9 +347,10 @@ def list_discovered_jobs(request):
                 Q(job_description__icontains=term) |
                 Q(city__icontains=term) |
                 Q(state__icontains=term) |
-                Q(country__icontains=term)
+                Q(detected_restrictions__icontains=term) |
+                country_term_q
             )
-        qs = qs.filter(search_q)
+            qs = qs.filter(single_q)
 
     # Filters
     role = request.GET.get('role', '').strip()
@@ -652,7 +682,12 @@ def get_execution_session_report(request, execution_id):
     total_unique = ex.total_inserted
     total_duplicates = ex.total_duplicates
     total_scored = jobs_qs.filter(visa_friendly_score__gt=0).count()
-    total_below_threshold = jobs_qs.filter(visa_friendly_score__lt=min_score).count() if min_score > 0 else 0
+    if min_score > 0:
+        total_qualified = jobs_qs.filter(visa_friendly_score__gte=min_score).count()
+        total_below_threshold = jobs_qs.filter(visa_friendly_score__gt=0, visa_friendly_score__lt=min_score).count()
+    else:
+        total_qualified = total_scored
+        total_below_threshold = 0
     total_failed = max(0, total_requested - total_collected) if ex.status == 'completed' else 0
 
     started_by_str = 'System Scheduler' if ex.trigger_type == 'scheduled' else 'Anonymous'
@@ -681,7 +716,7 @@ def get_execution_session_report(request, execution_id):
         'total_failed_jobs': total_failed,
         'total_scored_jobs': total_scored,
         'total_below_threshold': total_below_threshold,
-        'total_qualified': max(0, total_collected - total_below_threshold),
+        'total_qualified': total_qualified,
         'total_cost_usd': float(ex.total_cost_usd or 0.0),
         'api_calls_count': ex.api_calls_count,
         'error_message': ex.error_message,

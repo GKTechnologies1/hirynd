@@ -52,14 +52,17 @@ def get_recruiter_assigned_scope(recruiter_user: User, target_candidate_id: Opti
             'roles': [],
         }
 
-    # If target_candidate_id provided, ensure candidate is in map (e.g. for Admin or direct candidate view)
+    # If target_candidate_id provided, ensure candidate is in map and scope is restricted strictly to target candidate
     if target_candidate_id and target_candidate_id != 'all':
         tc_id = str(target_candidate_id)
-        if tc_id not in candidates_map:
+        if tc_id in candidates_map:
+            candidates_map = {tc_id: candidates_map[tc_id]}
+            candidate_ids = [target_candidate_id]
+        else:
             try:
                 cand = Candidate.objects.select_related('user').get(id=target_candidate_id)
                 if cand.user:
-                    candidate_ids.append(cand.id)
+                    candidate_ids = [cand.id]
                     cand_name = None
                     try:
                         if hasattr(cand.user, 'profile') and cand.user.profile and cand.user.profile.full_name:
@@ -68,12 +71,14 @@ def get_recruiter_assigned_scope(recruiter_user: User, target_candidate_id: Opti
                         pass
                     if not cand_name:
                         cand_name = cand.user.email.split('@')[0].replace('.', ' ').title()
-                    candidates_map[tc_id] = {
-                        'id': tc_id,
-                        'name': cand_name,
-                        'email': cand.user.email,
-                        'status': cand.status,
-                        'roles': [],
+                    candidates_map = {
+                        tc_id: {
+                            'id': tc_id,
+                            'name': cand_name,
+                            'email': cand.user.email,
+                            'status': cand.status,
+                            'roles': [],
+                        }
                     }
             except Exception:
                 pass
@@ -294,7 +299,7 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
             job_id__in=job_ids
         ).values(
             'candidate_id', 'job_id', 'status', 'discovery_status',
-            'dismissal_reason', 'dismissal_comments', 'dismissed_at', 'dismissed_by__email', 'applied_at'
+            'rejection_reason', 'dismissal_reason', 'dismissal_comments', 'dismissed_at', 'dismissed_by__email', 'applied_at'
         )
     )
     opp_map = {

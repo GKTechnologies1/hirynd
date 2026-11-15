@@ -408,15 +408,24 @@ def execute_scraping_run(execution_id: UUID) -> None:
 
         # Post-scrape qualification metrics for Visa-filtered runs
         min_score = int(config.get('minimum_score', 0) or 0)
-        qualified_jobs = DiscoveredJob.objects.filter(execution=execution)
+        all_jobs = DiscoveredJob.objects.filter(execution=execution)
+        scored_jobs = all_jobs.filter(visa_friendly_score__gt=0)
+        scored_count = scored_jobs.count()
         if min_score > 0:
-            qualified_jobs = qualified_jobs.filter(visa_friendly_score__gte=min_score)
-        qualified_count = qualified_jobs.count()
+            qualified_count = scored_jobs.filter(visa_friendly_score__gte=min_score).count()
+            below_threshold_count = scored_jobs.filter(visa_friendly_score__lt=min_score).count()
+        else:
+            qualified_count = scored_count
+            below_threshold_count = 0
+        unscored_count = max(0, total_found - scored_count)
 
         execution.config = {
             **config,
+            'scored_count': scored_count,
             'qualified_count': qualified_count,
-            'unqualified_count': max(0, total_found - qualified_count),
+            'below_threshold_count': below_threshold_count,
+            'unscored_count': unscored_count,
+            'unqualified_count': below_threshold_count,
         }
 
         execution.status = 'completed'

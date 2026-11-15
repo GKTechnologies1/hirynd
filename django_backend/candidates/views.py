@@ -1188,8 +1188,18 @@ def referrals(request, candidate_id):
 @api_view(['GET', 'POST', 'PATCH'])
 @permission_classes([IsApproved])
 def interviews(request, candidate_id):
+    # Resolve candidate_id supporting either Candidate UUID or User UUID
+    try:
+        cand = Candidate.objects.get(id=candidate_id)
+    except (Candidate.DoesNotExist, ValueError, ValidationError):
+        try:
+            cand = Candidate.objects.get(user_id=candidate_id)
+            candidate_id = cand.id
+        except (Candidate.DoesNotExist, ValueError, ValidationError):
+            return Response({'error': 'Candidate profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
     if request.method == 'GET':
-        logs = InterviewLog.objects.filter(candidate_id=candidate_id)
+        logs = InterviewLog.objects.filter(candidate=cand).order_by('-updated_at', '-created_at')
         return Response(InterviewLogSerializer(logs, many=True).data)
 
     if request.method == 'PATCH':
@@ -1197,7 +1207,7 @@ def interviews(request, candidate_id):
         if not log_id:
             return Response({'error': 'Interview log ID is required for update'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            log = InterviewLog.objects.get(id=log_id, candidate_id=candidate_id)
+            log = InterviewLog.objects.get(id=log_id, candidate=cand)
         except InterviewLog.DoesNotExist:
             return Response({'error': 'Interview log not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1215,16 +1225,15 @@ def interviews(request, candidate_id):
 
         # Touch candidate to update updated_at
         try:
-            candidate = Candidate.objects.get(id=candidate_id)
-            candidate.save()
-        except Candidate.DoesNotExist:
+            cand.save()
+        except Exception:
             pass
 
-        log_action(request.user, 'interview_outcome_update', str(candidate_id), 'interview', {'log_id': str(log.id), 'outcome': log.outcome})
+        log_action(request.user, 'interview_outcome_update', str(cand.id), 'interview', {'log_id': str(log.id), 'outcome': log.outcome})
         return Response(serializer.data)
 
     data = request.data.copy()
-    data['candidate'] = candidate_id
+    data['candidate'] = cand.id
     serializer = InterviewLogSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     serializer.save(submitted_by=request.user)
@@ -1238,9 +1247,8 @@ def interviews(request, candidate_id):
 
     # Touch candidate to update updated_at
     try:
-        candidate = Candidate.objects.get(id=candidate_id)
-        candidate.save()
-    except Candidate.DoesNotExist:
+        cand.save()
+    except Exception:
         pass
 
     return Response(serializer.data, status=status.HTTP_201_CREATED)

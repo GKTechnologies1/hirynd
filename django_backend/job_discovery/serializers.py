@@ -204,7 +204,7 @@ class DiscoveredJobListSerializer(serializers.ModelSerializer):
         model = DiscoveredJob
         fields = [
             'id', 'job_id', 'title', 'company_name', 'company_name_norm', 'target_role',
-            'location_raw', 'city', 'state', 'state_code', 'country',
+            'job_url', 'job_description', 'location_raw', 'city', 'state', 'state_code', 'country',
             'is_remote', 'is_hybrid', 'salary_min', 'salary_max', 'salary_currency',
             'salary_period', 'salary_raw', 'employment_type', 'experience_level',
             'source_portal', 'date_posted', 'job_url', 'review_status',

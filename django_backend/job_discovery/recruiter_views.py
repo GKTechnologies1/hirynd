@@ -62,6 +62,9 @@ def list_recruiter_jobs(request):
         if app_status == 'DISMISSED':
             disc_filter = 'DISMISSED'
             app_status = 'ALL'
+        elif app_status == 'REJECTED':
+            disc_filter = 'REJECTED'
+            app_status = 'ALL'
         else:
             disc_filter = 'ACTIVE'
 
@@ -73,13 +76,42 @@ def list_recruiter_jobs(request):
         disc_filter=disc_filter
     )
 
-    # Search keyword filter (title, company, normalized company, role, description, location)
+    # Search keyword filter (title, company, normalized company, role, description, location, restrictions)
     search = request.GET.get('search', '').strip()
     if search:
+        phrase_q = (
+            Q(title__icontains=search) |
+            Q(company_name__icontains=search) |
+            Q(company_name_norm__icontains=search) |
+            Q(target_role__icontains=search) |
+            Q(job_description__icontains=search) |
+            Q(city__icontains=search) |
+            Q(state__icontains=search) |
+            Q(detected_restrictions__icontains=search)
+        )
         search_terms = search.split()
-        search_q = Q()
-        for term in search_terms:
-            search_q &= (
+        if len(search_terms) > 1:
+            token_q = Q()
+            for term in search_terms:
+                t_lower = term.lower()
+                country_term_q = Q(country__iexact=term) if t_lower in ('us', 'usa', 'united states') else Q()
+                token_q &= (
+                    Q(title__icontains=term) |
+                    Q(company_name__icontains=term) |
+                    Q(company_name_norm__icontains=term) |
+                    Q(target_role__icontains=term) |
+                    Q(job_description__icontains=term) |
+                    Q(city__icontains=term) |
+                    Q(state__icontains=term) |
+                    Q(detected_restrictions__icontains=term) |
+                    country_term_q
+                )
+            qs = qs.filter(phrase_q | token_q)
+        else:
+            term = search
+            t_lower = term.lower()
+            country_term_q = Q(country__iexact=term) if t_lower in ('us', 'usa', 'united states') else Q()
+            single_q = (
                 Q(title__icontains=term) |
                 Q(company_name__icontains=term) |
                 Q(company_name_norm__icontains=term) |
@@ -87,9 +119,10 @@ def list_recruiter_jobs(request):
                 Q(job_description__icontains=term) |
                 Q(city__icontains=term) |
                 Q(state__icontains=term) |
-                Q(country__icontains=term)
+                Q(detected_restrictions__icontains=term) |
+                country_term_q
             )
-        qs = qs.filter(search_q)
+            qs = qs.filter(single_q)
 
     # Portal source filter
     source = request.GET.get('source', '').strip()
@@ -182,6 +215,8 @@ def list_recruiter_jobs(request):
     expanded_records = []
     for job in enriched_jobs:
         matching_cands = job.get('matching_candidates') or []
+        if candidate_id and candidate_id != 'all':
+            matching_cands = [mc for mc in matching_cands if str(mc.get('id')) == str(candidate_id)]
         if matching_cands:
             for mc in matching_cands:
                 item = dict(job)
@@ -463,6 +498,13 @@ def mark_job_as_applied(request, job_id):
             sal_val = f"${int(job.salary_min):,} – ${int(job.salary_max):,}{period_str}"
         else:
             sal_val = f"${int(job.salary_min):,}{period_str}"
+    elif sal_val and not any(p in sal_val.lower() for p in ('hour', 'year', 'month', 'week', 'day', '/')):
+        if job.salary_period:
+            sal_val = f"{sal_val} / {job.salary_period.lower()}"
+        elif job.salary_min and job.salary_min < 300:
+            sal_val = f"{sal_val} / hourly"
+        elif job.salary_min and job.salary_min >= 10000:
+            sal_val = f"{sal_val} / yearly"
 
     work_mode_val = 'Remote' if job.is_remote else ('Hybrid' if job.is_hybrid else 'Onsite')
     exp_val = job.experience_level or 'Not Specified'

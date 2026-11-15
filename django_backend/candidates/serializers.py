@@ -293,6 +293,26 @@ class ReferralSerializer(serializers.ModelSerializer):
 class InterviewLogSerializer(serializers.ModelSerializer):
     submitted_by_name = serializers.SerializerMethodField()
     job_url = serializers.SerializerMethodField()
+    stage_round = serializers.CharField(
+        required=True, allow_blank=False,
+        error_messages={'required': 'Round is required.', 'blank': 'Round is required.'}
+    )
+    outcome = serializers.CharField(
+        required=True, allow_blank=False,
+        error_messages={'required': 'Outcome is required.', 'blank': 'Outcome is required.'}
+    )
+    interviewer_name = serializers.CharField(
+        required=True, allow_blank=False,
+        error_messages={'required': 'Interviewer / HR Name is required.', 'blank': 'Interviewer / HR Name is required.'}
+    )
+    interviewer_email = serializers.EmailField(
+        required=True, allow_blank=False,
+        error_messages={
+            'required': 'Interviewer Email ID is required.',
+            'blank': 'Interviewer Email ID is required.',
+            'invalid': 'Please enter a valid email address (e.g. interviewer@company.com).'
+        }
+    )
 
     class Meta:
         model = InterviewLog
@@ -354,6 +374,22 @@ class PlacementClosureSerializer(serializers.ModelSerializer):
             'additional_contacts', 'closed_by', 'updated_by', 'created_at', 'updated_at', 'audit_logs'
         ]
         read_only_fields = ['id', 'closed_by', 'updated_by', 'created_at', 'updated_at', 'audit_logs']
+
+    def validate_everified_employer(self, value):
+        if not value:
+            return 'unknown'
+        val = str(value).lower().strip()
+        if val in ('yes', 'no', 'unknown'):
+            return val
+        return 'unknown'
+
+    def validate_h1b_sponsorship_willing(self, value):
+        if not value:
+            return 'unknown'
+        val = str(value).lower().strip()
+        if val in ('yes', 'no', 'unknown'):
+            return val
+        return 'unknown'
 
     def get_audit_logs(self, obj):
         logs = obj.audit_logs.all()[:10]

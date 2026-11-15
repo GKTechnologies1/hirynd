@@ -390,7 +390,7 @@ class InterviewLog(models.Model):
 
     class Meta:
         db_table = 'interview_logs'
-        ordering = ['-interview_date', '-created_at']
+        ordering = ['-updated_at', '-created_at']
 
     def __str__(self):
         return f"{self.interview_type} at {self.company_name} ({self.candidate.user.email})"
