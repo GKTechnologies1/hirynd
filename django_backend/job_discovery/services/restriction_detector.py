@@ -27,17 +27,19 @@ NO_VISA_PATTERNS = [
 ]
 
 SECRET_CLEARANCE_PATTERNS = [
-    re.compile(r'\b(?:active\s+)?secret\s+(?:security\s+)?clearance\s+required\b', re.IGNORECASE),
-    re.compile(r'\b(?:active\s+)?top\s+secret(?:\s*\/\s*sci)?\s+clearance\s+required\b', re.IGNORECASE),
-    re.compile(r'\bmust\s+(?:possess|hold|have|maintain)\s+(?:an?\s+)?(?:active\s+)?(?:top\s+)?secret\s+(?:security\s+)?clearance\b', re.IGNORECASE),
-    re.compile(r'\bsecurity\s+clearance\s+required:\s*(?:top\s+)?secret\b', re.IGNORECASE),
-    re.compile(r'\bability\s+to\s+obtain\s+(?:and\s+maintain\s+)?(?:a\s+)?(?:top\s+)?secret\s+(?:security\s+)?clearance\b', re.IGNORECASE),
-    re.compile(r'\bts\s*\/\s*sci\s+clearance\b', re.IGNORECASE),
+    re.compile(r'\b(?:active\s+)?secret\s+(?:security\s+)?clearance(?:\s+required)?\b', re.IGNORECASE),
+    re.compile(r'\b(?:active\s+)?(?:dod\s+)?top\s*[-_]?\s*secret(?:\s*[\/\-]\s*(?:sci|sensitive\s+compartmented\s+information))?(?:\s+security)?\s+clearance(?:\s+required)?\b', re.IGNORECASE),
+    re.compile(r'\bmust\s+(?:possess|hold|have|maintain|obtain)\s+(?:an?\s+)?(?:active\s+)?(?:top\s*[-_]?\s*)?secret\b', re.IGNORECASE),
+    re.compile(r'\bsecurity\s+clearance\s*(?:level)?\s*:\s*(?:top\s*[-_]?\s*)?secret\b', re.IGNORECASE),
+    re.compile(r'\b(?:minimum\s+)?clearance\s+required\s*:\s*(?:top\s*[-_]?\s*)?secret\b', re.IGNORECASE),
+    re.compile(r'\bability\s+to\s+obtain\s+(?:and\s+maintain\s+)?(?:a\s+)?(?:top\s*[-_]?\s*)?secret\s+(?:security\s+)?clearance\b', re.IGNORECASE),
+    re.compile(r'\b(?:dod|department\s+of\s+defense)\s+(?:top\s*[-_]?\s*)?secret\b', re.IGNORECASE),
+    re.compile(r'\bts\s*\/\s*sci(?:\s+clearance)?\b', re.IGNORECASE),
 ]
 
 # Negation check phrases that disqualify false positives
 NEGATION_CHECK = re.compile(
-    r'\b(?:not\s+required|not\s+necessary|does\s+not\s+require|no\s+clearance\s+needed|sponsorship\s+is\s+available|we\s+sponsor)\b',
+    r'\b(?:not\s+required|not\s+necessary|does\s+not\s+require|no\s+clearance\s+needed|no\s+security\s+clearance|clearance\s*:\s*none|sponsorship\s+is\s+available|we\s+sponsor)\b',
     re.IGNORECASE
 )
 
