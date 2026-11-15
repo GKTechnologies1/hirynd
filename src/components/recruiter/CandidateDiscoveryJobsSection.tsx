@@ -100,6 +100,7 @@ export const CandidateDiscoveryJobsSection = ({
   const [selectedVisaGrade, setSelectedVisaGrade] = useState("all");
   const [minScore, setMinScore] = useState<string>("all");
   const [h1bOnly, setH1bOnly] = useState<boolean>(false);
+  const [selectedRestriction, setSelectedRestriction] = useState<string>("all");
   const [isRemote, setIsRemote] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState("-created_at");
   const [currentPage, setCurrentPage] = useState(1);
@@ -169,6 +170,7 @@ export const CandidateDiscoveryJobsSection = ({
       if (selectedVisaGrade !== "all") params.visa_grade = selectedVisaGrade;
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
+      if (selectedRestriction !== "all") params.restriction = selectedRestriction;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
 
       const res = await recruiterJobDiscoveryApi.jobs(params);
@@ -187,7 +189,7 @@ export const CandidateDiscoveryJobsSection = ({
   }, [
     candidateId, discoveryTab, currentPage, pageSize, sortOrder, search,
     selectedRole, selectedSource, selectedVisaGrade, minScore,
-    h1bOnly, isRemote, toast
+    h1bOnly, selectedRestriction, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -520,6 +522,7 @@ export const CandidateDiscoveryJobsSection = ({
     setSelectedVisaGrade("all");
     setMinScore("all");
     setH1bOnly(false);
+    setSelectedRestriction("all");
     setIsRemote("all");
     setSortOrder("-created_at");
     setCurrentPage(1);
@@ -880,6 +883,24 @@ export const CandidateDiscoveryJobsSection = ({
               >
                 Remote Only
               </Button>
+
+              {/* Clearance / Eligibility Filter */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Clearance:</span>
+                <Select value={selectedRestriction} onValueChange={(v) => { setSelectedRestriction(v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-40 h-7 text-[10px] bg-muted/30">
+                    <SelectValue placeholder="All Clearances" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">All Clearances / Eligibility</SelectItem>
+                    <SelectItem value="SECRET_CLEARANCE" className="text-xs">Secret Clearance</SelectItem>
+                    <SelectItem value="US_CITIZENSHIP_REQUIRED" className="text-xs">US Citizen Only</SelectItem>
+                    <SelectItem value="NO_TEMPORARY_VISA" className="text-xs">No Visa Sponsorship</SelectItem>
+                    <SelectItem value="none" className="text-xs">Visa Eligible (No Restrictions)</SelectItem>
+                    <SelectItem value="any" className="text-xs">Any Restriction</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Sorting & Clear */}

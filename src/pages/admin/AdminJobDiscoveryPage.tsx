@@ -93,6 +93,7 @@ export const AdminJobDiscoveryPage = () => {
   const [minScore, setMinScore] = useState<string>("all");
   const [h1bOnly, setH1bOnly] = useState<boolean>(false);
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedRestriction, setSelectedRestriction] = useState<string>("all");
   const [isRemote, setIsRemote] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState("-created_at");
   const [currentPage, setCurrentPage] = useState(1);
@@ -163,6 +164,7 @@ export const AdminJobDiscoveryPage = () => {
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
       if (selectedStatus !== "all") params.review_status = selectedStatus;
+      if (selectedRestriction !== "all") params.restriction = selectedRestriction;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
 
       const res = await jobDiscoveryApi.jobs(params);
@@ -180,7 +182,7 @@ export const AdminJobDiscoveryPage = () => {
     }
   }, [
     currentPage, pageSize, sortOrder, debouncedSearch, selectedRole, selectedCompany,
-    selectedSource, selectedVisaGrade, minScore, h1bOnly, selectedStatus, isRemote, toast
+    selectedSource, selectedVisaGrade, minScore, h1bOnly, selectedStatus, selectedRestriction, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -231,6 +233,7 @@ export const AdminJobDiscoveryPage = () => {
     setMinScore("all");
     setH1bOnly(false);
     setSelectedStatus("all");
+    setSelectedRestriction("all");
     setIsRemote("all");
     setSortOrder("-created_at");
     setCurrentPage(1);
@@ -449,6 +452,24 @@ export const AdminJobDiscoveryPage = () => {
               >
                 Remote Only
               </Button>
+
+              {/* Clearance & Eligibility Filter */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-slate-500 font-medium">Clearance:</span>
+                <Select value={selectedRestriction} onValueChange={(val) => { setSelectedRestriction(val); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-44 h-7 text-xs">
+                    <SelectValue placeholder="All Clearances" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clearances / Eligibility</SelectItem>
+                    <SelectItem value="SECRET_CLEARANCE">Secret Clearance</SelectItem>
+                    <SelectItem value="US_CITIZENSHIP_REQUIRED">US Citizen Only</SelectItem>
+                    <SelectItem value="NO_TEMPORARY_VISA">No Visa Sponsorship</SelectItem>
+                    <SelectItem value="none">Visa Eligible (No Restrictions)</SelectItem>
+                    <SelectItem value="any">Any Restriction</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Sorting & Clear */}

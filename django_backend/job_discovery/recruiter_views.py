@@ -174,6 +174,20 @@ def list_recruiter_jobs(request):
             Q(location_raw__icontains=location)
         )
 
+    # Clearance and eligibility restrictions filter
+    restriction = request.GET.get('restriction', '').strip()
+    if restriction and restriction != 'all':
+        if restriction == 'US_CITIZENSHIP_REQUIRED':
+            qs = qs.filter(detected_restrictions__icontains='US_CITIZENSHIP_REQUIRED')
+        elif restriction == 'SECRET_CLEARANCE':
+            qs = qs.filter(detected_restrictions__icontains='SECRET_CLEARANCE')
+        elif restriction == 'NO_TEMPORARY_VISA':
+            qs = qs.filter(detected_restrictions__icontains='NO_TEMPORARY_VISA')
+        elif restriction == 'any':
+            qs = qs.exclude(Q(detected_restrictions=[]) | Q(detected_restrictions__isnull=True) | Q(detected_restrictions='[]'))
+        elif restriction in ('none', 'visa_friendly', 'visa_eligible'):
+            qs = qs.filter(Q(detected_restrictions=[]) | Q(detected_restrictions__isnull=True) | Q(detected_restrictions='[]'))
+
     # Date range filters
     date_from = request.GET.get('date_from')
     if date_from:

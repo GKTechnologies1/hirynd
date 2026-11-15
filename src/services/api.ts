@@ -659,6 +659,7 @@ export const jobDiscoveryApi = {
     is_remote?: boolean | string;
     location?: string;
     is_duplicate?: boolean | string;
+    restriction?: string;
     date_from?: string;
     date_to?: string;
     ordering?: string;
@@ -688,6 +689,7 @@ export const recruiterJobDiscoveryApi = {
     h1b_only?: boolean | string;
     is_remote?: boolean | string;
     location?: string;
+    restriction?: string;
     date_from?: string;
     date_to?: string;
     ordering?: string;
