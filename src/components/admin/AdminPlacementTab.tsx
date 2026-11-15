@@ -62,8 +62,8 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
       hr_name: data.hr_name || "",
       hr_email: data.hr_email || "",
       hr_phone: data.hr_phone || "",
-      everified_employer: data.everified_employer || "UNKNOWN",
-      h1b_sponsorship_willing: data.h1b_sponsorship_willing || "UNKNOWN",
+      everified_employer: (data.everified_employer || "UNKNOWN").toUpperCase(),
+      h1b_sponsorship_willing: (data.h1b_sponsorship_willing || "UNKNOWN").toUpperCase(),
       offer_letter_url: data.offer_letter_url || "",
       interviewer_email: data.interviewer_email || "",
       bgv_company_name: data.bgv_company_name || "",
@@ -120,6 +120,14 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   const handleSubmit = async () => {
     if (!form.company_name.trim() || !form.role_title.trim() || !form.start_date || !form.salary.trim() || !form.hr_email.trim()) {
       toast({ title: "Fill all required fields", variant: "destructive" });
+      return;
+    }
+    if (!form.everified_employer || form.everified_employer === "") {
+      toast({ title: "Please select E-Verify status (*)", variant: "destructive" });
+      return;
+    }
+    if (!form.h1b_sponsorship_willing || form.h1b_sponsorship_willing === "") {
+      toast({ title: "Please select H1B sponsorship status (*)", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -184,10 +192,12 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   if (loading) return <p className="text-muted-foreground p-4">Loading...</p>;
 
   if (placement && !isEditing) {
-    const isEverify = placement.everified_employer === "YES";
-    const isEverifyNo = placement.everified_employer === "NO";
-    const isH1bYes = placement.h1b_sponsorship_willing === "YES";
-    const isH1bNo = placement.h1b_sponsorship_willing === "NO";
+    const evStatus = (placement.everified_employer || "").toUpperCase();
+    const isEverify = evStatus === "YES";
+    const isEverifyNo = evStatus === "NO";
+    const h1bStatus = (placement.h1b_sponsorship_willing || "").toUpperCase();
+    const isH1bYes = h1bStatus === "YES";
+    const isH1bNo = h1bStatus === "NO";
     const additionalContacts: ContactItem[] = Array.isArray(placement.additional_contacts) ? placement.additional_contacts : [];
     const auditLogs: any[] = Array.isArray(placement.audit_logs) ? placement.audit_logs : [];
 
@@ -338,14 +348,14 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
 
           {/* E-Verified Employer Selector */}
           <div>
-            <Label>E-Verified Employer?</Label>
+            <Label>E-Verified Employer? *</Label>
             <Select value={form.everified_employer} onValueChange={v => setForm(p => ({ ...p, everified_employer: v }))}>
               <SelectTrigger>
-                <SelectValue placeholder="Select E-Verify status" />
+                <SelectValue placeholder="Select E-Verify status *" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="YES">Yes (E-Verified)</SelectItem>
-                <SelectItem value="NO">No</SelectItem>
+                <SelectItem value="NO">No (Not E-Verified)</SelectItem>
                 <SelectItem value="UNKNOWN">Unknown / Not Confirmed</SelectItem>
               </SelectContent>
             </Select>
@@ -353,15 +363,15 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
 
           {/* Willing to Sponsor H1B Selector */}
           <div>
-            <Label>Willing to Sponsor H1B?</Label>
+            <Label>Willing to Sponsor H1B? *</Label>
             <Select value={form.h1b_sponsorship_willing} onValueChange={v => setForm(p => ({ ...p, h1b_sponsorship_willing: v }))}>
               <SelectTrigger>
-                <SelectValue placeholder="Select H1B Sponsorship" />
+                <SelectValue placeholder="Select H1B Sponsorship *" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="YES">Yes (Willing to Sponsor H1B)</SelectItem>
                 <SelectItem value="NO">No (Does Not Sponsor)</SelectItem>
-                <SelectItem value="UNKNOWN">Unknown</SelectItem>
+                <SelectItem value="UNKNOWN">Unknown / Not Confirmed</SelectItem>
               </SelectContent>
             </Select>
           </div>

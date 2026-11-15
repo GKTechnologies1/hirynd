@@ -41,7 +41,7 @@ const LOG_TYPES = [
   { value: "support_call", label: "Support Call" },
 ];
 
-const ROUNDS = ["Round 1", "Round 2", "Tech", "Behavioral", "Final"];
+const ROUNDS = ["Screening Call", "Round 1", "Round 2", "Technical", "Behavioral", "Managerial", "Final Round", "Client Round"];
 const OUTCOMES = ["scheduled", "completed", "selected", "rejected", "follow_up_needed", "rescheduled", "no_show"];
 
 interface CandidateInterviewsPageProps {
@@ -189,6 +189,10 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
       const matchOutcome = outcomeFilter === "all" || l.outcome?.toLowerCase() === outcomeFilter.toLowerCase();
       
       return matchRole && matchCompany && matchDate && matchOutcome;
+    }).sort((a, b) => {
+      const timeA = new Date(a.updated_at || a.created_at || a.interview_date).getTime();
+      const timeB = new Date(b.updated_at || b.created_at || b.interview_date).getTime();
+      return timeB - timeA;
     });
   }, [logs, searchRole, searchCompany, fromDate, toDate, outcomeFilter]);
 
@@ -207,6 +211,7 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
   const [supportNeeded, setSupportNeeded] = useState(false);
   const [supportNotes, setSupportNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   // Application recommendations state & refs
   const roleInputRef = useRef<HTMLInputElement>(null);
@@ -369,8 +374,17 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
   }, [candidate?.id, candidate?.updated_at]);
 
   const handleSubmit = async () => {
-    if (!companyName.trim() || !roleTitle.trim() || !interviewDate) {
-      toast({ title: "Fill all required fields", variant: "destructive" }); return;
+    setEmailError("");
+    if (!companyName.trim() || !roleTitle.trim() || !interviewDate || !round.trim() || !outcome.trim() || !interviewerName.trim() || !interviewerEmail.trim()) {
+      toast({ title: "Please fill in all mandatory fields (*)", description: "Company, Role, Date, Round, Outcome, Interviewer Name, and Email are required.", variant: "destructive" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(interviewerEmail.trim())) {
+      setEmailError("Please enter a valid email address (e.g. name@company.com)");
+      toast({ title: "Invalid Email Address", description: "Please enter a valid email address for the interviewer.", variant: "destructive" });
+      return;
     }
 
     // Convert MM-DD-YYYY → YYYY-MM-DD for the backend
@@ -389,8 +403,8 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
         company_name: companyName.trim(),
         role_title: roleTitle.trim(),
         interview_date: toISODate(interviewDate),
-        stage_round: round,
-        outcome,
+        stage_round: round.trim(),
+        outcome: outcome.trim(),
         interviewer_name: interviewerName.trim(),
         interviewer_email: interviewerEmail.trim(),
         interviewer_phone: interviewerPhone.trim(),
@@ -399,13 +413,21 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
         difficult_questions: difficultQuestions.trim(),
         support_needed: supportNeeded ? (supportNotes.trim() || "Yes") : "",
       });
-      toast({ title: "Interview log saved" });
+      toast({ title: "Interview log saved successfully" });
       setShowForm(false);
       resetForm();
       fetchLogs(false);
       if (onStatusChange) onStatusChange();
     } catch (err: any) {
-      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+      const emailFieldErr = err.response?.data?.interviewer_email;
+      if (emailFieldErr) {
+        const msg = Array.isArray(emailFieldErr) ? emailFieldErr.join(" ") : emailFieldErr;
+        setEmailError(msg);
+        toast({ title: "Validation Error", description: msg, variant: "destructive" });
+      } else {
+        const errorMsg = err.response?.data?.error || (typeof err.response?.data === 'object' ? Object.values(err.response.data).flat().join(" ") : null) || err.message;
+        toast({ title: "Error", description: errorMsg, variant: "destructive" });
+      }
     }
     setSaving(false);
   };
@@ -415,6 +437,7 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
     setRound(""); setOutcome("scheduled"); setInterviewerName(""); setInterviewerEmail(""); setInterviewerPhone("");
     setNotes(""); setDifficultQuestions("");
     setSupportNeeded(false); setSupportNotes("");
+    setEmailError("");
   };
 
   const today = new Date().toISOString().split("T")[0];
@@ -550,25 +573,25 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
                     <DatePicker value={interviewDate} onChange={setInterviewDate} placeholder="MM/DD/YYYY" />
                   </div>
                   <div>
-                    <Label>Round</Label>
+                    <Label>Round *</Label>
                     <Select value={round} onValueChange={setRound}>
-                      <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select round *" /></SelectTrigger>
                       <SelectContent>
                         {ROUNDS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>Outcome</Label>
+                    <Label>Outcome *</Label>
                     <Select value={outcome} onValueChange={setOutcome}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select outcome *" /></SelectTrigger>
                       <SelectContent>
-                        {OUTCOMES.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                        {OUTCOMES.map(o => <SelectItem key={o} value={o}>{o.replace(/_/g, " ")}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>Interviewer / HR Name</Label>
+                    <Label>Interviewer / HR Name *</Label>
                     <Input
                       value={interviewerName}
                       onChange={e => setInterviewerName(e.target.value)}
@@ -576,13 +599,20 @@ const CandidateInterviewsPage = ({ candidate, onStatusChange }: CandidateIntervi
                     />
                   </div>
                   <div>
-                    <Label>Interviewer Email ID</Label>
+                    <Label>Interviewer Email ID *</Label>
                     <Input
                       type="email"
                       value={interviewerEmail}
-                      onChange={e => setInterviewerEmail(e.target.value)}
+                      onChange={e => {
+                        setInterviewerEmail(e.target.value);
+                        if (emailError) setEmailError("");
+                      }}
                       placeholder="e.g. interviewer@company.com"
+                      className={emailError ? "border-destructive text-destructive" : ""}
                     />
+                    {emailError && (
+                      <p className="text-[11px] text-destructive mt-1 font-medium">{emailError}</p>
+                    )}
                   </div>
                   <div className="sm:col-span-2">
                     <Label>Interviewed Contact Number (Optional)</Label>

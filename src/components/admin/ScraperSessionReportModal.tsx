@@ -234,7 +234,7 @@ export const ScraperSessionReportModal: React.FC<ScraperSessionReportModalProps>
                 <Card className="p-3 bg-emerald-50/50 border-emerald-200">
                   <span className="text-[10px] text-emerald-600 uppercase font-bold block">Qualified</span>
                   <span className="text-xl font-extrabold text-emerald-700">
-                    {report?.total_qualified ?? Math.max(0, (report?.total_jobs_collected ?? execution.total_jobs_found ?? 0) - (report?.total_below_threshold ?? 0))}
+                    {report?.total_qualified ?? Math.max(0, (report?.total_scored_jobs ?? 0) - (report?.total_below_threshold ?? 0))}
                   </span>
                 </Card>
                 <Card className="p-3 bg-rose-50/50 border-rose-200">

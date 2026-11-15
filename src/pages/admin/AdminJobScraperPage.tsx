@@ -446,7 +446,7 @@ export const AdminJobScraperPage = () => {
                           }`}
                         >
                           {r.role}
-                          {r.count > 0 && <span className="ml-1 opacity-75">({r.count})</span>}
+                          <span className="ml-1 opacity-75">({r.count ?? 0})</span>
                         </button>
                       );
                     })

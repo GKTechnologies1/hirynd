@@ -18,17 +18,30 @@ export const formatSalaryDisplay = (input: any): string => {
       String(raw).toLowerCase() !== "null" &&
       String(raw).toLowerCase() !== "undefined"
     ) {
-      const formatted = formatRawSalaryString(raw);
-      if (
-        formatted !== "Not Disclosed" &&
-        cleanPeriod &&
-        !formatted.toLowerCase().includes(cleanPeriod) &&
-        !formatted.includes("/hr") &&
-        !formatted.includes("/yr") &&
-        !formatted.includes("/year") &&
-        !formatted.includes("/hour")
-      ) {
-        return `${formatted} / ${cleanPeriod}`;
+      let formatted = formatRawSalaryString(raw);
+      if (formatted !== "Not Disclosed") {
+        const hasPeriod =
+          formatted.toLowerCase().includes("hour") ||
+          formatted.toLowerCase().includes("yr") ||
+          formatted.toLowerCase().includes("year") ||
+          formatted.toLowerCase().includes("month") ||
+          formatted.toLowerCase().includes("week") ||
+          formatted.includes("/");
+        if (!hasPeriod) {
+          if (cleanPeriod) {
+            formatted = `${formatted} / ${cleanPeriod}`;
+          } else {
+            const numMatch = formatted.match(/\d[\d,]*/);
+            if (numMatch) {
+              const numVal = Number(numMatch[0].replace(/,/g, ""));
+              if (numVal > 0 && numVal < 300) {
+                formatted = `${formatted} / hourly`;
+              } else if (numVal >= 10000) {
+                formatted = `${formatted} / yearly`;
+              }
+            }
+          }
+        }
       }
       return formatted;
     }
@@ -71,8 +84,8 @@ const formatRawSalaryString = (rawSalary: any): string => {
     return "Not Disclosed";
   }
 
-  // Strip all leading dollar signs, then add a single '$' unless another currency symbol is present
-  const cleaned = s.replace(/^\$+/, "").trim();
+  // Strip all leading dollar signs and whitespace (e.g. "$ $", "$  $"), then add a single '$'
+  const cleaned = s.replace(/^[\$\s]+/, "").trim();
   if (!cleaned) return "Not Disclosed";
   if (/^[€£₹]/.test(cleaned)) {
     return cleaned;

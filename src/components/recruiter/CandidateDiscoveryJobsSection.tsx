@@ -246,7 +246,10 @@ export const CandidateDiscoveryJobsSection = ({
           ? resumes[0].url
           : (alwaysShowDefaults?.resume_used || "Standard");
 
-        const rawSalary = job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : (alwaysShowDefaults?.salary || "Not Disclosed"));
+        const formattedSal = formatSalaryDisplay(job);
+        const rawSalary = (formattedSal && formattedSal !== "Not Disclosed") 
+          ? formattedSal 
+          : (job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : (alwaysShowDefaults?.salary || "Not Disclosed")));
 
         const cleanUrl = (job.job_url || "").trim();
         const validJobUrl = cleanUrl
@@ -999,8 +1002,7 @@ export const CandidateDiscoveryJobsSection = ({
                   const location = job.is_remote
                     ? "Remote"
                     : (job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA"));
-                  const salary = job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : "Not Disclosed");
-                  const salary_type = job.salary_period ? String(job.salary_period).replace(/^_/, "").toLowerCase() : null;
+                  const formattedSalary = formatSalaryDisplay(job);
 
                   return (
                     <div
@@ -1073,12 +1075,10 @@ export const CandidateDiscoveryJobsSection = ({
 
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5 truncate">
-                            <DollarSign className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                            <span className="font-bold text-blue-600 truncate">{salary}</span>
-                            {salary_type && salary !== "Not Disclosed" && (
-                              <span className="font-semibold text-blue-600/80 text-[11px] truncate">
-                                / {salary_type}
-                              </span>
+                            {formattedSalary !== "Not Disclosed" ? (
+                              <span className="font-bold text-blue-600 truncate">{formattedSalary}</span>
+                            ) : (
+                              <span className="font-semibold text-slate-500 truncate text-xs">Not Disclosed</span>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 truncate text-[11px]">

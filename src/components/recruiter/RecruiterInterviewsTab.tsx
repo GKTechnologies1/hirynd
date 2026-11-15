@@ -207,6 +207,10 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
       const matchOutcome = outcomeFilter === "all" || l.outcome?.toLowerCase() === outcomeFilter.toLowerCase();
       
       return matchRole && matchCompany && matchDate && matchOutcome;
+    }).sort((a, b) => {
+      const timeA = new Date(a.updated_at || a.created_at || a.interview_date).getTime();
+      const timeB = new Date(b.updated_at || b.created_at || b.interview_date).getTime();
+      return timeB - timeA;
     });
   }, [logs, searchRole, searchCompany, fromDate, toDate, outcomeFilter]);
 
@@ -261,6 +265,7 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
   const [supportNeeded, setSupportNeeded] = useState(false);
   const [supportNotes, setSupportNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   // Application recommendations state & refs
   const roleInputRef = useRef<HTMLInputElement>(null);
@@ -477,8 +482,17 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
   };
 
   const handleSubmit = async () => {
-    if (!companyName.trim() || !roleTitle.trim() || !interviewDate) {
-      toast({ title: "Fill required fields", variant: "destructive" }); return;
+    setEmailError("");
+    if (!companyName.trim() || !roleTitle.trim() || !interviewDate || !round.trim() || !outcome.trim() || !interviewerName.trim() || !interviewerEmail.trim()) {
+      toast({ title: "Please fill in all mandatory fields (*)", description: "Company, Role, Date, Round, Outcome, Interviewer Name, and Email are required.", variant: "destructive" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(interviewerEmail.trim())) {
+      setEmailError("Please enter a valid email address (e.g. name@company.com)");
+      toast({ title: "Invalid Email Address", description: "Please enter a valid email address for the interviewer.", variant: "destructive" });
+      return;
     }
 
     setSaving(true);
@@ -488,8 +502,8 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
         company_name: companyName.trim(),
         role_title: roleTitle.trim(),
         interview_date: toISODate(interviewDate),
-        stage_round: round,
-        outcome,
+        stage_round: round.trim(),
+        outcome: outcome.trim(),
         interviewer_name: interviewerName.trim(),
         interviewer_email: interviewerEmail.trim(),
         interviewer_phone: interviewerPhone.trim(),
@@ -504,7 +518,15 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
       fetchLogs(false);
       if (onRefresh) onRefresh();
     } catch (err: any) {
-      toast({ title: "Error", description: err.response?.data?.error || err.message, variant: "destructive" });
+      const emailFieldErr = err.response?.data?.interviewer_email;
+      if (emailFieldErr) {
+        const msg = Array.isArray(emailFieldErr) ? emailFieldErr.join(" ") : emailFieldErr;
+        setEmailError(msg);
+        toast({ title: "Validation Error", description: msg, variant: "destructive" });
+      } else {
+        const errorMsg = err.response?.data?.error || (typeof err.response?.data === 'object' ? Object.values(err.response.data).flat().join(" ") : null) || err.message;
+        toast({ title: "Error", description: errorMsg, variant: "destructive" });
+      }
     }
     setSaving(false);
   };
@@ -514,6 +536,7 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
     setRound(""); setOutcome("scheduled"); setInterviewerName(""); setInterviewerEmail(""); setInterviewerPhone("");
     setNotes(""); setDifficultQuestions("");
     setSupportNeeded(false); setSupportNotes("");
+    setEmailError("");
   };
 
   // Open Edit Dialog
@@ -711,21 +734,36 @@ export const RecruiterInterviewsTab = ({ candidateId, candidateUserId, candidate
               </div>
               <div><Label>Date *</Label><DatePicker value={interviewDate} onChange={setInterviewDate} placeholder="MM/DD/YYYY" /></div>
               <div>
-                <Label>Round</Label>
+                <Label>Round *</Label>
                 <Select value={round} onValueChange={setRound}>
-                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select round *" /></SelectTrigger>
                   <SelectContent>{ROUNDS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Outcome</Label>
+                <Label>Outcome *</Label>
                 <Select value={outcome} onValueChange={setOutcome}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select outcome *" /></SelectTrigger>
                   <SelectContent>{OUTCOMES.map(o => <SelectItem key={o} value={o}>{o.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Interviewer / HR Name</Label><Input value={interviewerName} onChange={e => setInterviewerName(e.target.value)} placeholder="e.g. John Doe / Jane Smith" /></div>
-              <div><Label>Interviewer Email ID</Label><Input type="email" value={interviewerEmail} onChange={e => setInterviewerEmail(e.target.value)} placeholder="e.g. interviewer@company.com" /></div>
+              <div><Label>Interviewer / HR Name *</Label><Input value={interviewerName} onChange={e => setInterviewerName(e.target.value)} placeholder="e.g. John Doe / Jane Smith" /></div>
+              <div>
+                <Label>Interviewer Email ID *</Label>
+                <Input 
+                  type="email" 
+                  value={interviewerEmail} 
+                  onChange={e => {
+                    setInterviewerEmail(e.target.value);
+                    if (emailError) setEmailError("");
+                  }} 
+                  placeholder="e.g. interviewer@company.com" 
+                  className={emailError ? "border-destructive text-destructive" : ""}
+                />
+                {emailError && (
+                  <p className="text-[11px] text-destructive mt-1 font-medium">{emailError}</p>
+                )}
+              </div>
               <div className="sm:col-span-2"><Label>Interviewed Contact Number (Optional)</Label><Input type="tel" value={interviewerPhone} onChange={e => setInterviewerPhone(e.target.value)} placeholder="e.g. +1 (555) 123-4567" /></div>
             </div>
             <div><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} /></div>
