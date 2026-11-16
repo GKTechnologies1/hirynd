@@ -366,3 +366,95 @@ class PublicJobAlertsTests(TestCase):
         self.assertIn('High Pay Inc', returned_companies)
         self.assertNotIn('Mid Pay Inc', returned_companies)
 
+
+class JobLinkEntryOlderDataTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='candidate_old_test@hyrind.com',
+            password='TestPassword123!',
+            role='candidate',
+            approval_status='approved'
+        )
+        self.candidate = Candidate.objects.create(user=self.user)
+        self.recruiter_user = User.objects.create_user(
+            email='recruiter_old_test@hyrind.com',
+            password='TestPassword123!',
+            role='recruiter',
+            approval_status='approved'
+        )
+        self.log = DailySubmissionLog.objects.create(
+            candidate=self.candidate,
+            recruiter=self.recruiter_user,
+            log_date=timezone.now().date(),
+        )
+
+    def test_older_job_link_entry_serializer_defaults(self):
+        from recruiters.serializers import JobLinkEntrySerializer
+
+        # Create older job with null fields
+        old_job = JobLinkEntry.objects.create(
+            submission_log=self.log,
+            candidate=self.candidate,
+            company_name='Legacy Corp',
+            role_title='Senior Python Engineer',
+            job_url='https://example.com/legacy',
+            employment_type=None,
+            experience_required=None,
+            work_mode=None,
+            city=None,
+            state=None,
+            country=None,
+            salary=None,
+            visa_eligibility=None,
+        )
+
+        serialized = JobLinkEntrySerializer(old_job).data
+        self.assertEqual(serialized['employment_type'], 'Full-Time')
+        self.assertEqual(serialized['experience_required'], 'Senior Level')
+        self.assertEqual(serialized['work_mode'], 'Onsite')
+        self.assertEqual(serialized['country'], 'United States')
+        self.assertEqual(serialized['salary'], 'Not Disclosed')
+        self.assertEqual(serialized['visa_eligibility'], 'All Work Authorization')
+
+    def test_job_applications_endpoint_returns_all_fields_for_older_data(self):
+        from rest_framework.test import APIClient
+        from recruiters.models import RecruiterAssignment
+
+        RecruiterAssignment.objects.create(
+            candidate=self.candidate,
+            recruiter=self.recruiter_user,
+            is_active=True
+        )
+
+        JobLinkEntry.objects.create(
+            submission_log=self.log,
+            candidate=self.candidate,
+            company_name='Wipro',
+            role_title='Django Dev',
+            job_url='https://example.com/job',
+            employment_type=None,
+            experience_required=None,
+            work_mode=None,
+            salary=None,
+            visa_eligibility=None,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.recruiter_user)
+
+        res = client.get(f'/api/recruiters/{self.candidate.id}/job-applications/')
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(len(res.data) >= 1)
+
+        app = res.data[0]
+        self.assertIsNotNone(app.get('employment_type'))
+        self.assertEqual(app.get('employment_type'), 'Full-Time')
+        self.assertIsNotNone(app.get('experience_required'))
+        self.assertEqual(app.get('experience_required'), '0–2 Years')
+        self.assertIsNotNone(app.get('work_mode'))
+        self.assertEqual(app.get('work_mode'), 'Onsite')
+        self.assertEqual(app.get('country'), 'United States')
+        self.assertEqual(app.get('salary'), 'Not Disclosed')
+        self.assertEqual(app.get('visa_eligibility'), 'All Work Authorization')
+
+

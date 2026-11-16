@@ -362,7 +362,12 @@ export const authApi = {
 // ─── Candidates ───
 export const candidatesApi = {
   me: (config?: any) => api.get('/candidates/me/', config),
-  list: (statusFilter?: string) => api.get('/candidates/', { params: statusFilter ? { status: statusFilter } : {} }),
+  list: (paramsOrStatus?: string | { status?: string; search?: string; page?: number; page_size?: number; limit?: number }) => {
+    const params = typeof paramsOrStatus === 'string'
+      ? { status: paramsOrStatus }
+      : paramsOrStatus || {};
+    return api.get('/candidates/', { params });
+  },
   detail: (id: string, config?: any) => api.get(`/candidates/${id}/`, config),
   updateStatus: (id: string, status: string) => api.post(`/candidates/${id}/status/`, { status }),
   getIntake: (id: string, config?: any) => api.get(`/candidates/${id}/intake/`, config),
@@ -719,6 +724,9 @@ export const employerDiscoveryApi = {
     has_h1b?: boolean | string;
     has_lca?: boolean | string;
     verification_status?: string;
+    role?: string;
+    date_from?: string;
+    date_to?: string;
     ordering?: string;
     page?: number;
     page_size?: number;

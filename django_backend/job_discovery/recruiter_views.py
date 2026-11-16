@@ -31,7 +31,7 @@ def list_recruiter_jobs(request):
         return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
     candidate_id = request.GET.get('candidate_id')
-    role_filter = request.GET.get('role')
+    role_filter = request.GET.get('role') or request.GET.get('roles')
 
     # Candidates can only access their own profile jobs
     if request.user.role == 'candidate':
@@ -173,6 +173,16 @@ def list_recruiter_jobs(request):
             Q(state_code__iexact=location) |
             Q(location_raw__icontains=location)
         )
+
+    # Experience level filter
+    experience_level = request.GET.get('experience_level') or request.GET.get('experience_required')
+    if experience_level and experience_level != 'all':
+        exp_list = [x.strip() for x in experience_level.split(',') if x.strip()]
+        if exp_list:
+            q_exp = Q()
+            for x in exp_list:
+                q_exp |= Q(experience_level__icontains=x)
+            qs = qs.filter(q_exp)
 
     # Clearance and eligibility restrictions filter
     restriction = request.GET.get('restriction', '').strip()

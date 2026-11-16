@@ -176,14 +176,19 @@ def build_recruiter_jobs_queryset(
     if candidate_id and candidate_id != 'all':
         cand_info = scope['candidate_roles_map'].get(str(candidate_id))
         if cand_info:
-            target_roles = cand_info['roles']
+            cand_roles = cand_info['roles']
+            if role_filter and role_filter != 'all':
+                requested = [r.strip() for r in role_filter.split(',') if r.strip()]
+                matched = [r for r in requested if r in cand_roles]
+                target_roles = matched if matched else requested
+            else:
+                target_roles = cand_roles
         else:
             return base_qs.none()
     elif role_filter and role_filter != 'all':
-        if role_filter in scope['roles']:
-            target_roles = [role_filter]
-        else:
-            target_roles = []
+        requested = [r.strip() for r in role_filter.split(',') if r.strip()]
+        matched = [r for r in requested if r in scope['roles']]
+        target_roles = matched if matched else requested
     else:
         target_roles = scope['roles']
 

@@ -13,16 +13,19 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 import { formatSalaryDisplay } from "@/lib/salaryFormatter";
 import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
 import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
 import { DISMISSAL_REASONS } from "@/components/recruiter/CandidateDiscoveryJobsSection";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { MultiRoleSelect } from "@/components/common/MultiRoleSelect";
+import { motion } from "framer-motion";
 import {
   Search, ExternalLink, RefreshCw, Briefcase, Building, MapPin,
   Calendar, Eye, Copy, ChevronLeft, ChevronRight, Award,
   ShieldCheck, Users, Check, Sparkles, UserCheck, AlertTriangle,
-  XCircle, DollarSign, X, Loader2
+  XCircle, DollarSign, X, Loader2, Compass, RotateCcw
 } from "lucide-react";
 
 const safeUrl = (url?: string): string => {
@@ -75,10 +78,12 @@ export const RecruiterJobDiscoveryPage = () => {
     return () => clearTimeout(handler);
   }, [search]);
   const [selectedCandidate, setSelectedCandidate] = useState("all");
-  const [selectedRole, setSelectedRole] = useState("all");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedVisaGrade, setSelectedVisaGrade] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [discoveryTab, setDiscoveryTab] = useState<"active" | "dismissed">("active");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [minScore, setMinScore] = useState<string>("all");
   const [h1bOnly, setH1bOnly] = useState<boolean>(false);
   const [isRemote, setIsRemote] = useState<string>("all");
@@ -248,6 +253,8 @@ export const RecruiterJobDiscoveryPage = () => {
       );
 
       setDismissTargetJob(null);
+      fetchJobs();
+      fetchStats();
     } catch (err: any) {
       const errMsg = err.response?.data?.error || err.response?.data?.message || "Failed to reject job.";
       toast({
@@ -257,6 +264,34 @@ export const RecruiterJobDiscoveryPage = () => {
       });
     } finally {
       setIsSubmittingDismiss(false);
+    }
+  };
+
+  const handleRestoreRecommendation = async (job: any) => {
+    const candId = job.candidate_id || job.candidate?.id;
+    if (!candId) {
+      toast({
+        title: "Candidate Required",
+        description: "No candidate associated with this opportunity.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const jobId = job.job_uuid || (typeof job.id === "string" ? job.id.split("_")[0] : job.id);
+      await recruiterJobDiscoveryApi.restoreJob(jobId, { candidate_id: candId });
+      toast({
+        title: "Recommendation Restored",
+        description: `Opportunity for ${job.company_name} has been restored to active recommendations.`,
+      });
+      fetchJobs();
+      fetchStats();
+    } catch (err: any) {
+      toast({
+        title: "Restore Failed",
+        description: err.response?.data?.error || err.message || "Failed to restore job.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -307,14 +342,16 @@ export const RecruiterJobDiscoveryPage = () => {
         page: currentPage,
         page_size: pageSize,
         ordering: sortOrder,
+        discovery_status: discoveryTab.toUpperCase(),
       };
 
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (selectedCandidate !== "all") params.candidate_id = selectedCandidate;
-      if (selectedRole !== "all") params.role = selectedRole;
+      if (selectedRoles.length > 0) params.role = selectedRoles.join(",");
       if (selectedSource !== "all") params.source = selectedSource;
       if (selectedVisaGrade !== "all") params.visa_grade = selectedVisaGrade;
-      if (selectedStatus !== "all") params.status = selectedStatus;
+      if (fromDate) params.date_from = fromDate;
+      if (toDate) params.date_to = toDate;
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
@@ -337,7 +374,7 @@ export const RecruiterJobDiscoveryPage = () => {
     }
   }, [
     currentPage, pageSize, sortOrder, debouncedSearch, selectedCandidate,
-    selectedRole, selectedSource, selectedVisaGrade, selectedStatus, minScore, h1bOnly, isRemote, toast
+    selectedRoles, selectedSource, selectedVisaGrade, discoveryTab, fromDate, toDate, minScore, h1bOnly, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -382,9 +419,11 @@ export const RecruiterJobDiscoveryPage = () => {
   const handleResetFilters = () => {
     setSearch("");
     setSelectedCandidate("all");
-    setSelectedRole("all");
+    setSelectedRoles([]);
     setSelectedSource("all");
     setSelectedVisaGrade("all");
+    setFromDate("");
+    setToDate("");
     setMinScore("all");
     setH1bOnly(false);
     setIsRemote("all");
@@ -400,12 +439,69 @@ export const RecruiterJobDiscoveryPage = () => {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <UserCheck className="h-6 w-6 text-primary" />
             Recruiter Job Discovery
+            <span className="text-xs font-medium text-slate-500 font-mono bg-slate-100 px-2.5 py-0.5 rounded-full">
+              {totalCount} Opportunities
+            </span>
           </h1>
           <p className="text-sm text-slate-500">
             Personalized opportunities dynamically matched to your assigned candidates and confirmed roles.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Active vs Rejected Chips Tabs (matches CandidateDiscoveryJobsSection.tsx) */}
+          <div className="relative flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                if (discoveryTab !== "active") {
+                  setDiscoveryTab("active");
+                  setCurrentPage(1);
+                }
+              }}
+              className={cn(
+                "relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer",
+                discoveryTab === "active"
+                  ? "text-primary font-extrabold"
+                  : "text-slate-500 hover:text-slate-900"
+              )}
+            >
+              {discoveryTab === "active" && (
+                <motion.div
+                  layoutId="recruiterDiscoveryTabHighlightHeader"
+                  className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
+                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                />
+              )}
+              <Compass className="h-3.5 w-3.5" />
+              Active
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (discoveryTab !== "dismissed") {
+                  setDiscoveryTab("dismissed");
+                  setCurrentPage(1);
+                }
+              }}
+              className={cn(
+                "relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer",
+                discoveryTab === "dismissed"
+                  ? "text-rose-600 font-extrabold"
+                  : "text-slate-500 hover:text-slate-900"
+              )}
+            >
+              {discoveryTab === "dismissed" && (
+                <motion.div
+                  layoutId="recruiterDiscoveryTabHighlightHeader"
+                  className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
+                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                />
+              )}
+              <XCircle className="h-3.5 w-3.5" />
+              Rejected
+            </button>
+          </div>
+
           <Button
             variant="outline"
             size="sm"
@@ -482,63 +578,70 @@ export const RecruiterJobDiscoveryPage = () => {
               </Select>
             </div>
 
-            {/* Filter by Candidate Role */}
+            {/* Filter by Candidate Role (Multi-Select) */}
             <div>
               <Label className="text-xs font-semibold text-slate-600 block mb-1">Candidate Role</Label>
-              <Select value={selectedRole} onValueChange={(val) => { setSelectedRole(val); setCurrentPage(1); }}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="All Roles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Candidate Roles</SelectItem>
-                  {filterOptions.roles.map((r, i) => (
-                    <SelectItem key={i} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiRoleSelect
+                roles={filterOptions.roles}
+                selectedRoles={selectedRoles}
+                onChange={(roles) => {
+                  setSelectedRoles(roles);
+                  setCurrentPage(1);
+                }}
+                placeholder="All Candidate Roles"
+                triggerClassName="h-9 text-sm bg-white border-slate-200"
+              />
             </div>
 
-            {/* Status Filter */}
+            {/* From Date Filter */}
             <div>
-              <Label className="text-xs font-semibold text-slate-600 block mb-1">Application Status</Label>
-              <Select value={selectedStatus} onValueChange={(val) => { setSelectedStatus(val); setCurrentPage(1); }}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="NOT_APPLIED">Not Applied</SelectItem>
-                  <SelectItem value="APPLIED">Applied</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-semibold text-slate-600 block mb-1">From Date</Label>
+              <DatePicker
+                value={fromDate}
+                onChange={(d) => { setFromDate(d || ""); setCurrentPage(1); }}
+                placeholder="From Date"
+                formatStr="yyyy-MM-dd"
+                className="h-9 text-xs bg-white border-slate-200 focus:bg-white font-normal w-full"
+              />
             </div>
 
-            {/* Visa Grade Filter */}
+            {/* To Date Filter */}
             <div>
-              <Label className="text-xs font-semibold text-slate-600 block mb-1">Visa Grade</Label>
-              <Select value={selectedVisaGrade} onValueChange={(val) => { setSelectedVisaGrade(val); setCurrentPage(1); }}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="All Grades" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Grades</SelectItem>
-                  <SelectItem value="A">Grade A (Score ≥ 85)</SelectItem>
-                  <SelectItem value="B">Grade B (Score 70-84)</SelectItem>
-                  <SelectItem value="C">Grade C (Score 50-69)</SelectItem>
-                  <SelectItem value="D">Grade D (Score 30-49)</SelectItem>
-                  <SelectItem value="E,F">Grade E/F (&lt; 30)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-semibold text-slate-600 block mb-1">To Date</Label>
+              <DatePicker
+                value={toDate}
+                onChange={(d) => { setToDate(d || ""); setCurrentPage(1); }}
+                placeholder="To Date"
+                formatStr="yyyy-MM-dd"
+                className="h-9 text-xs bg-white border-slate-200 focus:bg-white font-normal w-full"
+              />
             </div>
           </div>
 
           {/* Sub Filters Row */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
             <div className="flex flex-wrap items-center gap-2">
+              {/* Visa Grade Filter */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-medium whitespace-nowrap">Visa Grade:</span>
+                <Select value={selectedVisaGrade} onValueChange={(val) => { setSelectedVisaGrade(val); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-28 h-7 text-xs">
+                    <SelectValue placeholder="All Grades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    <SelectItem value="A">Grade A (≥ 85)</SelectItem>
+                    <SelectItem value="B">Grade B (70–84)</SelectItem>
+                    <SelectItem value="C">Grade C (50–69)</SelectItem>
+                    <SelectItem value="D">Grade D (30–49)</SelectItem>
+                    <SelectItem value="E,F">Grade E/F (&lt; 30)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Portal Source Filter */}
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-medium">Portal:</span>
+                <span className="text-slate-500 font-medium whitespace-nowrap">Portal:</span>
                 <Select value={selectedSource} onValueChange={(val) => { setSelectedSource(val); setCurrentPage(1); }}>
                   <SelectTrigger className="w-28 h-7 text-xs">
                     <SelectValue placeholder="All Portals" />
@@ -554,7 +657,7 @@ export const RecruiterJobDiscoveryPage = () => {
 
               {/* Min Visa Score Filter */}
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-medium">Min Score:</span>
+                <span className="text-slate-500 font-medium whitespace-nowrap">Min Score:</span>
                 <Select value={minScore} onValueChange={(v) => { setMinScore(v); setCurrentPage(1); }}>
                   <SelectTrigger className="w-24 h-7 text-xs">
                     <SelectValue placeholder="Any" />
@@ -573,7 +676,7 @@ export const RecruiterJobDiscoveryPage = () => {
                 variant={h1bOnly ? "default" : "outline"}
                 size="sm"
                 onClick={() => { setH1bOnly(!h1bOnly); setCurrentPage(1); }}
-                className="h-7 text-xs rounded-full px-3"
+                className={cn("h-7 text-xs rounded-full px-3", h1bOnly ? "bg-primary text-primary-foreground font-bold" : "")}
               >
                 <ShieldCheck className="h-3.5 w-3.5 mr-1" />
                 H1B Sponsor Only
@@ -584,7 +687,7 @@ export const RecruiterJobDiscoveryPage = () => {
                 variant={isRemote === "true" ? "default" : "outline"}
                 size="sm"
                 onClick={() => { setIsRemote(isRemote === "true" ? "all" : "true"); setCurrentPage(1); }}
-                className="h-7 text-xs rounded-full px-3"
+                className={cn("h-7 text-xs rounded-full px-3", isRemote === "true" ? "bg-primary text-primary-foreground font-bold" : "")}
               >
                 Remote Only
               </Button>
@@ -592,7 +695,7 @@ export const RecruiterJobDiscoveryPage = () => {
 
             {/* Sorting & Clear */}
             <div className="flex items-center gap-2">
-              <span className="text-slate-500 font-medium">Sort:</span>
+              <span className="text-slate-500 font-medium whitespace-nowrap">Sort:</span>
               <Select value={sortOrder} onValueChange={setSortOrder}>
                 <SelectTrigger className="w-40 h-7 text-xs">
                   <SelectValue placeholder="Sort Order" />
@@ -622,17 +725,75 @@ export const RecruiterJobDiscoveryPage = () => {
 
       {/* Recruiter Matching Jobs Table */}
       <Card className="border-slate-200 shadow-xs">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <CardTitle className="text-base font-bold text-slate-900">
+            <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Compass className="h-4 w-4 text-primary" />
               Matched Candidate Opportunities ({totalCount})
             </CardTitle>
             <CardDescription className="text-xs">
-              Filtered specifically for your active candidate portfolio.
+              {discoveryTab === "active"
+                ? "Filtered specifically for your active candidate portfolio."
+                : "Rejected candidate recommendations and dismissed opportunities."}
             </CardDescription>
           </div>
-          <div className="text-xs text-slate-500">
-            Page {currentPage} of {totalPages}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Recommendations Status: Active vs Rejected (matches CandidateDiscoveryJobsSection.tsx) */}
+            <div className="relative flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  if (discoveryTab !== "active") {
+                    setDiscoveryTab("active");
+                    setCurrentPage(1);
+                  }
+                }}
+                className={cn(
+                  "relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
+                  discoveryTab === "active"
+                    ? "text-primary font-extrabold"
+                    : "text-slate-500 hover:text-slate-900"
+                )}
+              >
+                {discoveryTab === "active" && (
+                  <motion.div
+                    layoutId="recruiterDiscoveryTabHighlightTable"
+                    className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <Compass className="h-3.5 w-3.5" />
+                Active
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (discoveryTab !== "dismissed") {
+                    setDiscoveryTab("dismissed");
+                    setCurrentPage(1);
+                  }
+                }}
+                className={cn(
+                  "relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
+                  discoveryTab === "dismissed"
+                    ? "text-rose-600 font-extrabold"
+                    : "text-slate-500 hover:text-slate-900"
+                )}
+              >
+                {discoveryTab === "dismissed" && (
+                  <motion.div
+                    layoutId="recruiterDiscoveryTabHighlightTable"
+                    className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <XCircle className="h-3.5 w-3.5" />
+                Rejected
+              </button>
+            </div>
+            <div className="text-xs text-slate-500 font-medium ml-2">
+              Page {currentPage} of {totalPages}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -642,7 +803,6 @@ export const RecruiterJobDiscoveryPage = () => {
                 <tr>
                   <th className="py-2.5 px-3">Opportunity</th>
                   <th className="py-2.5 px-3">Candidate & Role</th>
-                  <th className="py-2.5 px-3">Status</th>
                   <th className="py-2.5 px-3">Visa Intelligence</th>
                   <th className="py-2.5 px-3">Location</th>
                   <th className="py-2.5 px-3">Salary</th>
@@ -655,14 +815,14 @@ export const RecruiterJobDiscoveryPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading candidate matched opportunities...
                     </td>
                   </tr>
                 ) : !hasCandidates ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-500">
+                    <td colSpan={9} className="py-12 text-center text-slate-500">
                       <Users className="h-8 w-8 mx-auto mb-2 text-slate-400" />
                       <p className="font-semibold text-slate-700">No active candidates assigned to your account</p>
                       <p className="text-xs text-slate-500 mt-1">
@@ -672,9 +832,11 @@ export const RecruiterJobDiscoveryPage = () => {
                   </tr>
                 ) : jobs.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                      No opportunities match your assigned candidate roles under the current filters.
+                      {discoveryTab === "dismissed"
+                        ? "No rejected opportunities recorded under the current filters."
+                        : "No opportunities match your assigned candidate roles under the current filters."}
                     </td>
                   </tr>
                 ) : (
@@ -684,7 +846,7 @@ export const RecruiterJobDiscoveryPage = () => {
                       <td className="py-2.5 px-3 max-w-[260px]">
                         <div className="flex flex-col gap-1">
                           <button
-                            onClick={() => handleOpenDetail(job.job_uuid || job.id.split("_")[0])}
+                            onClick={() => handleOpenDetail(job.job_uuid || job.id.split("_")[0], job)}
                             className="font-semibold text-slate-900 hover:text-primary hover:underline text-left block text-xs line-clamp-2 leading-tight"
                           >
                             {job.title}
@@ -718,33 +880,12 @@ export const RecruiterJobDiscoveryPage = () => {
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-slate-50 text-slate-600 font-normal">
                             {job.target_role}
                           </Badge>
+                          {job.rejection_reason && (
+                            <span className="text-[10px] text-rose-600 block truncate max-w-[190px] italic mt-0.5" title={job.rejection_reason}>
+                              Rejected: {job.rejection_reason}
+                            </span>
+                          )}
                         </div>
-                      </td>
-
-                      {/* Application Status */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        {job.status === "APPLIED" ? (
-                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-semibold flex items-center gap-1 w-fit">
-                            <Check className="h-3 w-3 text-emerald-600" />
-                            Applied
-                          </Badge>
-                        ) : job.status === "REJECTED" ? (
-                          <div title={job.rejection_reason ? `Reason: ${job.rejection_reason}` : "Rejected"}>
-                            <Badge className="bg-rose-50 text-rose-700 border-rose-300 text-[10px] font-semibold flex items-center gap-1 cursor-help w-fit">
-                              <XCircle className="h-3 w-3 text-rose-600" />
-                              Rejected
-                            </Badge>
-                            {job.rejection_reason && (
-                              <span className="text-[10px] text-rose-600 block truncate max-w-[120px] italic">
-                                {job.rejection_reason}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[10px] font-medium w-fit">
-                            Not Applied
-                          </Badge>
-                        )}
                       </td>
 
                       {/* Visa Intelligence */}
@@ -809,17 +950,6 @@ export const RecruiterJobDiscoveryPage = () => {
                       {/* Actions */}
                       <td className="py-2.5 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* {job.job_url && (
-                            <a
-                              href={safeUrl(job.job_url)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded text-slate-400 hover:text-primary hover:bg-slate-100 transition-colors"
-                              title="Open original job listing in new tab"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          )} */}
                           <Button
                             variant="outline"
                             size="sm"
@@ -835,9 +965,21 @@ export const RecruiterJobDiscoveryPage = () => {
                               <Check className="h-3.5 w-3.5" /> Applied
                             </span>
                           ) : job.status === "REJECTED" ? (
-                            <span className="text-xs font-semibold text-rose-600 flex items-center gap-0.5 px-2">
-                              <XCircle className="h-3.5 w-3.5" /> Rejected
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-rose-600 flex items-center gap-0.5 px-2">
+                                <XCircle className="h-3.5 w-3.5" /> Rejected
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRestoreRecommendation(job)}
+                                className="h-7 px-2 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
+                                title="Restore recommendation to active list"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                Restore
+                              </Button>
+                            </div>
                           ) : (
                             <>
                               <Button

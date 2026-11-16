@@ -178,7 +178,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
             return Array.from(map.values());
           });
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
     setTimeout(() => {
       submissionPipelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -554,7 +554,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
         recruitersApi.getJobApplications(candidate.id).then(res => {
           const rawJobs = Array.isArray(res.data) ? res.data : (res.data?.results || []);
           if (rawJobs.length > 0) setJobPostings(rawJobs);
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } catch (e: any) {
       toast({ title: "Rejection failed", description: e.response?.data?.error || e.message, variant: "destructive" });
@@ -663,14 +663,14 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       escapeCsv(`HYRSUB${j.id ? j.id.toString().slice(-6).toUpperCase() : ""}`),
       escapeCsv(j.company_name),
       escapeCsv(j.role_title),
-      escapeCsv(j.employment_type || ""),
-      escapeCsv(j.experience_required || ""),
-      escapeCsv(j.work_mode || ""),
+      escapeCsv(j.employment_type || "Full-Time"),
+      escapeCsv(j.experience_required || "0–2 Years"),
+      escapeCsv(j.work_mode || "Onsite"),
       escapeCsv(j.city || ""),
       escapeCsv(j.state || ""),
-      escapeCsv(j.country || ""),
-      escapeCsv(j.salary || ""),
-      escapeCsv(j.visa_eligibility || ""),
+      escapeCsv(j.country || "United States"),
+      escapeCsv(formatSalaryDisplay(j.salary)),
+      escapeCsv(j.visa_eligibility || "All Work Authorization"),
       escapeCsv(j.candidate_response_status || j.application_status || j.status || ""),
       escapeCsv(j.job_url || ""),
       escapeCsv(j.resume_used || ""),
@@ -699,17 +699,17 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       });
     } else {
       const j = jobOrCompany;
-      const locationParts = [j.city, j.state, j.country].filter(Boolean).join(", ");
+      const locationParts = [j.city, j.state, j.country || "United States"].filter(Boolean).join(", ");
       setActiveJobDesc({
         company: j.company_name || "",
         role: j.role_title || "",
         description: j.job_description || "",
-        employment_type: j.employment_type,
-        experience_required: j.experience_required,
-        work_mode: j.work_mode,
-        location: locationParts || j.location,
+        employment_type: j.employment_type || "Full-Time",
+        experience_required: j.experience_required || "0–2 Years",
+        work_mode: j.work_mode || "Onsite",
+        location: locationParts || j.location || "United States",
         salary: formatSalaryDisplay(j.salary),
-        visa_eligibility: j.visa_eligibility,
+        visa_eligibility: j.visa_eligibility || "All Work Authorization",
       });
     }
   };
@@ -1171,7 +1171,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     recruitersApi.getJobApplications(candidate.id).then(res => {
                       const rawJobs = Array.isArray(res.data) ? res.data : (res.data?.results || []);
                       setJobPostings(rawJobs);
-                    }).catch(() => {});
+                    }).catch(() => { });
                   }
                 }}
                 onMovedToPipeline={handleJobMovedToPipeline}
@@ -1188,31 +1188,6 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                 All Submissions ({jobPostings.length})
               </CardTitle>
               <div className="flex items-center gap-2">
-                {isStaff && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const next = !showDiscoveryJobs;
-                      setShowDiscoveryJobs(next);
-                      if (next) {
-                        setTimeout(() => {
-                          discoveryJobsRef.current?.scrollIntoView({ behavior: "smooth" });
-                        }, 100);
-                      }
-                    }}
-                    className={cn(
-                      "h-8 text-xs font-semibold gap-1.5 transition-all",
-                      showDiscoveryJobs
-                        ? "bg-secondary text-secondary-foreground border-secondary font-bold"
-                        : "text-secondary hover:bg-secondary/5"
-                    )}
-                  >
-                    <Compass className="h-3.5 w-3.5" />
-                    {showDiscoveryJobs ? "Hide Discovery Jobs" : "Discovery Jobs"}
-                  </Button>
-                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1346,33 +1321,42 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     accessorKey: "employment_type",
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => j.employment_type ? (
-                      <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold text-xs">
-                        {j.employment_type}
-                      </span>
-                    ) : <span className="text-muted-foreground text-xs">—</span>
+                    render: (j: any) => {
+                      const val = j.employment_type || "Full-Time";
+                      return (
+                        <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold text-xs">
+                          {val}
+                        </span>
+                      );
+                    }
                   },
                   {
                     header: "Experience Required",
                     accessorKey: "experience_required",
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => j.experience_required ? (
-                      <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold text-xs">
-                        {j.experience_required}
-                      </span>
-                    ) : <span className="text-muted-foreground text-xs">—</span>
+                    render: (j: any) => {
+                      const val = j.experience_required || "0–2 Years";
+                      return (
+                        <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold text-xs">
+                          {val}
+                        </span>
+                      );
+                    }
                   },
                   {
                     header: "Work Mode",
                     accessorKey: "work_mode",
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => j.work_mode ? (
-                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold text-xs">
-                        {j.work_mode}
-                      </span>
-                    ) : <span className="text-muted-foreground text-xs">—</span>
+                    render: (j: any) => {
+                      const val = j.work_mode || "Onsite";
+                      return (
+                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold text-xs">
+                          {val}
+                        </span>
+                      );
+                    }
                   },
                   {
                     header: "City",
@@ -1393,7 +1377,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     accessorKey: "country",
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap text-xs font-medium text-foreground",
-                    render: (j: any) => j.country || <span className="text-muted-foreground">—</span>
+                    render: (j: any) => j.country || "United States"
                   },
                   {
                     header: "Salary",
@@ -1407,11 +1391,14 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     accessorKey: "visa_eligibility",
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => j.visa_eligibility ? (
-                      <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold text-xs">
-                        {j.visa_eligibility}
-                      </span>
-                    ) : <span className="text-muted-foreground text-xs">—</span>
+                    render: (j: any) => {
+                      const val = j.visa_eligibility || "All Work Authorization";
+                      return (
+                        <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold text-xs">
+                          {val}
+                        </span>
+                      );
+                    }
                   },
                   {
                     header: "Job Description",
@@ -1659,27 +1646,27 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 py-3 border-b border-border/10 text-xs">
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Employment Type</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.employment_type || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.employment_type || "Full-Time"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Experience Required</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.experience_required || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.experience_required || "0–2 Years"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Work Mode</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.work_mode || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.work_mode || "Onsite"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Location</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.location || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.location || "United States"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Salary</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.salary || "Not Disclosed"}</p>
+              <p className="font-semibold text-foreground">{formatSalaryDisplay(activeJobDesc?.salary)}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Eligibility</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "All Work Authorization"}</p>
             </div>
           </div>
 
@@ -1943,29 +1930,29 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Employment Type</span>
-                    <span className="font-semibold text-slate-800">{viewingApplication.employment_type || "—"}</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.employment_type || "Full-Time"}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Experience Required</span>
-                    <span className="font-semibold text-slate-800">{viewingApplication.experience_required || "—"}</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.experience_required || "0–2 Years"}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Work Mode</span>
-                    <span className="font-semibold text-slate-800">{viewingApplication.work_mode || "—"}</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.work_mode || "Onsite"}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Location</span>
                     <span className="font-semibold text-slate-800">
-                      {[viewingApplication.city, viewingApplication.state, viewingApplication.country].filter(Boolean).join(", ") || "—"}
+                      {[viewingApplication.city, viewingApplication.state, viewingApplication.country || "United States"].filter(Boolean).join(", ") || "United States"}
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Salary / Compensation</span>
-                    <span className="font-semibold text-slate-800">{viewingApplication.salary || "—"}</span>
+                    <span className="font-semibold text-slate-800">{formatSalaryDisplay(viewingApplication.salary)}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Visa Eligibility</span>
-                    <span className="font-semibold text-slate-800">{viewingApplication.visa_eligibility || "—"}</span>
+                    <span className="font-semibold text-slate-800">{viewingApplication.visa_eligibility || "All Work Authorization"}</span>
                   </div>
                 </div>
 

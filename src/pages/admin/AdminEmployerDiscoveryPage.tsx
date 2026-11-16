@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { employerDiscoveryApi } from "@/services/api";
+import { employerDiscoveryApi, jobDiscoveryApi } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { MultiRoleSelect } from "@/components/common/MultiRoleSelect";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
@@ -17,7 +19,7 @@ import {
   Building2, Search, Filter, RefreshCw, Plus, ExternalLink,
   ShieldCheck, Award, Users, DollarSign, Calendar, MapPin,
   Globe, Mail, Phone, CheckCircle2, ChevronLeft, ChevronRight,
-  Eye, Edit3, Briefcase, FileCheck, Trash2, FileText
+  Eye, Edit3, Briefcase, FileCheck, Trash2, FileText, RotateCcw
 } from "lucide-react";
 
 export const AdminEmployerDiscoveryPage: React.FC = () => {
@@ -27,6 +29,10 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("all");
   const [selectedGrade, setSelectedGrade] = useState("all");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [hasPlacementsOnly, setHasPlacementsOnly] = useState(false);
   const [hasH1bOnly, setHasH1bOnly] = useState(false);
   const [hasLcaOnly, setHasLcaOnly] = useState(false);
@@ -153,6 +159,9 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
       if (search.trim()) params.search = search.trim();
       if (selectedIndustry !== "all") params.industry = selectedIndustry;
       if (selectedGrade !== "all") params.grade = selectedGrade;
+      if (selectedRoles.length > 0) params.role = selectedRoles.join(",");
+      if (fromDate) params.date_from = fromDate;
+      if (toDate) params.date_to = toDate;
       if (hasPlacementsOnly) params.has_placements = true;
       if (hasH1bOnly) params.has_h1b = true;
       if (hasLcaOnly) params.has_lca = true;
@@ -174,8 +183,37 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
     }
   }, [
     currentPage, pageSize, sortOrder, search, selectedIndustry,
-    selectedGrade, hasPlacementsOnly, hasH1bOnly, hasLcaOnly, selectedStatus, toast
+    selectedGrade, selectedRoles, fromDate, toDate,
+    hasPlacementsOnly, hasH1bOnly, hasLcaOnly, selectedStatus, toast
   ]);
+
+  // Load available roles from discovery filters
+  useEffect(() => {
+    jobDiscoveryApi.filters()
+      .then((res) => {
+        if (res.data?.roles && Array.isArray(res.data.roles)) {
+          setAvailableRoles(res.data.roles);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to load discovery filter roles:", err);
+      });
+  }, []);
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setSelectedIndustry("all");
+    setSelectedGrade("all");
+    setSelectedRoles([]);
+    setFromDate("");
+    setToDate("");
+    setHasPlacementsOnly(false);
+    setHasH1bOnly(false);
+    setHasLcaOnly(false);
+    setSelectedStatus("all");
+    setSortOrder("-placement_count");
+    setCurrentPage(1);
+  };
 
   useEffect(() => {
     fetchStats();
@@ -414,23 +452,65 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
 
       {/* Filter Toolbar */}
       <Card className="border-slate-200 shadow-xs">
-        <CardContent className="p-3.5">
+        <CardContent className="p-3.5 space-y-2.5">
           <div className="flex flex-wrap items-center gap-2.5 text-xs">
             {/* Search Input */}
-            <div className="relative flex-1 min-w-[220px]">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
               <Input
                 placeholder="Search employer by name, industry, headquarters..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-8 h-8 text-xs bg-slate-50/50"
+              />
+            </div>
+
+            {/* Roles Multi-Select Filter */}
+            <div className="w-52 min-w-[170px]">
+              <MultiRoleSelect
+                roles={availableRoles}
+                selectedRoles={selectedRoles}
+                onChange={(roles) => {
+                  setSelectedRoles(roles);
+                  setCurrentPage(1);
+                }}
+                placeholder="All Roles"
+                triggerClassName="h-8 text-xs bg-white border-slate-200"
+              />
+            </div>
+
+            {/* From Date Filter */}
+            <div className="w-36">
+              <DatePicker
+                value={fromDate}
+                onChange={(d) => { setFromDate(d || ""); setCurrentPage(1); }}
+                placeholder="From Date"
+                formatStr="yyyy-MM-dd"
+                className="h-8 text-xs bg-white border-slate-200 focus:bg-white font-normal w-full"
+              />
+            </div>
+
+            {/* To Date Filter */}
+            <div className="w-36">
+              <DatePicker
+                value={toDate}
+                onChange={(d) => { setToDate(d || ""); setCurrentPage(1); }}
+                placeholder="To Date"
+                formatStr="yyyy-MM-dd"
+                className="h-8 text-xs bg-white border-slate-200 focus:bg-white font-normal w-full"
               />
             </div>
 
             {/* Visa Grade Filter */}
             <select
               value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value)}
+              onChange={(e) => {
+                setSelectedGrade(e.target.value);
+                setCurrentPage(1);
+              }}
               className="h-8 text-xs bg-white border border-slate-200 rounded px-2 text-slate-700"
             >
               <option value="all">All Visa Grades</option>
@@ -444,7 +524,10 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
             {/* Verification Status Filter */}
             <select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setCurrentPage(1);
+              }}
               className="h-8 text-xs bg-white border border-slate-200 rounded px-2 text-slate-700"
             >
               <option value="all">All Verification Status</option>
@@ -452,37 +535,6 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
               <option value="UNVERIFIED">Unverified</option>
               <option value="INCOMPLETE">Incomplete</option>
             </select>
-
-            {/* Toggle Filters */}
-            <div className="flex items-center gap-3 pl-1">
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={hasPlacementsOnly}
-                  onChange={(e) => setHasPlacementsOnly(e.target.checked)}
-                  className="rounded border-slate-300 text-primary h-3.5 w-3.5"
-                />
-                <span>Hyrind Placed</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={hasH1bOnly}
-                  onChange={(e) => setHasH1bOnly(e.target.checked)}
-                  className="rounded border-slate-300 text-primary h-3.5 w-3.5"
-                />
-                <span>H1B Sponsor</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={hasLcaOnly}
-                  onChange={(e) => setHasLcaOnly(e.target.checked)}
-                  className="rounded border-slate-300 text-primary h-3.5 w-3.5"
-                />
-                <span>PERM Sponsor</span>
-              </label>
-            </div>
 
             {/* Sort Dropdown */}
             <select
@@ -496,6 +548,51 @@ export const AdminEmployerDiscoveryPage: React.FC = () => {
               <option value="company_name">Company Name (A-Z)</option>
               <option value="-updated_at">Recently Updated</option>
             </select>
+          </div>
+
+          {/* Sub Filters Row: Toggles & Reset */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={hasPlacementsOnly}
+                  onChange={(e) => { setHasPlacementsOnly(e.target.checked); setCurrentPage(1); }}
+                  className="rounded border-slate-300 text-primary h-3.5 w-3.5"
+                />
+                <span>Hyrind Placed</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={hasH1bOnly}
+                  onChange={(e) => { setHasH1bOnly(e.target.checked); setCurrentPage(1); }}
+                  className="rounded border-slate-300 text-primary h-3.5 w-3.5"
+                />
+                <span>H1B Sponsor</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={hasLcaOnly}
+                  onChange={(e) => { setHasLcaOnly(e.target.checked); setCurrentPage(1); }}
+                  className="rounded border-slate-300 text-primary h-3.5 w-3.5"
+                />
+                <span>PERM Sponsor</span>
+              </label>
+            </div>
+
+            {(search || selectedGrade !== "all" || selectedStatus !== "all" || selectedRoles.length > 0 || fromDate || toDate || hasPlacementsOnly || hasH1bOnly || hasLcaOnly) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetFilters}
+                className="h-7 text-xs text-slate-500 hover:text-slate-900 px-2 cursor-pointer"
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Reset Filters
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

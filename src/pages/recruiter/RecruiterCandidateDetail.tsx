@@ -494,17 +494,17 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       });
     } else {
       const j = jobOrCompany;
-      const locationParts = [j.city, j.state, j.country].filter(Boolean).join(", ");
+      const locationParts = [j.city, j.state, j.country || "United States"].filter(Boolean).join(", ");
       setActiveJobDesc({
         company: j.company_name || "",
         role: j.role_title || "",
         description: j.job_description || "",
-        employment_type: j.employment_type,
-        experience_required: j.experience_required,
-        work_mode: j.work_mode,
-        location: locationParts || j.location,
+        employment_type: j.employment_type || "Full-Time",
+        experience_required: j.experience_required || "0–2 Years",
+        work_mode: j.work_mode || "Onsite",
+        location: locationParts || j.location || "United States",
         salary: formatSalaryDisplay(j.salary),
-        visa_eligibility: j.visa_eligibility,
+        visa_eligibility: j.visa_eligibility || "All Work Authorization",
       });
     }
   };
@@ -1438,14 +1438,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         escapeCsv(candidateName),
         escapeCsv(j.company_name || ""),
         escapeCsv(j.role_title || ""),
-        escapeCsv(j.employment_type || ""),
-        escapeCsv(j.work_mode || ""),
-        escapeCsv(j.experience_required || ""),
+        escapeCsv(j.employment_type || "Full-Time"),
+        escapeCsv(j.work_mode || "Onsite"),
+        escapeCsv(j.experience_required || "0–2 Years"),
         escapeCsv(j.city || ""),
         escapeCsv(j.state || ""),
-        escapeCsv(j.country || ""),
+        escapeCsv(j.country || "United States"),
         escapeCsv(formatSalaryDisplay(j.salary)),
-        escapeCsv(j.visa_eligibility || ""),
+        escapeCsv(j.visa_eligibility || "All Work Authorization"),
         escapeCsv(status),
         escapeCsv(j.job_url || ""),
         escapeCsv(j.resume_used || ""),
@@ -3625,29 +3625,38 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   {
                     header: "Employment Type",
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => j.employment_type ? (
-                      <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold text-xs">
-                        {j.employment_type}
-                      </span>
-                    ) : <span className="text-muted-foreground text-xs">—</span>
+                    render: (j: any) => {
+                      const val = j.employment_type || "Full-Time";
+                      return (
+                        <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold text-xs">
+                          {val}
+                        </span>
+                      );
+                    }
                   },
                   {
                     header: "Experience Required",
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => j.experience_required ? (
-                      <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold text-xs">
-                        {j.experience_required}
-                      </span>
-                    ) : <span className="text-muted-foreground text-xs">—</span>
+                    render: (j: any) => {
+                      const val = j.experience_required || "0–2 Years";
+                      return (
+                        <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold text-xs">
+                          {val}
+                        </span>
+                      );
+                    }
                   },
                   {
                     header: "Work Mode",
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => j.work_mode ? (
-                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold text-xs">
-                        {j.work_mode}
-                      </span>
-                    ) : <span className="text-muted-foreground text-xs">—</span>
+                    render: (j: any) => {
+                      const val = j.work_mode || "Onsite";
+                      return (
+                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold text-xs">
+                          {val}
+                        </span>
+                      );
+                    }
                   },
                   {
                     header: "City",
@@ -3662,7 +3671,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   {
                     header: "Country",
                     className: "px-2 py-3 whitespace-nowrap text-xs font-medium text-foreground",
-                    render: (j: any) => j.country || <span className="text-muted-foreground">—</span>
+                    render: (j: any) => j.country || "United States"
                   },
                   {
                     header: "Salary",
@@ -3672,11 +3681,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   {
                     header: "Visa Eligibility",
                     className: "px-2 py-3 whitespace-nowrap",
-                    render: (j: any) => j.visa_eligibility ? (
-                      <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold text-xs">
-                        {j.visa_eligibility}
-                      </span>
-                    ) : <span className="text-muted-foreground text-xs">—</span>
+                    render: (j: any) => {
+                      const val = j.visa_eligibility || "All Work Authorization";
+                      return (
+                        <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold text-xs">
+                          {val}
+                        </span>
+                      );
+                    }
                   },
                   {
                     header: "Job Description",
@@ -3872,27 +3884,27 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 py-3 border-b border-border/10 text-xs">
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Employment Type</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.employment_type || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.employment_type || "Full-Time"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Experience Required</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.experience_required || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.experience_required || "0–2 Years"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Work Mode</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.work_mode || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.work_mode || "Onsite"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Location</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.location || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.location || "United States"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Salary</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.salary || "Not Disclosed"}</p>
+              <p className="font-semibold text-foreground">{formatSalaryDisplay(activeJobDesc?.salary)}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Eligibility</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "—"}</p>
+              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "All Work Authorization"}</p>
             </div>
           </div>
 
@@ -4373,11 +4385,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </div>
                           <div>
                             <span className="text-[10px] font-semibold text-muted-foreground block">Type & Mode:</span>
-                            <span className="font-medium text-foreground">{j.employment_type || "—"} • {j.work_mode || "—"}</span>
+                            <span className="font-medium text-foreground">{j.employment_type || "Full-Time"} • {j.work_mode || "Onsite"}</span>
                           </div>
                           <div>
                             <span className="text-[10px] font-semibold text-muted-foreground block">Exp. & Visa:</span>
-                            <span className="font-medium text-foreground">{j.experience_required || "—"} • {j.visa_eligibility || "—"}</span>
+                            <span className="font-medium text-foreground">{j.experience_required || "0–2 Years"} • {j.visa_eligibility || "All Work Authorization"}</span>
                           </div>
                           <div>
                             <span className="text-[10px] font-semibold text-muted-foreground block">Location:</span>

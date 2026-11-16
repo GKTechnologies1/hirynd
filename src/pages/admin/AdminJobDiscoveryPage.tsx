@@ -17,6 +17,8 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 import { formatSalaryDisplay } from "@/lib/salaryFormatter";
 import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
 import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { MultiRoleSelect } from "@/components/common/MultiRoleSelect";
 import {
   Search, Filter, ExternalLink, RefreshCw, CheckCircle2,
   XCircle, AlertCircle, Briefcase, Building, MapPin, DollarSign,
@@ -86,10 +88,12 @@ export const AdminJobDiscoveryPage = () => {
     }, 300);
     return () => clearTimeout(handler);
   }, [search]);
-  const [selectedRole, setSelectedRole] = useState("all");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedCompany, setSelectedCompany] = useState("all");
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedVisaGrade, setSelectedVisaGrade] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [minScore, setMinScore] = useState<string>("all");
   const [h1bOnly, setH1bOnly] = useState<boolean>(false);
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -157,10 +161,12 @@ export const AdminJobDiscoveryPage = () => {
       };
 
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-      if (selectedRole !== "all") params.role = selectedRole;
+      if (selectedRoles.length > 0) params.role = selectedRoles.join(",");
       if (selectedCompany !== "all") params.company = selectedCompany;
       if (selectedSource !== "all") params.source = selectedSource;
       if (selectedVisaGrade !== "all") params.visa_grade = selectedVisaGrade;
+      if (fromDate) params.date_from = fromDate;
+      if (toDate) params.date_to = toDate;
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
       if (selectedStatus !== "all") params.review_status = selectedStatus;
@@ -181,8 +187,8 @@ export const AdminJobDiscoveryPage = () => {
       setLoading(false);
     }
   }, [
-    currentPage, pageSize, sortOrder, debouncedSearch, selectedRole, selectedCompany,
-    selectedSource, selectedVisaGrade, minScore, h1bOnly, selectedStatus, selectedRestriction, isRemote, toast
+    currentPage, pageSize, sortOrder, debouncedSearch, selectedRoles, selectedCompany,
+    selectedSource, selectedVisaGrade, fromDate, toDate, minScore, h1bOnly, selectedStatus, selectedRestriction, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -226,10 +232,12 @@ export const AdminJobDiscoveryPage = () => {
 
   const handleResetFilters = () => {
     setSearch("");
-    setSelectedRole("all");
+    setSelectedRoles([]);
     setSelectedCompany("all");
     setSelectedSource("all");
     setSelectedVisaGrade("all");
+    setFromDate("");
+    setToDate("");
     setMinScore("all");
     setH1bOnly(false);
     setSelectedStatus("all");
@@ -344,7 +352,7 @@ export const AdminJobDiscoveryPage = () => {
       {/* Filter and Search Card */}
       <Card className="border-slate-200 shadow-xs">
         <CardContent className="pt-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             {/* Search */}
             <div className="lg:col-span-2">
               <Label className="text-xs font-semibold text-slate-600 block mb-1">Search Keywords</Label>
@@ -362,38 +370,19 @@ export const AdminJobDiscoveryPage = () => {
               </div>
             </div>
 
-            {/* Target Role */}
+            {/* Target Role (Multi-Select) */}
             <div>
               <Label className="text-xs font-semibold text-slate-600 block mb-1">Target Role</Label>
-              <Select value={selectedRole} onValueChange={(val) => { setSelectedRole(val); setCurrentPage(1); }}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="All Roles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  {filterOptions.roles.map((r, i) => (
-                    <SelectItem key={i} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Visa Grade Filter */}
-            <div>
-              <Label className="text-xs font-semibold text-slate-600 block mb-1">Visa Grade</Label>
-              <Select value={selectedVisaGrade} onValueChange={(val) => { setSelectedVisaGrade(val); setCurrentPage(1); }}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="All Grades" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Grades</SelectItem>
-                  <SelectItem value="A">Grade A (Score ≥ 85)</SelectItem>
-                  <SelectItem value="B">Grade B (Score 70-84)</SelectItem>
-                  <SelectItem value="C">Grade C (Score 50-69)</SelectItem>
-                  <SelectItem value="D">Grade D (Score 30-49)</SelectItem>
-                  <SelectItem value="E,F">Grade E/F (Score &lt; 30)</SelectItem>
-                </SelectContent>
-              </Select>
+              <MultiRoleSelect
+                roles={filterOptions.roles}
+                selectedRoles={selectedRoles}
+                onChange={(roles) => {
+                  setSelectedRoles(roles);
+                  setCurrentPage(1);
+                }}
+                placeholder="All Roles"
+                triggerClassName="h-9 text-sm bg-white border-slate-200"
+              />
             </div>
 
             {/* Portal Source Filter */}
@@ -411,11 +400,53 @@ export const AdminJobDiscoveryPage = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* From Date Filter */}
+            <div>
+              <Label className="text-xs font-semibold text-slate-600 block mb-1">From Date</Label>
+              <DatePicker
+                value={fromDate}
+                onChange={(d) => { setFromDate(d || ""); setCurrentPage(1); }}
+                placeholder="From Date"
+                formatStr="yyyy-MM-dd"
+                className="h-9 text-xs bg-white border-slate-200 focus:bg-white font-normal w-full"
+              />
+            </div>
+
+            {/* To Date Filter */}
+            <div>
+              <Label className="text-xs font-semibold text-slate-600 block mb-1">To Date</Label>
+              <DatePicker
+                value={toDate}
+                onChange={(d) => { setToDate(d || ""); setCurrentPage(1); }}
+                placeholder="To Date"
+                formatStr="yyyy-MM-dd"
+                className="h-9 text-xs bg-white border-slate-200 focus:bg-white font-normal w-full"
+              />
+            </div>
           </div>
 
           {/* Sub Filters Row */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
             <div className="flex flex-wrap items-center gap-2">
+              {/* Visa Grade Filter */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-medium whitespace-nowrap">Visa Grade:</span>
+                <Select value={selectedVisaGrade} onValueChange={(val) => { setSelectedVisaGrade(val); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-28 h-7 text-xs">
+                    <SelectValue placeholder="All Grades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    <SelectItem value="A">Grade A (Score ≥ 85)</SelectItem>
+                    <SelectItem value="B">Grade B (Score 70-84)</SelectItem>
+                    <SelectItem value="C">Grade C (Score 50-69)</SelectItem>
+                    <SelectItem value="D">Grade D (Score 30-49)</SelectItem>
+                    <SelectItem value="E,F">Grade E/F (Score &lt; 30)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Visa Score Filter */}
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-500 font-medium">Min Visa Score:</span>

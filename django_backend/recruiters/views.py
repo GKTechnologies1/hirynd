@@ -315,14 +315,14 @@ def job_applications(request, candidate_id):
                     job_description=str(jl.get('job_description', '') or ''),
                     resume_used=raw_resume,
                     application_status=app_status,
-                    employment_type=str(jl.get('employment_type', '') or '').strip()[:100],
-                    experience_required=str(jl.get('experience_required', '') or '').strip()[:100],
-                    work_mode=str(jl.get('work_mode', '') or '').strip()[:100],
+                    employment_type=str(jl.get('employment_type', '') or '').strip()[:100] or 'Full-Time',
+                    experience_required=str(jl.get('experience_required', '') or '').strip()[:100] or '0–2 Years',
+                    work_mode=str(jl.get('work_mode', '') or '').strip()[:100] or 'Onsite',
                     city=str(jl.get('city', '') or '').strip()[:255],
                     state=str(jl.get('state', '') or '').strip()[:255],
-                    country=str(jl.get('country', '') or '').strip()[:255],
-                    salary=str(jl.get('salary', 'Not Disclosed') or 'Not Disclosed').strip()[:255],
-                    visa_eligibility=str(jl.get('visa_eligibility', '') or '').strip()[:255],
+                    country=str(jl.get('country', '') or '').strip()[:255] or 'United States',
+                    salary=str(jl.get('salary', 'Not Disclosed') or 'Not Disclosed').strip()[:255] or 'Not Disclosed',
+                    visa_eligibility=str(jl.get('visa_eligibility', '') or '').strip()[:255] or 'All Work Authorization',
                     submitted_by=request.user
                 )
                 created_entries.append(entry)

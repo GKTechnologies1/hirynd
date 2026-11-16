@@ -18,12 +18,15 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate, cn } from "@/lib/utils";
 import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
 import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { MultiRoleSelect } from "@/components/common/MultiRoleSelect";
 import {
   Search, ExternalLink, RefreshCw, Briefcase, Building, MapPin,
   Eye, Copy, ChevronLeft, ChevronRight, Award,
   ShieldCheck, Check, UserCheck, Compass, X, LayoutGrid, Table,
   Clock, DollarSign, Home, Loader2, Ban, RotateCcw, XCircle, FileText
 } from "lucide-react";
+import formatSalaryDisplay from "@/lib/salaryFormatter";
 
 export const REJECTION_REASONS = [
   "Job role does not match candidate profile",
@@ -95,12 +98,14 @@ export const CandidateDiscoveryJobsSection = ({
 
   // Filters
   const [search, setSearch] = useState("");
-  const [selectedRole, setSelectedRole] = useState("all");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedVisaGrade, setSelectedVisaGrade] = useState("all");
   const [minScore, setMinScore] = useState<string>("all");
   const [h1bOnly, setH1bOnly] = useState<boolean>(false);
   const [selectedRestriction, setSelectedRestriction] = useState<string>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [isRemote, setIsRemote] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState("-created_at");
   const [currentPage, setCurrentPage] = useState(1);
@@ -165,12 +170,14 @@ export const CandidateDiscoveryJobsSection = ({
       };
 
       if (search.trim()) params.search = search.trim();
-      if (selectedRole !== "all") params.role = selectedRole;
+      if (selectedRoles.length > 0) params.role = selectedRoles.join(",");
       if (selectedSource !== "all") params.source = selectedSource;
       if (selectedVisaGrade !== "all") params.visa_grade = selectedVisaGrade;
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
       if (selectedRestriction !== "all") params.restriction = selectedRestriction;
+      if (fromDate) params.date_from = fromDate;
+      if (toDate) params.date_to = toDate;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
 
       const res = await recruiterJobDiscoveryApi.jobs(params);
@@ -188,8 +195,8 @@ export const CandidateDiscoveryJobsSection = ({
     }
   }, [
     candidateId, discoveryTab, currentPage, pageSize, sortOrder, search,
-    selectedRole, selectedSource, selectedVisaGrade, minScore,
-    h1bOnly, selectedRestriction, isRemote, toast
+    selectedRoles, selectedSource, selectedVisaGrade, minScore,
+    h1bOnly, selectedRestriction, fromDate, toDate, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -249,8 +256,8 @@ export const CandidateDiscoveryJobsSection = ({
           : (alwaysShowDefaults?.resume_used || "Standard");
 
         const formattedSal = formatSalaryDisplay(job);
-        const rawSalary = (formattedSal && formattedSal !== "Not Disclosed") 
-          ? formattedSal 
+        const rawSalary = (formattedSal && formattedSal !== "Not Disclosed")
+          ? formattedSal
           : (job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : (alwaysShowDefaults?.salary || "Not Disclosed")));
 
         const cleanUrl = (job.job_url || "").trim();
@@ -517,12 +524,14 @@ export const CandidateDiscoveryJobsSection = ({
 
   const handleResetFilters = () => {
     setSearch("");
-    setSelectedRole("all");
+    setSelectedRoles([]);
     setSelectedSource("all");
     setSelectedVisaGrade("all");
     setMinScore("all");
     setH1bOnly(false);
     setSelectedRestriction("all");
+    setFromDate("");
+    setToDate("");
     setIsRemote("all");
     setSortOrder("-created_at");
     setCurrentPage(1);
@@ -767,7 +776,7 @@ export const CandidateDiscoveryJobsSection = ({
       <CardContent className="p-0 overflow-hidden">
         {/* Filters Toolbar */}
         <div className="px-6 pt-4 pb-3 border-b border-border/30 bg-muted/5 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             {/* Search */}
             <div className="space-y-1">
               <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search</Label>
@@ -793,20 +802,19 @@ export const CandidateDiscoveryJobsSection = ({
               </div>
             </div>
 
-            {/* Candidate Role */}
+            {/* Candidate Role (Multi-Select) */}
             <div className="space-y-1">
               <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Target Role</Label>
-              <Select value={selectedRole} onValueChange={(val) => { setSelectedRole(val); setCurrentPage(1); }}>
-                <SelectTrigger className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background transition-colors w-full">
-                  <SelectValue placeholder="All Candidate Roles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">All Candidate Roles</SelectItem>
-                  {roleOptions.map((r, i) => (
-                    <SelectItem key={i} value={r} className="text-xs">{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiRoleSelect
+                roles={roleOptions}
+                selectedRoles={selectedRoles}
+                onChange={(roles) => {
+                  setSelectedRoles(roles);
+                  setCurrentPage(1);
+                }}
+                placeholder="All Candidate Roles"
+                triggerClassName="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background"
+              />
             </div>
 
             {/* Visa Grade */}
@@ -841,6 +849,30 @@ export const CandidateDiscoveryJobsSection = ({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* From Date Filter */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From Date</Label>
+              <DatePicker
+                value={fromDate}
+                onChange={(d) => { setFromDate(d || ""); setCurrentPage(1); }}
+                placeholder="From Date"
+                formatStr="yyyy-MM-dd"
+                className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background font-normal w-full"
+              />
+            </div>
+
+            {/* To Date Filter */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To Date</Label>
+              <DatePicker
+                value={toDate}
+                onChange={(d) => { setToDate(d || ""); setCurrentPage(1); }}
+                placeholder="To Date"
+                formatStr="yyyy-MM-dd"
+                className="h-8 text-[11px] bg-muted/30 border-border/60 focus:bg-background font-normal w-full"
+              />
             </div>
           </div>
 
@@ -996,547 +1028,510 @@ export const CandidateDiscoveryJobsSection = ({
                     ))}
                   </div>
                 ) : displayedJobs.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground space-y-2">
-                <Briefcase className="h-10 w-10 mx-auto opacity-30" />
-                <p className="font-bold text-sm text-foreground">
-                  {discoveryTab === "dismissed"
-                    ? `No rejected opportunities recorded for ${candidateName}.`
-                    : `No discovered opportunities match ${candidateName}'s profile.`}
-                </p>
-                <p className="text-xs">
-                  {discoveryTab === "dismissed"
-                    ? "Rejected recommendations and pipeline applications will appear here."
-                    : "Try adjusting your keywords or clearing the filters."}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {displayedJobs.map((job) => {
-                  const existingApp = job._existingApp;
-                  const isUpdating = job._isUpdating;
-                  const isRejected = job._isRejected;
-                  const isApplied = job._isApplied;
-                  const isDismissed = job._isDismissed;
-                  const companyName = job.company_name || "Company";
-                  const roleTitle = job.title || "Job Opportunity";
-                  const postedDate = job.date_posted ? formatDate(job.date_posted) : "Recent";
-                  const location = job.is_remote
-                    ? "Remote"
-                    : (job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA"));
-                  const formattedSalary = formatSalaryDisplay(job);
-
-                  return (
-                    <div
-                      key={job.id}
-                      className="bg-card border border-border/70 rounded-xl p-4 shadow-2xs hover:shadow-md transition-all space-y-3 group relative flex flex-col justify-between"
-                    >
-                      {/* Top Header Row */}
-                      <div className="flex items-start gap-3">
-                        {/* Company Logo Container */}
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 text-white flex items-center justify-center font-extrabold text-base shadow-2xs shrink-0 mt-0.5">
-                          {companyName.charAt(0).toUpperCase()}
-                        </div>
-
-                        {/* Title and Company Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold mb-1">
-                            <VisaGradeBadge
-                              grade={job.visa_grade}
-                              score={job.visa_friendly_score}
-                              visaMatched={job.visa_matched}
-                              matchConfidence={job.company_match_confidence}
-                              filingsCount={job.h1b_filings_recent}
-                              size="sm"
-                            />
-                            <span className="bg-blue-500/10 text-blue-700 border border-blue-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {postedDate}
-                            </span>
-                            <span className="bg-purple-500/10 text-purple-700 border border-purple-500/20 px-1.5 py-0.5 rounded-md capitalize">
-                              {job.source_portal || "Web"}
-                            </span>
-                            {job.detected_restrictions && job.detected_restrictions.length > 0 && (
-                              <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
-                            )}
-                          </div>
-
-                          <h4
-                            onClick={() => handleOpenDetail(job.id)}
-                            className="text-sm font-extrabold text-foreground hover:text-primary transition-colors cursor-pointer leading-snug truncate"
-                            title={roleTitle}
-                          >
-                            {roleTitle}
-                          </h4>
-
-                          <p className="text-xs text-muted-foreground font-medium truncate mt-0.5">
-                            <span className="font-bold text-foreground/80">{companyName}</span>
-                            {job.target_role && (
-                              <span className="ml-2 text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-mono">
-                                {job.target_role}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Middle Details Grid */}
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs text-muted-foreground font-medium">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate">{location}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 truncate">
-                            <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate font-semibold text-foreground/90">
-                              {job.is_remote ? "Remote" : (job.employment_type || "Full-Time")}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 truncate">
-                            {formattedSalary !== "Not Disclosed" ? (
-                              <span className="font-bold text-blue-600 truncate">{formattedSalary}</span>
-                            ) : (
-                              <span className="font-semibold text-slate-500 truncate text-xs">Not Disclosed</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 truncate text-[11px]">
-                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                            <span className="truncate">
-                              {job.h1b_filings_recent > 0 ? `${job.h1b_filings_recent.toLocaleString()} H1B filings` : "Visa Intelligence"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Rejection Reason Note if rejected */}
-                      {isDismissed && (
-                        <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-800 dark:text-rose-300">
-                          <div className="font-bold flex items-center gap-1.5">
-                            <XCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
-                            Rejected: {job.dismissal_reason || job.rejection_reason || "Not Proceeding"}
-                          </div>
-                          {job.dismissal_comments && (
-                            <p className="text-[10px] text-muted-foreground mt-1 italic">
-                              &ldquo;{job.dismissal_comments}&rdquo;
-                            </p>
-                          )}
-                          {job.dismissed_by && (
-                            <p className="text-[9px] text-muted-foreground mt-0.5">
-                              Recorded by {job.dismissed_by} {job.dismissed_date ? `• ${formatDate(job.dismissed_date)}` : ''}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Footer Actions Row */}
-                      <div className="pt-2.5 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
-                        {/* Authoritative Status Badge */}
-                        <div className="flex items-center gap-1.5">
-                          {isDismissed ? (
-                            <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1">
-                              <XCircle className="h-3 w-3 text-rose-600" />
-                              Rejected
-                            </Badge>
-                          ) : isApplied ? (
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 text-[11px] font-bold flex items-center gap-1">
-                              <Check className="h-3 w-3 text-emerald-600" />
-                              Applied
-                            </Badge>
-                          ) : isRejected ? (
-                            <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1">
-                              <X className="h-3 w-3 text-rose-600" />
-                              Rejected
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[11px] font-medium">
-                              Not Applied
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-1.5">
-                          {isDismissed ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRestoreRecommendation(job)}
-                              disabled={isUpdating}
-                              className="h-7 px-2.5 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1 cursor-pointer"
-                              title="Restore recommendation to active list"
-                            >
-                              <RotateCcw className="h-3 w-3" />
-                              Restore
-                            </Button>
-                          ) : isApplied ? (
-                            <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mr-1 flex items-center gap-1">
-                              <Check className="h-3 w-3" /> In Pipeline
-                            </span>
-                          ) : isRejected ? (
-                            <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 mr-1 flex items-center gap-1">
-                              <X className="h-3 w-3" /> Rejected in Pipeline
-                            </span>
-                          ) : (
-                            <>
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => handleApplyForThis(job)}
-                                disabled={isUpdating}
-                                className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-                                title="Apply and add this job to candidate application pipeline"
-                              >
-                                {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
-                                Apply for this
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenDismissModal(job)}
-                                disabled={isUpdating}
-                                className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
-                                title="Reject recommendation for this candidate"
-                              >
-                                <XCircle className="h-3 w-3 text-rose-600" />
-                                Reject
-                              </Button>
-                            </>
-                          )}
-
-                          {/* Read Details */}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenDetail(job.id)}
-                            className="h-7 px-2 text-xs font-medium"
-                          >
-                            <Eye className="h-3 w-3 mr-1 text-muted-foreground" />
-                            Details
-                          </Button>
-
-                          {/* External Job Link */}
-                          {job.job_url && (
-                            <a
-                              href={safeUrl(job.job_url)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
-                              title="Open original job listing"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : (
-          /* ===================== VIEW MODE 2: TABLE VIEW ===================== */
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1150px] text-xs text-left">
-              <thead className="bg-muted/40 text-muted-foreground border-b border-border/40 font-semibold uppercase text-[10px] tracking-wider">
-                <tr>
-                  <th className="py-3 px-4 min-w-[260px] max-w-[320px] text-left">Opportunity</th>
-                  <th className="py-3 px-3 min-w-[150px] text-left">Candidate Match</th>
-                  <th className="py-3 px-3 min-w-[170px] text-left">Visa Intelligence</th>
-                  <th className="py-3 px-3 min-w-[130px] text-left">Location</th>
-                  <th className="py-3 px-3 min-w-[110px] text-left">Salary</th>
-                  <th className="py-3 px-3 min-w-[90px] text-left">Portal</th>
-                  <th className="py-3 px-3 min-w-[95px] text-left">Posted</th>
-                  <th className="py-3 px-4 min-w-[140px] text-left">Application Status</th>
-                  <th className="py-3 px-4 min-w-[170px] text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, idx) => (
-                    <tr key={idx} className="border-b border-border/30 align-middle">
-                      {/* Opportunity Skeleton */}
-                      <td className="py-3.5 px-4 min-w-[260px] max-w-[320px]">
-                        <Skeleton className="h-4 w-44 mb-1.5 rounded-md" />
-                        <Skeleton className="h-3 w-28 rounded-md" />
-                      </td>
-
-                      {/* Candidate Match Skeleton */}
-                      <td className="py-3.5 px-3 min-w-[150px]">
-                        <Skeleton className="h-5 w-24 rounded-md" />
-                      </td>
-
-                      {/* Visa Intelligence Skeleton */}
-                      <td className="py-3.5 px-3 min-w-[170px]">
-                        <div className="space-y-1">
-                          <Skeleton className="h-5 w-28 rounded-md" />
-                          <Skeleton className="h-3 w-20 rounded-md" />
-                        </div>
-                      </td>
-
-                      {/* Location Skeleton */}
-                      <td className="py-3.5 px-3 min-w-[130px]">
-                        <Skeleton className="h-4 w-20 rounded-md" />
-                      </td>
-
-                      {/* Salary Skeleton */}
-                      <td className="py-3.5 px-3 min-w-[110px]">
-                        <Skeleton className="h-4 w-16 rounded-md" />
-                      </td>
-
-                      {/* Portal Skeleton */}
-                      <td className="py-3.5 px-3 min-w-[90px]">
-                        <Skeleton className="h-4 w-12 rounded-md" />
-                      </td>
-
-                      {/* Posted Skeleton */}
-                      <td className="py-3.5 px-3 min-w-[95px]">
-                        <Skeleton className="h-4 w-16 rounded-md" />
-                      </td>
-
-                      {/* Application Status Skeleton */}
-                      <td className="py-3.5 px-4 min-w-[140px]">
-                        <Skeleton className="h-6 w-20 rounded-md" />
-                      </td>
-
-                      {/* Actions Skeleton */}
-                      <td className="py-3.5 px-4 min-w-[170px] text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Skeleton className="h-7 w-16 rounded-md" />
-                          <Skeleton className="h-7 w-16 rounded-md" />
-                          <Skeleton className="h-7 w-7 rounded-md" />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : displayedJobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center text-muted-foreground">
-                      <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <div className="py-12 text-center text-muted-foreground space-y-2">
+                    <Briefcase className="h-10 w-10 mx-auto opacity-30" />
+                    <p className="font-bold text-sm text-foreground">
                       {discoveryTab === "dismissed"
                         ? `No rejected opportunities recorded for ${candidateName}.`
-                        : `No discovered opportunities match ${candidateName}'s profile with the current filters.`}
-                    </td>
-                  </tr>
+                        : `No discovered opportunities match ${candidateName}'s profile.`}
+                    </p>
+                    <p className="text-xs">
+                      {discoveryTab === "dismissed"
+                        ? "Rejected recommendations and pipeline applications will appear here."
+                        : "Try adjusting your keywords or clearing the filters."}
+                    </p>
+                  </div>
                 ) : (
-                  displayedJobs.map((job) => {
-                    const existingApp = job._existingApp;
-                    const isUpdating = job._isUpdating;
-                    const isRejected = job._isRejected;
-                    const isApplied = job._isApplied;
-                    const isDismissed = job._isDismissed;
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {displayedJobs.map((job) => {
+                      const existingApp = job._existingApp;
+                      const isUpdating = job._isUpdating;
+                      const isRejected = job._isRejected;
+                      const isApplied = job._isApplied;
+                      const isDismissed = job._isDismissed;
+                      const companyName = job.company_name || "Company";
+                      const roleTitle = job.title || "Job Opportunity";
+                      const postedDate = job.date_posted ? formatDate(job.date_posted) : "Recent";
+                      const location = job.is_remote
+                        ? "Remote"
+                        : (job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA"));
+                      const formattedSalary = formatSalaryDisplay(job);
 
-                    return (
-                      <tr key={job.id} className="hover:bg-muted/20 transition-colors align-middle">
-                        {/* Opportunity: Title & Company */}
-                        <td className="py-3.5 px-4 min-w-[260px] max-w-[320px] align-middle">
-                          <div className="flex flex-col gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDetail(job.id)}
-                              className="font-bold text-foreground hover:text-primary hover:underline text-left text-xs line-clamp-2 leading-snug cursor-pointer transition-colors"
-                              title={job.title}
-                            >
-                              {job.title}
-                            </button>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-muted-foreground text-[11px] font-medium truncate max-w-[180px]" title={job.company_name}>
-                                {job.company_name}
-                              </span>
-                              {job.detected_restrictions && job.detected_restrictions.length > 0 && (
-                                <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
-                              )}
+                      return (
+                        <div
+                          key={job.id}
+                          className="bg-card border border-border/70 rounded-xl p-4 shadow-2xs hover:shadow-md transition-all space-y-3 group relative flex flex-col justify-between"
+                        >
+                          {/* Top Header Row */}
+                          <div className="flex items-start gap-3">
+                            {/* Company Logo Container */}
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 text-white flex items-center justify-center font-extrabold text-base shadow-2xs shrink-0 mt-0.5">
+                              {companyName.charAt(0).toUpperCase()}
+                            </div>
+
+                            {/* Title and Company Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold mb-1">
+                                <VisaGradeBadge
+                                  grade={job.visa_grade}
+                                  score={job.visa_friendly_score}
+                                  visaMatched={job.visa_matched}
+                                  matchConfidence={job.company_match_confidence}
+                                  filingsCount={job.h1b_filings_recent}
+                                  size="sm"
+                                />
+                                <span className="bg-blue-500/10 text-blue-700 border border-blue-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {postedDate}
+                                </span>
+                                <span className="bg-purple-500/10 text-purple-700 border border-purple-500/20 px-1.5 py-0.5 rounded-md capitalize">
+                                  {job.source_portal || "Web"}
+                                </span>
+                                {job.detected_restrictions && job.detected_restrictions.length > 0 && (
+                                  <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
+                                )}
+                              </div>
+
+                              <h4
+                                onClick={() => handleOpenDetail(job.id)}
+                                className="text-sm font-extrabold text-foreground hover:text-primary transition-colors cursor-pointer leading-snug truncate"
+                                title={roleTitle}
+                              >
+                                {roleTitle}
+                              </h4>
+
+                              <p className="text-xs text-muted-foreground font-medium truncate mt-0.5">
+                                <span className="font-bold text-foreground/80">{companyName}</span>
+                                {job.target_role && (
+                                  <span className="ml-2 text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-mono">
+                                    {job.target_role}
+                                  </span>
+                                )}
+                              </p>
                             </div>
                           </div>
-                        </td>
 
-                        {/* Candidate Match Badges */}
-                        <td className="py-3.5 px-3 min-w-[150px] align-middle">
-                          <Badge
-                            variant="secondary"
-                            className="bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-[10px] font-semibold truncate max-w-[140px] inline-flex items-center"
-                            title={job.target_role || "Role Match"}
-                          >
-                            {job.target_role || "Role Match"}
-                          </Badge>
-                        </td>
+                          {/* Middle Details Grid */}
+                          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs text-muted-foreground font-medium">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 truncate">
+                                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <span className="truncate">{location}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 truncate">
+                                <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <span className="truncate font-semibold text-foreground/90">
+                                  {job.is_remote ? "Remote" : (job.employment_type || "Full-Time")}
+                                </span>
+                              </div>
+                            </div>
 
-                        {/* Visa Intelligence */}
-                        <td className="py-3.5 px-3 min-w-[170px] whitespace-nowrap align-middle">
-                          <div className="flex flex-col gap-1 items-start">
-                            <VisaGradeBadge
-                              grade={job.visa_grade}
-                              score={job.visa_friendly_score}
-                              visaMatched={job.visa_matched}
-                              matchConfidence={job.company_match_confidence}
-                              filingsCount={job.h1b_filings_recent}
-                            />
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              {job.h1b_filings_recent > 0 && (
-                                <span>{job.h1b_filings_recent.toLocaleString()} filings</span>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 truncate">
+                                {formattedSalary !== "Not Disclosed" ? (
+                                  <span className="font-bold text-blue-600 truncate">{formattedSalary}</span>
+                                ) : (
+                                  <span className="font-semibold text-slate-500 truncate text-xs">Not Disclosed</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 truncate text-[11px]">
+                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                <span className="truncate">
+                                  {job.h1b_filings_recent > 0 ? `${job.h1b_filings_recent.toLocaleString()} H1B filings` : "Visa Intelligence"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Rejection Reason Note if rejected */}
+                          {isDismissed && (
+                            <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-800 dark:text-rose-300">
+                              <div className="font-bold flex items-center gap-1.5">
+                                <XCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                                Rejected: {job.dismissal_reason || job.rejection_reason || "Not Proceeding"}
+                              </div>
+                              {job.dismissal_comments && (
+                                <p className="text-[10px] text-muted-foreground mt-1 italic">
+                                  &ldquo;{job.dismissal_comments}&rdquo;
+                                </p>
                               )}
-                              {job.everify_enrolled && (
-                                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 py-0 px-1 text-[9px]">
-                                  E-Verify
+                              {job.dismissed_by && (
+                                <p className="text-[9px] text-muted-foreground mt-0.5">
+                                  Recorded by {job.dismissed_by} {job.dismissed_date ? `• ${formatDate(job.dismissed_date)}` : ''}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Footer Actions Row */}
+                          <div className="pt-2.5 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
+                            {/* Authoritative Status Badge */}
+                            <div className="flex items-center gap-1.5">
+                              {isDismissed ? (
+                                <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1">
+                                  <XCircle className="h-3 w-3 text-rose-600" />
+                                  Rejected
+                                </Badge>
+                              ) : isApplied ? (
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 text-[11px] font-bold flex items-center gap-1">
+                                  <Check className="h-3 w-3 text-emerald-600" />
+                                  Applied
+                                </Badge>
+                              ) : isRejected ? (
+                                <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[11px] font-semibold flex items-center gap-1">
+                                  <X className="h-3 w-3 text-rose-600" />
+                                  Rejected
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[11px] font-medium">
+                                  Not Applied
                                 </Badge>
                               )}
                             </div>
-                          </div>
-                        </td>
 
-                        {/* Location */}
-                        <td className="py-3.5 px-3 min-w-[130px] text-muted-foreground whitespace-nowrap align-middle">
-                          {job.is_remote ? (
-                            <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 text-[10px] py-0 px-1.5 font-medium">
-                              Remote
-                            </Badge>
-                          ) : (
-                            <span className="text-[11px] font-medium" title={job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA")}>
-                              {job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA")}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Salary */}
-                        <td className="py-3.5 px-3 min-w-[110px] text-muted-foreground whitespace-nowrap font-medium text-[11px] align-middle">
-                          {job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : "Not Disclosed")}
-                        </td>
-
-                        {/* Portal */}
-                        <td className="py-3.5 px-3 min-w-[90px] whitespace-nowrap align-middle">
-                          <span className="capitalize font-semibold text-foreground text-[11px]">
-                            {job.source_portal || "Web"}
-                          </span>
-                        </td>
-
-                        {/* Posted */}
-                        <td className="py-3.5 px-3 min-w-[95px] text-muted-foreground whitespace-nowrap text-[11px] align-middle">
-                          {job.date_posted ? formatDate(job.date_posted) : "Recent"}
-                        </td>
-
-                        {/* Authoritative Application Status */}
-                        <td className="py-3.5 px-4 min-w-[140px] whitespace-nowrap align-middle">
-                          {isDismissed ? (
-                            <div className="flex flex-col gap-0.5 items-start">
-                              <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[10px] font-semibold flex items-center gap-1 w-fit">
-                                <XCircle className="h-3 w-3 text-rose-600" />
-                                Rejected
-                              </Badge>
-                              {(job.dismissal_reason || job.rejection_reason) && (
-                                <span className="text-[10px] text-muted-foreground truncate max-w-[140px]" title={job.dismissal_reason || job.rejection_reason}>
-                                  {job.dismissal_reason || job.rejection_reason}
-                                </span>
-                              )}
-                            </div>
-                          ) : isApplied ? (
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px] font-bold flex items-center gap-1 w-fit">
-                              <Check className="h-3 w-3 text-emerald-600" />
-                              Applied
-                            </Badge>
-                          ) : isRejected ? (
-                            <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 text-[10px] font-semibold flex items-center gap-1 w-fit">
-                              <X className="h-3 w-3 text-rose-600" />
-                              Rejected
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px] font-medium w-fit">
-                              Not Applied
-                            </Badge>
-                          )}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 min-w-[170px] text-center whitespace-nowrap align-middle">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {isDismissed ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleRestoreRecommendation(job)}
-                                disabled={isUpdating}
-                                className="h-7 px-2.5 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
-                                title="Restore recommendation to active list"
-                              >
-                                <RotateCcw className="h-3 w-3" />
-                                Restore
-                              </Button>
-                            ) : isApplied ? (
-                              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mr-1 flex items-center gap-1">
-                                <Check className="h-3 w-3" /> In Pipeline
-                              </span>
-                            ) : isRejected ? (
-                              <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 mr-1 flex items-center gap-1">
-                                <X className="h-3 w-3" /> Rejected in Pipeline
-                              </span>
-                            ) : (
-                              <>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={() => handleApplyForThis(job)}
-                                  disabled={isUpdating}
-                                  className="h-7 px-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-                                  title="Apply and add this job to candidate application pipeline"
-                                >
-                                  {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
-                                  Apply for this
-                                </Button>
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-1.5">
+                              {isDismissed ? (
                                 <Button
                                   type="button"
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleOpenDismissModal(job)}
+                                  onClick={() => handleRestoreRecommendation(job)}
                                   disabled={isUpdating}
-                                  className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
-                                  title="Reject recommendation for this candidate"
+                                  className="h-7 px-2.5 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1 cursor-pointer"
+                                  title="Restore recommendation to active list"
                                 >
-                                  <XCircle className="h-3 w-3 text-rose-600" />
-                                  Reject
+                                  <RotateCcw className="h-3 w-3" />
+                                  Restore
                                 </Button>
-                              </>
-                            )}
+                              ) : isApplied ? (
+                                <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mr-1 flex items-center gap-1">
+                                  <Check className="h-3 w-3" /> In Pipeline
+                                </span>
+                              ) : isRejected ? (
+                                <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 mr-1 flex items-center gap-1">
+                                  <X className="h-3 w-3" /> Rejected in Pipeline
+                                </span>
+                              ) : (
+                                <>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => handleApplyForThis(job)}
+                                    disabled={isUpdating}
+                                    className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+                                    title="Apply and add this job to candidate application pipeline"
+                                  >
+                                    {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+                                    Apply for this
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleOpenDismissModal(job)}
+                                    disabled={isUpdating}
+                                    className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                                    title="Reject recommendation for this candidate"
+                                  >
+                                    <XCircle className="h-3 w-3 text-rose-600" />
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
 
-                            {/* Details Button */}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenDetail(job.id)}
-                              className="h-7 px-2 text-xs font-medium"
-                            >
-                              <Eye className="h-3 w-3 mr-1 text-muted-foreground" />
-                              Details
-                            </Button>
-
-                            {/* External Job Link */}
-                            {job.job_url && (
-                              <a
-                                href={safeUrl(job.job_url)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
-                                title="Open original job listing"
+                              {/* Read Details */}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenDetail(job.id)}
+                                className="h-7 px-2 text-xs font-medium"
                               >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
-                            )}
+                                <Eye className="h-3 w-3 mr-1 text-muted-foreground" />
+                                Details
+                              </Button>
+
+                              {/* External Job Link */}
+                              {/* {job.job_url && (
+                                <a
+                                  href={safeUrl(job.job_url)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                                  title="Open original job listing"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                              )} */}
+                            </div>
                           </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ===================== VIEW MODE 2: TABLE VIEW ===================== */
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1150px] text-xs text-left">
+                  <thead className="bg-muted/40 text-muted-foreground border-b border-border/40 font-semibold uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4 min-w-[260px] max-w-[320px] text-left">Opportunity</th>
+                      <th className="py-3 px-3 min-w-[150px] text-left">Candidate Match</th>
+                      <th className="py-3 px-3 min-w-[170px] text-left">Visa Intelligence</th>
+                      <th className="py-3 px-3 min-w-[130px] text-left">Location</th>
+                      <th className="py-3 px-3 min-w-[110px] text-left">Salary</th>
+                      <th className="py-3 px-3 min-w-[90px] text-left">Portal</th>
+                      <th className="py-3 px-3 min-w-[95px] text-left">Posted</th>
+                      <th className="py-3 px-4 min-w-[170px] text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30">
+                    {loading ? (
+                      Array.from({ length: 6 }).map((_, idx) => (
+                        <tr key={idx} className="border-b border-border/30 align-middle">
+                          {/* Opportunity Skeleton */}
+                          <td className="py-3.5 px-4 min-w-[260px] max-w-[320px]">
+                            <Skeleton className="h-4 w-44 mb-1.5 rounded-md" />
+                            <Skeleton className="h-3 w-28 rounded-md" />
+                          </td>
+
+                          {/* Candidate Match Skeleton */}
+                          <td className="py-3.5 px-3 min-w-[150px]">
+                            <Skeleton className="h-5 w-24 rounded-md" />
+                          </td>
+
+                          {/* Visa Intelligence Skeleton */}
+                          <td className="py-3.5 px-3 min-w-[170px]">
+                            <div className="space-y-1">
+                              <Skeleton className="h-5 w-28 rounded-md" />
+                              <Skeleton className="h-3 w-20 rounded-md" />
+                            </div>
+                          </td>
+
+                          {/* Location Skeleton */}
+                          <td className="py-3.5 px-3 min-w-[130px]">
+                            <Skeleton className="h-4 w-20 rounded-md" />
+                          </td>
+
+                          {/* Salary Skeleton */}
+                          <td className="py-3.5 px-3 min-w-[110px]">
+                            <Skeleton className="h-4 w-16 rounded-md" />
+                          </td>
+
+                          {/* Portal Skeleton */}
+                          <td className="py-3.5 px-3 min-w-[90px]">
+                            <Skeleton className="h-4 w-12 rounded-md" />
+                          </td>
+
+                          {/* Posted Skeleton */}
+                          <td className="py-3.5 px-3 min-w-[95px]">
+                            <Skeleton className="h-4 w-16 rounded-md" />
+                          </td>
+
+                          {/* Actions Skeleton */}
+                          <td className="py-3.5 px-4 min-w-[170px] text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <Skeleton className="h-7 w-16 rounded-md" />
+                              <Skeleton className="h-7 w-16 rounded-md" />
+                              <Skeleton className="h-7 w-7 rounded-md" />
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : displayedJobs.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                          <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                          {discoveryTab === "dismissed"
+                            ? `No rejected opportunities recorded for ${candidateName}.`
+                            : `No discovered opportunities match ${candidateName}'s profile with the current filters.`}
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    ) : (
+                      displayedJobs.map((job) => {
+                        const existingApp = job._existingApp;
+                        const isUpdating = job._isUpdating;
+                        const isRejected = job._isRejected;
+                        const isApplied = job._isApplied;
+                        const isDismissed = job._isDismissed;
+
+                        return (
+                          <tr key={job.id} className="hover:bg-muted/20 transition-colors align-middle">
+                            {/* Opportunity: Title & Company */}
+                            <td className="py-3.5 px-4 min-w-[260px] max-w-[320px] align-middle">
+                              <div className="flex flex-col gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDetail(job.id)}
+                                  className="font-bold text-foreground hover:text-primary hover:underline text-left text-xs line-clamp-2 leading-snug cursor-pointer transition-colors"
+                                  title={job.title}
+                                >
+                                  {job.title}
+                                </button>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-muted-foreground text-[11px] font-medium truncate max-w-[180px]" title={job.company_name}>
+                                    {job.company_name}
+                                  </span>
+                                  {job.detected_restrictions && job.detected_restrictions.length > 0 && (
+                                    <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Candidate Match Badges */}
+                            <td className="py-3.5 px-3 min-w-[150px] align-middle">
+                              <Badge
+                                variant="secondary"
+                                className="bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-[10px] font-semibold truncate max-w-[140px] inline-flex items-center"
+                                title={job.target_role || "Role Match"}
+                              >
+                                {job.target_role || "Role Match"}
+                              </Badge>
+                            </td>
+
+                            {/* Visa Intelligence */}
+                            <td className="py-3.5 px-3 min-w-[170px] whitespace-nowrap align-middle">
+                              <div className="flex flex-col gap-1 items-start">
+                                <VisaGradeBadge
+                                  grade={job.visa_grade}
+                                  score={job.visa_friendly_score}
+                                  visaMatched={job.visa_matched}
+                                  matchConfidence={job.company_match_confidence}
+                                  filingsCount={job.h1b_filings_recent}
+                                />
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  {job.h1b_filings_recent > 0 && (
+                                    <span>{job.h1b_filings_recent.toLocaleString()} filings</span>
+                                  )}
+                                  {job.everify_enrolled && (
+                                    <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 py-0 px-1 text-[9px]">
+                                      E-Verify
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Location */}
+                            <td className="py-3.5 px-3 min-w-[130px] text-muted-foreground whitespace-nowrap align-middle">
+                              {job.is_remote ? (
+                                <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 text-[10px] py-0 px-1.5 font-medium">
+                                  Remote
+                                </Badge>
+                              ) : (
+                                <span className="text-[11px] font-medium" title={job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA")}>
+                                  {job.city ? `${job.city}, ${job.state_code || job.state}` : (job.location_raw || "USA")}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Salary */}
+                            <td className="py-3.5 px-3 min-w-[110px] text-muted-foreground whitespace-nowrap font-medium text-[11px] align-middle">
+                              {job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : "Not Disclosed")}
+                            </td>
+
+                            {/* Portal */}
+                            <td className="py-3.5 px-3 min-w-[90px] whitespace-nowrap align-middle">
+                              <span className="capitalize font-semibold text-foreground text-[11px]">
+                                {job.source_portal || "Web"}
+                              </span>
+                            </td>
+
+                            {/* Posted */}
+                            <td className="py-3.5 px-3 min-w-[95px] text-muted-foreground whitespace-nowrap text-[11px] align-middle">
+                              {job.date_posted ? formatDate(job.date_posted) : "Recent"}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3.5 px-4 min-w-[170px] text-center whitespace-nowrap align-middle">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {isDismissed ? (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleRestoreRecommendation(job)}
+                                    disabled={isUpdating}
+                                    className="h-7 px-2.5 text-xs text-rose-700 border-rose-300 hover:bg-rose-50 flex items-center gap-1 cursor-pointer"
+                                    title="Restore recommendation to active list"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                    Restore
+                                  </Button>
+                                ) : isApplied ? (
+                                  <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mr-1 flex items-center gap-1">
+                                    <Check className="h-3 w-3" /> In Pipeline
+                                  </span>
+                                ) : isRejected ? (
+                                  <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 mr-1 flex items-center gap-1">
+                                    <X className="h-3 w-3" /> Rejected in Pipeline
+                                  </span>
+                                ) : (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => handleApplyForThis(job)}
+                                      disabled={isUpdating}
+                                      className="h-7 px-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+                                      title="Apply and add this job to candidate application pipeline"
+                                    >
+                                      {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+                                      Apply for this
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleOpenDismissModal(job)}
+                                      disabled={isUpdating}
+                                      className="h-7 px-2.5 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                                      title="Reject recommendation for this candidate"
+                                    >
+                                      <XCircle className="h-3 w-3 text-rose-600" />
+                                      Reject
+                                    </Button>
+                                  </>
+                                )}
+
+                                {/* Details Button */}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenDetail(job.id)}
+                                  className="h-7 px-2 text-xs font-medium"
+                                >
+                                  <Eye className="h-3 w-3 mr-1 text-muted-foreground" />
+                                  Details
+                                </Button>
+
+                                {/* External Job Link */}
+                                {job.job_url && (
+                                  <a
+                                    href={safeUrl(job.job_url)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                                    title="Open original job listing"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
 

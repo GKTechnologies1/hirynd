@@ -128,6 +128,7 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
                 p_date = timezone.make_naive(p_date)
 
     from .restriction_detector import detect_job_restrictions
+    from .experience_detector import detect_experience_level
 
     # 2. Check if this exact job_id was already saved
     existing = DiscoveredJob.objects.filter(job_id=job.jobId).first()
@@ -172,6 +173,9 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         existing.detected_restrictions = detect_job_restrictions(
             f"{existing.title} {target_role} {existing.job_description or ''}"
         )
+        exp_lvl = detect_experience_level(existing.job_description, title=existing.title)
+        if exp_lvl:
+            existing.experience_level = exp_lvl
         existing.save()
         return 'updated'
 
@@ -196,6 +200,7 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
 
     desc_content = str(job.jobDescription) if job.jobDescription else ''
     restrictions = detect_job_restrictions(f"{job.title} {target_role} {desc_content}")
+    exp_lvl = detect_experience_level(desc_content, title=job.title)
 
     DiscoveredJob.objects.create(
         job_id=job.jobId,
@@ -220,6 +225,7 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         salary_currency='USD',
         salary_period=str(job.salaryPeriod) if job.salaryPeriod else '',
         employment_type=str(job.employmentType) if job.employmentType else '',
+        experience_level=exp_lvl,
         source_portal=job.source,
         date_posted=p_date,
         execution=execution,

@@ -335,6 +335,31 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
     def get_log_date(self, obj):
         return obj.submission_log.log_date if obj.submission_log else None
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Defensive fallback defaults for older applications or records with null/blank fields
+        if not data.get('employment_type') or str(data.get('employment_type')).strip().lower() in ('none', 'null', ''):
+            data['employment_type'] = 'Full-Time'
+
+        if not data.get('experience_required') or str(data.get('experience_required')).strip().lower() in ('none', 'null', '', 'not specified'):
+            from job_discovery.services.experience_detector import detect_experience_level
+            detected_exp = detect_experience_level('', title=getattr(instance, 'role_title', '') or '')
+            data['experience_required'] = detected_exp or '0–2 Years'
+
+        if not data.get('work_mode') or str(data.get('work_mode')).strip().lower() in ('none', 'null', ''):
+            data['work_mode'] = 'Onsite'
+
+        if not data.get('country') or str(data.get('country')).strip().lower() in ('none', 'null', ''):
+            data['country'] = 'United States'
+
+        if not data.get('salary') or str(data.get('salary')).strip().lower() in ('none', 'null', ''):
+            data['salary'] = 'Not Disclosed'
+
+        if not data.get('visa_eligibility') or str(data.get('visa_eligibility')).strip().lower() in ('none', 'null', ''):
+            data['visa_eligibility'] = 'All Work Authorization'
+
+        return data
+
 
 class PublicDiscoveredJobAlertSerializer(serializers.ModelSerializer):
     """

@@ -672,3 +672,92 @@ class JobDiscoveryTestSuite(TestCase):
         out_alias = StringIO()
         call_command('add_alias', 'Kforce Staffing', 'Apple Inc.', 'test note', stdout=out_alias)
         self.assertIn('alias:', out_alias.getvalue())
+
+    def test_experience_detector_service(self):
+        from job_discovery.services.experience_detector import (
+            detect_experience_level,
+            detect_job_experience,
+            TIER_INTERN,
+            TIER_0_TO_2,
+            TIER_2_TO_5,
+            TIER_5_PLUS,
+            TIER_SENIOR,
+            TIER_LEAD_STAFF,
+        )
+
+        # 1. Direct ranges
+        self.assertEqual(
+            detect_experience_level("Requires 3-5 years of professional software development experience."),
+            TIER_2_TO_5
+        )
+        self.assertEqual(
+            detect_experience_level("Looking for someone with 0 to 2 years of experience."),
+            TIER_0_TO_2
+        )
+        self.assertEqual(
+            detect_experience_level("Must have 5+ years of experience in backend development."),
+            TIER_5_PLUS
+        )
+        self.assertEqual(
+            detect_experience_level("Minimum 10+ years of overall software engineering experience."),
+            TIER_LEAD_STAFF
+        )
+        self.assertEqual(
+            detect_experience_level("Bachelor's degree and five (5)+ years of related experience is required."),
+            TIER_5_PLUS
+        )
+        self.assertEqual(
+            detect_experience_level("Bachelor's degree with at least two years of relevant experience."),
+            TIER_0_TO_2
+        )
+
+        # 2. Seniority & Title inference
+        self.assertEqual(
+            detect_experience_level("Build great products.", title="Senior Software Engineer"),
+            TIER_SENIOR
+        )
+        self.assertEqual(
+            detect_experience_level("Architecture and team direction.", title="Principal Cloud Architect"),
+            TIER_LEAD_STAFF
+        )
+        self.assertEqual(
+            detect_experience_level("Support engineering team.", title="Junior Frontend Developer"),
+            TIER_0_TO_2
+        )
+        self.assertEqual(
+            detect_experience_level("Summer program.", title="Software Engineering Intern"),
+            TIER_INTERN
+        )
+
+        # 3. Disqualifiers (company history, 401k vesting, per year salary)
+        comp_hist_text = "PayPal has been revolutionizing commerce globally for more than 25 years. No specific exp listed."
+        self.assertIsNone(detect_experience_level(comp_hist_text, title="Software Engineer"))
+
+        # 4. Detailed metadata
+        res = detect_job_experience("Requires 3+ years of experience in Python.", title="Software Engineer")
+        self.assertIsNotNone(res)
+        self.assertEqual(res['level'], TIER_2_TO_5)
+        self.assertEqual(res['min_years'], 3.0)
+        self.assertEqual(res['confidence'], 'high')
+
+    def test_classify_job_experience_management_command(self):
+        from django.core.management import call_command
+        from io import StringIO
+
+        job = DiscoveredJob.objects.create(
+            job_id='test_exp_job_1',
+            content_hash='test_exp_hash_1',
+            title='Software Developer II',
+            company_name='TestCorp',
+            target_role='Software Developer',
+            job_description='Candidate must have 3+ years of experience in full-stack development.',
+            source_portal='indeed',
+        )
+
+        out = StringIO()
+        call_command('classify_job_experience', '--force', stdout=out)
+        self.assertIn('Successfully evaluated', out.getvalue())
+
+        job.refresh_from_db()
+        self.assertEqual(job.experience_level, '2–5 Years')
+

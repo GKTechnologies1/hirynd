@@ -353,9 +353,13 @@ def list_discovered_jobs(request):
             qs = qs.filter(single_q)
 
     # Filters
-    role = request.GET.get('role', '').strip()
+    role = request.GET.get('role', '').strip() or request.GET.get('roles', '').strip()
     if role and role != 'all':
-        qs = qs.filter(target_role__iexact=role)
+        role_list = [r.strip() for r in role.split(',') if r.strip()]
+        if len(role_list) == 1:
+            qs = qs.filter(target_role__iexact=role_list[0])
+        elif len(role_list) > 1:
+            qs = qs.filter(target_role__in=role_list)
 
     company = request.GET.get('company', '').strip()
     if company:
@@ -415,6 +419,16 @@ def list_discovered_jobs(request):
     is_duplicate = request.GET.get('is_duplicate')
     if is_duplicate is not None and is_duplicate != '':
         qs = qs.filter(is_duplicate=is_duplicate.lower() == 'true')
+
+    # Experience level filter
+    experience_level = request.GET.get('experience_level') or request.GET.get('experience_required')
+    if experience_level and experience_level != 'all':
+        exp_list = [x.strip() for x in experience_level.split(',') if x.strip()]
+        if exp_list:
+            q_exp = Q()
+            for x in exp_list:
+                q_exp |= Q(experience_level__icontains=x)
+            qs = qs.filter(q_exp)
 
     # Clearance and eligibility restrictions filter
     restriction = request.GET.get('restriction', '').strip()
@@ -1067,6 +1081,30 @@ def list_employers(request):
     status_filter = request.GET.get('verification_status')
     if status_filter and status_filter != 'all':
         qs = qs.filter(verification_status__iexact=status_filter)
+
+    role_param = request.GET.get('role', '').strip() or request.GET.get('roles', '').strip()
+    if role_param and role_param != 'all':
+        role_list = [r.strip() for r in role_param.split(',') if r.strip()]
+        role_q = Q()
+        for r in role_list:
+            role_q |= Q(placements__role_title__icontains=r)
+        qs = qs.filter(role_q).distinct()
+
+    date_from = request.GET.get('date_from')
+    if date_from:
+        qs = qs.filter(
+            Q(updated_at__date__gte=date_from) |
+            Q(placements__start_date__gte=date_from) |
+            Q(placements__created_at__date__gte=date_from)
+        ).distinct()
+
+    date_to = request.GET.get('date_to')
+    if date_to:
+        qs = qs.filter(
+            Q(updated_at__date__lte=date_to) |
+            Q(placements__start_date__lte=date_to) |
+            Q(placements__created_at__date__lte=date_to)
+        ).distinct()
 
     # Sorting
     sort_by = request.GET.get('ordering', '-placement_count')
