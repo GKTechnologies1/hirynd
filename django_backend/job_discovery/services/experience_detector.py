@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any, Optional, Tuple
 
-DETECTION_VERSION = "1.0"
+DETECTION_VERSION = "2.0"
 
 # Standard taxonomy tiers used across Hyrind (frontend & backend)
 TIER_INTERN = "Intern/New Grad"
@@ -48,7 +48,7 @@ DISQUALIFIERS = [
 EXP_PATTERNS = [
     # 1. Range: X - Y years of experience
     re.compile(
-        rf'\b(?P<min>{NUM_PATTERN})\s*(?:-|to|–|—)\s*(?P<max>{NUM_PATTERN})\s*\+?\s*(?:years?|yrs?)(?:\s+of)?\s*(?:[a-zA-Z0-9_\-/\s]{{0,60}}?)\s*(?:experience|expertise|background)?\b',
+        rf'\b(?P<min>{NUM_PATTERN})\s*(?:-|to|–|—)\s*(?P<max>{NUM_PATTERN})\s*\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z0-9_\-/\s]{{0,60}}?\s*(?:experience|expertise|background|work|track\s+record))?\b',
         re.IGNORECASE
     ),
     # 2. X+ years / X or more years of ... experience
@@ -58,12 +58,12 @@ EXP_PATTERNS = [
     ),
     # 3. Minimum / at least X years
     re.compile(
-        rf'\b(?:at\s+least|minimum(?:\s+of)?|min\.?|req(?:uired)?)\s*(?P<min>{NUM_PATTERN})\s*(?:\+|plus|\s+or\s+more)?\s*(?:years?|yrs?)(?:\s+of)?\s*(?:[a-zA-Z0-9_\-/\s]{{0,50}}?)\s*(?:experience|expertise|background)?\b',
+        rf'\b(?:at\s+least|minimum(?:\s+of)?|min\.?|req(?:uired)?)\s*(?P<min>{NUM_PATTERN})\s*(?:\+|plus|\s+or\s+more)?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z0-9_\-/\s]{{0,50}}?\s*(?:experience|expertise|background))?',
         re.IGNORECASE
     ),
     # 4. Degree + X years experience (e.g. BS/MS + 5 Years Experience)
     re.compile(
-        rf'\b(?:degree|diploma|bachelor\'?s|master\'?s|phd|high\s+school)\b[^\n\r.]{{0,50}}?(?:\+|and|\/)\s*(?P<min>{NUM_PATTERN})\s*(?:\+|plus|\s+or\s+more)?\s*(?:years?|yrs?)(?:\s+of)?\s*(?:[a-zA-Z0-9_\-/\s]{{0,40}}?)\s*(?:experience|background)?\b',
+        rf'\b(?:degree|diploma|bachelor\'?s|master\'?s|phd|high\s+school)\b[^\n\r.]{{0,50}}?(?:\+|and|\/)\s*(?P<min>{NUM_PATTERN})\s*(?:\+|plus|\s+or\s+more)?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z0-9_\-/\s]{{0,40}}?\s*(?:experience|background))?',
         re.IGNORECASE
     ),
     # 5. Experience: X years / Experience required: X years
@@ -73,7 +73,7 @@ EXP_PATTERNS = [
     ),
     # 6. Bringing X+ years of experience / expertise
     re.compile(
-        rf'\bbring(?:ing)?\s+(?P<min>{NUM_PATTERN})\s*(?:\+|plus|\s+or\s+more)?\s*(?:years?|yrs?)(?:\s+of)?\s*(?:[a-zA-Z0-9_\-/\s]{{0,40}}?)\s*(?:experience|expertise|background)\b',
+        rf'\bbring(?:ing)?\s+(?P<min>{NUM_PATTERN})\s*(?:\+|plus|\s+or\s+more)?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z0-9_\-/\s]{{0,40}}?\s*(?:experience|expertise|background))?',
         re.IGNORECASE
     ),
     # 7. X years in / as / developing / engineering
@@ -83,25 +83,30 @@ EXP_PATTERNS = [
     ),
 ]
 
-# Seniority & Level Keywords
-LEAD_STAFF_PATTERN = re.compile(
-    r'\b(?:lead|team\s+lead|tech\s+lead|staff|principal|chief|architect|director|head\s+of|vp|vice\s+president|engineering\s+manager)\b',
+# Seniority & Level Keywords (Title & Explicit Cues)
+INTERN_TITLE_PATTERN = re.compile(
+    r'\b(?:intern\b|internship\b|co-?op\b|graduate\s+trainee\b|apprentice\b|new\s+grad(?:uate)?\s+program)\b',
     re.IGNORECASE
 )
-SENIOR_PATTERN = re.compile(
-    r'\b(?:senior|sr\.?|sr\b|software\s+engineer\s+iii|developer\s+iii|level\s+3)\b',
+INTERN_DESC_ROLE_PATTERN = re.compile(
+    r'\b(?:this\s+(?:is\s+an?\s+)?internship|internship\s+program|internship\s+opportunity|summer\s+intern|co-?op\s+position|10-12\s+week\s+internship)\b',
     re.IGNORECASE
 )
-MID_LEVEL_PATTERN = re.compile(
-    r'\b(?:mid[- ]level|intermediate|developer\s+ii|software\s+engineer\s+ii|level\s+2)\b',
+
+LEVEL_4_LEAD_PATTERN = re.compile(
+    r'\b(?:lead\b|team\s+lead\b|tech\s+lead\b|staff\b|principal\b|chief\b|architect\b|director\b|head\s+of\b|vp\b|vice\s+president|(?:engineer|developer)\s+(?:iv|v)\b|level\s+[45]\b)\b',
     re.IGNORECASE
 )
-JUNIOR_PATTERN = re.compile(
-    r'\b(?:junior|jr\.?|jr\b|software\s+engineer\s+i|developer\s+i|level\s+1|entry[- ]level|associate\s+(?:engineer|developer|consultant))\b',
+LEVEL_3_SENIOR_PATTERN = re.compile(
+    r'\b(?:senior\b|sr\.?\b|(?:software|test|qa|sdet|data|devops|cloud|systems|platform|frontend|backend|full[- ]stack)?\s*engineer\s+iii\b|(?:developer|analyst)\s+iii\b|level\s+3\b)\b',
     re.IGNORECASE
 )
-INTERN_PATTERN = re.compile(
-    r'\b(?:intern|internship|co-?op|graduate\s+trainee|trainee|new\s+grad(?:uate)?|recent\s+college\s+grad(?:uate)?|campus)\b',
+LEVEL_2_MID_PATTERN = re.compile(
+    r'\b(?:mid[- ]level\b|intermediate\b|(?:software|test|qa|sdet|data|devops|cloud|systems|platform|frontend|backend|full[- ]stack)?\s*engineer\s+ii\b|(?:developer|analyst)\s+ii\b|level\s+2\b)\b',
+    re.IGNORECASE
+)
+LEVEL_1_ENTRY_PATTERN = re.compile(
+    r'\b(?:junior\b|jr\.?\b|(?:software|test|qa|sdet|data|devops|cloud|systems|platform|frontend|backend|full[- ]stack)?\s*engineer\s+i\b|(?:developer|analyst)\s+i\b|level\s+1\b|entry[- ]level\b|associate\s+[a-zA-Z\s]{0,25}?(?:engineer|developer|consultant|analyst))\b',
     re.IGNORECASE
 )
 
@@ -121,6 +126,15 @@ def _parse_number_string(val: Optional[str]) -> Optional[float]:
     if digits:
         return float(digits.group(0))
     return None
+
+
+def _clean_matched_phrase(phrase: str) -> str:
+    """Strips dangling prepositions, dashes, and extra spaces from matched text."""
+    if not phrase:
+        return ""
+    p = phrase.strip()
+    p = re.sub(r'[\s\-_/–—]+(?:of|in|to|for|with|or|as)?[\s\-_/–—]*$', '', p, flags=re.I).strip()
+    return p
 
 
 def _extract_sentence_evidence(text: str, match_start: int, match_end: int) -> str:
@@ -160,16 +174,15 @@ def map_years_to_tier(
     title_lower = (title or "").lower()
     text_lower = (full_text or "").lower()
 
-    is_intern = bool(INTERN_PATTERN.search(title_lower)) or (
-        bool(INTERN_PATTERN.search(text_lower)) and (min_yrs is None or min_yrs <= 1.0)
-    )
+    # Intern is strictly for actual internship titles or explicit internship positions
+    is_intern = bool(INTERN_TITLE_PATTERN.search(title_lower)) or bool(INTERN_DESC_ROLE_PATTERN.search(text_lower))
     if is_intern:
         return TIER_INTERN
 
-    is_lead = bool(LEAD_STAFF_PATTERN.search(title_lower))
-    is_senior = bool(SENIOR_PATTERN.search(title_lower))
-    is_mid = bool(MID_LEVEL_PATTERN.search(title_lower)) or bool(MID_LEVEL_PATTERN.search(text_lower))
-    is_junior = bool(JUNIOR_PATTERN.search(title_lower)) or bool(JUNIOR_PATTERN.search(text_lower))
+    is_lead = bool(LEVEL_4_LEAD_PATTERN.search(title_lower))
+    is_senior = bool(LEVEL_3_SENIOR_PATTERN.search(title_lower))
+    is_mid = bool(LEVEL_2_MID_PATTERN.search(title_lower)) or bool(LEVEL_2_MID_PATTERN.search(text_lower))
+    is_junior = bool(LEVEL_1_ENTRY_PATTERN.search(title_lower)) or bool(LEVEL_1_ENTRY_PATTERN.search(text_lower))
 
     # If no numeric years found, infer from title and seniority keywords
     if min_yrs is None:
@@ -228,7 +241,7 @@ def detect_job_experience(
       - evidence: sentence/context evidence snippet
       - confidence: 'high' | 'medium' | 'low'
       - source: 'description' | 'title'
-      - version: '1.0'
+      - version: '2.0'
     Returns None if no experience requirements or cues are detected.
     """
     clean_text = text or ""
@@ -258,7 +271,7 @@ def detect_job_experience(
             if parsed_min is not None and 0 <= parsed_min <= 25:
                 detected_min = parsed_min
                 detected_max = parsed_max
-                best_match = m_text
+                best_match = _clean_matched_phrase(m_text)
                 evidence = _extract_sentence_evidence(clean_text, match.start(), match.end())
                 confidence = "high"
                 source = "description"
@@ -266,33 +279,88 @@ def detect_job_experience(
         if detected_min is not None:
             break
 
-    # 2. Map to standardized tier
-    tier = map_years_to_tier(
-        min_yrs=detected_min,
-        max_yrs=detected_max,
-        title=clean_title,
-        full_text=clean_text
-    )
+    # 2. If explicit numeric requirements found in description
+    if detected_min is not None:
+        tier = map_years_to_tier(
+            min_yrs=detected_min,
+            max_yrs=detected_max,
+            title=clean_title,
+            full_text=clean_text
+        )
+        return {
+            'level': tier,
+            'min_years': detected_min,
+            'max_years': detected_max,
+            'matched_phrase': best_match,
+            'evidence': evidence,
+            'confidence': confidence,
+            'source': source,
+            'version': DETECTION_VERSION,
+        }
 
-    if not tier:
-        return None
+    # 3. If no numeric requirements found in description, infer from Title
+    if bool(INTERN_TITLE_PATTERN.search(clean_title)) or bool(INTERN_DESC_ROLE_PATTERN.search(clean_text)):
+        return {
+            'level': TIER_INTERN,
+            'min_years': 0.0,
+            'max_years': 1.0,
+            'matched_phrase': 'Intern / Trainee (inferred from title)',
+            'evidence': f"Role identified as Internship/Trainee: '{clean_title}'",
+            'confidence': 'medium',
+            'source': 'title',
+            'version': DETECTION_VERSION,
+        }
 
-    if not evidence and clean_title:
-        evidence = f"Inferred from title: '{clean_title}'"
-        best_match = clean_title
-        confidence = "medium"
-        source = "title"
+    if bool(LEVEL_4_LEAD_PATTERN.search(clean_title)):
+        return {
+            'level': TIER_LEAD_STAFF,
+            'min_years': 8.0,
+            'max_years': None,
+            'matched_phrase': 'Lead / Staff (inferred from title)',
+            'evidence': f"Leadership/Staff level identified in title: '{clean_title}'",
+            'confidence': 'medium',
+            'source': 'title',
+            'version': DETECTION_VERSION,
+        }
 
-    return {
-        'level': tier,
-        'min_years': detected_min,
-        'max_years': detected_max,
-        'matched_phrase': best_match,
-        'evidence': evidence,
-        'confidence': confidence,
-        'source': source,
-        'version': DETECTION_VERSION,
-    }
+    if bool(LEVEL_3_SENIOR_PATTERN.search(clean_title)):
+        return {
+            'level': TIER_SENIOR,
+            'min_years': 5.0,
+            'max_years': None,
+            'matched_phrase': 'Senior Level (inferred from title)',
+            'evidence': f"Senior level identified in title: '{clean_title}'",
+            'confidence': 'medium',
+            'source': 'title',
+            'version': DETECTION_VERSION,
+        }
+
+    if bool(LEVEL_2_MID_PATTERN.search(clean_title)):
+        return {
+            'level': TIER_2_TO_5,
+            'min_years': 2.0,
+            'max_years': 5.0,
+            'matched_phrase': 'Mid-Level (inferred from title)',
+            'evidence': f"Mid-level/Level II identified in title: '{clean_title}'",
+            'confidence': 'medium',
+            'source': 'title',
+            'version': DETECTION_VERSION,
+        }
+
+    if bool(LEVEL_1_ENTRY_PATTERN.search(clean_title)):
+        return {
+            'level': TIER_0_TO_2,
+            'min_years': 0.0,
+            'max_years': 2.0,
+            'matched_phrase': 'Entry-Level / Associate (inferred from title)',
+            'evidence': f"Entry-level/Level I identified in title: '{clean_title}'",
+            'confidence': 'medium',
+            'source': 'title',
+            'version': DETECTION_VERSION,
+        }
+
+    # No experience cues detected
+    return None
 
 
 def detect_experience_level(
@@ -349,4 +417,3 @@ def filter_jobs_by_experience(qs, exp_val: Optional[str]):
         for p in parts:
             q |= Q(experience_level__icontains=p) | Q(experience_raw__icontains=p)
         return qs.filter(q)
-

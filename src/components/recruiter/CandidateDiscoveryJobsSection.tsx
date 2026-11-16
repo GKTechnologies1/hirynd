@@ -113,9 +113,6 @@ export const CandidateDiscoveryJobsSection = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
 
-  // Discovery Tabs: Active vs Dismissed
-  const [discoveryTab, setDiscoveryTab] = useState<"active" | "dismissed">("active");
-
   // Dismissal modal state
   const [dismissTargetJob, setDismissTargetJob] = useState<any | null>(null);
   const [dismissReason, setDismissReason] = useState("");
@@ -163,9 +160,11 @@ export const CandidateDiscoveryJobsSection = ({
     if (!candidateId) return;
     setLoading(true);
     try {
+      const discStatus = applicationStatus === "REJECTED" ? "REJECTED" : (applicationStatus === "ALL" ? "ALL" : "ACTIVE");
       const params: any = {
         candidate_id: candidateId,
-        discovery_status: discoveryTab.toUpperCase(),
+        status: applicationStatus,
+        discovery_status: discStatus,
         page: currentPage,
         page_size: pageSize,
         ordering: sortOrder,
@@ -178,7 +177,6 @@ export const CandidateDiscoveryJobsSection = ({
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
       if (selectedRestriction !== "all") params.restriction = selectedRestriction;
-      if (applicationStatus !== "ALL") params.status = applicationStatus;
       if (selectedExperience !== "all") params.experience = selectedExperience;
       if (fromDate) params.date_from = fromDate;
       if (toDate) params.date_to = toDate;
@@ -198,7 +196,7 @@ export const CandidateDiscoveryJobsSection = ({
       setLoading(false);
     }
   }, [
-    candidateId, discoveryTab, currentPage, pageSize, sortOrder, search,
+    candidateId, currentPage, pageSize, sortOrder, search,
     selectedRoles, selectedSource, selectedVisaGrade, minScore,
     h1bOnly, selectedRestriction, applicationStatus, selectedExperience, fromDate, toDate, isRemote, toast
   ]);
@@ -576,80 +574,84 @@ export const CandidateDiscoveryJobsSection = ({
       };
     });
 
-    if (discoveryTab === "active") {
-      return processed.filter(j => !j._isDismissed);
-    }
+    if (applicationStatus === "REJECTED") {
+      const dismissedFromApi = processed.filter(j => j._isDismissed || j._isRejected || j.status === "REJECTED");
 
-    // discoveryTab === "dismissed" (the Rejected tab)
-    const dismissedFromApi = processed.filter(j => j._isDismissed);
+      // Also bring in any rejected application from jobPostings that didn't match a discovered job
+      if (jobPostings && jobPostings.length > 0) {
+        const normalizeUrl = (u?: string) => {
+          if (!u) return "";
+          return u.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
+        };
+        const normalizeText = (t?: string) => {
+          if (!t) return "";
+          return t.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+        };
 
-    // Also bring in any rejected application from jobPostings that didn't match a discovered job
-    if (jobPostings && jobPostings.length > 0) {
-      const normalizeUrl = (u?: string) => {
-        if (!u) return "";
-        return u.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
-      };
-      const normalizeText = (t?: string) => {
-        if (!t) return "";
-        return t.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-      };
-
-      const rejectedApps = jobPostings.filter((app: any) => {
-        const status = (app.application_status || app.status || app.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
-        return status === "rejected";
-      });
-
-      for (const app of rejectedApps) {
-        const appUrlNorm = normalizeUrl(app.job_url || app.job_link);
-        const appCompNorm = normalizeText(app.company_name);
-        const appTitleNorm = normalizeText(app.role_title || app.title);
-
-        const alreadyIncluded = dismissedFromApi.some((j: any) => {
-          const jUrlNorm = normalizeUrl(j.job_url);
-          if (appUrlNorm && jUrlNorm && appUrlNorm === jUrlNorm) return true;
-          const jCompNorm = normalizeText(j.company_name);
-          const jTitleNorm = normalizeText(j.title || j.target_role);
-          if (appCompNorm && jCompNorm && (appCompNorm.includes(jCompNorm) || jCompNorm.includes(appCompNorm))) {
-            if (appTitleNorm && jTitleNorm && (appTitleNorm.includes(jTitleNorm) || jTitleNorm.includes(appTitleNorm))) {
-              return true;
-            }
-          }
-          return false;
+        const rejectedApps = jobPostings.filter((app: any) => {
+          const status = (app.application_status || app.status || app.candidate_response_status || "").toLowerCase().replace(/ /g, "_");
+          return status === "rejected";
         });
 
-        if (!alreadyIncluded) {
-          dismissedFromApi.push({
-            id: `app_rej_${app.id}`,
-            opportunity_id: `app_rej_${app.id}`,
-            title: app.role_title || app.title || "Job Application",
-            company_name: app.company_name || "Company",
-            job_url: app.job_url || app.job_link || "",
-            city: app.city || "",
-            state: app.state || "",
-            country: app.country || "USA",
-            is_remote: (app.work_mode || "").toLowerCase() === "remote",
-            salary_raw: app.salary || "Not Disclosed",
-            discovery_status: "DISMISSED",
-            is_dismissed: true,
-            status: "REJECTED",
-            dismissal_reason: app.notes || "Rejected Application",
-            rejection_reason: app.notes || "Rejected Application",
-            date_posted: app.created_at || app.log_date,
-            created_at: app.created_at || app.log_date,
-            source_portal: "Pipeline",
-            _existingApp: app,
-            _isUpdating: false,
-            _existingStatus: "rejected",
-            _isRejected: true,
-            _isApplied: false,
-            _isDismissed: true,
+        for (const app of rejectedApps) {
+          const appUrlNorm = normalizeUrl(app.job_url || app.job_link);
+          const appCompNorm = normalizeText(app.company_name);
+          const appTitleNorm = normalizeText(app.role_title || app.title);
+
+          const alreadyIncluded = dismissedFromApi.some((j: any) => {
+            const jUrlNorm = normalizeUrl(j.job_url);
+            if (appUrlNorm && jUrlNorm && appUrlNorm === jUrlNorm) return true;
+            const jCompNorm = normalizeText(j.company_name);
+            const jTitleNorm = normalizeText(j.title || j.target_role);
+            if (appCompNorm && jCompNorm && (appCompNorm.includes(jCompNorm) || jCompNorm.includes(appCompNorm))) {
+              if (appTitleNorm && jTitleNorm && (appTitleNorm.includes(jTitleNorm) || jTitleNorm.includes(appTitleNorm))) {
+                return true;
+              }
+            }
+            return false;
           });
+
+          if (!alreadyIncluded) {
+            dismissedFromApi.push({
+              id: `app_rej_${app.id}`,
+              opportunity_id: `app_rej_${app.id}`,
+              title: app.role_title || app.title || "Job Application",
+              company_name: app.company_name || "Company",
+              job_url: app.job_url || app.job_link || "",
+              city: app.city || "",
+              state: app.state || "",
+              country: app.country || "USA",
+              is_remote: (app.work_mode || "").toLowerCase() === "remote",
+              salary_raw: app.salary || "Not Disclosed",
+              discovery_status: "DISMISSED",
+              is_dismissed: true,
+              status: "REJECTED",
+              dismissal_reason: app.notes || "Rejected Application",
+              rejection_reason: app.notes || "Rejected Application",
+              date_posted: app.created_at || app.log_date,
+              created_at: app.created_at || app.log_date,
+              source_portal: "Pipeline",
+              _existingApp: app,
+              _isUpdating: false,
+              _existingStatus: "rejected",
+              _isRejected: true,
+              _isApplied: false,
+              _isDismissed: true,
+            });
+          }
         }
       }
-    }
 
-    return dismissedFromApi;
-  }, [jobs, discoveryTab, jobPostings, updatingJobId, findExistingApplication]);
+      return dismissedFromApi;
+    } else if (applicationStatus === "APPLIED") {
+      return processed.filter(j => j._isApplied || j._hasApplied || j.status === "APPLIED");
+    } else if (applicationStatus === "ALL") {
+      return processed;
+    } else {
+      // Default: NOT_APPLIED
+      return processed.filter(j => !j._isDismissed && !j._isApplied && !j._isRejected && !j._hasApplied && j.status !== "APPLIED" && j.status !== "REJECTED");
+    }
+  }, [jobs, applicationStatus, jobPostings, updatingJobId, findExistingApplication]);
 
   return (
     <Card className="border-none shadow-sm bg-card/60">
@@ -660,7 +662,7 @@ export const CandidateDiscoveryJobsSection = ({
               <Compass className="h-4 w-4 text-primary" />
               Job Discovery for {candidateName}
               <span className="text-[11px] font-medium text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded-full">
-                {discoveryTab === "active" ? (totalCount || displayedJobs.length) : displayedJobs.length} Opportunities
+                {totalCount || displayedJobs.length} Opportunities
               </span>
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -669,59 +671,6 @@ export const CandidateDiscoveryJobsSection = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Recommendations Status: Active vs Rejected */}
-            <div className="relative flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/50">
-              <button
-                type="button"
-                onClick={() => {
-                  if (discoveryTab !== "active") {
-                    setDiscoveryTab("active");
-                    setCurrentPage(1);
-                  }
-                }}
-                className={cn(
-                  "relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
-                  discoveryTab === "active"
-                    ? "text-primary font-extrabold"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {discoveryTab === "active" && (
-                  <motion.div
-                    layoutId="discoveryTabHighlight"
-                    className="absolute inset-0 bg-background rounded-lg shadow-xs -z-10"
-                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <Compass className="h-3.5 w-3.5" />
-                Active
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (discoveryTab !== "dismissed") {
-                    setDiscoveryTab("dismissed");
-                    setCurrentPage(1);
-                  }
-                }}
-                className={cn(
-                  "relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
-                  discoveryTab === "dismissed"
-                    ? "text-rose-600 font-extrabold"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {discoveryTab === "dismissed" && (
-                  <motion.div
-                    layoutId="discoveryTabHighlight"
-                    className="absolute inset-0 bg-background rounded-lg shadow-xs -z-10"
-                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <XCircle className="h-3.5 w-3.5" />
-                Rejected
-              </button>
-            </div>
 
             {/* View Mode Switcher: Cards vs Table (same as JobAlert.tsx) */}
             <div className="flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/50">
@@ -1007,11 +956,11 @@ export const CandidateDiscoveryJobsSection = ({
         {/* ===================== ANIMATED CONTENT: ACTIVE VS REJECTED LISTS ===================== */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={discoveryTab}
-            initial={{ opacity: 0, x: discoveryTab === "active" ? -24 : 24 }}
+            key={applicationStatus}
+            initial={{ opacity: 0, x: -16 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: discoveryTab === "active" ? 24 : -24 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
+            exit={{ opacity: 0, x: 16 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
           >
             {/* ===================== VIEW MODE 1: CARDS VIEW ===================== */}
             {viewMode === "cards" ? (
@@ -1071,13 +1020,17 @@ export const CandidateDiscoveryJobsSection = ({
                   <div className="py-12 text-center text-muted-foreground space-y-2">
                     <Briefcase className="h-10 w-10 mx-auto opacity-30" />
                     <p className="font-bold text-sm text-foreground">
-                      {discoveryTab === "dismissed"
+                      {applicationStatus === "REJECTED"
                         ? `No rejected opportunities recorded for ${candidateName}.`
+                        : applicationStatus === "APPLIED"
+                        ? `No applied opportunities recorded for ${candidateName}.`
                         : `No discovered opportunities match ${candidateName}'s profile.`}
                     </p>
                     <p className="text-xs">
-                      {discoveryTab === "dismissed"
+                      {applicationStatus === "REJECTED"
                         ? "Rejected recommendations and pipeline applications will appear here."
+                        : applicationStatus === "APPLIED"
+                        ? "Opportunities you applied to for this candidate will appear here."
                         : "Try adjusting your keywords or clearing the filters."}
                     </p>
                   </div>
@@ -1399,8 +1352,10 @@ export const CandidateDiscoveryJobsSection = ({
                       <tr>
                         <td colSpan={9} className="py-12 text-center text-muted-foreground">
                           <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                          {discoveryTab === "dismissed"
+                          {applicationStatus === "REJECTED"
                             ? `No rejected opportunities recorded for ${candidateName}.`
+                            : applicationStatus === "APPLIED"
+                            ? `No applied opportunities recorded for ${candidateName}.`
                             : `No discovered opportunities match ${candidateName}'s profile with the current filters.`}
                         </td>
                       </tr>

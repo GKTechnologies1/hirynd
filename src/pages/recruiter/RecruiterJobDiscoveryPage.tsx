@@ -81,7 +81,6 @@ export const RecruiterJobDiscoveryPage = () => {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedVisaGrade, setSelectedVisaGrade] = useState("all");
-  const [discoveryTab, setDiscoveryTab] = useState<"active" | "dismissed">("active");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [minScore, setMinScore] = useState<string>("all");
@@ -341,11 +340,13 @@ export const RecruiterJobDiscoveryPage = () => {
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
+      const discStatus = applicationStatus === "REJECTED" ? "REJECTED" : (applicationStatus === "ALL" ? "ALL" : "ACTIVE");
       const params: any = {
         page: currentPage,
         page_size: pageSize,
         ordering: sortOrder,
-        discovery_status: discoveryTab.toUpperCase(),
+        status: applicationStatus,
+        discovery_status: discStatus,
       };
 
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
@@ -358,7 +359,6 @@ export const RecruiterJobDiscoveryPage = () => {
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
       if (selectedRestriction !== "all") params.restriction = selectedRestriction;
-      if (applicationStatus !== "ALL") params.status = applicationStatus;
       if (selectedExperience !== "all") params.experience = selectedExperience;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
 
@@ -380,7 +380,7 @@ export const RecruiterJobDiscoveryPage = () => {
     }
   }, [
     currentPage, pageSize, sortOrder, debouncedSearch, selectedCandidate,
-    selectedRoles, selectedSource, selectedVisaGrade, discoveryTab, fromDate, toDate, minScore, h1bOnly, selectedRestriction, applicationStatus, selectedExperience, isRemote, toast
+    selectedRoles, selectedSource, selectedVisaGrade, fromDate, toDate, minScore, h1bOnly, selectedRestriction, applicationStatus, selectedExperience, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -457,60 +457,6 @@ export const RecruiterJobDiscoveryPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Active vs Rejected Chips Tabs (matches CandidateDiscoveryJobsSection.tsx) */}
-          <div className="relative flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-            <button
-              type="button"
-              onClick={() => {
-                if (discoveryTab !== "active") {
-                  setDiscoveryTab("active");
-                  setCurrentPage(1);
-                }
-              }}
-              className={cn(
-                "relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer",
-                discoveryTab === "active"
-                  ? "text-primary font-extrabold"
-                  : "text-slate-500 hover:text-slate-900"
-              )}
-            >
-              {discoveryTab === "active" && (
-                <motion.div
-                  layoutId="recruiterDiscoveryTabHighlightHeader"
-                  className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
-                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                />
-              )}
-              <Compass className="h-3.5 w-3.5" />
-              Active
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (discoveryTab !== "dismissed") {
-                  setDiscoveryTab("dismissed");
-                  setCurrentPage(1);
-                }
-              }}
-              className={cn(
-                "relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer",
-                discoveryTab === "dismissed"
-                  ? "text-rose-600 font-extrabold"
-                  : "text-slate-500 hover:text-slate-900"
-              )}
-            >
-              {discoveryTab === "dismissed" && (
-                <motion.div
-                  layoutId="recruiterDiscoveryTabHighlightHeader"
-                  className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
-                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                />
-              )}
-              <XCircle className="h-3.5 w-3.5" />
-              Rejected
-            </button>
-          </div>
-
           <Button
             variant="outline"
             size="sm"
@@ -793,66 +739,17 @@ export const RecruiterJobDiscoveryPage = () => {
               Matched Candidate Opportunities ({totalCount})
             </CardTitle>
             <CardDescription className="text-xs">
-              {discoveryTab === "active"
-                ? "Filtered specifically for your active candidate portfolio."
-                : "Rejected candidate recommendations and dismissed opportunities."}
+              {applicationStatus === "REJECTED"
+                ? "Rejected candidate recommendations and dismissed opportunities."
+                : applicationStatus === "APPLIED"
+                ? "Opportunities already applied for your candidates."
+                : applicationStatus === "ALL"
+                ? "All discovered opportunities across all application statuses."
+                : "Filtered specifically for your active candidate portfolio (Not Applied)."}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Recommendations Status: Active vs Rejected (matches CandidateDiscoveryJobsSection.tsx) */}
-            <div className="relative flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => {
-                  if (discoveryTab !== "active") {
-                    setDiscoveryTab("active");
-                    setCurrentPage(1);
-                  }
-                }}
-                className={cn(
-                  "relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
-                  discoveryTab === "active"
-                    ? "text-primary font-extrabold"
-                    : "text-slate-500 hover:text-slate-900"
-                )}
-              >
-                {discoveryTab === "active" && (
-                  <motion.div
-                    layoutId="recruiterDiscoveryTabHighlightTable"
-                    className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
-                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <Compass className="h-3.5 w-3.5" />
-                Active
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (discoveryTab !== "dismissed") {
-                    setDiscoveryTab("dismissed");
-                    setCurrentPage(1);
-                  }
-                }}
-                className={cn(
-                  "relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer",
-                  discoveryTab === "dismissed"
-                    ? "text-rose-600 font-extrabold"
-                    : "text-slate-500 hover:text-slate-900"
-                )}
-              >
-                {discoveryTab === "dismissed" && (
-                  <motion.div
-                    layoutId="recruiterDiscoveryTabHighlightTable"
-                    className="absolute inset-0 bg-white rounded-lg shadow-xs -z-10"
-                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <XCircle className="h-3.5 w-3.5" />
-                Rejected
-              </button>
-            </div>
-            <div className="text-xs text-slate-500 font-medium ml-2">
+            <div className="text-xs text-slate-500 font-medium">
               Page {currentPage} of {totalPages}
             </div>
           </div>
@@ -896,8 +793,10 @@ export const RecruiterJobDiscoveryPage = () => {
                   <tr>
                     <td colSpan={10} className="py-12 text-center text-slate-400">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                      {discoveryTab === "dismissed"
+                      {applicationStatus === "REJECTED"
                         ? "No rejected opportunities recorded under the current filters."
+                        : applicationStatus === "APPLIED"
+                        ? "No applied opportunities found under the current filters."
                         : "No opportunities match your assigned candidate roles under the current filters."}
                     </td>
                   </tr>
