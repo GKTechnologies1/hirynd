@@ -31,20 +31,7 @@ import {
   formatSalaryAmount,
   handleSalaryKeyDown,
 } from "@/data/usLocations";
-
-const formatSalaryDisplay = (rawSalary: any): string => {
-  if (!rawSalary) return "Not Disclosed";
-  const s = String(rawSalary).trim();
-  if (!s || s === "-" || s.toLowerCase() === "not disclosed" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") {
-    return "Not Disclosed";
-  }
-  const cleaned = s.replace(/^\$+/, '').trim();
-  if (!cleaned) return "Not Disclosed";
-  if (/^[€£₹]/.test(cleaned)) {
-    return cleaned;
-  }
-  return `$${cleaned}`;
-};
+import { formatSalaryDisplay } from "@/lib/salaryFormatter";
 
 const JobDescriptionCell = ({
   company,

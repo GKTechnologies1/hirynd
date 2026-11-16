@@ -9,7 +9,7 @@ from .scraper_engine import execute_scraping_run, trigger_async_scrape
 logger = logging.getLogger('job_discovery')
 
 
-def run_scheduled_job_discovery(force: bool = False, jobs_per_role: int = 15, max_roles: int = 10) -> ScraperExecution:
+def run_scheduled_job_discovery(force: bool = False, jobs_per_role: int = 20, max_roles: int = 50) -> ScraperExecution:
     """
     Idempotent daily scheduler runner.
     Ensures only ONE scheduler run occurs per scheduled window.

@@ -305,3 +305,48 @@ def detect_experience_level(
     """
     result = detect_job_experience(text=text, title=title)
     return result['level'] if result else None
+
+
+def filter_jobs_by_experience(qs, exp_val: Optional[str]):
+    """
+    Applies unified experience filtering across Admin and Recruiter discovery querysets.
+    Supports range codes ('0-2', '2-5', '5-8', '8+', 'not_specified') and tier strings.
+    """
+    if not exp_val or str(exp_val).strip().lower() in ('all', 'any', ''):
+        return qs
+
+    from django.db.models import Q
+    val = str(exp_val).strip()
+    norm = val.lower().replace(' ', '').replace('–', '-').replace('—', '-')
+
+    if norm in ('0-2', '0-2years', '0-2yrs', '0to2'):
+        return qs.filter(
+            Q(experience_min_years__gte=0, experience_min_years__lte=2) |
+            Q(experience_level__in=['0–2 Years', 'Intern/New Grad'])
+        )
+    elif norm in ('2-5', '2-5years', '2-5yrs', '2to5'):
+        return qs.filter(
+            Q(experience_min_years__gte=2, experience_min_years__lt=5) |
+            Q(experience_level='2–5 Years')
+        )
+    elif norm in ('5-8', '5-8years', '5-8yrs', '5to8'):
+        return qs.filter(
+            (Q(experience_min_years__gte=5, experience_min_years__lt=8)) |
+            (Q(experience_level__in=['5+ Years', 'Senior Level']) & (Q(experience_min_years__lt=8) | Q(experience_min_years__isnull=True)))
+        )
+    elif norm in ('8+', '8+years', '8+yrs', '8plus', '8ormore'):
+        return qs.filter(
+            Q(experience_min_years__gte=8) |
+            Q(experience_level='Lead / Staff')
+        )
+    elif norm in ('not_specified', 'notspecified', 'unspecified', 'none'):
+        return qs.filter(
+            Q(experience_min_years__isnull=True) & (Q(experience_level__isnull=True) | Q(experience_level=''))
+        )
+    else:
+        parts = [p.strip() for p in val.split(',') if p.strip()]
+        q = Q()
+        for p in parts:
+            q |= Q(experience_level__icontains=p) | Q(experience_raw__icontains=p)
+        return qs.filter(q)
+

@@ -105,18 +105,13 @@ def build_actor_input(source: str, query: str, limit: int = 15, freshness_days: 
 def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperExecution) -> str:
     """
     Persists a NormalizedJob into DiscoveredJob using Django ORM.
-    Detects duplicates via content_hash.
+    Multi-tier deduplication:
+      Tier 1: External job ID (job_id) -> Update existing record
+      Tier 2: Canonical application URL (job_url) -> Duplicate detection
+      Tier 3: Content hash (MD5 title + company + clean description) -> Duplicate detection
+      Tier 4: Normalized company + exact title -> Duplicate detection
     Returns: 'inserted', 'updated', or 'duplicate'
     """
-    # 1. Check for duplicate by content_hash across different jobs/portals
-    duplicate_match = DiscoveredJob.objects.filter(
-        content_hash=job.contentHash
-    ).exclude(job_id=job.jobId).first()
-
-    is_duplicate = duplicate_match is not None
-    canonical_job = duplicate_match if is_duplicate else None
-
-    # Determine posting date
     from django.conf import settings
     p_date = job.postingDate
     if p_date:
@@ -128,9 +123,9 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
                 p_date = timezone.make_naive(p_date)
 
     from .restriction_detector import detect_job_restrictions
-    from .experience_detector import detect_experience_level
+    from .experience_detector import detect_job_experience
 
-    # 2. Check if this exact job_id was already saved
+    # Tier 1: Check if this exact job_id was already saved
     existing = DiscoveredJob.objects.filter(job_id=job.jobId).first()
 
     if existing:
@@ -173,13 +168,38 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         existing.detected_restrictions = detect_job_restrictions(
             f"{existing.title} {target_role} {existing.job_description or ''}"
         )
-        exp_lvl = detect_experience_level(existing.job_description, title=existing.title)
-        if exp_lvl:
-            existing.experience_level = exp_lvl
+        exp_res = detect_job_experience(existing.job_description, title=existing.title)
+        if exp_res:
+            existing.experience_level = exp_res.get('level') or existing.experience_level
+            existing.experience_min_years = exp_res.get('min_years')
+            existing.experience_max_years = exp_res.get('max_years')
+            existing.experience_raw = exp_res.get('matched_phrase') or ''
         existing.save()
         return 'updated'
 
-    # 3. Create brand new discovered job
+    # Multi-tier deduplication check against existing records
+    raw_url = str(job.jobUrl).strip() if job.jobUrl else ''
+    if raw_url and not (raw_url.startswith('http://') or raw_url.startswith('https://')):
+        raw_url = 'https://' + raw_url
+
+    canonical_job = None
+    # Tier 2: Check by canonical application URL
+    if raw_url and len(raw_url) > 10:
+        canonical_job = DiscoveredJob.objects.filter(job_url=raw_url).first()
+
+    # Tier 3: Check by content_hash across different jobs/portals
+    if not canonical_job and job.contentHash:
+        canonical_job = DiscoveredJob.objects.filter(content_hash=job.contentHash).first()
+
+    # Tier 4: Check by normalized company + exact title
+    if not canonical_job and job.companyNameNorm and job.title:
+        canonical_job = DiscoveredJob.objects.filter(
+            company_name_norm__iexact=job.companyNameNorm,
+            title__iexact=job.title.strip()
+        ).first()
+
+    is_duplicate = canonical_job is not None
+
     sal_min = None
     if job.salaryMin is not None:
         try:
@@ -194,13 +214,13 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         except (ValueError, TypeError):
             pass
 
-    raw_url = str(job.jobUrl).strip() if job.jobUrl else ''
-    if raw_url and not (raw_url.startswith('http://') or raw_url.startswith('https://')):
-        raw_url = 'https://' + raw_url
-
     desc_content = str(job.jobDescription) if job.jobDescription else ''
     restrictions = detect_job_restrictions(f"{job.title} {target_role} {desc_content}")
-    exp_lvl = detect_experience_level(desc_content, title=job.title)
+    exp_res = detect_job_experience(desc_content, title=job.title)
+    exp_lvl = exp_res.get('level') if exp_res else None
+    exp_min = exp_res.get('min_years') if exp_res else None
+    exp_max = exp_res.get('max_years') if exp_res else None
+    exp_raw = exp_res.get('matched_phrase') if exp_res else ''
 
     DiscoveredJob.objects.create(
         job_id=job.jobId,
@@ -226,6 +246,9 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         salary_period=str(job.salaryPeriod) if job.salaryPeriod else '',
         employment_type=str(job.employmentType) if job.employmentType else '',
         experience_level=exp_lvl,
+        experience_min_years=exp_min,
+        experience_max_years=exp_max,
+        experience_raw=exp_raw,
         source_portal=job.source,
         date_posted=p_date,
         execution=execution,
@@ -273,12 +296,22 @@ def execute_scraping_run(execution_id: UUID) -> None:
 
     companies = config.get('companies', [])
     query_targets = []
+    roles_breakdown = {}
     if companies:
         for r_entry in roles_config:
             r_name = r_entry.get('role', '').strip()
-            r_limit = int(r_entry.get('limit', 15))
+            r_limit = int(r_entry.get('limit', 20))
             if not r_name:
                 continue
+            roles_breakdown[r_name] = {
+                'role': r_name,
+                'target': r_limit,
+                'found': 0,
+                'inserted': 0,
+                'duplicates': 0,
+                'updated': 0,
+                'failed': 0,
+            }
             for comp in companies:
                 c_name = comp if isinstance(comp, str) else comp.get('name', '')
                 if c_name:
@@ -291,8 +324,17 @@ def execute_scraping_run(execution_id: UUID) -> None:
     else:
         for r_entry in roles_config:
             r_name = r_entry.get('role', '').strip()
-            r_limit = int(r_entry.get('limit', 15))
+            r_limit = int(r_entry.get('limit', 20))
             if r_name:
+                roles_breakdown[r_name] = {
+                    'role': r_name,
+                    'target': r_limit,
+                    'found': 0,
+                    'inserted': 0,
+                    'duplicates': 0,
+                    'updated': 0,
+                    'failed': 0,
+                }
                 query_targets.append({
                     'role': r_name,
                     'query': r_name,
@@ -316,13 +358,31 @@ def execute_scraping_run(execution_id: UUID) -> None:
             role_name = q_target['role']
             search_query = q_target['query']
             role_limit = q_target['limit']
+            role_stat = roles_breakdown.setdefault(role_name, {
+                'role': role_name,
+                'target': role_limit,
+                'found': 0,
+                'inserted': 0,
+                'duplicates': 0,
+                'updated': 0,
+                'failed': 0,
+            })
 
-            logger.info(f"[JobScraper] Processing search: '{search_query}' (limit: {role_limit})")
+            # Stop querying if this role has already reached its target of new unique jobs
+            if role_stat['inserted'] >= role_limit:
+                logger.info(f"[JobScraper] Target {role_limit} new unique jobs already met for '{role_name}'. Skipping.")
+                continue
 
-            # Divide limit across sources or search until limit reached
-            per_source_limit = max(3, role_limit // max(1, len(sources)))
+            logger.info(f"[JobScraper] Processing search: '{search_query}' (target new unique: {role_limit}, current inserted: {role_stat['inserted']})")
+
+            remaining_needed = max(1, role_limit - role_stat['inserted'])
+            per_source_limit = max(5, remaining_needed)
 
             for source in sources:
+                if role_stat['inserted'] >= role_limit:
+                    logger.info(f"[JobScraper] Reached target {role_limit} new unique jobs for '{role_name}'.")
+                    break
+
                 try:
                     actor_payload = build_actor_input(source, search_query, limit=per_source_limit)
                     if not actor_payload:
@@ -382,12 +442,20 @@ def execute_scraping_run(execution_id: UUID) -> None:
 
                         outcome = upsert_scraped_job(parsed, target_role=role_name, execution=execution)
                         total_found += 1
+                        role_stat['found'] += 1
                         if outcome == 'inserted':
                             total_ins += 1
+                            role_stat['inserted'] += 1
                         elif outcome == 'updated':
                             total_upd += 1
+                            role_stat['updated'] += 1
                         elif outcome == 'duplicate':
                             total_dup += 1
+                            role_stat['duplicates'] += 1
+
+                        if role_stat['inserted'] >= role_limit:
+                            logger.info(f"[JobScraper] Reached target {role_limit} new unique jobs for '{role_name}' during {source} ingestion.")
+                            break
 
                     # Update execution progress live after each source
                     execution.total_jobs_found = total_found
@@ -402,6 +470,7 @@ def execute_scraping_run(execution_id: UUID) -> None:
                 except Exception as src_err:
                     err_msg = f"Error scraping {source} for {role_name}: {str(src_err)}"
                     logger.error(f"[JobScraper] {err_msg}")
+                    role_stat['failed'] += 1
                     errors.append(err_msg)
 
         # Automatically enrich newly scraped jobs with Visa Intelligence
@@ -427,6 +496,7 @@ def execute_scraping_run(execution_id: UUID) -> None:
 
         execution.config = {
             **config,
+            'roles_breakdown': list(roles_breakdown.values()),
             'scored_count': scored_count,
             'qualified_count': qualified_count,
             'below_threshold_count': below_threshold_count,

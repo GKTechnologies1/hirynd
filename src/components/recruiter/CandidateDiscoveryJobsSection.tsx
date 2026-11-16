@@ -104,6 +104,8 @@ export const CandidateDiscoveryJobsSection = ({
   const [minScore, setMinScore] = useState<string>("all");
   const [h1bOnly, setH1bOnly] = useState<boolean>(false);
   const [selectedRestriction, setSelectedRestriction] = useState<string>("all");
+  const [applicationStatus, setApplicationStatus] = useState<string>("NOT_APPLIED");
+  const [selectedExperience, setSelectedExperience] = useState<string>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [isRemote, setIsRemote] = useState<string>("all");
@@ -176,6 +178,8 @@ export const CandidateDiscoveryJobsSection = ({
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
       if (selectedRestriction !== "all") params.restriction = selectedRestriction;
+      if (applicationStatus !== "ALL") params.status = applicationStatus;
+      if (selectedExperience !== "all") params.experience = selectedExperience;
       if (fromDate) params.date_from = fromDate;
       if (toDate) params.date_to = toDate;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
@@ -196,7 +200,7 @@ export const CandidateDiscoveryJobsSection = ({
   }, [
     candidateId, discoveryTab, currentPage, pageSize, sortOrder, search,
     selectedRoles, selectedSource, selectedVisaGrade, minScore,
-    h1bOnly, selectedRestriction, fromDate, toDate, isRemote, toast
+    h1bOnly, selectedRestriction, applicationStatus, selectedExperience, fromDate, toDate, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -530,6 +534,8 @@ export const CandidateDiscoveryJobsSection = ({
     setMinScore("all");
     setH1bOnly(false);
     setSelectedRestriction("all");
+    setApplicationStatus("NOT_APPLIED");
+    setSelectedExperience("all");
     setFromDate("");
     setToDate("");
     setIsRemote("all");
@@ -933,6 +939,40 @@ export const CandidateDiscoveryJobsSection = ({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Application Status Filter */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Status:</span>
+                <Select value={applicationStatus} onValueChange={(v) => { setApplicationStatus(v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-32 h-7 text-[10px] bg-muted/30">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NOT_APPLIED" className="text-xs">Not Applied</SelectItem>
+                    <SelectItem value="APPLIED" className="text-xs">Applied</SelectItem>
+                    <SelectItem value="REJECTED" className="text-xs">Rejected</SelectItem>
+                    <SelectItem value="ALL" className="text-xs">All Statuses</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Experience Filter */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Experience:</span>
+                <Select value={selectedExperience} onValueChange={(v) => { setSelectedExperience(v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-32 h-7 text-[10px] bg-muted/30">
+                    <SelectValue placeholder="Experience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">Any Experience</SelectItem>
+                    <SelectItem value="0-2" className="text-xs">0–2 Years</SelectItem>
+                    <SelectItem value="2-5" className="text-xs">2–5 Years</SelectItem>
+                    <SelectItem value="5-8" className="text-xs">5–8 Years</SelectItem>
+                    <SelectItem value="8+" className="text-xs">8+ Years</SelectItem>
+                    <SelectItem value="not_specified" className="text-xs">Not Specified</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Sorting & Clear */}
@@ -1087,6 +1127,14 @@ export const CandidateDiscoveryJobsSection = ({
                                 <span className="bg-purple-500/10 text-purple-700 border border-purple-500/20 px-1.5 py-0.5 rounded-md capitalize">
                                   {job.source_portal || "Web"}
                                 </span>
+                                {(job.experience_min_years != null || job.experience_level) && (
+                                  <span className="bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium">
+                                    <Briefcase className="h-3 w-3" />
+                                    {job.experience_min_years != null
+                                      ? (job.experience_max_years ? `${job.experience_min_years}–${job.experience_max_years} yrs` : `${job.experience_min_years}+ yrs`)
+                                      : job.experience_level}
+                                  </span>
+                                )}
                                 {job.detected_restrictions && job.detected_restrictions.length > 0 && (
                                   <JobRestrictionBadges restrictions={job.detected_restrictions} compact />
                                 )}
@@ -1283,6 +1331,7 @@ export const CandidateDiscoveryJobsSection = ({
                       <th className="py-3 px-3 min-w-[170px] text-left">Visa Intelligence</th>
                       <th className="py-3 px-3 min-w-[130px] text-left">Location</th>
                       <th className="py-3 px-3 min-w-[110px] text-left">Salary</th>
+                      <th className="py-3 px-3 min-w-[100px] text-left">Experience</th>
                       <th className="py-3 px-3 min-w-[90px] text-left">Portal</th>
                       <th className="py-3 px-3 min-w-[95px] text-left">Posted</th>
                       <th className="py-3 px-4 min-w-[170px] text-center">Actions</th>
@@ -1321,6 +1370,11 @@ export const CandidateDiscoveryJobsSection = ({
                             <Skeleton className="h-4 w-16 rounded-md" />
                           </td>
 
+                          {/* Experience Skeleton */}
+                          <td className="py-3.5 px-3 min-w-[100px]">
+                            <Skeleton className="h-4 w-14 rounded-md" />
+                          </td>
+
                           {/* Portal Skeleton */}
                           <td className="py-3.5 px-3 min-w-[90px]">
                             <Skeleton className="h-4 w-12 rounded-md" />
@@ -1343,7 +1397,7 @@ export const CandidateDiscoveryJobsSection = ({
                       ))
                     ) : displayedJobs.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                        <td colSpan={9} className="py-12 text-center text-muted-foreground">
                           <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
                           {discoveryTab === "dismissed"
                             ? `No rejected opportunities recorded for ${candidateName}.`
@@ -1431,7 +1485,22 @@ export const CandidateDiscoveryJobsSection = ({
 
                             {/* Salary */}
                             <td className="py-3.5 px-3 min-w-[110px] text-muted-foreground whitespace-nowrap font-medium text-[11px] align-middle">
-                              {job.salary_raw || (job.salary_min ? `$${Number(job.salary_min).toLocaleString()}` : "Not Disclosed")}
+                              {formatSalaryDisplay(job)}
+                            </td>
+
+                            {/* Experience */}
+                            <td className="py-3.5 px-3 min-w-[100px] text-muted-foreground whitespace-nowrap font-medium text-[11px] align-middle">
+                              {job.experience_min_years != null ? (
+                                <Badge variant="outline" className="bg-muted/40 text-foreground font-semibold text-[10px]">
+                                  {job.experience_max_years ? `${job.experience_min_years}–${job.experience_max_years} yrs` : `${job.experience_min_years}+ yrs`}
+                                </Badge>
+                              ) : job.experience_level ? (
+                                <Badge variant="outline" className="bg-muted/40 text-foreground font-semibold text-[10px]">
+                                  {job.experience_level}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground/60 text-[10px]">—</span>
+                              )}
                             </td>
 
                             {/* Portal */}

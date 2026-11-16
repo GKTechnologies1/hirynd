@@ -86,6 +86,9 @@ export const RecruiterJobDiscoveryPage = () => {
   const [toDate, setToDate] = useState("");
   const [minScore, setMinScore] = useState<string>("all");
   const [h1bOnly, setH1bOnly] = useState<boolean>(false);
+  const [selectedRestriction, setSelectedRestriction] = useState<string>("all");
+  const [applicationStatus, setApplicationStatus] = useState<string>("NOT_APPLIED");
+  const [selectedExperience, setSelectedExperience] = useState<string>("all");
   const [isRemote, setIsRemote] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState("-created_at");
   const [currentPage, setCurrentPage] = useState(1);
@@ -354,6 +357,9 @@ export const RecruiterJobDiscoveryPage = () => {
       if (toDate) params.date_to = toDate;
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
+      if (selectedRestriction !== "all") params.restriction = selectedRestriction;
+      if (applicationStatus !== "ALL") params.status = applicationStatus;
+      if (selectedExperience !== "all") params.experience = selectedExperience;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
 
       const res = await recruiterJobDiscoveryApi.jobs(params);
@@ -374,7 +380,7 @@ export const RecruiterJobDiscoveryPage = () => {
     }
   }, [
     currentPage, pageSize, sortOrder, debouncedSearch, selectedCandidate,
-    selectedRoles, selectedSource, selectedVisaGrade, discoveryTab, fromDate, toDate, minScore, h1bOnly, isRemote, toast
+    selectedRoles, selectedSource, selectedVisaGrade, discoveryTab, fromDate, toDate, minScore, h1bOnly, selectedRestriction, applicationStatus, selectedExperience, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -426,6 +432,9 @@ export const RecruiterJobDiscoveryPage = () => {
     setToDate("");
     setMinScore("all");
     setH1bOnly(false);
+    setSelectedRestriction("all");
+    setApplicationStatus("NOT_APPLIED");
+    setSelectedExperience("all");
     setIsRemote("all");
     setSortOrder("-created_at");
     setCurrentPage(1);
@@ -691,6 +700,58 @@ export const RecruiterJobDiscoveryPage = () => {
               >
                 Remote Only
               </Button>
+
+              {/* Clearance Filter */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-slate-500 font-medium whitespace-nowrap text-xs">Clearance:</span>
+                <Select value={selectedRestriction} onValueChange={(val) => { setSelectedRestriction(val); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-40 h-7 text-xs">
+                    <SelectValue placeholder="All Clearances" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clearances / Eligibility</SelectItem>
+                    <SelectItem value="SECRET_CLEARANCE">Secret Clearance</SelectItem>
+                    <SelectItem value="US_CITIZENSHIP_REQUIRED">US Citizen Only</SelectItem>
+                    <SelectItem value="NO_TEMPORARY_VISA">No Visa Sponsorship</SelectItem>
+                    <SelectItem value="none">Visa Eligible (No Restrictions)</SelectItem>
+                    <SelectItem value="any">Any Restriction</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Application Status Filter */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-slate-500 font-medium whitespace-nowrap text-xs">Status:</span>
+                <Select value={applicationStatus} onValueChange={(val) => { setApplicationStatus(val); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-32 h-7 text-xs">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NOT_APPLIED">Not Applied</SelectItem>
+                    <SelectItem value="APPLIED">Applied</SelectItem>
+                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                    <SelectItem value="ALL">All Statuses</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Experience Filter */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-slate-500 font-medium whitespace-nowrap text-xs">Experience:</span>
+                <Select value={selectedExperience} onValueChange={(val) => { setSelectedExperience(val); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-32 h-7 text-xs">
+                    <SelectValue placeholder="Experience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any Experience</SelectItem>
+                    <SelectItem value="0-2">0–2 Years</SelectItem>
+                    <SelectItem value="2-5">2–5 Years</SelectItem>
+                    <SelectItem value="5-8">5–8 Years</SelectItem>
+                    <SelectItem value="8+">8+ Years</SelectItem>
+                    <SelectItem value="not_specified">Not Specified</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Sorting & Clear */}
@@ -806,6 +867,7 @@ export const RecruiterJobDiscoveryPage = () => {
                   <th className="py-2.5 px-3">Visa Intelligence</th>
                   <th className="py-2.5 px-3">Location</th>
                   <th className="py-2.5 px-3">Salary</th>
+                  <th className="py-2.5 px-3">Experience</th>
                   <th className="py-2.5 px-3">Portal</th>
                   <th className="py-2.5 px-3">Scraped Date</th>
                   <th className="py-2.5 px-3">Posted Date</th>
@@ -815,14 +877,14 @@ export const RecruiterJobDiscoveryPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading candidate matched opportunities...
                     </td>
                   </tr>
                 ) : !hasCandidates ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-500">
+                    <td colSpan={10} className="py-12 text-center text-slate-500">
                       <Users className="h-8 w-8 mx-auto mb-2 text-slate-400" />
                       <p className="font-semibold text-slate-700">No active candidates assigned to your account</p>
                       <p className="text-xs text-slate-500 mt-1">
@@ -832,7 +894,7 @@ export const RecruiterJobDiscoveryPage = () => {
                   </tr>
                 ) : jobs.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       {discoveryTab === "dismissed"
                         ? "No rejected opportunities recorded under the current filters."
@@ -925,6 +987,21 @@ export const RecruiterJobDiscoveryPage = () => {
                       {/* Salary */}
                       <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
                         {formatSalaryDisplay(job)}
+                      </td>
+
+                      {/* Experience */}
+                      <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                        {job.experience_min_years != null ? (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 font-medium text-[11px]">
+                            {job.experience_max_years ? `${job.experience_min_years}–${job.experience_max_years} yrs` : `${job.experience_min_years}+ yrs`}
+                          </Badge>
+                        ) : job.experience_level ? (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 font-medium text-[11px]">
+                            {job.experience_level}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">—</span>
+                        )}
                       </td>
 
                       {/* Portal */}
@@ -1191,6 +1268,46 @@ export const RecruiterJobDiscoveryPage = () => {
                         {selectedJob.green_card_sponsor ? "Yes (Sponsor)" : `${selectedJob.perm_filings || 0} filings`}
                       </span>
                     </div>
+                  </div>
+                </div>
+
+                {/* Job Metadata Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Target Role</span>
+                    <span className="font-semibold text-slate-800">{selectedJob.target_role}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Employment Type</span>
+                    <span className="font-semibold text-slate-800 capitalize">
+                      {selectedJob.employment_type || "Full-time"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Compensation</span>
+                    <span className="font-semibold text-slate-800">
+                      {formatSalaryDisplay(selectedJob)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Required Experience</span>
+                    <span className="font-semibold text-slate-800">
+                      {selectedJob.experience_min_years != null
+                        ? (selectedJob.experience_max_years ? `${selectedJob.experience_min_years}–${selectedJob.experience_max_years} years` : `${selectedJob.experience_min_years}+ years`)
+                        : (selectedJob.experience_level || "Not specified")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Date Posted</span>
+                    <span className="font-semibold text-slate-800">
+                      {selectedJob.date_posted ? formatDate(selectedJob.date_posted) : "Recent"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Source Portal</span>
+                    <span className="font-semibold text-slate-800 capitalize">
+                      {selectedJob.source_portal}
+                    </span>
                   </div>
                 </div>
 

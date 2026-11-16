@@ -87,6 +87,9 @@ class DiscoveredJob(models.Model):
 
     employment_type = models.CharField(max_length=50, blank=True, null=True)
     experience_level = models.CharField(max_length=50, blank=True, null=True)
+    experience_min_years = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, db_index=True)
+    experience_max_years = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    experience_raw = models.CharField(max_length=255, null=True, blank=True)
     source_portal = models.CharField(max_length=50, db_index=True)
     date_posted = models.DateTimeField(null=True, blank=True)
 

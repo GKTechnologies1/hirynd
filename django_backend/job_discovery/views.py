@@ -24,6 +24,7 @@ from .serializers import (
 )
 from .services.role_provider import get_eligible_roles
 from .services.scraper_engine import trigger_async_scrape
+from .services.experience_detector import filter_jobs_by_experience
 
 logger = logging.getLogger('job_discovery')
 
@@ -420,15 +421,10 @@ def list_discovered_jobs(request):
     if is_duplicate is not None and is_duplicate != '':
         qs = qs.filter(is_duplicate=is_duplicate.lower() == 'true')
 
-    # Experience level filter
-    experience_level = request.GET.get('experience_level') or request.GET.get('experience_required')
-    if experience_level and experience_level != 'all':
-        exp_list = [x.strip() for x in experience_level.split(',') if x.strip()]
-        if exp_list:
-            q_exp = Q()
-            for x in exp_list:
-                q_exp |= Q(experience_level__icontains=x)
-            qs = qs.filter(q_exp)
+    # Experience level & range filter
+    exp_filter = request.GET.get('experience') or request.GET.get('experience_level') or request.GET.get('experience_required')
+    if exp_filter:
+        qs = filter_jobs_by_experience(qs, exp_filter)
 
     # Clearance and eligibility restrictions filter
     restriction = request.GET.get('restriction', '').strip()

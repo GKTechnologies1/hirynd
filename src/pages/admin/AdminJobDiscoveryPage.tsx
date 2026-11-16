@@ -98,6 +98,7 @@ export const AdminJobDiscoveryPage = () => {
   const [h1bOnly, setH1bOnly] = useState<boolean>(false);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedRestriction, setSelectedRestriction] = useState<string>("all");
+  const [selectedExperience, setSelectedExperience] = useState<string>("all");
   const [isRemote, setIsRemote] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState("-created_at");
   const [currentPage, setCurrentPage] = useState(1);
@@ -171,6 +172,7 @@ export const AdminJobDiscoveryPage = () => {
       if (h1bOnly) params.h1b_only = true;
       if (selectedStatus !== "all") params.review_status = selectedStatus;
       if (selectedRestriction !== "all") params.restriction = selectedRestriction;
+      if (selectedExperience !== "all") params.experience = selectedExperience;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
 
       const res = await jobDiscoveryApi.jobs(params);
@@ -188,7 +190,7 @@ export const AdminJobDiscoveryPage = () => {
     }
   }, [
     currentPage, pageSize, sortOrder, debouncedSearch, selectedRoles, selectedCompany,
-    selectedSource, selectedVisaGrade, fromDate, toDate, minScore, h1bOnly, selectedStatus, selectedRestriction, isRemote, toast
+    selectedSource, selectedVisaGrade, fromDate, toDate, minScore, h1bOnly, selectedStatus, selectedRestriction, selectedExperience, isRemote, toast
   ]);
 
   useEffect(() => {
@@ -242,6 +244,7 @@ export const AdminJobDiscoveryPage = () => {
     setH1bOnly(false);
     setSelectedStatus("all");
     setSelectedRestriction("all");
+    setSelectedExperience("all");
     setIsRemote("all");
     setSortOrder("-created_at");
     setCurrentPage(1);
@@ -501,6 +504,24 @@ export const AdminJobDiscoveryPage = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Experience Filter */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-slate-500 font-medium">Experience:</span>
+                <Select value={selectedExperience} onValueChange={(val) => { setSelectedExperience(val); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-36 h-7 text-xs">
+                    <SelectValue placeholder="Any Experience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any Experience</SelectItem>
+                    <SelectItem value="0-2">0–2 Years</SelectItem>
+                    <SelectItem value="2-5">2–5 Years</SelectItem>
+                    <SelectItem value="5-8">5–8 Years</SelectItem>
+                    <SelectItem value="8+">8+ Years</SelectItem>
+                    <SelectItem value="not_specified">Not Specified</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Sorting & Clear */}
@@ -558,6 +579,7 @@ export const AdminJobDiscoveryPage = () => {
                   <th className="py-2.5 px-3">Visa Intelligence</th>
                   <th className="py-2.5 px-3">Location</th>
                   <th className="py-2.5 px-3">Salary</th>
+                  <th className="py-2.5 px-3">Experience</th>
                   <th className="py-2.5 px-3">Portal</th>
                   <th className="py-2.5 px-3">Scraped Date</th>
                   <th className="py-2.5 px-3">Posted Date</th>
@@ -567,14 +589,14 @@ export const AdminJobDiscoveryPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading discovered opportunities...
                     </td>
                   </tr>
                 ) : jobs.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       No opportunities match your current filter parameters.
                     </td>
@@ -646,6 +668,21 @@ export const AdminJobDiscoveryPage = () => {
                       {/* Salary */}
                       <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
                         {formatSalaryDisplay(job)}
+                      </td>
+
+                      {/* Experience */}
+                      <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                        {job.experience_min_years != null ? (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 font-medium text-[11px]">
+                            {job.experience_max_years ? `${job.experience_min_years}–${job.experience_max_years} yrs` : `${job.experience_min_years}+ yrs`}
+                          </Badge>
+                        ) : job.experience_level ? (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 font-medium text-[11px]">
+                            {job.experience_level}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">—</span>
+                        )}
                       </td>
 
                       {/* Portal */}
@@ -898,6 +935,14 @@ export const AdminJobDiscoveryPage = () => {
                     <span className="text-slate-500 block text-[10px]">Compensation</span>
                     <span className="font-semibold text-slate-800">
                       {formatSalaryDisplay(selectedJob)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Required Experience</span>
+                    <span className="font-semibold text-slate-800">
+                      {selectedJob.experience_min_years != null
+                        ? (selectedJob.experience_max_years ? `${selectedJob.experience_min_years}–${selectedJob.experience_max_years} years` : `${selectedJob.experience_min_years}+ years`)
+                        : (selectedJob.experience_level || "Not specified")}
                     </span>
                   </div>
                   <div>

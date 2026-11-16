@@ -15,6 +15,7 @@ from .services.recruiter_scoper import (
     build_recruiter_jobs_queryset,
     attach_matching_candidate_context,
 )
+from .services.experience_detector import filter_jobs_by_experience
 
 logger = logging.getLogger('job_discovery')
 
@@ -56,15 +57,20 @@ def list_recruiter_jobs(request):
             'message': 'No active candidates with confirmed roles are currently assigned to you.'
         })
 
-    app_status = request.GET.get('status', 'all').strip().upper()
+    raw_status = request.GET.get('status')
     disc_filter = request.GET.get('discovery_status', '').strip().upper()
+    if raw_status:
+        app_status = raw_status.strip().upper()
+    else:
+        # Default to NOT_APPLIED unless discovery_status is explicitly DISMISSED or REJECTED
+        if disc_filter in ('DISMISSED', 'REJECTED'):
+            app_status = 'REJECTED'
+        else:
+            app_status = 'NOT_APPLIED'
+
     if not disc_filter:
-        if app_status == 'DISMISSED':
-            disc_filter = 'DISMISSED'
-            app_status = 'ALL'
-        elif app_status == 'REJECTED':
+        if app_status in ('DISMISSED', 'REJECTED'):
             disc_filter = 'REJECTED'
-            app_status = 'ALL'
         else:
             disc_filter = 'ACTIVE'
 
@@ -73,7 +79,8 @@ def list_recruiter_jobs(request):
         recruiter_user=request.user,
         candidate_id=candidate_id,
         role_filter=role_filter,
-        disc_filter=disc_filter
+        disc_filter=disc_filter,
+        app_status=app_status,
     )
 
     # Search keyword filter (title, company, normalized company, role, description, location, restrictions)
@@ -174,15 +181,10 @@ def list_recruiter_jobs(request):
             Q(location_raw__icontains=location)
         )
 
-    # Experience level filter
-    experience_level = request.GET.get('experience_level') or request.GET.get('experience_required')
-    if experience_level and experience_level != 'all':
-        exp_list = [x.strip() for x in experience_level.split(',') if x.strip()]
-        if exp_list:
-            q_exp = Q()
-            for x in exp_list:
-                q_exp |= Q(experience_level__icontains=x)
-            qs = qs.filter(q_exp)
+    # Experience level & range filter
+    exp_filter = request.GET.get('experience') or request.GET.get('experience_level') or request.GET.get('experience_required')
+    if exp_filter:
+        qs = filter_jobs_by_experience(qs, exp_filter)
 
     # Clearance and eligibility restrictions filter
     restriction = request.GET.get('restriction', '').strip()
@@ -273,13 +275,14 @@ def list_recruiter_jobs(request):
             item['has_applied'] = False
             expanded_records.append(item)
 
-    if disc_filter == 'ACTIVE':
-        expanded_records = [r for r in expanded_records if not r.get('is_dismissed') and r.get('status') != 'REJECTED']
-    elif disc_filter in ('DISMISSED', 'REJECTED'):
+    if app_status == 'ALL':
+        pass  # Show all matching jobs regardless of application status
+    elif app_status == 'APPLIED':
+        expanded_records = [r for r in expanded_records if r.get('status') == 'APPLIED' or r.get('has_applied')]
+    elif app_status in ('REJECTED', 'DISMISSED') or disc_filter in ('DISMISSED', 'REJECTED'):
         expanded_records = [r for r in expanded_records if r.get('is_dismissed') or r.get('status') == 'REJECTED' or r.get('discovery_status') in ('DISMISSED', 'REJECTED')]
-
-    if app_status and app_status != 'ALL':
-        expanded_records = [r for r in expanded_records if r['status'] == app_status]
+    else:  # Default: NOT_APPLIED
+        expanded_records = [r for r in expanded_records if not r.get('is_dismissed') and r.get('status') not in ('APPLIED', 'REJECTED') and not r.get('has_applied')]
 
     return Response({
         'count': len(expanded_records) if app_status != 'ALL' or len(expanded_records) != len(enriched_jobs) else paginator.count,

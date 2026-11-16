@@ -35,6 +35,7 @@ import {
   formatSalaryAmount,
   handleSalaryKeyDown,
 } from "@/data/usLocations";
+import { formatSalaryDisplay } from "@/lib/salaryFormatter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -229,20 +230,6 @@ const DUPLICATE_PAIRS: [string, string][] = [
   ["opt_offer_letter_submitted", "opt_offer_submitted"],
   ["opt_offer_letter_url", "offer_letter_url"],
 ];
-
-const formatSalaryDisplay = (rawSalary: any): string => {
-  if (!rawSalary) return "Not Disclosed";
-  const s = String(rawSalary).trim();
-  if (!s || s === "-" || s.toLowerCase() === "not disclosed" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") {
-    return "Not Disclosed";
-  }
-  const cleaned = s.replace(/^\$+/, '').trim();
-  if (!cleaned) return "Not Disclosed";
-  if (/^[€£₹]/.test(cleaned)) {
-    return cleaned;
-  }
-  return `$${cleaned}`;
-};
 
 const TIME_OPTIONS = [
   "12:00 AM", "12:30 AM", "01:00 AM", "01:30 AM", "02:00 AM", "02:30 AM",

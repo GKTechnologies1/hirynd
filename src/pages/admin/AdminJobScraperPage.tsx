@@ -43,12 +43,12 @@ interface CompanyVisaItem {
 }
 
 const AVAILABLE_SOURCES = [
-  { id: "linkedin", label: "LinkedIn" },
-  { id: "indeed", label: "Indeed" },
-  { id: "glassdoor", label: "Glassdoor" },
-  { id: "dice", label: "Dice" },
-  { id: "monster", label: "Monster" },
-  { id: "ziprecruiter", label: "ZipRecruiter" },
+  { id: "linkedin", label: "LinkedIn", isPrimary: true },
+  { id: "indeed", label: "Indeed", isPrimary: true },
+  { id: "glassdoor", label: "Glassdoor", isPrimary: true },
+  { id: "dice", label: "Dice", isPrimary: true },
+  { id: "monster", label: "Monster", isPrimary: false },
+  { id: "ziprecruiter", label: "ZipRecruiter", isPrimary: false },
 ];
 
 const getGradeBadge = (grade?: string, score?: number) => {
@@ -193,7 +193,7 @@ export const AdminJobScraperPage = () => {
     if (existing) {
       setSelectedRoles(prev => prev.filter(r => r.role.toLowerCase() !== roleName.toLowerCase()));
     } else {
-      setSelectedRoles(prev => [...prev, { role: roleName, limit: 15 }]);
+      setSelectedRoles(prev => [...prev, { role: roleName, limit: 20 }]);
     }
   };
 
@@ -204,7 +204,7 @@ export const AdminJobScraperPage = () => {
       toast({ title: "Role already added", variant: "destructive" });
       return;
     }
-    setSelectedRoles(prev => [...prev, { role: trimmed, limit: 15 }]);
+    setSelectedRoles(prev => [...prev, { role: trimmed, limit: 20 }]);
     setCustomRoleInput("");
   };
 
@@ -704,17 +704,29 @@ export const AdminJobScraperPage = () => {
                 {AVAILABLE_SOURCES.map((s) => (
                   <label
                     key={s.id}
-                    className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
+                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
                       selectedSources.includes(s.id)
                         ? "border-primary/50 bg-primary/5 text-slate-900 font-medium"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <Checkbox
-                      checked={selectedSources.includes(s.id)}
-                      onCheckedChange={() => handleToggleSource(s.id)}
-                    />
-                    <span className="text-xs">{s.label}</span>
+                    <div className="flex items-center gap-2.5">
+                      <Checkbox
+                        checked={selectedSources.includes(s.id)}
+                        onCheckedChange={() => handleToggleSource(s.id)}
+                      />
+                      <span className="text-xs">{s.label}</span>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider ${
+                        s.isPrimary
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      {s.isPrimary ? "Primary" : "Optional"}
+                    </Badge>
                   </label>
                 ))}
               </div>

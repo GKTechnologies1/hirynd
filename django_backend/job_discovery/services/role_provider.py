@@ -47,8 +47,9 @@ def get_eligible_roles(limit: int = 50) -> List[dict]:
     """
     role_map = {}  # norm_key -> {'role': display, 'source': 'candidate_confirmed', 'candidate_ids': set()}
 
-    # 1. Candidate confirmed suggestions
+    # 1. Candidate confirmed suggestions for active marketing candidate profiles only
     confirmed_suggestions = RoleSuggestion.objects.filter(
+        candidate__status='active_marketing',
         candidate_confirmed=True
     ).values('candidate_id', 'role_title')
 
@@ -72,8 +73,9 @@ def get_eligible_roles(limit: int = 50) -> List[dict]:
                 }
             role_map[key]['candidate_ids'].add(cand_id)
 
-    # 2. Confirmed custom role confirmations
+    # 2. Confirmed custom role confirmations for active marketing candidate profiles only
     confirmed_rcs = RoleConfirmation.objects.filter(
+        candidate__status='active_marketing',
         response='confirmed'
     ).select_related('suggestion').values('candidate_id', 'custom_role_title', 'suggestion__role_title')
 
@@ -105,11 +107,10 @@ def get_eligible_roles(limit: int = 50) -> List[dict]:
             'count': len(data['candidate_ids'])
         })
 
-    # Fallback default roles if database has minimal data
-    defaults = ['Software Engineer', 'Data Engineer', 'Data Analyst', 'Product Manager', 'DevOps Engineer']
-    for d in defaults:
-        key = d.lower()
-        if key not in role_map:
+    # Fallback default roles only if database has no active candidate roles at all
+    if not role_map:
+        defaults = ['Software Engineer', 'Data Engineer', 'Data Analyst', 'Product Manager', 'DevOps Engineer']
+        for d in defaults:
             result.append({'role': d, 'source': 'default', 'count': 0})
 
     # Sort by count descending, then role name alphabetically

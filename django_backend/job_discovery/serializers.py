@@ -207,6 +207,7 @@ class DiscoveredJobListSerializer(serializers.ModelSerializer):
             'job_url', 'job_description', 'location_raw', 'city', 'state', 'state_code', 'country',
             'is_remote', 'is_hybrid', 'salary_min', 'salary_max', 'salary_currency',
             'salary_period', 'salary_raw', 'employment_type', 'experience_level',
+            'experience_min_years', 'experience_max_years', 'experience_raw',
             'source_portal', 'date_posted', 'job_url', 'review_status',
             'is_duplicate', 'canonical_job_id', 'reviewed_by_email',
             'reviewed_at', 'created_at',
@@ -234,7 +235,8 @@ class DiscoveredJobDetailSerializer(serializers.ModelSerializer):
             'target_role', 'job_url', 'job_description', 'location_raw', 'city',
             'state', 'state_code', 'country', 'is_remote', 'is_hybrid',
             'salary_min', 'salary_max', 'salary_currency', 'salary_period', 'salary_raw',
-            'employment_type', 'experience_level', 'source_portal', 'date_posted',
+            'employment_type', 'experience_level', 'experience_min_years', 'experience_max_years', 'experience_raw',
+            'source_portal', 'date_posted',
             'execution', 'review_status', 'is_duplicate', 'canonical_job',
             'canonical_job_title', 'reviewed_by', 'reviewed_by_email', 'reviewed_at',
             'review_notes', 'is_active', 'created_at', 'updated_at',
@@ -275,7 +277,7 @@ class DiscoveredJobReviewSerializer(serializers.Serializer):
 
 class RoleItemSerializer(serializers.Serializer):
     role = serializers.CharField(max_length=150)
-    limit = serializers.IntegerField(default=15, min_value=1, max_value=100)
+    limit = serializers.IntegerField(default=20, min_value=1, max_value=100)
 
 
 class ScraperRunRequestSerializer(serializers.Serializer):
