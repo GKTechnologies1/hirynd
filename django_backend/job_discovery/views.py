@@ -633,6 +633,24 @@ def approve_for_job_management(request, job_id):
                     interview_count=0,
                     offer_count=0,
                 )
+            sal_val = job.salary_raw or ""
+            if not sal_val and job.salary_min:
+                period_str = f" / {job.salary_period.title()}" if job.salary_period else ""
+                if job.salary_max and job.salary_max != job.salary_min:
+                    sal_val = f"${int(job.salary_min):,} – ${int(job.salary_max):,}{period_str}"
+                else:
+                    sal_val = f"${int(job.salary_min):,}{period_str}"
+            elif sal_val and not any(p in sal_val.lower() for p in ('hour', 'year', 'month', 'week', 'day', '/')):
+                if job.salary_period:
+                    sal_val = f"{sal_val} / {job.salary_period.title()}"
+                elif job.salary_min and job.salary_min < 300:
+                    sal_val = f"{sal_val} / Hourly"
+                elif job.salary_min and job.salary_min >= 10000:
+                    sal_val = f"{sal_val} / Yearly"
+
+            work_mode_val = 'Remote' if job.is_remote else ('Hybrid' if job.is_hybrid else 'Onsite')
+            exp_val = job.experience_level or 'Not Specified'
+
             link_entry = JobLinkEntry.objects.create(
                 submission_log=log,
                 candidate=cand,
@@ -641,11 +659,13 @@ def approve_for_job_management(request, job_id):
                 job_url=job.job_url,
                 job_description=job.job_description,
                 application_status='applied',
-                employment_type=job.employment_type or 'contract',
+                employment_type=job.employment_type or 'Full-Time',
+                experience_required=exp_val,
+                work_mode=work_mode_val,
                 city=job.city,
                 state=job.state,
-                country=job.country,
-                salary=job.salary_raw or (f"${job.salary_min}" if job.salary_min else ""),
+                country=job.country or 'USA',
+                salary=sal_val or 'Not Disclosed',
                 notes=f"Created from Discovered Job {job.id}. {notes}".strip(),
                 submitted_by=request.user,
                 is_public=True,

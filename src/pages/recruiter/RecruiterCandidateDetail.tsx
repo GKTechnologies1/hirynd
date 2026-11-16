@@ -35,7 +35,7 @@ import {
   formatSalaryAmount,
   handleSalaryKeyDown,
 } from "@/data/usLocations";
-import { formatSalaryDisplay } from "@/lib/salaryFormatter";
+import { formatSalaryDisplay, formatEmploymentType, formatWorkMode } from "@/lib/salaryFormatter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -446,7 +446,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         if (appFromDate) {
           const fParts = appFromDate.split(/[-\/]/);
           if (fParts.length === 3) {
-            const fd = new Date(parseInt(fParts[2], 10), parseInt(fParts[0], 10) - 1, parseInt(fParts[1], 10));
+            const fd = fParts[0].length === 4
+              ? new Date(parseInt(fParts[0], 10), parseInt(fParts[1], 10) - 1, parseInt(fParts[2], 10))
+              : new Date(parseInt(fParts[2], 10), parseInt(fParts[0], 10) - 1, parseInt(fParts[1], 10));
             fd.setHours(0, 0, 0, 0);
             if (itemDate < fd) matchDate = false;
           }
@@ -455,7 +457,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         if (appToDate) {
           const tParts = appToDate.split(/[-\/]/);
           if (tParts.length === 3) {
-            const td = new Date(parseInt(tParts[2], 10), parseInt(tParts[0], 10) - 1, parseInt(tParts[1], 10));
+            const td = tParts[0].length === 4
+              ? new Date(parseInt(tParts[0], 10), parseInt(tParts[1], 10) - 1, parseInt(tParts[2], 10))
+              : new Date(parseInt(tParts[2], 10), parseInt(tParts[0], 10) - 1, parseInt(tParts[1], 10));
             td.setHours(23, 59, 59, 999);
             if (itemDate > td) matchDate = false;
           }
@@ -1425,13 +1429,13 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         escapeCsv(candidateName),
         escapeCsv(j.company_name || ""),
         escapeCsv(j.role_title || ""),
-        escapeCsv(j.employment_type || "Full-Time"),
-        escapeCsv(j.work_mode || "Onsite"),
-        escapeCsv(j.experience_required || "0–2 Years"),
+        escapeCsv(formatEmploymentType(j.employment_type)),
+        escapeCsv(formatWorkMode(j.work_mode)),
+        escapeCsv(j.experience_required || "Not Specified"),
         escapeCsv(j.city || ""),
         escapeCsv(j.state || ""),
         escapeCsv(j.country || "United States"),
-        escapeCsv(formatSalaryDisplay(j.salary)),
+        escapeCsv(formatSalaryDisplay(j)),
         escapeCsv(j.visa_eligibility || "All Work Authorization"),
         escapeCsv(status),
         escapeCsv(j.job_url || ""),
@@ -3580,6 +3584,29 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     </Select>
                   </div>
                 </div>
+                {(appSearchRole || appSearchCompany || appFromDate || appToDate || (appActionFilter && appActionFilter !== "all")) && (
+                  <div className="flex items-center justify-between pb-2 text-xs text-muted-foreground border-b border-border/30 mb-2">
+                    <span className="text-[11px]">
+                      Filtered <strong>{filteredJobPostings.length}</strong> of <strong>{jobPostings.length}</strong> applications
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setAppSearchRole("");
+                        setAppSearchCompany("");
+                        setAppFromDate("");
+                        setAppToDate("");
+                        setAppActionFilter("all");
+                      }}
+                      className="h-6 px-2 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Reset Filters
+                    </Button>
+                  </div>
+                )}
               </div>
               <DataTable
                 data={filteredJobPostings}
@@ -3613,7 +3640,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     header: "Employment Type",
                     className: "px-2 py-3 whitespace-nowrap",
                     render: (j: any) => {
-                      const val = j.employment_type || "Full-Time";
+                      const val = formatEmploymentType(j.employment_type);
                       return (
                         <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold text-xs">
                           {val}
@@ -3625,10 +3652,16 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     header: "Experience Required",
                     className: "px-2 py-3 whitespace-nowrap",
                     render: (j: any) => {
-                      const val = j.experience_required || "0–2 Years";
+                      const val = j.experience_required;
+                      const isNotSpecified = !val || val.toLowerCase() === "not specified" || val.toLowerCase() === "none";
                       return (
-                        <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold text-xs">
-                          {val}
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-md border font-semibold text-xs whitespace-nowrap",
+                          isNotSpecified
+                            ? "bg-slate-50 text-slate-500 border-slate-200"
+                            : "bg-purple-50 text-purple-700 border-purple-200/60"
+                        )}>
+                          {isNotSpecified ? "Not Specified" : val}
                         </span>
                       );
                     }
@@ -3637,9 +3670,18 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     header: "Work Mode",
                     className: "px-2 py-3 whitespace-nowrap",
                     render: (j: any) => {
-                      const val = j.work_mode || "Onsite";
+                      const val = formatWorkMode(j.work_mode);
+                      const isRemote = val === "Remote";
+                      const isHybrid = val === "Hybrid";
                       return (
-                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold text-xs">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-md border font-semibold text-xs whitespace-nowrap",
+                          isRemote
+                            ? "bg-blue-50 text-blue-700 border-blue-200/60"
+                            : isHybrid
+                            ? "bg-amber-50 text-amber-700 border-amber-200/60"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200/60"
+                        )}>
                           {val}
                         </span>
                       );
@@ -3663,7 +3705,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                   {
                     header: "Salary",
                     className: "px-2 py-3 whitespace-nowrap text-xs font-bold text-foreground",
-                    render: (j: any) => formatSalaryDisplay(j.salary)
+                    render: (j: any) => formatSalaryDisplay(j)
                   },
                   {
                     header: "Visa Eligibility",

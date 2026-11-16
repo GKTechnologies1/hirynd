@@ -31,7 +31,7 @@ import {
   formatSalaryAmount,
   handleSalaryKeyDown,
 } from "@/data/usLocations";
-import { formatSalaryDisplay } from "@/lib/salaryFormatter";
+import { formatSalaryDisplay, formatEmploymentType, formatWorkMode } from "@/lib/salaryFormatter";
 
 const JobDescriptionCell = ({
   company,
@@ -650,13 +650,13 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       escapeCsv(`HYRSUB${j.id ? j.id.toString().slice(-6).toUpperCase() : ""}`),
       escapeCsv(j.company_name),
       escapeCsv(j.role_title),
-      escapeCsv(j.employment_type || "Full-Time"),
-      escapeCsv(j.experience_required || "0–2 Years"),
-      escapeCsv(j.work_mode || "Onsite"),
+      escapeCsv(formatEmploymentType(j.employment_type)),
+      escapeCsv(j.experience_required || "Not Specified"),
+      escapeCsv(formatWorkMode(j.work_mode)),
       escapeCsv(j.city || ""),
       escapeCsv(j.state || ""),
       escapeCsv(j.country || "United States"),
-      escapeCsv(formatSalaryDisplay(j.salary)),
+      escapeCsv(formatSalaryDisplay(j)),
       escapeCsv(j.visa_eligibility || "All Work Authorization"),
       escapeCsv(j.candidate_response_status || j.application_status || j.status || ""),
       escapeCsv(j.job_url || ""),
@@ -1309,7 +1309,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap",
                     render: (j: any) => {
-                      const val = j.employment_type || "Full-Time";
+                      const val = formatEmploymentType(j.employment_type);
                       return (
                         <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200/60 font-semibold text-xs">
                           {val}
@@ -1323,10 +1323,16 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap",
                     render: (j: any) => {
-                      const val = j.experience_required || "0–2 Years";
+                      const val = j.experience_required;
+                      const isNotSpecified = !val || val.toLowerCase() === "not specified" || val.toLowerCase() === "none";
                       return (
-                        <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200/60 font-semibold text-xs">
-                          {val}
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-md border font-semibold text-xs whitespace-nowrap",
+                          isNotSpecified
+                            ? "bg-slate-50 text-slate-500 border-slate-200"
+                            : "bg-purple-50 text-purple-700 border-purple-200/60"
+                        )}>
+                          {isNotSpecified ? "Not Specified" : val}
                         </span>
                       );
                     }
@@ -1337,9 +1343,18 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap",
                     render: (j: any) => {
-                      const val = j.work_mode || "Onsite";
+                      const val = formatWorkMode(j.work_mode);
+                      const isRemote = val === "Remote";
+                      const isHybrid = val === "Hybrid";
                       return (
-                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200/60 font-semibold text-xs">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-md border font-semibold text-xs whitespace-nowrap",
+                          isRemote
+                            ? "bg-blue-50 text-blue-700 border-blue-200/60"
+                            : isHybrid
+                            ? "bg-amber-50 text-amber-700 border-amber-200/60"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200/60"
+                        )}>
                           {val}
                         </span>
                       );
@@ -1371,7 +1386,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     accessorKey: "salary",
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap text-xs font-bold text-foreground",
-                    render: (j: any) => formatSalaryDisplay(j.salary)
+                    render: (j: any) => formatSalaryDisplay(j)
                   },
                   {
                     header: "Visa Eligibility",

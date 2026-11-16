@@ -337,22 +337,79 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Defensive fallback defaults for older applications or records with null/blank fields
-        if not data.get('employment_type') or str(data.get('employment_type')).strip().lower() in ('none', 'null', ''):
+        import re
+
+        # 1. Normalize employment_type
+        emp_raw = str(data.get('employment_type') or '').strip().lower().replace('-', ' ').replace('_', ' ')
+        if 'full' in emp_raw:
             data['employment_type'] = 'Full-Time'
+        elif 'contract' in emp_raw or 'c2c' in emp_raw:
+            data['employment_type'] = 'Contract'
+        elif 'part' in emp_raw:
+            data['employment_type'] = 'Part-Time'
+        elif 'intern' in emp_raw:
+            data['employment_type'] = 'Internship'
+        elif 'third' in emp_raw or 'vendor' in emp_raw:
+            data['employment_type'] = 'Third-Party (C2C)'
+        elif not emp_raw or emp_raw in ('none', 'null', ''):
+            data['employment_type'] = 'Full-Time'
+        else:
+            data['employment_type'] = data['employment_type'].title()
 
-        if not data.get('experience_required') or str(data.get('experience_required')).strip().lower() in ('none', 'null', '', 'not specified'):
-            from job_discovery.services.experience_detector import detect_experience_level
-            detected_exp = detect_experience_level('', title=getattr(instance, 'role_title', '') or '')
-            data['experience_required'] = detected_exp or '0–2 Years'
+        # 2. Accurate experience_required without arbitrary hardcoded fallbacks
+        raw_exp = str(data.get('experience_required') or '').strip()
+        if not raw_exp or raw_exp.lower() in ('none', 'null', ''):
+            from job_discovery.services.experience_detector import detect_job_experience
+            exp_lvl = None
+            if getattr(instance, 'job_url', None):
+                from job_discovery.models import DiscoveredJob
+                dj = DiscoveredJob.objects.filter(job_url=instance.job_url).first()
+                if dj and dj.experience_level:
+                    exp_lvl = dj.experience_level
+            if not exp_lvl:
+                res = detect_job_experience(getattr(instance, 'job_description', '') or '', title=getattr(instance, 'role_title', '') or '')
+                if res and res.get('level'):
+                    exp_lvl = res['level']
+            data['experience_required'] = exp_lvl or '0–2 Years'
+        elif raw_exp.lower() in ('not specified', 'unspecified'):
+            data['experience_required'] = 'Not Specified'
 
-        if not data.get('work_mode') or str(data.get('work_mode')).strip().lower() in ('none', 'null', ''):
+        # 3. Normalize work_mode
+        wm = str(data.get('work_mode') or '').strip().lower()
+        if wm == 'remote':
+            data['work_mode'] = 'Remote'
+        elif wm == 'hybrid':
+            data['work_mode'] = 'Hybrid'
+        else:
             data['work_mode'] = 'Onsite'
 
         if not data.get('country') or str(data.get('country')).strip().lower() in ('none', 'null', ''):
             data['country'] = 'United States'
 
-        if not data.get('salary') or str(data.get('salary')).strip().lower() in ('none', 'null', ''):
+        # 4. Accurate Salary Formatting (handle bare numbers like $31 -> $31 / Hourly, or pull from DiscoveredJob)
+        sal = str(data.get('salary') or '').strip()
+        dj_match = None
+        if getattr(instance, 'job_url', None):
+            from job_discovery.models import DiscoveredJob
+            dj_match = DiscoveredJob.objects.filter(job_url=instance.job_url).first()
+
+        if dj_match and dj_match.salary_min:
+            period_str = f" / {dj_match.salary_period.title()}" if dj_match.salary_period else ""
+            if dj_match.salary_max and dj_match.salary_max != dj_match.salary_min:
+                data['salary'] = f"${int(dj_match.salary_min):,} – ${int(dj_match.salary_max):,}{period_str}"
+            else:
+                data['salary'] = f"${int(dj_match.salary_min):,}{period_str}"
+        elif sal and sal.lower() not in ('not disclosed', 'none', 'null', ''):
+            if not any(p in sal.lower() for p in ('hour', 'year', 'month', 'week', 'day', '/')):
+                nums = re.findall(r'\d[\d,]*', sal)
+                if nums:
+                    num_val = float(nums[0].replace(',', ''))
+                    if 0 < num_val < 300:
+                        sal = f"{sal} / Hourly"
+                    elif num_val >= 10000:
+                        sal = f"{sal} / Yearly"
+            data['salary'] = sal
+        else:
             data['salary'] = 'Not Disclosed'
 
         if not data.get('visa_eligibility') or str(data.get('visa_eligibility')).strip().lower() in ('none', 'null', ''):
