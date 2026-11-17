@@ -137,10 +137,14 @@ class CandidateSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_total_applications(self, obj):
+        if hasattr(obj, 'annotated_total_applications'):
+            return obj.annotated_total_applications
         from recruiters.models import JobLinkEntry
         return JobLinkEntry.objects.filter(candidate=obj).count()
 
     def get_total_interviews(self, obj):
+        if hasattr(obj, 'annotated_total_interviews'):
+            return obj.annotated_total_interviews
         from .models import InterviewLog
         return InterviewLog.objects.filter(candidate=obj).count()
 
@@ -199,10 +203,14 @@ class CandidateListSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_total_applications(self, obj):
+        if hasattr(obj, 'annotated_total_applications'):
+            return obj.annotated_total_applications
         from recruiters.models import JobLinkEntry
         return JobLinkEntry.objects.filter(candidate=obj).count()
 
     def get_total_interviews(self, obj):
+        if hasattr(obj, 'annotated_total_interviews'):
+            return obj.annotated_total_interviews
         from .models import InterviewLog
         return InterviewLog.objects.filter(candidate=obj).count()
 
