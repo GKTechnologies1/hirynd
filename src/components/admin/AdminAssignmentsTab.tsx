@@ -38,12 +38,19 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
     try {
       const [assignRes, recruiterRes] = await Promise.all([
         recruitersApi.assignments(candidateId),
-        authApi.allUsers({ role: 'recruiter' }),
+        authApi.allUsers({ eligible_for_assignment: true }),
       ]);
       setAssignments(assignRes.data || []);
       // backend returns { results: [], total: 0 }
       const recruiterList = Array.isArray(recruiterRes.data) ? recruiterRes.data : recruiterRes.data?.results || [];
-      setRecruiters(recruiterList.filter((r: any) => r.approval_status !== "rejected"));
+      // Strictly filter for approved, active recruiters, team leads, and team managers
+      const eligible = recruiterList.filter((r: any) =>
+        ["recruiter", "team_lead", "team_manager"].includes(r.role) &&
+        r.approval_status === "approved" &&
+        r.account_status === "active" &&
+        r.is_active !== false
+      );
+      setRecruiters(eligible);
     } catch {
       setAssignments([]); setRecruiters([]);
     }
@@ -57,10 +64,10 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
 
     const recruiterObj = recruiters.find(r => r.id === selectedRecruiter);
 
-    if (recruiterObj?.approval_status === "rejected") {
+    if (recruiterObj?.approval_status !== "approved" || recruiterObj?.account_status !== "active") {
       toast({
         title: "Assignment Failed",
-        description: "Rejected recruiters cannot be assigned to candidates.",
+        description: "Only active and approved recruiters/staff can be assigned to candidates.",
         variant: "destructive"
       });
       return;
@@ -196,18 +203,21 @@ const AdminAssignmentsTab = ({ candidateId, candidateStatus, hasCredentials, onR
                       .filter((r: any) => {
                         const maxClients = r.max_clients || 0;
                         const activeCount = r.assigned_candidate_count ?? 0;
-                        return activeCount < maxClients;
+                        return maxClients === 0 || activeCount < maxClients;
                       })
-                      .map((r: any) => (
-                        <SelectItem key={r.id} value={r.id} >
-                          <div className="flex justify-between items-center w-full gap-2">
-                            <span className="truncate">{r.profile?.full_name || r.email} ({r.email})</span>
-                            <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary border border-primary/20">
-                              {r.assigned_candidate_count ?? 0}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      .map((r: any) => {
+                        const roleLabel = r.role === 'team_lead' ? 'Team Lead' : r.role === 'team_manager' ? 'Team Manager' : 'Recruiter';
+                        return (
+                          <SelectItem key={r.id} value={r.id}>
+                            <div className="flex justify-between items-center w-full gap-2">
+                              <span className="truncate">{r.profile?.full_name || r.email} ({roleLabel})</span>
+                              <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary border border-primary/20">
+                                {r.assigned_candidate_count ?? 0}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               </div>

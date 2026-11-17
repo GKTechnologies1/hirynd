@@ -375,9 +375,47 @@ def all_users(request):
     from django.db.models import Count, Q
     qs = User.objects.select_related('profile', 'candidate', 'recruiter_profile').annotate(
         assigned_candidate_count=Count('recruiter_assignments', filter=Q(recruiter_assignments__is_active=True))
-    ).order_by('-created_at')
-    if role:
-        qs = qs.filter(role=role)
+    )
+    ordering = request.query_params.get('ordering', '-created_at')
+    ordering_map = {
+        'id': 'seq_number',
+        '-id': '-seq_number',
+        'display_id': 'seq_number',
+        '-display_id': '-seq_number',
+        'seq_number': 'seq_number',
+        '-seq_number': '-seq_number',
+        'created_at': 'created_at',
+        '-created_at': '-created_at',
+        'email': 'email',
+        '-email': '-email',
+        'role': 'role',
+        '-role': '-role',
+    }
+    db_order = ordering_map.get(ordering, '-created_at')
+    qs = qs.order_by(db_order)
+    eligible_for_assignment = request.query_params.get('eligible_for_assignment')
+    if eligible_for_assignment and eligible_for_assignment.lower() == 'true':
+        qs = qs.filter(
+            role__in=['recruiter', 'team_lead', 'team_manager'],
+            approval_status='approved',
+            account_status='active',
+            is_active=True
+        )
+    else:
+        roles_param = request.query_params.get('roles')
+        if roles_param:
+            role_list = [r.strip() for r in roles_param.split(',') if r.strip()]
+            qs = qs.filter(role__in=role_list)
+        elif role:
+            qs = qs.filter(role=role)
+
+        approval_status = request.query_params.get('approval_status')
+        if approval_status:
+            qs = qs.filter(approval_status=approval_status)
+
+        account_status = request.query_params.get('account_status')
+        if account_status:
+            qs = qs.filter(account_status=account_status)
     if search:
         from django.db.models import Q
         qs = qs.filter(
@@ -420,6 +458,9 @@ def manage_user(request, user_id):
             setattr(user, field, request.data[field])
 
     if 'account_status' in request.data:
+        target_role = request.data.get('role', user.role)
+        if target_role in ('candidate', 'admin', 'finance_admin') and request.data['account_status'] in ('resigned', 'terminated'):
+            return Response({'error': f"Resigned and Terminated account statuses are not applicable for {target_role} role."}, status=400)
         user.is_active = (user.account_status == 'active')
             
     # Check if admin is trying to update the user's password

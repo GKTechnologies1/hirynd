@@ -1,0 +1,571 @@
+import os
+import time
+import logging
+import threading
+from typing import List, Dict, Any, Optional
+from uuid import UUID
+from datetime import datetime
+from django.utils import timezone
+from django.db import transaction
+from django.db.models import Q
+
+from ..models import ScraperExecution, DiscoveredJob
+from ..config.constants import SOURCES, SUPPORTED_SITES, DEDICATED_SITES
+from ..core import conf
+from ..scraper.job_parser import parse_job, NormalizedJob
+from ..scraper.parser_utils import actor_title_keywords, title_matches_role
+from ..scraper import apify_client as apify
+
+logger = logging.getLogger('job_discovery')
+
+
+def check_title_matches_any_role(title: str, role_query: str) -> bool:
+    """
+    Validates that the scraped job title aligns with the target role.
+    Handles comma-separated role combinations gracefully.
+    """
+    if not title or not role_query:
+        return True
+    sub_roles = [r.strip() for r in role_query.split(',') if r.strip()]
+    if not sub_roles:
+        return True
+    return any(title_matches_role(title, sub) for sub in sub_roles)
+
+DEFAULT_ACTORS = {
+    'multi': os.getenv('APIFY_MULTI_JOBBOARD_ACTOR', 'flash_scraper/multi-jobboard-scraper'),
+    'dice': os.getenv('APIFY_DICE_ACTOR', 'solidcode/dice-scraper'),
+    'monster': os.getenv('APIFY_MONSTER_ACTOR', 'unfenced-group/monster-scraper'),
+    'careerbuilder': os.getenv('APIFY_CAREERBUILDER_ACTOR', 'ahmed_jasarevic/careerbuilder-scraper'),
+    'ziprecruiter': os.getenv('APIFY_ZIPRECRUITER_ACTOR', 'memo23/ziprecruiter-scraper'),
+    'jobright': os.getenv('APIFY_JOBRIGHT_ACTOR', 'jobscrawler/jobright-scraper'),
+}
+
+
+def get_actor_for_source(source: str) -> Optional[str]:
+    """Returns the Apify actor ID for the given portal source."""
+    if source in SUPPORTED_SITES:
+        return DEFAULT_ACTORS['multi']
+    return DEFAULT_ACTORS.get(source)
+
+
+def build_actor_input(source: str, query: str, limit: int = 15, freshness_days: int = 7) -> Optional[Dict[str, Any]]:
+    """Builds the input JSON for the specific Apify actor."""
+    actor_id = get_actor_for_source(source)
+    if not actor_id:
+        return None
+
+    if source in SUPPORTED_SITES:
+        return {
+            'actorId': actor_id,
+            'input': {
+                'searchTerm': query,
+                'location': 'United States',
+                'sites': [source],
+                'maxResults': limit,
+                'hoursOld': max(1, freshness_days * 24),
+                'maxAgeDays': freshness_days,
+                'requireTitleKeywords': actor_title_keywords(query),
+            }
+        }
+    elif source == 'dice':
+        return {
+            'actorId': actor_id,
+            'input': {
+                'searchQueries': [query],
+                'maxResultsPerQuery': min(limit, 100),
+                'fetchDescription': True,
+            }
+        }
+    elif source == 'monster':
+        return {
+            'actorId': actor_id,
+            'input': {
+                'keyword': query,
+                'maxResults': limit,
+            }
+        }
+    elif source == 'ziprecruiter':
+        return {
+            'actorId': actor_id,
+            'input': {
+                'query': f'"{query}"',
+                'maxResults': limit,
+            }
+        }
+    elif source == 'jobright':
+        return {
+            'actorId': actor_id,
+            'input': {
+                'title': query,
+                'maxItems': limit,
+            }
+        }
+    return None
+
+
+def _clean_job_employment_type(emp_type_raw: str, is_hybrid: bool = False) -> str:
+    s = str(emp_type_raw or '').strip()
+    s_low = s.lower()
+    if 'hyrind' in s_low:
+        return 'Hyrind'
+    if is_hybrid or 'hybrid' in s_low:
+        # If application has both Full Time and Hybrid/Hyrind, pass only Hybrid/Hyrind
+        return 'Hybrid'
+    if s_low in ('remote', 'telecommute', 'wfh'):
+        return 'Full-Time'
+    if 'contract' in s_low or 'c2c' in s_low:
+        return 'Contract'
+    if 'part' in s_low:
+        return 'Part-Time'
+    if 'intern' in s_low:
+        return 'Internship'
+    if 'full' in s_low:
+        return 'Full-Time'
+    return s
+
+
+def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperExecution) -> str:
+    """
+    Persists a NormalizedJob into DiscoveredJob using Django ORM.
+    Multi-tier deduplication:
+      Tier 1: External job ID (job_id) -> Update existing record
+      Tier 2: Canonical application URL (job_url) -> Duplicate detection
+      Tier 3: Content hash (MD5 title + company + clean description) -> Duplicate detection
+      Tier 4: Normalized company + exact title -> Duplicate detection
+    Returns: 'inserted', 'updated', or 'duplicate'
+    """
+    from django.conf import settings
+    p_date = job.postingDate
+    if p_date:
+        if getattr(settings, 'USE_TZ', False):
+            if timezone.is_naive(p_date):
+                p_date = timezone.make_aware(p_date)
+        else:
+            if timezone.is_aware(p_date):
+                p_date = timezone.make_naive(p_date)
+
+    from .restriction_detector import detect_job_restrictions
+    from .experience_detector import detect_job_experience
+
+    # Tier 1: Check if this exact job_id was already saved
+    existing = DiscoveredJob.objects.filter(job_id=job.jobId).first()
+
+    if existing:
+        existing.title = job.title or existing.title
+        existing.company_name = job.companyName or existing.company_name
+        existing.company_name_norm = job.companyNameNorm or existing.company_name_norm
+        existing.target_role = target_role or existing.target_role
+        raw_url = str(job.jobUrl).strip() if job.jobUrl else ''
+        if raw_url and not (raw_url.startswith('http://') or raw_url.startswith('https://')):
+            raw_url = 'https://' + raw_url
+        if raw_url:
+            existing.job_url = raw_url
+        if job.jobDescription:
+            existing.job_description = str(job.jobDescription)
+        if job.locationRaw:
+            existing.location_raw = str(job.locationRaw)
+        if job.city:
+            existing.city = str(job.city)
+        if job.state:
+            existing.state = str(job.state)
+        if job.stateCode:
+            existing.state_code = str(job.stateCode)
+        existing.is_remote = job.isRemote
+        existing.is_hybrid = job.isHybrid
+        if job.salaryMin is not None:
+            try:
+                existing.salary_min = float(job.salaryMin)
+            except (ValueError, TypeError):
+                pass
+        if job.salaryMax is not None:
+            try:
+                existing.salary_max = float(job.salaryMax)
+            except (ValueError, TypeError):
+                pass
+        if job.employmentType:
+            existing.employment_type = _clean_job_employment_type(job.employmentType, existing.is_hybrid or job.isHybrid)
+        if p_date:
+            existing.date_posted = p_date
+        existing.execution = execution
+        existing.detected_restrictions = detect_job_restrictions(
+            f"{existing.title} {target_role} {existing.job_description or ''}"
+        )
+        exp_res = detect_job_experience(existing.job_description, title=existing.title)
+        if exp_res:
+            existing.experience_level = exp_res.get('level') or existing.experience_level
+            existing.experience_min_years = exp_res.get('min_years')
+            existing.experience_max_years = exp_res.get('max_years')
+            existing.experience_raw = exp_res.get('matched_phrase') or ''
+        existing.save()
+        return 'updated'
+
+    # Multi-tier deduplication check against existing records
+    raw_url = str(job.jobUrl).strip() if job.jobUrl else ''
+    if raw_url and not (raw_url.startswith('http://') or raw_url.startswith('https://')):
+        raw_url = 'https://' + raw_url
+
+    canonical_job = None
+    # Tier 2: Check by canonical application URL (handling trailing slash differences)
+    if raw_url and len(raw_url) > 10:
+        url_stripped = raw_url.rstrip('/')
+        canonical_job = DiscoveredJob.objects.filter(
+            Q(job_url=raw_url) | Q(job_url=url_stripped) | Q(job_url=f"{url_stripped}/")
+        ).first()
+
+    # Tier 3: Check by content_hash across different jobs/portals
+    if not canonical_job and job.contentHash:
+        canonical_job = DiscoveredJob.objects.filter(content_hash=job.contentHash).first()
+
+    # Tier 4: Check by normalized company or company name + exact title
+    if not canonical_job and job.title and (job.companyNameNorm or job.companyName):
+        comp_norm = job.companyNameNorm or job.companyName.lower().strip()
+        canonical_job = DiscoveredJob.objects.filter(
+            Q(company_name_norm__iexact=comp_norm) | Q(company_name__iexact=job.companyName),
+            title__iexact=job.title.strip()
+        ).first()
+
+    if canonical_job and canonical_job.is_duplicate and canonical_job.canonical_job:
+        canonical_job = canonical_job.canonical_job
+
+    is_duplicate = canonical_job is not None
+
+    sal_min = None
+    if job.salaryMin is not None:
+        try:
+            sal_min = float(job.salaryMin)
+        except (ValueError, TypeError):
+            pass
+
+    sal_max = None
+    if job.salaryMax is not None:
+        try:
+            sal_max = float(job.salaryMax)
+        except (ValueError, TypeError):
+            pass
+
+    desc_content = str(job.jobDescription) if job.jobDescription else ''
+    restrictions = detect_job_restrictions(f"{job.title} {target_role} {desc_content}")
+    exp_res = detect_job_experience(desc_content, title=job.title)
+    exp_lvl = exp_res.get('level') if exp_res else None
+    exp_min = exp_res.get('min_years') if exp_res else None
+    exp_max = exp_res.get('max_years') if exp_res else None
+    exp_raw = exp_res.get('matched_phrase') if exp_res else ''
+
+    DiscoveredJob.objects.create(
+        job_id=job.jobId,
+        content_hash=job.contentHash,
+        is_duplicate=is_duplicate,
+        canonical_job=canonical_job,
+        title=job.title,
+        company_name=job.companyName,
+        company_name_norm=job.companyNameNorm,
+        target_role=target_role,
+        job_url=raw_url,
+        job_description=desc_content,
+        location_raw=str(job.locationRaw) if job.locationRaw else '',
+        city=str(job.city) if job.city else '',
+        state=str(job.state) if job.state else '',
+        state_code=str(job.stateCode) if job.stateCode else '',
+        country='USA',
+        is_remote=job.isRemote,
+        is_hybrid=job.isHybrid,
+        salary_min=sal_min,
+        salary_max=sal_max,
+        salary_currency='USD',
+        salary_period=str(job.salaryPeriod) if job.salaryPeriod else '',
+        employment_type=_clean_job_employment_type(job.employmentType, job.isHybrid),
+        experience_level=exp_lvl,
+        experience_min_years=exp_min,
+        experience_max_years=exp_max,
+        experience_raw=exp_raw,
+        source_portal=job.source,
+        date_posted=p_date,
+        execution=execution,
+        review_status='ALREADY_EXISTS' if is_duplicate else 'PENDING_REVIEW',
+        detected_restrictions=restrictions,
+    )
+
+    return 'duplicate' if is_duplicate else 'inserted'
+
+
+def execute_scraping_run(execution_id: UUID) -> None:
+    """
+    Main background worker execution loop.
+    Retrieves execution record, loops over configured roles and portals,
+    fetches listings, persists via Django ORM, and updates progress in real time.
+    """
+    try:
+        execution = ScraperExecution.objects.get(id=execution_id)
+    except ScraperExecution.DoesNotExist:
+        logger.error(f"[JobScraper] Execution {execution_id} does not exist.")
+        return
+
+    execution.status = 'running'
+    execution.started_at = timezone.now()
+    execution.save(update_fields=['status', 'started_at'])
+
+    raw_tok = conf.env('APIFY_API_TOKEN') or os.getenv('APIFY_API_TOKEN', '')
+    token = getattr(conf, 'sanitize_token', lambda v: v)(raw_tok) if raw_tok else None
+    if not token and raw_tok:
+        token = raw_tok.strip().strip('"\'').replace(' ', '').replace('\t', '').replace('\r', '').replace('\n', '')
+
+    masked_tok = f"{token[:8]}...{token[-4:]} (len: {len(token)})" if token else "NOT CONFIGURED"
+    logger.info(f"[JobScraper] Apify token status: {masked_tok}")
+
+    config = execution.config or {}
+    roles_config = config.get('roles', [])
+    sources = config.get('sources', ['linkedin', 'indeed', 'glassdoor', 'dice'])
+
+    if not roles_config:
+        execution.status = 'failed'
+        execution.error_message = "No roles configured for this scraping run."
+        execution.completed_at = timezone.now()
+        execution.save(update_fields=['status', 'error_message', 'completed_at'])
+        return
+
+    companies = config.get('companies', [])
+    query_targets = []
+    roles_breakdown = {}
+    if companies:
+        for r_entry in roles_config:
+            r_name = r_entry.get('role', '').strip()
+            r_limit = int(r_entry.get('limit', 20))
+            if not r_name:
+                continue
+            roles_breakdown[r_name] = {
+                'role': r_name,
+                'target': r_limit,
+                'found': 0,
+                'inserted': 0,
+                'duplicates': 0,
+                'updated': 0,
+                'failed': 0,
+            }
+            for comp in companies:
+                c_name = comp if isinstance(comp, str) else comp.get('name', '')
+                if c_name:
+                    query_targets.append({
+                        'role': r_name,
+                        'query': f"{r_name} {c_name}",
+                        'limit': max(3, r_limit // max(1, len(companies))),
+                        'company': c_name,
+                    })
+    else:
+        for r_entry in roles_config:
+            r_name = r_entry.get('role', '').strip()
+            r_limit = int(r_entry.get('limit', 20))
+            if r_name:
+                roles_breakdown[r_name] = {
+                    'role': r_name,
+                    'target': r_limit,
+                    'found': 0,
+                    'inserted': 0,
+                    'duplicates': 0,
+                    'updated': 0,
+                    'failed': 0,
+                }
+                query_targets.append({
+                    'role': r_name,
+                    'query': r_name,
+                    'limit': r_limit,
+                    'company': None,
+                })
+
+    logger.info(
+        f"[JobScraper] Starting execution {execution_id} with {len(roles_config)} role(s) "
+        f"and {len(companies)} company target(s) across {sources}"
+    )
+
+    total_found = 0
+    total_ins = 0
+    total_upd = 0
+    total_dup = 0
+    errors = []
+
+    try:
+        for q_target in query_targets:
+            role_name = q_target['role']
+            search_query = q_target['query']
+            role_limit = q_target['limit']
+            role_stat = roles_breakdown.setdefault(role_name, {
+                'role': role_name,
+                'target': role_limit,
+                'found': 0,
+                'inserted': 0,
+                'duplicates': 0,
+                'updated': 0,
+                'failed': 0,
+            })
+
+            # Stop querying if this role has already reached its target of new unique jobs
+            if role_stat['inserted'] >= role_limit:
+                logger.info(f"[JobScraper] Target {role_limit} new unique jobs already met for '{role_name}'. Skipping.")
+                continue
+
+            logger.info(f"[JobScraper] Processing search: '{search_query}' (target new unique: {role_limit}, current inserted: {role_stat['inserted']})")
+
+            remaining_needed = max(1, role_limit - role_stat['inserted'])
+            per_source_limit = max(5, remaining_needed)
+
+            for source in sources:
+                if role_stat['inserted'] >= role_limit:
+                    logger.info(f"[JobScraper] Reached target {role_limit} new unique jobs for '{role_name}'.")
+                    break
+
+                try:
+                    actor_payload = build_actor_input(source, search_query, limit=per_source_limit)
+                    if not actor_payload:
+                        logger.warning(f"[JobScraper] No actor configuration for source: {source}")
+                        continue
+
+                    if not token:
+                        err_msg = "APIFY_API_TOKEN is not configured in the server environment. Please set APIFY_API_TOKEN to run scraper jobs."
+                        logger.error(f"[JobScraper] {err_msg}")
+                        errors.append(f"{source}: {err_msg}")
+                        continue
+
+                    if not token.startswith('apify_api_'):
+                        err_msg = f"Invalid APIFY_API_TOKEN configured (starts with '{token[:10]}', expected 'apify_api_...'). Please check environment variables."
+                        logger.error(f"[JobScraper] {err_msg}")
+                        errors.append(f"{source}: {err_msg}")
+                        continue
+
+                    actor_id = actor_payload['actorId']
+                    inp = actor_payload['input']
+
+                    run = apify.run_actor_detailed(actor_id, inp)
+                    raw_items = run.items or []
+
+                    # Record audited cost and API usage
+                    try:
+                        from ..models import ScraperCostRecord
+                        cost_usd = float(run.costUsd) if run.costUsd is not None else 0.0050
+                        cost_type = 'ACTUAL' if run.costUsd is not None else 'ESTIMATED'
+                        ScraperCostRecord.objects.create(
+                            execution=execution,
+                            initiated_by=execution.triggered_by,
+                            role_name=role_name,
+                            source_portal=source,
+                            api_calls=1,
+                            cost_usd=cost_usd,
+                            cost_type=cost_type,
+                            provider='Apify',
+                            run_id=run.runId or '',
+                            items_count=len(raw_items),
+                        )
+                        execution.total_cost_usd = (execution.total_cost_usd or 0) + cost_usd
+                        execution.api_calls_count = (execution.api_calls_count or 0) + 1
+                    except Exception as cost_err:
+                        logger.warning(f"[JobScraper] Failed to save ScraperCostRecord: {cost_err}")
+
+                    logger.info(f"[JobScraper] Source '{source}' for '{role_name}' returned {len(raw_items)} items.")
+
+                    for raw in raw_items:
+                        parsed = parse_job(raw, source)
+                        if not parsed:
+                            continue
+
+                        if not check_title_matches_any_role(parsed.title, role_name):
+                            logger.info(f"[JobScraper] Skipping title '{parsed.title}' not matching role '{role_name}'")
+                            continue
+
+                        outcome = upsert_scraped_job(parsed, target_role=role_name, execution=execution)
+                        total_found += 1
+                        role_stat['found'] += 1
+                        if outcome == 'inserted':
+                            total_ins += 1
+                            role_stat['inserted'] += 1
+                        elif outcome == 'updated':
+                            total_upd += 1
+                            role_stat['updated'] += 1
+                        elif outcome == 'duplicate':
+                            total_dup += 1
+                            role_stat['duplicates'] += 1
+
+                        if role_stat['inserted'] >= role_limit:
+                            logger.info(f"[JobScraper] Reached target {role_limit} new unique jobs for '{role_name}' during {source} ingestion.")
+                            break
+
+                    # Update execution progress live after each source
+                    execution.total_jobs_found = total_found
+                    execution.total_inserted = total_ins
+                    execution.total_updated = total_upd
+                    execution.total_duplicates = total_dup
+                    execution.save(update_fields=[
+                        'total_jobs_found', 'total_inserted', 'total_updated', 'total_duplicates',
+                        'total_cost_usd', 'api_calls_count', 'updated_at'
+                    ])
+
+                except Exception as src_err:
+                    err_msg = f"Error scraping {source} for {role_name}: {str(src_err)}"
+                    logger.error(f"[JobScraper] {err_msg}")
+                    role_stat['failed'] += 1
+                    errors.append(err_msg)
+
+        # Automatically enrich newly scraped jobs with Visa Intelligence
+        try:
+            from ..matcher.match_jobs_to_visa import match_jobs_to_visa
+            matched_count = match_jobs_to_visa()
+            logger.info(f"[JobScraper] Visa matching completed: {matched_count} jobs enriched with Visa Intelligence.")
+        except Exception as match_err:
+            logger.error(f"[JobScraper] Post-scrape Visa matching error: {str(match_err)}")
+
+        # Post-scrape qualification metrics for Visa-filtered runs
+        min_score = int(config.get('minimum_score', 0) or 0)
+        all_jobs = DiscoveredJob.objects.filter(execution=execution)
+        scored_jobs = all_jobs.filter(visa_friendly_score__gt=0)
+        scored_count = scored_jobs.count()
+        if min_score > 0:
+            qualified_count = scored_jobs.filter(visa_friendly_score__gte=min_score).count()
+            below_threshold_count = scored_jobs.filter(visa_friendly_score__lt=min_score).count()
+        else:
+            qualified_count = scored_count
+            below_threshold_count = 0
+        unscored_count = max(0, total_found - scored_count)
+
+        execution.config = {
+            **config,
+            'roles_breakdown': list(roles_breakdown.values()),
+            'scored_count': scored_count,
+            'qualified_count': qualified_count,
+            'below_threshold_count': below_threshold_count,
+            'unscored_count': unscored_count,
+            'unqualified_count': below_threshold_count,
+        }
+
+        execution.status = 'completed'
+        if errors and total_found == 0:
+            execution.status = 'failed'
+            execution.error_message = "; ".join(errors[:3])
+        elif errors:
+            execution.error_message = f"Completed with warnings: {'; '.join(errors[:2])}"
+
+        execution.total_jobs_found = total_found
+        execution.total_inserted = total_ins
+        execution.total_updated = total_upd
+        execution.total_duplicates = total_dup
+        execution.completed_at = timezone.now()
+        execution.save()
+        logger.info(f"[JobScraper] Execution {execution_id} completed: found={total_found}, inserted={total_ins}, duplicates={total_dup}")
+
+    except Exception as exec_err:
+        logger.exception(f"[JobScraper] Execution {execution_id} crashed:")
+        execution.status = 'failed'
+        execution.error_message = str(exec_err)
+        execution.completed_at = timezone.now()
+        execution.save()
+    finally:
+        from django.db import connection
+        connection.close()
+
+
+def trigger_async_scrape(execution_id: UUID) -> threading.Thread:
+    """Dispatches the scraping run into a background daemon thread."""
+    thread = threading.Thread(
+        target=execute_scraping_run,
+        args=(execution_id,),
+        daemon=True,
+        name=f"JobScraper-{execution_id}"
+    )
+    thread.start()
+    return thread

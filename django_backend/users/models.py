@@ -96,10 +96,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def display_id(self):
         """Branded display ID: HYRCDT000001 (candidates), HYRREC000001 (recruiters), etc."""
-        if self.seq_number is None:
-            return str(self.id)[:8].upper()
         prefix = ROLE_PREFIX_MAP.get(self.role, 'HYRUSR')
         padding = ROLE_PADDING_MAP.get(self.role, 6)
+        if self.seq_number is None:
+            return f"{prefix}{str(self.id)[:6].upper()}"
         return f"{prefix}{str(self.seq_number).zfill(padding)}"
 
     def save(self, *args, **kwargs):

@@ -48,6 +48,11 @@ urlpatterns = [
     path('api/jobs/',          include('jobs.urls')),
     path('api/reviews/',       include('reviews.urls')),
     path('api/admin/',         include('audit.admin_urls')),
+    path('api/admin/job-scraper/',   include('job_discovery.scraper_urls')),
+    path('api/admin/job-discovery/', include('job_discovery.discovery_urls')),
+    path('api/admin/employers/',     include('job_discovery.employer_urls')),
+    path('api/recruiter/job-discovery/', include('job_discovery.recruiter_urls')),
+    path('api/recruiters/job-discovery/', include('job_discovery.recruiter_urls')),
     path('api/analytics/',     include('analytics.urls')),
     
     # ── API Catch-all for proper 404 JSON ──

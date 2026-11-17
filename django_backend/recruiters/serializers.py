@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import RecruiterProfile, RecruiterAssignment, DailySubmissionLog, JobLinkEntry, RecruiterBankDetails
+from job_discovery.models import DiscoveredJob
 from users.serializers import ProfileSerializer
 from files.models import UploadedFile
 from users.models import User
@@ -333,6 +334,280 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
 
     def get_log_date(self, obj):
         return obj.submission_log.log_date if obj.submission_log else None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        import re
+
+        # 1. Normalize employment_type
+        emp_raw = str(data.get('employment_type') or '').strip().lower().replace('-', ' ').replace('_', ' ')
+        work_raw = str(data.get('work_mode') or '').strip().lower()
+
+        # Never pass 'remote' as employment_type
+        if emp_raw == 'remote':
+            emp_raw = ''
+
+        # If application has both Full-Time and Hybrid/Hyrind, pass only Hybrid/Hyrind, not Full-Time
+        if 'hyrind' in emp_raw:
+            data['employment_type'] = 'Hyrind'
+        elif 'hybrid' in emp_raw or work_raw == 'hybrid':
+            data['employment_type'] = 'Hybrid'
+        elif 'contract' in emp_raw or 'c2c' in emp_raw:
+            data['employment_type'] = 'Contract'
+        elif 'part' in emp_raw:
+            data['employment_type'] = 'Part-Time'
+        elif 'intern' in emp_raw:
+            data['employment_type'] = 'Internship'
+        elif 'third' in emp_raw or 'vendor' in emp_raw:
+            data['employment_type'] = 'Third-Party (C2C)'
+        elif 'full' in emp_raw:
+            data['employment_type'] = 'Full-Time'
+        elif not emp_raw or emp_raw in ('none', 'null', ''):
+            data['employment_type'] = 'Full-Time'
+        else:
+            data['employment_type'] = data['employment_type'].title()
+
+        # 2. Accurate experience_required without arbitrary hardcoded fallbacks
+        raw_exp = str(data.get('experience_required') or '').strip()
+        if not raw_exp or raw_exp.lower() in ('none', 'null', ''):
+            from job_discovery.services.experience_detector import detect_job_experience
+            exp_lvl = None
+            if getattr(instance, 'job_url', None):
+                from job_discovery.models import DiscoveredJob
+                dj = DiscoveredJob.objects.filter(job_url=instance.job_url).first()
+                if dj and dj.experience_level:
+                    exp_lvl = dj.experience_level
+            if not exp_lvl:
+                res = detect_job_experience(getattr(instance, 'job_description', '') or '', title=getattr(instance, 'role_title', '') or '')
+                if res and res.get('level'):
+                    exp_lvl = res['level']
+            data['experience_required'] = exp_lvl or '0–2 Years'
+        elif raw_exp.lower() in ('not specified', 'unspecified'):
+            data['experience_required'] = 'Not Specified'
+
+        # 3. Normalize work_mode
+        wm = str(data.get('work_mode') or '').strip().lower()
+        if wm == 'remote':
+            data['work_mode'] = 'Remote'
+        elif wm == 'hybrid':
+            data['work_mode'] = 'Hybrid'
+        else:
+            data['work_mode'] = 'Onsite'
+
+        if not data.get('country') or str(data.get('country')).strip().lower() in ('none', 'null', ''):
+            data['country'] = 'United States'
+
+        # 4. Accurate Salary Formatting (handle bare numbers like $31 -> $31 / Hourly, or pull from DiscoveredJob)
+        sal = str(data.get('salary') or '').strip()
+        dj_match = None
+        if getattr(instance, 'job_url', None):
+            from job_discovery.models import DiscoveredJob
+            dj_match = DiscoveredJob.objects.filter(job_url=instance.job_url).first()
+
+        if dj_match and dj_match.salary_min:
+            period_str = f" / {dj_match.salary_period.title()}" if dj_match.salary_period else ""
+            if dj_match.salary_max and dj_match.salary_max != dj_match.salary_min:
+                data['salary'] = f"${int(dj_match.salary_min):,} – ${int(dj_match.salary_max):,}{period_str}"
+            else:
+                data['salary'] = f"${int(dj_match.salary_min):,}{period_str}"
+        elif sal and sal.lower() not in ('not disclosed', 'none', 'null', ''):
+            if not any(p in sal.lower() for p in ('hour', 'year', 'month', 'week', 'day', '/')):
+                nums = re.findall(r'\d[\d,]*', sal)
+                if nums:
+                    num_val = float(nums[0].replace(',', ''))
+                    if 0 < num_val < 300:
+                        sal = f"{sal} / Hourly"
+                    elif num_val >= 10000:
+                        sal = f"{sal} / Yearly"
+            data['salary'] = sal
+        else:
+            data['salary'] = 'Not Disclosed'
+
+        # 5. Normalize visa_eligibility: If H1B filings, display as H1B. If no filings, display as No filings history.
+        raw_visa = str(data.get('visa_eligibility') or '').strip()
+        visa_low = raw_visa.lower()
+        if dj_match and (dj_match.h1b_filings_recent or dj_match.h1b_sponsor or dj_match.visa_grade):
+            if (dj_match.h1b_filings_recent and dj_match.h1b_filings_recent > 0) or dj_match.h1b_sponsor or (dj_match.visa_grade in ('A', 'B', 'C', 'D')):
+                data['visa_eligibility'] = 'H1B'
+            else:
+                data['visa_eligibility'] = 'No filings history'
+        elif 'h1b' in visa_low or 'h-1b' in visa_low:
+            data['visa_eligibility'] = 'H1B'
+        elif any(f"grade {g}" in visa_low for g in ('a', 'b', 'c', 'd')):
+            data['visa_eligibility'] = 'H1B'
+        elif any(f"grade {g}" in visa_low for g in ('e', 'f')) or 'all work' in visa_low or 'no filing' in visa_low or not raw_visa or visa_low in ('none', 'null', ''):
+            data['visa_eligibility'] = 'No filings history'
+        elif visa_low in ('opt', 'stem opt', 'usc', 'green card'):
+            data['visa_eligibility'] = raw_visa
+        else:
+            data['visa_eligibility'] = 'H1B'
+
+        return data
+
+
+class PublicDiscoveredJobAlertSerializer(serializers.ModelSerializer):
+    """
+    Public-facing serializer for unauthenticated Job Board.
+    Strictly omits all visa intelligence, internal scraping metadata, and work authorization.
+    """
+    role_title = serializers.CharField(source='title', read_only=True)
+    job_description = serializers.CharField(read_only=True)
+    display_id = serializers.SerializerMethodField()
+    work_mode = serializers.SerializerMethodField()
+    experience_required = serializers.SerializerMethodField()
+    salary = serializers.SerializerMethodField()
+    salary_range = serializers.SerializerMethodField()
+    salary_type = serializers.CharField(source='salary_period', read_only=True)
+    application_status = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    log_date = serializers.SerializerMethodField()
+    is_public = serializers.BooleanField(source='is_active', read_only=True)
+
+    class Meta:
+        model = DiscoveredJob
+        fields = [
+            'id', 'job_id', 'display_id', 'title', 'role_title', 'company_name',
+            'target_role', 'job_url', 'job_description',
+            'location_raw', 'city', 'state', 'state_code', 'country',
+            'is_remote', 'is_hybrid', 'work_mode',
+            'salary_min', 'salary_max', 'salary_currency', 'salary_period', 'salary_type', 'salary_raw',
+            'salary', 'salary_range',
+            'employment_type', 'experience_level', 'experience_required',
+            'date_posted', 'log_date',
+            'review_status', 'application_status', 'status',
+            'is_active', 'is_public',
+            'created_at', 'updated_at',
+        ]
+
+    def get_display_id(self, obj):
+        if obj.job_id:
+            return obj.job_id
+        return f"HYRJOB{str(obj.id)[:6].upper()}"
+
+    def get_work_mode(self, obj):
+        if obj.is_remote:
+            return 'Remote'
+        if obj.is_hybrid:
+            return 'Hybrid'
+        return 'Onsite'
+
+    def get_experience_required(self, obj):
+        return obj.experience_level or 'Not Specified'
+
+    def get_salary(self, obj):
+        if obj.salary_raw:
+            return obj.salary_raw
+        if obj.salary_min and obj.salary_max:
+            return f"${int(obj.salary_min):,} - ${int(obj.salary_max):,}"
+        if obj.salary_min:
+            return f"${int(obj.salary_min):,}+"
+        return "Not Disclosed"
+
+    def get_salary_range(self, obj):
+        return self.get_salary(obj)
+
+    def get_application_status(self, obj):
+        if obj.review_status == 'REJECTED':
+            return 'rejected'
+        if not obj.is_active:
+            return 'expired'
+        return 'applied'
+
+    def get_status(self, obj):
+        return self.get_application_status(obj)
+
+    def get_log_date(self, obj):
+        if obj.date_posted:
+            return obj.date_posted.date()
+        if obj.created_at:
+            return obj.created_at.date()
+        return None
+
+
+class DiscoveredJobAlertSerializer(serializers.ModelSerializer):
+    role_title = serializers.CharField(source='title', read_only=True)
+    job_description = serializers.CharField(read_only=True)
+    display_id = serializers.SerializerMethodField()
+    work_mode = serializers.SerializerMethodField()
+    experience_required = serializers.SerializerMethodField()
+    salary = serializers.SerializerMethodField()
+    salary_range = serializers.SerializerMethodField()
+    salary_type = serializers.CharField(source='salary_period', read_only=True)
+    visa_eligibility = serializers.SerializerMethodField()
+    application_status = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    log_date = serializers.SerializerMethodField()
+    is_public = serializers.BooleanField(source='is_active', read_only=True)
+
+    class Meta:
+        model = DiscoveredJob
+        fields = [
+            'id', 'job_id', 'display_id', 'title', 'role_title', 'company_name',
+            'company_name_norm', 'target_role', 'job_url', 'job_description',
+            'location_raw', 'city', 'state', 'state_code', 'country',
+            'is_remote', 'is_hybrid', 'work_mode',
+            'salary_min', 'salary_max', 'salary_currency', 'salary_period', 'salary_type', 'salary_raw',
+            'salary', 'salary_range',
+            'employment_type', 'experience_level', 'experience_required',
+            'source_portal', 'date_posted', 'log_date',
+            'review_status', 'application_status', 'status',
+            'is_duplicate', 'is_active', 'is_public',
+            'visa_matched', 'h1b_sponsor', 'h1b_filings_recent', 'h1b_approvals',
+            'green_card_sponsor', 'everify_enrolled', 'visa_grade', 'visa_friendly_score',
+            'visa_eligibility',
+            'created_at', 'updated_at',
+        ]
+
+    def get_display_id(self, obj):
+        if obj.job_id:
+            return obj.job_id
+        return f"HYRJOB{str(obj.id)[:6].upper()}"
+
+    def get_work_mode(self, obj):
+        if obj.is_remote:
+            return 'Remote'
+        if obj.is_hybrid:
+            return 'Hybrid'
+        return 'Onsite'
+
+    def get_experience_required(self, obj):
+        return obj.experience_level or 'Not Specified'
+
+    def get_salary(self, obj):
+        if obj.salary_raw:
+            return obj.salary_raw
+        if obj.salary_min and obj.salary_max:
+            return f"${int(obj.salary_min):,} - ${int(obj.salary_max):,}"
+        if obj.salary_min:
+            return f"${int(obj.salary_min):,}+"
+        return "Not Disclosed"
+
+    def get_salary_range(self, obj):
+        return self.get_salary(obj)
+
+    def get_visa_eligibility(self, obj):
+        if obj.visa_grade:
+            return f"Grade {obj.visa_grade}"
+        if obj.h1b_sponsor:
+            return "H1B Sponsor"
+        return "All Work Authorization"
+
+    def get_application_status(self, obj):
+        if obj.review_status == 'REJECTED':
+            return 'rejected'
+        if not obj.is_active:
+            return 'expired'
+        return 'applied'
+
+    def get_status(self, obj):
+        return self.get_application_status(obj)
+
+    def get_log_date(self, obj):
+        if obj.date_posted:
+            return obj.date_posted.date()
+        if obj.created_at:
+            return obj.created_at.date()
+        return None
 
 
 class DailyJournalSerializer(serializers.ModelSerializer):

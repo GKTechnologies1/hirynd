@@ -237,7 +237,9 @@ class PublicJobAlertsTests(TestCase):
             role='candidate',
             approval_status='approved'
         )
+        import uuid
         from candidates.models import Candidate
+        from job_discovery.models import DiscoveredJob
         self.candidate = Candidate.objects.create(user=self.candidate_user, status='approved')
         self.log = DailySubmissionLog.objects.create(
             candidate=self.candidate,
@@ -245,14 +247,16 @@ class PublicJobAlertsTests(TestCase):
             log_date=timezone.now().date(),
             applications_count=1
         )
-        self.job = JobLinkEntry.objects.create(
-            submission_log=self.log,
-            candidate=self.candidate,
+        self.job = DiscoveredJob.objects.create(
+            job_id=str(uuid.uuid4()),
             company_name='Test Company',
-            role_title='Software Dev',
+            title='Software Dev',
             job_url='http://example.com',
             job_description='Test description',
-            is_public=True
+            source_portal='manual',
+            review_status='APPROVED',
+            is_active=True,
+            is_duplicate=False
         )
         self.public_url = reverse('public_job_alerts')
 
@@ -267,32 +271,30 @@ class PublicJobAlertsTests(TestCase):
         self.assertEqual(response.data[0]['job_description'], 'Test description')
         self.assertEqual(response.data[0]['job_url'], 'http://example.com')
         # Check that log_date is serialized correctly
-        self.assertEqual(response.data[0]['log_date'], self.log.log_date)
+        self.assertEqual(response.data[0]['log_date'], timezone.now().date())
 
     def test_public_job_alerts_last_30_days_filter(self):
         """Test that records older than 30 days are excluded from public job alerts."""
+        import uuid
         from datetime import timedelta
+        from job_discovery.models import DiscoveredJob
 
-        old_log = DailySubmissionLog.objects.create(
-            candidate=self.candidate,
-            recruiter=self.recruiter,
-            log_date=timezone.now().date() - timedelta(days=45),
-            applications_count=1
-        )
-        old_job = JobLinkEntry.objects.create(
-            submission_log=old_log,
-            candidate=self.candidate,
+        old_job = DiscoveredJob.objects.create(
+            job_id=str(uuid.uuid4()),
             company_name='Old Company',
-            role_title='Old Dev',
+            title='Old Dev',
             job_url='http://example.com/old',
-            is_public=True
+            source_portal='manual',
+            review_status='APPROVED',
+            is_active=True,
+            is_duplicate=False,
+            date_posted=timezone.now() - timedelta(days=45)
         )
-        # update created_at directly since auto_now_add sets it on create
-        JobLinkEntry.objects.filter(id=old_job.id).update(
+        DiscoveredJob.objects.filter(id=old_job.id).update(
             created_at=timezone.now() - timedelta(days=45)
         )
 
-        response = self.client.get(self.public_url)
+        response = self.client.get(self.public_url, {'date_preset': 'Past Month'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Should only include self.job (recent), not old_job
         self.assertEqual(len(response.data), 1)
@@ -300,33 +302,45 @@ class PublicJobAlertsTests(TestCase):
 
     def test_public_job_alerts_salary_filter(self):
         """Test that salary query parameter filters jobs accurately."""
+        import uuid
+        from job_discovery.models import DiscoveredJob
         # Create jobs with various salary values
-        job_120k = JobLinkEntry.objects.create(
-            submission_log=self.log,
-            candidate=self.candidate,
+        job_120k = DiscoveredJob.objects.create(
+            job_id=str(uuid.uuid4()),
             company_name='High Pay Inc',
-            role_title='Lead Dev',
+            title='Lead Dev',
             job_url='http://example.com/high',
-            salary='$120,000 / yr',
-            is_public=True
+            salary_raw='$120,000 / yr',
+            salary_min=120000,
+            salary_max=120000,
+            source_portal='manual',
+            review_status='APPROVED',
+            is_active=True,
+            is_duplicate=False
         )
-        job_60k = JobLinkEntry.objects.create(
-            submission_log=self.log,
-            candidate=self.candidate,
+        job_60k = DiscoveredJob.objects.create(
+            job_id=str(uuid.uuid4()),
             company_name='Mid Pay Inc',
-            role_title='Junior Dev',
+            title='Junior Dev',
             job_url='http://example.com/mid',
-            salary='$60,000',
-            is_public=True
+            salary_raw='$60,000',
+            salary_min=60000,
+            salary_max=60000,
+            source_portal='manual',
+            review_status='APPROVED',
+            is_active=True,
+            is_duplicate=False
         )
-        job_undisclosed = JobLinkEntry.objects.create(
-            submission_log=self.log,
-            candidate=self.candidate,
+        job_undisclosed = DiscoveredJob.objects.create(
+            job_id=str(uuid.uuid4()),
             company_name='Mystery Inc',
-            role_title='Mystery Dev',
+            title='Mystery Dev',
             job_url='http://example.com/mystery',
-            salary='Not Disclosed',
-            is_public=True
+            salary_raw='Not Disclosed',
+            source_portal='manual',
+            review_status='APPROVED',
+            is_active=True,
+            is_duplicate=False
         )
 
         # 1. Disclosed Only
@@ -365,4 +379,96 @@ class PublicJobAlertsTests(TestCase):
         returned_companies = [j['company_name'] for j in resp.data]
         self.assertIn('High Pay Inc', returned_companies)
         self.assertNotIn('Mid Pay Inc', returned_companies)
+
+
+class JobLinkEntryOlderDataTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='candidate_old_test@hyrind.com',
+            password='TestPassword123!',
+            role='candidate',
+            approval_status='approved'
+        )
+        self.candidate = Candidate.objects.create(user=self.user)
+        self.recruiter_user = User.objects.create_user(
+            email='recruiter_old_test@hyrind.com',
+            password='TestPassword123!',
+            role='recruiter',
+            approval_status='approved'
+        )
+        self.log = DailySubmissionLog.objects.create(
+            candidate=self.candidate,
+            recruiter=self.recruiter_user,
+            log_date=timezone.now().date(),
+        )
+
+    def test_older_job_link_entry_serializer_defaults(self):
+        from recruiters.serializers import JobLinkEntrySerializer
+
+        # Create older job with null fields
+        old_job = JobLinkEntry.objects.create(
+            submission_log=self.log,
+            candidate=self.candidate,
+            company_name='Legacy Corp',
+            role_title='Senior Python Engineer',
+            job_url='https://example.com/legacy',
+            employment_type=None,
+            experience_required=None,
+            work_mode=None,
+            city=None,
+            state=None,
+            country=None,
+            salary=None,
+            visa_eligibility=None,
+        )
+
+        serialized = JobLinkEntrySerializer(old_job).data
+        self.assertEqual(serialized['employment_type'], 'Full-Time')
+        self.assertEqual(serialized['experience_required'], 'Senior Level')
+        self.assertEqual(serialized['work_mode'], 'Onsite')
+        self.assertEqual(serialized['country'], 'United States')
+        self.assertEqual(serialized['salary'], 'Not Disclosed')
+        self.assertEqual(serialized['visa_eligibility'], 'No filings history')
+
+    def test_job_applications_endpoint_returns_all_fields_for_older_data(self):
+        from rest_framework.test import APIClient
+        from recruiters.models import RecruiterAssignment
+
+        RecruiterAssignment.objects.create(
+            candidate=self.candidate,
+            recruiter=self.recruiter_user,
+            is_active=True
+        )
+
+        JobLinkEntry.objects.create(
+            submission_log=self.log,
+            candidate=self.candidate,
+            company_name='Wipro',
+            role_title='Django Dev',
+            job_url='https://example.com/job',
+            employment_type=None,
+            experience_required=None,
+            work_mode=None,
+            salary=None,
+            visa_eligibility=None,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.recruiter_user)
+
+        res = client.get(f'/api/recruiters/{self.candidate.id}/job-applications/')
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(len(res.data) >= 1)
+
+        app = res.data[0]
+        self.assertIsNotNone(app.get('employment_type'))
+        self.assertEqual(app.get('employment_type'), 'Full-Time')
+        self.assertIsNotNone(app.get('experience_required'))
+        self.assertEqual(app.get('experience_required'), '0–2 Years')
+        self.assertIsNotNone(app.get('work_mode'))
+        self.assertEqual(app.get('work_mode'), 'Onsite')
+        self.assertEqual(app.get('country'), 'United States')
+        self.assertEqual(app.get('salary'), 'Not Disclosed')
+        self.assertEqual(app.get('visa_eligibility'), 'No filings history')
+
 
