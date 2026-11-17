@@ -35,7 +35,7 @@ import {
   formatSalaryAmount,
   handleSalaryKeyDown,
 } from "@/data/usLocations";
-import { formatSalaryDisplay, formatEmploymentType, formatWorkMode } from "@/lib/salaryFormatter";
+import { formatSalaryDisplay, formatEmploymentType, formatWorkMode, formatVisaDetails } from "@/lib/salaryFormatter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -1404,7 +1404,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       "State",
       "Country",
       "Salary",
-      "Visa Eligibility",
+      "Visa Details",
       "Application Status",
       "Job URL",
       "Resume Used",
@@ -1436,7 +1436,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
         escapeCsv(j.state || ""),
         escapeCsv(j.country || "United States"),
         escapeCsv(formatSalaryDisplay(j)),
-        escapeCsv(j.visa_eligibility || "All Work Authorization"),
+        escapeCsv(formatVisaDetails(j.visa_eligibility)),
         escapeCsv(status),
         escapeCsv(j.job_url || ""),
         escapeCsv(j.resume_used || ""),
@@ -3028,6 +3028,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                     <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
                                     <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
                                     <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
+                                    <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
+                                    <SelectItem value="Hyrind" className="text-xs">Hyrind</SelectItem>
                                     <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
                                     <SelectItem value="W2" className="text-xs">W2</SelectItem>
                                     <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
@@ -3137,13 +3139,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                   onValueChange={v => updateAlwaysShowDefault("visa_eligibility", v === "__BLANK__" ? "" : v)}
                                 >
                                   <SelectTrigger className="h-8 text-[10px] bg-background/50">
-                                    <SelectValue placeholder="Visa Eligibility" />
+                                    <SelectValue placeholder="Visa Details" />
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="__BLANK__" className="text-xs text-muted-foreground">-- None (Blank) --</SelectItem>
+                                    <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
+                                    <SelectItem value="No filings history" className="text-xs">No filings history</SelectItem>
                                     <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
                                     <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
-                                    <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
                                     <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
                                     <SelectItem value="USC" className="text-xs">USC</SelectItem>
                                     <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
@@ -3284,6 +3287,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                 <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
                                 <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
                                 <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
+                                <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
+                                <SelectItem value="Hyrind" className="text-xs">Hyrind</SelectItem>
                                 <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
                                 <SelectItem value="W2" className="text-xs">W2</SelectItem>
                                 <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
@@ -3411,16 +3416,15 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           <div className="space-y-1">
                             <Select value={job.visa_eligibility || ""} onValueChange={v => updateJobLink(idx, "visa_eligibility", v)}>
                               <SelectTrigger className={cn("h-8 text-[10px] bg-background/50", jobLinkErrors[idx]?.visa_eligibility && "border-destructive text-destructive")}>
-                                <SelectValue placeholder="Visa Eligibility *" />
+                                <SelectValue placeholder="Visa Details *" />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
+                                <SelectItem value="No filings history" className="text-xs">No filings history</SelectItem>
                                 <SelectItem value="OPT" className="text-xs">OPT</SelectItem>
                                 <SelectItem value="STEM OPT" className="text-xs">STEM OPT</SelectItem>
-                                <SelectItem value="H1B" className="text-xs">H1B</SelectItem>
-                                <SelectItem value="H1B Transfer" className="text-xs">H1B Transfer</SelectItem>
                                 <SelectItem value="USC" className="text-xs">USC</SelectItem>
                                 <SelectItem value="Green Card" className="text-xs">Green Card</SelectItem>
-                                <SelectItem value="All Work Authorization" className="text-xs">All Work Authorization</SelectItem>
                               </SelectContent>
                             </Select>
                             {jobLinkErrors[idx]?.visa_eligibility && (
@@ -3708,12 +3712,16 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                     render: (j: any) => formatSalaryDisplay(j)
                   },
                   {
-                    header: "Visa Eligibility",
+                    header: "Visa Details",
                     className: "px-2 py-3 whitespace-nowrap",
                     render: (j: any) => {
-                      const val = j.visa_eligibility || "All Work Authorization";
+                      const val = formatVisaDetails(j.visa_eligibility);
+                      const isH1B = val === "H1B";
                       return (
-                        <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold text-xs">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-md border font-semibold text-xs",
+                          isH1B ? "bg-amber-50 text-amber-800 border-amber-200/60" : "bg-slate-50 text-slate-600 border-slate-200"
+                        )}>
                           {val}
                         </span>
                       );
@@ -3932,8 +3940,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
               <p className="font-semibold text-foreground">{formatSalaryDisplay(activeJobDesc?.salary)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Eligibility</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "All Work Authorization"}</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Details</p>
+              <p className="font-semibold text-foreground">{formatVisaDetails(activeJobDesc?.visa_eligibility)}</p>
             </div>
           </div>
 
@@ -3984,7 +3992,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 <Select value={editJobForm.employment_type} onValueChange={(v) => setEditJobForm({ ...editJobForm, employment_type: v })}>
                   <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["Full-Time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"].map((t) => (
+                    {["Full-Time", "Contract", "Contract-to-Hire", "Hybrid", "Hyrind", "Internship", "W2", "C2C"].map((t) => (
                       <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
                     ))}
                   </SelectContent>
@@ -4081,11 +4089,11 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Visa Eligibility</Label>
+                <Label className="text-xs font-bold">Visa Details</Label>
                 <Select value={editJobForm.visa_eligibility} onValueChange={(v) => setEditJobForm({ ...editJobForm, visa_eligibility: v })}>
                   <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"].map((v) => (
+                    {["H1B", "No filings history", "OPT", "STEM OPT", "USC", "Green Card"].map((v) => (
                       <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>
                     ))}
                   </SelectContent>
@@ -4418,7 +4426,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                           </div>
                           <div>
                             <span className="text-[10px] font-semibold text-muted-foreground block">Exp. & Visa:</span>
-                            <span className="font-medium text-foreground">{j.experience_required || "0–2 Years"} • {j.visa_eligibility || "All Work Authorization"}</span>
+                            <span className="font-medium text-foreground">{j.experience_required || "0–2 Years"} • {formatVisaDetails(j.visa_eligibility)}</span>
                           </div>
                           <div>
                             <span className="text-[10px] font-semibold text-muted-foreground block">Location:</span>

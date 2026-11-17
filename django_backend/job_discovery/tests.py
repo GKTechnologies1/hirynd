@@ -681,14 +681,15 @@ class JobDiscoveryTestSuite(TestCase):
             TIER_0_TO_2,
             TIER_2_TO_5,
             TIER_5_PLUS,
+            TIER_10_PLUS,
             TIER_SENIOR,
             TIER_LEAD_STAFF,
         )
 
-        # 1. Direct ranges
+        # 1. Exact experience detection & ranges
         self.assertEqual(
             detect_experience_level("Requires 3-5 years of professional software development experience."),
-            TIER_2_TO_5
+            "3–5 Years"
         )
         self.assertEqual(
             detect_experience_level("Looking for someone with 0 to 2 years of experience."),
@@ -698,7 +699,12 @@ class JobDiscoveryTestSuite(TestCase):
             detect_experience_level("Must have 5+ years of experience in backend development."),
             TIER_5_PLUS
         )
+        # Verify 10+ returns exact experience '10+ Years' and NOT 'Lead / Staff'
         self.assertEqual(
+            detect_experience_level("Minimum 10+ years of overall software engineering experience."),
+            TIER_10_PLUS
+        )
+        self.assertNotEqual(
             detect_experience_level("Minimum 10+ years of overall software engineering experience."),
             TIER_LEAD_STAFF
         )
@@ -708,10 +714,10 @@ class JobDiscoveryTestSuite(TestCase):
         )
         self.assertEqual(
             detect_experience_level("Bachelor's degree with at least two years of relevant experience."),
-            TIER_0_TO_2
+            "2+ Years"
         )
 
-        # 2. Seniority & Title inference
+        # 2. Seniority & Title inference when no numeric years in description
         self.assertEqual(
             detect_experience_level("Build great products.", title="Senior Software Engineer"),
             TIER_SENIOR
@@ -736,9 +742,54 @@ class JobDiscoveryTestSuite(TestCase):
         # 4. Detailed metadata
         res = detect_job_experience("Requires 3+ years of experience in Python.", title="Software Engineer")
         self.assertIsNotNone(res)
-        self.assertEqual(res['level'], TIER_2_TO_5)
+        self.assertEqual(res['level'], "3+ Years")
         self.assertEqual(res['min_years'], 3.0)
         self.assertEqual(res['confidence'], 'high')
+
+        # 5. Exact 10+ experience with lead title: must return '10+ Years' instead of 'Lead / Staff'
+        res_lead_10 = detect_job_experience(
+            "Must have 10+ years of hands-on software development experience.",
+            title="Lead Software Engineer"
+        )
+        self.assertIsNotNone(res_lead_10)
+        self.assertEqual(res_lead_10['level'], "10+ Years")
+        self.assertEqual(res_lead_10['min_years'], 10)
+        self.assertNotEqual(res_lead_10['level'], TIER_LEAD_STAFF)
+
+        # 6. Decimal experience parsing (2.5, 3.5 years)
+        res_dec = detect_job_experience("Requires 2.5+ years of experience in React.", title="Frontend Developer")
+        self.assertIsNotNone(res_dec)
+        self.assertEqual(res_dec['level'], "2.5+ Years")
+        self.assertEqual(res_dec['min_years'], 2.5)
+
+        # 7. Serializer cleanly outputs integer for 10.0 and decimal for 2.5
+        from job_discovery.serializers import DiscoveredJobListSerializer
+        job_10 = DiscoveredJob.objects.create(
+            job_id='test_exp_num_10',
+            content_hash='test_exp_num_hash_10',
+            title='Senior Backend Engineer',
+            company_name='TestCorp',
+            experience_level='10+ Years',
+            experience_min_years=10.0,
+            experience_max_years=None,
+            source_portal='indeed'
+        )
+        job_25 = DiscoveredJob.objects.create(
+            job_id='test_exp_num_25',
+            content_hash='test_exp_num_hash_25',
+            title='Frontend Engineer',
+            company_name='TestCorp',
+            experience_level='2.5–5 Years',
+            experience_min_years=2.5,
+            experience_max_years=5.0,
+            source_portal='indeed'
+        )
+        ser_10 = DiscoveredJobListSerializer(job_10).data
+        ser_25 = DiscoveredJobListSerializer(job_25).data
+        self.assertEqual(ser_10['experience_min_years'], 10)
+        self.assertIsNone(ser_10['experience_max_years'])
+        self.assertEqual(ser_25['experience_min_years'], 2.5)
+        self.assertEqual(ser_25['experience_max_years'], 5)
 
     def test_classify_job_experience_management_command(self):
         from django.core.management import call_command
@@ -759,5 +810,5 @@ class JobDiscoveryTestSuite(TestCase):
         self.assertIn('Successfully evaluated', out.getvalue())
 
         job.refresh_from_db()
-        self.assertEqual(job.experience_level, '2–5 Years')
+        self.assertEqual(job.experience_level, '3+ Years')
 

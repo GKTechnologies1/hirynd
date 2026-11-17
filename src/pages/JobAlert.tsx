@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DatePicker } from "@/components/ui/DatePicker";
 import LocationFilterPopover from "@/components/jobs/LocationFilterPopover";
+import { formatVisaDetails } from "@/lib/salaryFormatter";
 import {
   Search, Globe, X, ExternalLink, Calendar, LayoutGrid, Table, Share2, MapPin,
   Briefcase, DollarSign, Clock, UserCheck, MoreHorizontal, Home, Award, Ban, Heart,
@@ -99,7 +100,7 @@ const JobCardItem = ({
   const expLevel = job.experience_required || job.experience_level || job.level || "-";
   const salary = formatSalaryDisplay(job.salary || job.salary_range || job.pay_range);
   const salary_type = job.salary_period ? String(job.salary_period).replace(/^_/, "").toLowerCase() : (job.salary_type || null);
-  const visaEligibility = job.visa_eligibility || null;
+  const visaEligibility = formatVisaDetails(job.visa_eligibility);
   const applicantsCount = job.applicants_count || "-";
 
   const postedDate = formatDate(job.log_date || job.created_at);
@@ -219,6 +220,10 @@ const JobCardItem = ({
                 / {salary_type}
               </span>
             )}
+          </div>
+          <div className="flex items-center gap-1.5 truncate">
+            <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <span className="font-semibold text-slate-700 truncate">{visaEligibility}</span>
           </div>
         </div>
       </div>
@@ -593,7 +598,7 @@ export default function JobAlert() {
     if (filterOptions.employment_types && filterOptions.employment_types.length > 0) {
       return filterOptions.employment_types;
     }
-    return ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"];
+    return ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Hybrid", "Hyrind", "Internship", "W2", "C2C"];
   }, [filterOptions.employment_types]);
 
   const dynamicWorkModes = useMemo(() => {
@@ -1366,6 +1371,24 @@ export default function JobAlert() {
                       ) : <span className="text-slate-400">—</span>
                     },
                     {
+                      header: "Visa Details",
+                      accessorKey: "visa_eligibility",
+                      sortable: true,
+                      className: "py-4 text-xs font-semibold",
+                      render: (job: any) => {
+                        const val = formatVisaDetails(job.visa_eligibility);
+                        const isH1B = val === "H1B";
+                        return (
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-md border font-semibold",
+                            isH1B ? "bg-amber-50 text-amber-800 border-amber-200/60" : "bg-slate-50 text-slate-600 border-slate-200"
+                          )}>
+                            {val}
+                          </span>
+                        );
+                      }
+                    },
+                    {
                       header: "City",
                       accessorKey: "city",
                       sortable: true,
@@ -1497,6 +1520,10 @@ export default function JobAlert() {
             <div>
               <p className="text-[10px] uppercase font-bold text-slate-400">Required Skills</p>
               <p className="font-semibold text-slate-800">{activeJobDesc?.skills || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-slate-400">Visa Details</p>
+              <p className="font-semibold text-slate-800">{formatVisaDetails(activeJobDesc?.visa_eligibility)}</p>
             </div>
             <div className="col-span-2 sm:col-span-3">
               <p className="text-[10px] uppercase font-bold text-slate-400">Application Link</p>

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { formatSalaryDisplay } from "@/lib/salaryFormatter";
+import { formatSalaryDisplay, formatExperienceBadge, formatEmploymentType } from "@/lib/salaryFormatter";
 import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
 import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -23,7 +23,7 @@ import {
   Search, Filter, ExternalLink, RefreshCw, CheckCircle2,
   XCircle, AlertCircle, Briefcase, Building, MapPin, DollarSign,
   Calendar, Eye, Copy, ChevronLeft, ChevronRight, Award,
-  ShieldCheck, FileText, Check, Sparkles
+  ShieldCheck, FileText, Check, Sparkles, Clock
 } from "lucide-react";
 
 const REVIEW_STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -170,7 +170,12 @@ export const AdminJobDiscoveryPage = () => {
       if (toDate) params.date_to = toDate;
       if (minScore !== "all") params.min_score = Number(minScore);
       if (h1bOnly) params.h1b_only = true;
-      if (selectedStatus !== "all") params.review_status = selectedStatus;
+      if (selectedStatus !== "all") {
+        params.review_status = selectedStatus;
+      } else {
+        // Exclude duplicate jobs by default
+        params.is_duplicate = false;
+      }
       if (selectedRestriction !== "all") params.restriction = selectedRestriction;
       if (selectedExperience !== "all") params.experience = selectedExperience;
       if (isRemote !== "all") params.is_remote = isRemote === "true";
@@ -292,6 +297,28 @@ export const AdminJobDiscoveryPage = () => {
       setSubmittingPromotion(false);
     }
   };
+
+  // Memoized displayed jobs: deduplicate and exclude duplicate scraped jobs unless 'ALREADY_EXISTS' is explicitly selected
+  const displayedJobs = React.useMemo(() => {
+    let list = jobs;
+    if (selectedStatus !== "ALREADY_EXISTS") {
+      list = list.filter((j) => !j.is_duplicate && j.review_status !== "ALREADY_EXISTS");
+    }
+
+    const seen = new Set<string>();
+    const deduped: any[] = [];
+    for (const j of list) {
+      const urlKey = j.job_url ? j.job_url.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "") : "";
+      const titleKey = (j.title || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const compKey = (j.company_name || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const key = urlKey || `${compKey}||${titleKey}`;
+
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      deduped.push(j);
+    }
+    return deduped;
+  }, [jobs, selectedStatus]);
 
   return (
     <div className="space-y-6">
@@ -562,7 +589,7 @@ export const AdminJobDiscoveryPage = () => {
               Discovered Opportunities ({totalCount})
             </CardTitle>
             <CardDescription className="text-xs">
-              Showing {jobs.length} of {totalCount} total opportunities.
+              Showing {displayedJobs.length} of {totalCount} total opportunities.
             </CardDescription>
           </div>
           <div className="text-xs text-slate-500">
@@ -576,7 +603,9 @@ export const AdminJobDiscoveryPage = () => {
                 <tr>
                   <th className="py-2.5 px-3">Job Title & Company</th>
                   <th className="py-2.5 px-3">Role</th>
-                  <th className="py-2.5 px-3">Visa Intelligence</th>
+                  <th className="py-2.5 px-3">Employment Type</th>
+                  <th className="py-2.5 px-3">Work Mode</th>
+                  <th className="py-2.5 px-3">Visa Details</th>
                   <th className="py-2.5 px-3">Location</th>
                   <th className="py-2.5 px-3">Salary</th>
                   <th className="py-2.5 px-3">Experience</th>
@@ -589,20 +618,20 @@ export const AdminJobDiscoveryPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                    <td colSpan={12} className="py-12 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading discovered opportunities...
                     </td>
                   </tr>
-                ) : jobs.length === 0 ? (
+                ) : displayedJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                    <td colSpan={12} className="py-12 text-center text-slate-400">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       No opportunities match your current filter parameters.
                     </td>
                   </tr>
                 ) : (
-                  jobs.map((job) => (
+                  displayedJobs.map((job) => (
                     <tr key={job.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* Title, Company & Restrictions */}
                       <td className="py-2.5 px-3 max-w-[280px]">
@@ -629,6 +658,30 @@ export const AdminJobDiscoveryPage = () => {
                         <Badge variant="outline" className="bg-slate-50 text-slate-700 font-normal text-[11px]">
                           {job.target_role}
                         </Badge>
+                      </td>
+
+                      {/* Employment Type */}
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200/60 font-semibold text-[11px]">
+                          {formatEmploymentType(job.is_hybrid ? "Hybrid" : (job.employment_type || "Full-Time"))}
+                        </Badge>
+                      </td>
+
+                      {/* Work Mode */}
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        {job.is_remote ? (
+                          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0 px-1.5 font-semibold">
+                            Remote
+                          </Badge>
+                        ) : job.is_hybrid ? (
+                          <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] py-0 px-1.5 font-semibold">
+                            Hybrid
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[10px] py-0 px-1.5 font-semibold">
+                            {job.work_mode || "Onsite"}
+                          </Badge>
+                        )}
                       </td>
 
                       {/* Visa Intelligence Column */}
@@ -672,13 +725,9 @@ export const AdminJobDiscoveryPage = () => {
 
                       {/* Experience */}
                       <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
-                        {job.experience_min_years != null ? (
+                        {formatExperienceBadge(job.experience_min_years, job.experience_max_years, job.experience_level) ? (
                           <Badge variant="outline" className="bg-slate-50 text-slate-700 font-medium text-[11px]">
-                            {job.experience_max_years ? `${job.experience_min_years}–${job.experience_max_years} yrs` : `${job.experience_min_years}+ yrs`}
-                          </Badge>
-                        ) : job.experience_level ? (
-                          <Badge variant="outline" className="bg-slate-50 text-slate-700 font-medium text-[11px]">
-                            {job.experience_level}
+                            {formatExperienceBadge(job.experience_min_years, job.experience_max_years, job.experience_level)}
                           </Badge>
                         ) : (
                           <span className="text-slate-400 text-[11px]">—</span>
@@ -696,13 +745,16 @@ export const AdminJobDiscoveryPage = () => {
                       <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap text-[11px]">
                         <div className="flex items-center gap-1 text-slate-600 font-medium">
                           <Calendar className="h-3 w-3 text-slate-400" />
-                          <span>{formatDate(job.created_at)}</span>
+                          <span>{job.created_at ? formatDate(job.created_at) : "—"}</span>
                         </div>
                       </td>
 
                       {/* Date Posted */}
                       <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap text-[11px]">
-                        {job.date_posted ? formatDate(job.date_posted) : "—"}
+                        <div className="flex items-center gap-1 text-slate-500 font-medium">
+                          <Clock className="h-3 w-3 text-slate-400" />
+                          <span>{job.date_posted ? formatDate(job.date_posted) : "—"}</span>
+                        </div>
                       </td>
 
                       {/* Actions */}
@@ -856,7 +908,7 @@ export const AdminJobDiscoveryPage = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <ShieldCheck className="h-4 w-4 text-primary" />
-                      <span className="font-semibold text-slate-900 text-xs">Visa Intelligence Breakdown</span>
+                      <span className="font-semibold text-slate-900 text-xs">Visa Details</span>
                     </div>
                     <VisaGradeBadge
                       grade={selectedJob.visa_grade}
@@ -928,7 +980,7 @@ export const AdminJobDiscoveryPage = () => {
                   <div>
                     <span className="text-slate-500 block text-[10px]">Employment Type</span>
                     <span className="font-semibold text-slate-800 capitalize">
-                      {selectedJob.employment_type || "Full-time"}
+                      {formatEmploymentType(selectedJob.is_hybrid ? (selectedJob.employment_type?.toLowerCase().includes("hyrind") ? "Hyrind" : "Hybrid") : (selectedJob.employment_type || "Full-Time"))}
                     </span>
                   </div>
                   <div>
@@ -940,9 +992,7 @@ export const AdminJobDiscoveryPage = () => {
                   <div>
                     <span className="text-slate-500 block text-[10px]">Required Experience</span>
                     <span className="font-semibold text-slate-800">
-                      {selectedJob.experience_min_years != null
-                        ? (selectedJob.experience_max_years ? `${selectedJob.experience_min_years}–${selectedJob.experience_max_years} years` : `${selectedJob.experience_min_years}+ years`)
-                        : (selectedJob.experience_level || "Not specified")}
+                      {formatExperienceBadge(selectedJob.experience_min_years, selectedJob.experience_max_years, selectedJob.experience_level, "years") || "Not specified"}
                     </span>
                   </div>
                   <div>

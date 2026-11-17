@@ -34,6 +34,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
     company_name: "",
@@ -54,6 +55,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   });
 
   const populateForm = (data: any) => {
+    setErrors({});
     setForm({
       company_name: data.company_name || "",
       role_title: data.role_title || "",
@@ -76,14 +78,14 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   const fetchPlacement = () => {
     setLoading(true);
     candidatesApi.getPlacement(candidateId)
-      .then(({ data }) => { 
+      .then(({ data }) => {
         if (data && Object.keys(data).length > 0) {
           setPlacement(data);
           populateForm(data);
         } else {
           setPlacement(null);
         }
-        setLoading(false); 
+        setLoading(false);
       })
       .catch(() => setLoading(false));
   };
@@ -118,10 +120,47 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   };
 
   const handleSubmit = async () => {
-    if (!form.company_name.trim() || !form.role_title.trim() || !form.start_date || !form.salary.trim() || !form.hr_email.trim()) {
+    const newErrors: Record<string, string> = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const nameRegex = /^[\p{L}\s.'-]+$/u;
+
+    if (!form.company_name.trim()) newErrors.company_name = "Company name is required";
+    if (!form.role_title.trim()) newErrors.role_title = "Role title is required";
+    if (!form.start_date) newErrors.start_date = "Start date is required";
+    if (!form.salary.trim()) newErrors.salary = "Salary is required";
+
+    // HR Name validation
+    const trimmedHrName = form.hr_name.trim();
+    if (!trimmedHrName) {
+      newErrors.hr_name = "HR Name is required (*)";
+    } else if (trimmedHrName.length < 2) {
+      newErrors.hr_name = "HR Name must be at least 2 characters long";
+    } else if (!nameRegex.test(trimmedHrName)) {
+      newErrors.hr_name = "HR Name contains invalid characters (letters, spaces, dots, hyphens only)";
+    }
+
+    // HR Email validation
+    const trimmedHrEmail = form.hr_email.trim();
+    if (!trimmedHrEmail) {
+      newErrors.hr_email = "HR Email is required (*)";
+    } else if (!emailRegex.test(trimmedHrEmail)) {
+      newErrors.hr_email = "Please enter a valid HR Email address (e.g. hr@company.com)";
+    }
+
+    // Interviewer Email validation
+    const trimmedInterviewerEmail = form.interviewer_email.trim();
+    if (!trimmedInterviewerEmail) {
+      newErrors.interviewer_email = "Interviewer Email is required (*)";
+    } else if (!emailRegex.test(trimmedInterviewerEmail)) {
+      newErrors.interviewer_email = "Please enter a valid Interviewer Email address (e.g. interviewer@company.com)";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       toast({ title: "Fill all required fields", variant: "destructive" });
       return;
     }
+
     if (!form.everified_employer || form.everified_employer === "") {
       toast({ title: "Please select E-Verify status (*)", variant: "destructive" });
       return;
@@ -130,6 +169,20 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
       toast({ title: "Please select H1B sponsorship status (*)", variant: "destructive" });
       return;
     }
+
+    // Additional contacts email format validation
+    for (const [idx, contact] of form.additional_contacts.entries()) {
+      if (contact.email && !emailRegex.test(contact.email.trim())) {
+        toast({
+          title: "Validation Error",
+          description: `Additional contact #${idx + 1} (${contact.name || "Contact"}) has an invalid email format`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setErrors({});
     setSubmitting(true);
     try {
       let startDate = form.start_date;
@@ -141,7 +194,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
             try {
               const parsed = parse(cleanDate, "MM-dd-yyyy", new Date());
               if (!isNaN(parsed.getTime())) startDate = format(parsed, "yyyy-MM-dd");
-            } catch(e) {}
+            } catch (e) { }
           }
         }
       }
@@ -151,15 +204,15 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
         role_title: form.role_title.trim(),
         start_date: startDate,
         salary: form.salary.trim(),
-        hr_name: form.hr_name.trim(),
-        hr_email: form.hr_email.trim(),
+        hr_name: trimmedHrName,
+        hr_email: trimmedHrEmail,
         hr_phone: form.hr_phone.trim(),
         everified_employer: form.everified_employer,
         h1b_sponsorship_willing: form.h1b_sponsorship_willing,
         additional_contacts: form.additional_contacts.filter(c => c.name.trim() || c.email.trim()),
-        offer_letter_url: form.offer_letter_url,
-        interviewer_email: form.interviewer_email,
-        bgv_company_name: form.bgv_company_name,
+        offer_letter_url: form.offer_letter_url.trim(),
+        interviewer_email: trimmedInterviewerEmail,
+        bgv_company_name: form.bgv_company_name.trim(),
         notes: form.notes,
         change_reason: form.change_reason.trim() || undefined,
       });
@@ -181,6 +234,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
   };
 
   const handleCancel = () => {
+    setErrors({});
     if (placement) {
       populateForm(placement);
       setIsEditing(false);
@@ -218,7 +272,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
             <div><span className="text-muted-foreground">Role:</span> <strong>{placement.role_title}</strong></div>
             <div><span className="text-muted-foreground mr-1">Start Date:</span> {formatDate(placement.start_date)}</div>
             <div><span className="text-muted-foreground">Salary:</span> {placement.salary}</div>
-            
+
             <div>
               <span className="text-muted-foreground block text-xs">E-Verified Employer:</span>
               <Badge variant="outline" className={`mt-0.5 text-xs ${isEverify ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : isEverifyNo ? 'bg-rose-50 text-rose-800 border-rose-300' : 'bg-muted text-muted-foreground'}`}>
@@ -336,15 +390,57 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div><Label>Company Name *</Label><Input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} /></div>
-          <div><Label>Role Title *</Label><Input value={form.role_title} onChange={e => setForm(p => ({ ...p, role_title: e.target.value }))} /></div>
-          <div><Label>Start Date *</Label>
-            <DatePicker 
-              value={form.start_date} 
-              onChange={val => setForm(p => ({ ...p, start_date: val }))} 
+          <div>
+            <Label className={errors.company_name ? "text-destructive font-medium" : ""}>Company Name *</Label>
+            <Input
+              value={form.company_name}
+              onChange={e => {
+                setForm(p => ({ ...p, company_name: e.target.value }));
+                if (errors.company_name) setErrors(p => ({ ...p, company_name: "" }));
+              }}
+              className={errors.company_name ? "border-destructive focus-visible:ring-destructive" : ""}
             />
+            {errors.company_name && <p className="text-xs text-destructive mt-1">{errors.company_name}</p>}
           </div>
-          <div><Label>Salary *</Label><Input value={form.salary} onChange={e => setForm(p => ({ ...p, salary: e.target.value }))} placeholder="e.g. $85,000/year" /></div>
+
+          <div>
+            <Label className={errors.role_title ? "text-destructive font-medium" : ""}>Role Title *</Label>
+            <Input
+              value={form.role_title}
+              onChange={e => {
+                setForm(p => ({ ...p, role_title: e.target.value }));
+                if (errors.role_title) setErrors(p => ({ ...p, role_title: "" }));
+              }}
+              className={errors.role_title ? "border-destructive focus-visible:ring-destructive" : ""}
+            />
+            {errors.role_title && <p className="text-xs text-destructive mt-1">{errors.role_title}</p>}
+          </div>
+
+          <div>
+            <Label className={errors.start_date ? "text-destructive font-medium" : ""}>Start Date *</Label>
+            <DatePicker
+              value={form.start_date}
+              onChange={val => {
+                setForm(p => ({ ...p, start_date: val }));
+                if (errors.start_date) setErrors(p => ({ ...p, start_date: "" }));
+              }}
+            />
+            {errors.start_date && <p className="text-xs text-destructive mt-1">{errors.start_date}</p>}
+          </div>
+
+          <div>
+            <Label className={errors.salary ? "text-destructive font-medium" : ""}>Salary *</Label>
+            <Input
+              value={form.salary}
+              onChange={e => {
+                setForm(p => ({ ...p, salary: e.target.value }));
+                if (errors.salary) setErrors(p => ({ ...p, salary: "" }));
+              }}
+              placeholder="e.g. $85,000/year"
+              className={errors.salary ? "border-destructive focus-visible:ring-destructive" : ""}
+            />
+            {errors.salary && <p className="text-xs text-destructive mt-1">{errors.salary}</p>}
+          </div>
 
           {/* E-Verified Employer Selector */}
           <div>
@@ -376,12 +472,76 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
             </Select>
           </div>
 
-          <div><Label>HR Email *</Label><Input type="email" value={form.hr_email} onChange={e => setForm(p => ({ ...p, hr_email: e.target.value }))} /></div>
-          <div><Label>HR Name (Optional)</Label><Input value={form.hr_name} onChange={e => setForm(p => ({ ...p, hr_name: e.target.value }))} placeholder="e.g. Jane Smith" /></div>
-          <div><Label>HR Phone (Optional)</Label><Input type="tel" value={form.hr_phone} onChange={e => setForm(p => ({ ...p, hr_phone: e.target.value }))} placeholder="e.g. +1 (555) 123-4567" /></div>
-          <div><Label>Interviewer Email</Label><Input type="email" value={form.interviewer_email} onChange={e => setForm(p => ({ ...p, interviewer_email: e.target.value }))} /></div>
-          <div><Label>Offer Letter URL</Label><Input value={form.offer_letter_url} onChange={e => setForm(p => ({ ...p, offer_letter_url: e.target.value }))} placeholder="https://..." /></div>
-          <div><Label>BGV Company</Label><Input value={form.bgv_company_name} onChange={e => setForm(p => ({ ...p, bgv_company_name: e.target.value }))} /></div>
+          <div>
+            <Label className={errors.hr_email ? "text-destructive font-medium" : ""}>HR Email *</Label>
+            <Input
+              type="email"
+              value={form.hr_email}
+              onChange={e => {
+                setForm(p => ({ ...p, hr_email: e.target.value }));
+                if (errors.hr_email) setErrors(p => ({ ...p, hr_email: "" }));
+              }}
+              placeholder="e.g. hr@company.com"
+              className={errors.hr_email ? "border-destructive focus-visible:ring-destructive" : ""}
+            />
+            {errors.hr_email && <p className="text-xs text-destructive mt-1">{errors.hr_email}</p>}
+          </div>
+
+          <div>
+            <Label className={errors.hr_name ? "text-destructive font-medium" : ""}>HR Name *</Label>
+            <Input
+              value={form.hr_name}
+              onChange={e => {
+                setForm(p => ({ ...p, hr_name: e.target.value }));
+                if (errors.hr_name) setErrors(p => ({ ...p, hr_name: "" }));
+              }}
+              placeholder="e.g. Jane Smith"
+              className={errors.hr_name ? "border-destructive focus-visible:ring-destructive" : ""}
+            />
+            {errors.hr_name && <p className="text-xs text-destructive mt-1">{errors.hr_name}</p>}
+          </div>
+
+          <div>
+            <Label>HR Phone (Optional)</Label>
+            <Input
+              type="tel"
+              value={form.hr_phone}
+              onChange={e => setForm(p => ({ ...p, hr_phone: e.target.value }))}
+              placeholder="e.g. +1 (555) 123-4567"
+            />
+          </div>
+
+          <div>
+            <Label className={errors.interviewer_email ? "text-destructive font-medium" : ""}>Interviewer Email *</Label>
+            <Input
+              type="email"
+              value={form.interviewer_email}
+              onChange={e => {
+                setForm(p => ({ ...p, interviewer_email: e.target.value }));
+                if (errors.interviewer_email) setErrors(p => ({ ...p, interviewer_email: "" }));
+              }}
+              placeholder="e.g. interviewer@company.com"
+              className={errors.interviewer_email ? "border-destructive focus-visible:ring-destructive" : ""}
+            />
+            {errors.interviewer_email && <p className="text-xs text-destructive mt-1">{errors.interviewer_email}</p>}
+          </div>
+
+          <div>
+            <Label>Offer Letter URL</Label>
+            <Input
+              value={form.offer_letter_url}
+              onChange={e => setForm(p => ({ ...p, offer_letter_url: e.target.value }))}
+              placeholder="https://..."
+            />
+          </div>
+
+          <div>
+            <Label>BGV Company</Label>
+            <Input
+              value={form.bgv_company_name}
+              onChange={e => setForm(p => ({ ...p, bgv_company_name: e.target.value }))}
+            />
+          </div>
         </div>
 
         {/* Dynamic Multiple Employer Contacts Sub-form */}
@@ -479,7 +639,7 @@ const AdminPlacementTab = ({ candidateId, candidateStatus, onRefresh }: AdminPla
         )}
 
         <div><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} /></div>
-        
+
         <div className="flex gap-3 pt-2">
           <Button variant="hero" onClick={handleSubmit} disabled={submitting} className="cursor-pointer">
             {submitting ? "Saving..." : (placement ? "Save Changes" : "Close Case & Mark Placed")}

@@ -391,6 +391,19 @@ class PlacementClosureSerializer(serializers.ModelSerializer):
             return val
         return 'unknown'
 
+    def validate_hr_name(self, value):
+        if value is not None:
+            val = str(value).strip()
+            if val and len(val) < 2:
+                raise serializers.ValidationError("HR Name must be at least 2 characters long.")
+            return val
+        return value
+
+    def validate_interviewer_email(self, value):
+        if value:
+            return str(value).strip().lower()
+        return value
+
     def get_audit_logs(self, obj):
         logs = obj.audit_logs.all()[:10]
         return PlacementAuditLogSerializer(logs, many=True).data

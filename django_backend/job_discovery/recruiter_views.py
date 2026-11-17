@@ -59,14 +59,13 @@ def list_recruiter_jobs(request):
 
     raw_status = request.GET.get('status')
     disc_filter = request.GET.get('discovery_status', '').strip().upper()
-    if raw_status:
+    if disc_filter in ('DISMISSED', 'REJECTED'):
+        app_status = 'REJECTED'
+    elif raw_status:
         app_status = raw_status.strip().upper()
     else:
         # Default to NOT_APPLIED unless discovery_status is explicitly DISMISSED or REJECTED
-        if disc_filter in ('DISMISSED', 'REJECTED'):
-            app_status = 'REJECTED'
-        else:
-            app_status = 'NOT_APPLIED'
+        app_status = 'NOT_APPLIED'
 
     if not disc_filter:
         if app_status in ('DISMISSED', 'REJECTED'):
@@ -181,6 +180,13 @@ def list_recruiter_jobs(request):
             Q(location_raw__icontains=location)
         )
 
+    # Duplicate filter (defaults to False in build_recruiter_jobs_queryset)
+    is_duplicate = request.GET.get('is_duplicate')
+    if is_duplicate is not None and is_duplicate != '':
+        qs = qs.filter(is_duplicate=is_duplicate.lower() == 'true')
+    else:
+        qs = qs.filter(is_duplicate=False).exclude(review_status='ALREADY_EXISTS')
+
     # Experience level & range filter
     exp_filter = request.GET.get('experience') or request.GET.get('experience_level') or request.GET.get('experience_required')
     if exp_filter:
@@ -249,14 +255,25 @@ def list_recruiter_jobs(request):
                 item['opportunity_id'] = f"{job['id']}_{mc['id']}"
                 item['candidate'] = mc
                 item['candidate_id'] = mc['id']
-                item['status'] = mc.get('status') or 'NOT_APPLIED'
-                item['discovery_status'] = mc.get('discovery_status') or 'ACTIVE'
-                item['is_dismissed'] = mc.get('is_dismissed', False)
-                item['dismissal_reason'] = mc.get('dismissal_reason')
+                is_rejected_or_dismissed = (
+                    mc.get('status') == 'REJECTED' or
+                    mc.get('discovery_status') in ('DISMISSED', 'REJECTED') or
+                    mc.get('is_dismissed', False)
+                )
+                if is_rejected_or_dismissed:
+                    item['status'] = 'REJECTED'
+                    item['discovery_status'] = 'DISMISSED'
+                    item['is_dismissed'] = True
+                else:
+                    item['status'] = mc.get('status') or 'NOT_APPLIED'
+                    item['discovery_status'] = mc.get('discovery_status') or 'ACTIVE'
+                    item['is_dismissed'] = False
+
+                item['dismissal_reason'] = mc.get('dismissal_reason') or mc.get('rejection_reason')
                 item['dismissal_comments'] = mc.get('dismissal_comments')
                 item['dismissed_date'] = mc.get('dismissed_date')
                 item['dismissed_by'] = mc.get('dismissed_by')
-                item['rejection_reason'] = mc.get('rejection_reason')
+                item['rejection_reason'] = mc.get('rejection_reason') or mc.get('dismissal_reason')
                 item['has_applied'] = (item['status'] == 'APPLIED')
                 expanded_records.append(item)
         else:
@@ -283,6 +300,21 @@ def list_recruiter_jobs(request):
         expanded_records = [r for r in expanded_records if r.get('is_dismissed') or r.get('status') == 'REJECTED' or r.get('discovery_status') in ('DISMISSED', 'REJECTED')]
     else:  # Default: NOT_APPLIED
         expanded_records = [r for r in expanded_records if not r.get('is_dismissed') and r.get('status') not in ('APPLIED', 'REJECTED') and not r.get('has_applied')]
+
+    # Deduplicate expanded records per candidate so candidates never see duplicate scraped opportunities
+    deduped_records = []
+    seen_cand_jobs = set()
+    for item in expanded_records:
+        cid = str(item.get('candidate_id') or 'all')
+        jurl = (item.get('job_url') or '').strip().lower().rstrip('/')
+        title_norm = (item.get('title') or '').strip().lower()
+        comp_norm = (item.get('company_name_norm') or item.get('company_name') or '').strip().lower()
+        key = (cid, jurl if len(jurl) > 10 else f"{comp_norm}||{title_norm}")
+        if key in seen_cand_jobs:
+            continue
+        seen_cand_jobs.add(key)
+        deduped_records.append(item)
+    expanded_records = deduped_records
 
     return Response({
         'count': len(expanded_records) if app_status != 'ALL' or len(expanded_records) != len(enriched_jobs) else paginator.count,
@@ -536,6 +568,28 @@ def mark_job_as_applied(request, job_id):
     work_mode_val = 'Remote' if job.is_remote else ('Hybrid' if job.is_hybrid else 'Onsite')
     exp_val = job.experience_level or 'Not Specified'
 
+    emp_raw = str(job.employment_type or '').strip()
+    emp_lower = emp_raw.lower()
+    if 'hyrind' in emp_lower:
+        emp_val = 'Hyrind'
+    elif job.is_hybrid or 'hybrid' in emp_lower:
+        emp_val = 'Hybrid'
+    elif 'contract' in emp_lower or 'c2c' in emp_lower:
+        emp_val = 'Contract'
+    elif 'part' in emp_lower:
+        emp_val = 'Part-Time'
+    elif 'intern' in emp_lower:
+        emp_val = 'Internship'
+    elif 'full' in emp_lower:
+        emp_val = 'Full-Time'
+    elif emp_lower in ('remote', 'telecommute', 'wfh', ''):
+        emp_val = 'Full-Time'
+    else:
+        emp_val = emp_raw.title()
+
+    has_filings = (job.h1b_filings_recent and job.h1b_filings_recent > 0) or job.h1b_sponsor or (job.visa_grade in ('A', 'B', 'C', 'D'))
+    visa_val = 'H1B' if has_filings else 'No filings history'
+
     entry = JobLinkEntry.objects.create(
         submission_log=log,
         candidate=candidate,
@@ -544,14 +598,14 @@ def mark_job_as_applied(request, job_id):
         job_url=job.job_url or '',
         job_description=job.job_description or '',
         application_status='applied',
-        employment_type=job.employment_type or 'Full-Time',
+        employment_type=emp_val,
         experience_required=exp_val,
         work_mode=work_mode_val,
         city=job.city or '',
         state=job.state or '',
         country=job.country or 'USA',
         salary=sal_val,
-        visa_eligibility=f"Grade {job.visa_grade}" if job.visa_grade else "",
+        visa_eligibility=visa_val,
         notes=f"Applied from Job Discovery. {notes}".strip(),
         submitted_by=request.user,
         is_public=True,
@@ -634,9 +688,13 @@ def reject_job(request, job_id):
         job=job,
         defaults={
             'status': 'REJECTED',
+            'discovery_status': 'DISMISSED',
             'rejection_reason': reason,
+            'dismissal_reason': reason,
             'recruiter': request.user,
             'rejected_at': timezone.now(),
+            'dismissed_at': timezone.now(),
+            'dismissed_by': request.user,
         }
     )
 
@@ -701,26 +759,32 @@ def dismiss_job(request, job_id):
         return Response({'error': 'This job has already been applied for and cannot be dismissed.'}, status=status.HTTP_400_BAD_REQUEST)
 
     now = timezone.now()
+    full_reason = reason + (f": {comments}" if comments else "")
     if not opp:
         opp = CandidateJobOpportunity.objects.create(
             candidate=candidate,
             job=job,
             recruiter=request.user,
-            status='NOT_APPLIED',
+            status='REJECTED',
             discovery_status='DISMISSED',
+            rejection_reason=full_reason,
             dismissal_reason=reason,
             dismissal_comments=comments,
             dismissed_by=request.user,
             dismissed_at=now,
+            rejected_at=now,
             previous_discovery_status='ACTIVE'
         )
     else:
         opp.previous_discovery_status = opp.discovery_status
         opp.discovery_status = 'DISMISSED'
+        opp.status = 'REJECTED'
+        opp.rejection_reason = full_reason
         opp.dismissal_reason = reason
         opp.dismissal_comments = comments
         opp.dismissed_by = request.user
         opp.dismissed_at = now
+        opp.rejected_at = now
         opp.recruiter = request.user
         opp.save()
 

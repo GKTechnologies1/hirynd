@@ -124,11 +124,15 @@ export const formatRawSalaryString = (rawSalary: any): string => {
 export const formatEmploymentType = (val?: string): string => {
   if (!val) return "Full-Time";
   const s = val.toLowerCase().replace(/[-_\s]+/g, " ").trim();
-  if (s.includes("full")) return "Full-Time";
-  if (s.includes("part")) return "Part-Time";
+  if (s === "remote") return "Full-Time";
+  // If application has both Full Time and Hybrid/Hyrind, return only Hybrid/Hyrind
+  if (s.includes("hyrind")) return "Hyrind";
+  if (s.includes("hybrid")) return "Hybrid";
   if (s.includes("contract") || s.includes("c2c") || s.includes("corp")) return "Contract";
+  if (s.includes("part")) return "Part-Time";
   if (s.includes("intern")) return "Internship";
   if (s.includes("third") || s.includes("vendor")) return "Third-Party (C2C)";
+  if (s.includes("full")) return "Full-Time";
   return val.charAt(0).toUpperCase() + val.slice(1);
 };
 
@@ -142,6 +146,85 @@ export const formatWorkMode = (val?: string): string => {
   if (s === "hybrid") return "Hybrid";
   if (s === "onsite" || s === "on-site") return "Onsite";
   return val.charAt(0).toUpperCase() + val.slice(1);
+};
+
+/**
+ * Cleanly formats numeric experience values (e.g. "10.0" -> "10", "2.0" -> "2", "2.5" -> "2.5").
+ */
+export const formatExpNumber = (val: any): string => {
+  if (val == null || val === "") return "";
+  const num = Number(val);
+  if (!isNaN(num)) {
+    return Number.isInteger(num) ? num.toString() : num.toString();
+  }
+  return String(val).replace(/\.0$/, "");
+};
+
+/**
+ * Formats experience display from min_years, max_years and fallback level.
+ */
+export const formatExperienceBadge = (
+  minYears: any,
+  maxYears: any,
+  fallbackLevel?: string | null,
+  unit: "yrs" | "years" = "yrs"
+): string | null => {
+  if (minYears != null && minYears !== "") {
+    const minStr = formatExpNumber(minYears);
+    if (maxYears != null && maxYears !== "") {
+      const maxStr = formatExpNumber(maxYears);
+      return `${minStr}–${maxStr} ${unit}`;
+    }
+    return `${minStr}+ ${unit}`;
+  }
+  if (fallbackLevel && String(fallbackLevel).trim()) {
+    return fallbackLevel;
+  }
+  return null;
+};
+
+/**
+ * Normalizes visa eligibility / details:
+ * - If H1B filings: returns "H1B"
+ * - If no filings: returns "No filings history"
+ */
+export const formatVisaDetails = (val?: any, filingsCount?: number | null, isSponsor?: boolean | null): string => {
+  if (filingsCount !== undefined && filingsCount !== null) {
+    return Number(filingsCount) > 0 ? "H1B" : "No filings history";
+  }
+  if (isSponsor !== undefined && isSponsor !== null) {
+    return isSponsor ? "H1B" : "No filings history";
+  }
+  if (!val) return "No filings history";
+
+  const s = String(val).trim();
+  const low = s.toLowerCase();
+
+  if (low === "h1b" || low.includes("h-1b") || low.includes("h1-b")) {
+    return "H1B";
+  }
+  if (
+    low.includes("all work") ||
+    low.includes("no filing") ||
+    low.includes("unrated") ||
+    low === "none" ||
+    low === "null" ||
+    low === "—" ||
+    low === "-" ||
+    low === "0"
+  ) {
+    return "No filings history";
+  }
+  if (/grade\s*[eef]/i.test(low)) {
+    return "No filings history";
+  }
+  if (/grade\s*[abcd]/i.test(low)) {
+    return "H1B";
+  }
+  if (low.includes("opt") || low.includes("stem") || low.includes("usc") || low.includes("green card")) {
+    return s;
+  }
+  return "H1B";
 };
 
 export default formatSalaryDisplay;

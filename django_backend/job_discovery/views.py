@@ -420,6 +420,9 @@ def list_discovered_jobs(request):
     is_duplicate = request.GET.get('is_duplicate')
     if is_duplicate is not None and is_duplicate != '':
         qs = qs.filter(is_duplicate=is_duplicate.lower() == 'true')
+    elif review_status_param != 'ALREADY_EXISTS':
+        # By default, do not return duplicate scraped jobs unless explicitly requested
+        qs = qs.filter(is_duplicate=False).exclude(review_status='ALREADY_EXISTS')
 
     # Experience level & range filter
     exp_filter = request.GET.get('experience') or request.GET.get('experience_level') or request.GET.get('experience_required')
@@ -651,6 +654,28 @@ def approve_for_job_management(request, job_id):
             work_mode_val = 'Remote' if job.is_remote else ('Hybrid' if job.is_hybrid else 'Onsite')
             exp_val = job.experience_level or 'Not Specified'
 
+            emp_raw = str(job.employment_type or '').strip()
+            emp_lower = emp_raw.lower()
+            if 'hyrind' in emp_lower:
+                emp_val = 'Hyrind'
+            elif job.is_hybrid or 'hybrid' in emp_lower:
+                emp_val = 'Hybrid'
+            elif 'contract' in emp_lower or 'c2c' in emp_lower:
+                emp_val = 'Contract'
+            elif 'part' in emp_lower:
+                emp_val = 'Part-Time'
+            elif 'intern' in emp_lower:
+                emp_val = 'Internship'
+            elif 'full' in emp_lower:
+                emp_val = 'Full-Time'
+            elif emp_lower in ('remote', 'telecommute', 'wfh', ''):
+                emp_val = 'Full-Time'
+            else:
+                emp_val = emp_raw.title()
+
+            has_filings = (job.h1b_filings_recent and job.h1b_filings_recent > 0) or job.h1b_sponsor or (job.visa_grade in ('A', 'B', 'C', 'D'))
+            visa_val = 'H1B' if has_filings else 'No filings history'
+
             link_entry = JobLinkEntry.objects.create(
                 submission_log=log,
                 candidate=cand,
@@ -659,13 +684,14 @@ def approve_for_job_management(request, job_id):
                 job_url=job.job_url,
                 job_description=job.job_description,
                 application_status='applied',
-                employment_type=job.employment_type or 'Full-Time',
+                employment_type=emp_val,
                 experience_required=exp_val,
                 work_mode=work_mode_val,
                 city=job.city,
                 state=job.state,
                 country=job.country or 'USA',
                 salary=sal_val or 'Not Disclosed',
+                visa_eligibility=visa_val,
                 notes=f"Created from Discovered Job {job.id}. {notes}".strip(),
                 submitted_by=request.user,
                 is_public=True,

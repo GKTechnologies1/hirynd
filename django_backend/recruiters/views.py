@@ -306,6 +306,41 @@ def job_applications(request, candidate_id):
                 if app_status not in valid_statuses:
                     app_status = 'applied'
 
+                raw_emp = str(jl.get('employment_type', '') or '').strip()
+                raw_mode = str(jl.get('work_mode', '') or '').strip()
+                emp_low = raw_emp.lower()
+                mode_low = raw_mode.lower()
+
+                if 'hyrind' in emp_low:
+                    emp_val = 'Hyrind'
+                elif 'hybrid' in emp_low or mode_low == 'hybrid':
+                    emp_val = 'Hybrid'
+                elif 'contract' in emp_low or 'c2c' in emp_low:
+                    emp_val = 'Contract'
+                elif 'part' in emp_low:
+                    emp_val = 'Part-Time'
+                elif 'intern' in emp_low:
+                    emp_val = 'Internship'
+                elif 'full' in emp_low:
+                    emp_val = 'Full-Time'
+                elif emp_low in ('remote', 'telecommute', 'wfh', ''):
+                    emp_val = 'Full-Time'
+                else:
+                    emp_val = raw_emp.title() or 'Full-Time'
+
+                raw_visa = str(jl.get('visa_eligibility', '') or '').strip()
+                visa_low = raw_visa.lower()
+                if 'h1b' in visa_low or 'h-1b' in visa_low:
+                    visa_val = 'H1B'
+                elif any(f"grade {g}" in visa_low for g in ('a', 'b', 'c', 'd')):
+                    visa_val = 'H1B'
+                elif any(f"grade {g}" in visa_low for g in ('e', 'f')) or 'all work' in visa_low or 'no filing' in visa_low or not raw_visa or visa_low in ('none', 'null', ''):
+                    visa_val = 'No filings history'
+                elif visa_low in ('opt', 'stem opt', 'usc', 'green card'):
+                    visa_val = raw_visa
+                else:
+                    visa_val = 'H1B'
+
                 entry = JobLinkEntry.objects.create(
                     submission_log=log,
                     candidate_id=candidate_id,
@@ -315,14 +350,14 @@ def job_applications(request, candidate_id):
                     job_description=str(jl.get('job_description', '') or ''),
                     resume_used=raw_resume,
                     application_status=app_status,
-                    employment_type=str(jl.get('employment_type', '') or '').strip()[:100] or 'Full-Time',
+                    employment_type=emp_val[:100],
                     experience_required=str(jl.get('experience_required', '') or '').strip()[:100] or '0–2 Years',
                     work_mode=str(jl.get('work_mode', '') or '').strip()[:100] or 'Onsite',
                     city=str(jl.get('city', '') or '').strip()[:255],
                     state=str(jl.get('state', '') or '').strip()[:255],
                     country=str(jl.get('country', '') or '').strip()[:255] or 'United States',
                     salary=str(jl.get('salary', 'Not Disclosed') or 'Not Disclosed').strip()[:255] or 'Not Disclosed',
-                    visa_eligibility=str(jl.get('visa_eligibility', '') or '').strip()[:255] or 'All Work Authorization',
+                    visa_eligibility=visa_val[:255],
                     submitted_by=request.user
                 )
                 created_entries.append(entry)

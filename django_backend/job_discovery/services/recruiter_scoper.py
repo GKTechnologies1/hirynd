@@ -159,9 +159,12 @@ def build_recruiter_jobs_queryset(
     Returns a QuerySet of DiscoveredJob restricted strictly to the candidate roles
     assigned to the authenticated recruiter, combined with any explicitly distributed jobs.
     If a specific candidate_id is selected, excludes jobs that candidate has ALREADY applied for.
+    Excludes duplicate scraped jobs by default.
     """
     if base_qs is None:
-        base_qs = DiscoveredJob.objects.all()
+        base_qs = DiscoveredJob.objects.filter(is_duplicate=False).exclude(review_status='ALREADY_EXISTS')
+    else:
+        base_qs = base_qs.filter(is_duplicate=False).exclude(review_status='ALREADY_EXISTS')
 
     scope = get_recruiter_assigned_scope(recruiter_user, target_candidate_id=candidate_id)
 
@@ -387,8 +390,11 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
                 if opp:
                     c_status = opp['status']
                     c_disc_status = opp.get('discovery_status') or 'ACTIVE'
-                    rejection_reason = opp.get('rejection_reason')
-                    dismissal_reason = opp.get('dismissal_reason')
+                    if c_status == 'REJECTED' or c_disc_status in ('DISMISSED', 'REJECTED'):
+                        c_status = 'REJECTED'
+                        c_disc_status = 'DISMISSED'
+                    rejection_reason = opp.get('rejection_reason') or opp.get('dismissal_reason')
+                    dismissal_reason = opp.get('dismissal_reason') or opp.get('rejection_reason')
                     dismissal_comments = opp.get('dismissal_comments')
                     dismissed_date = opp['dismissed_at'].isoformat() if opp.get('dismissed_at') else None
                     dismissed_by = opp.get('dismissed_by__email')
@@ -423,6 +429,9 @@ def attach_matching_candidate_context(jobs_data: List[Dict[str, Any]], scope: Di
                             if url_match or comp_match:
                                 if app_status == 'rejected':
                                     c_status = 'REJECTED'
+                                    c_disc_status = 'DISMISSED'
+                                    rejection_reason = app.get('notes') or 'Rejected Application'
+                                    dismissal_reason = rejection_reason
                                 else:
                                     c_status = 'APPLIED'
                                 applied_date = app['created_at'].date().isoformat() if app.get('created_at') else None

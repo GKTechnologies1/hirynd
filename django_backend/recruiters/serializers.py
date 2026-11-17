@@ -341,8 +341,17 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
 
         # 1. Normalize employment_type
         emp_raw = str(data.get('employment_type') or '').strip().lower().replace('-', ' ').replace('_', ' ')
-        if 'full' in emp_raw:
-            data['employment_type'] = 'Full-Time'
+        work_raw = str(data.get('work_mode') or '').strip().lower()
+
+        # Never pass 'remote' as employment_type
+        if emp_raw == 'remote':
+            emp_raw = ''
+
+        # If application has both Full-Time and Hybrid/Hyrind, pass only Hybrid/Hyrind, not Full-Time
+        if 'hyrind' in emp_raw:
+            data['employment_type'] = 'Hyrind'
+        elif 'hybrid' in emp_raw or work_raw == 'hybrid':
+            data['employment_type'] = 'Hybrid'
         elif 'contract' in emp_raw or 'c2c' in emp_raw:
             data['employment_type'] = 'Contract'
         elif 'part' in emp_raw:
@@ -351,6 +360,8 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
             data['employment_type'] = 'Internship'
         elif 'third' in emp_raw or 'vendor' in emp_raw:
             data['employment_type'] = 'Third-Party (C2C)'
+        elif 'full' in emp_raw:
+            data['employment_type'] = 'Full-Time'
         elif not emp_raw or emp_raw in ('none', 'null', ''):
             data['employment_type'] = 'Full-Time'
         else:
@@ -412,8 +423,24 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
         else:
             data['salary'] = 'Not Disclosed'
 
-        if not data.get('visa_eligibility') or str(data.get('visa_eligibility')).strip().lower() in ('none', 'null', ''):
-            data['visa_eligibility'] = 'All Work Authorization'
+        # 5. Normalize visa_eligibility: If H1B filings, display as H1B. If no filings, display as No filings history.
+        raw_visa = str(data.get('visa_eligibility') or '').strip()
+        visa_low = raw_visa.lower()
+        if dj_match and (dj_match.h1b_filings_recent or dj_match.h1b_sponsor or dj_match.visa_grade):
+            if (dj_match.h1b_filings_recent and dj_match.h1b_filings_recent > 0) or dj_match.h1b_sponsor or (dj_match.visa_grade in ('A', 'B', 'C', 'D')):
+                data['visa_eligibility'] = 'H1B'
+            else:
+                data['visa_eligibility'] = 'No filings history'
+        elif 'h1b' in visa_low or 'h-1b' in visa_low:
+            data['visa_eligibility'] = 'H1B'
+        elif any(f"grade {g}" in visa_low for g in ('a', 'b', 'c', 'd')):
+            data['visa_eligibility'] = 'H1B'
+        elif any(f"grade {g}" in visa_low for g in ('e', 'f')) or 'all work' in visa_low or 'no filing' in visa_low or not raw_visa or visa_low in ('none', 'null', ''):
+            data['visa_eligibility'] = 'No filings history'
+        elif visa_low in ('opt', 'stem opt', 'usc', 'green card'):
+            data['visa_eligibility'] = raw_visa
+        else:
+            data['visa_eligibility'] = 'H1B'
 
         return data
 

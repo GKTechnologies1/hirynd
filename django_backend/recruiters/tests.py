@@ -428,7 +428,7 @@ class JobLinkEntryOlderDataTests(TestCase):
         self.assertEqual(serialized['work_mode'], 'Onsite')
         self.assertEqual(serialized['country'], 'United States')
         self.assertEqual(serialized['salary'], 'Not Disclosed')
-        self.assertEqual(serialized['visa_eligibility'], 'All Work Authorization')
+        self.assertEqual(serialized['visa_eligibility'], 'No filings history')
 
     def test_job_applications_endpoint_returns_all_fields_for_older_data(self):
         from rest_framework.test import APIClient
@@ -469,6 +469,6 @@ class JobLinkEntryOlderDataTests(TestCase):
         self.assertEqual(app.get('work_mode'), 'Onsite')
         self.assertEqual(app.get('country'), 'United States')
         self.assertEqual(app.get('salary'), 'Not Disclosed')
-        self.assertEqual(app.get('visa_eligibility'), 'All Work Authorization')
+        self.assertEqual(app.get('visa_eligibility'), 'No filings history')
 
 

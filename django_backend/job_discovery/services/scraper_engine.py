@@ -7,6 +7,7 @@ from uuid import UUID
 from datetime import datetime
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Q
 
 from ..models import ScraperExecution, DiscoveredJob
 from ..config.constants import SOURCES, SUPPORTED_SITES, DEDICATED_SITES
@@ -102,6 +103,27 @@ def build_actor_input(source: str, query: str, limit: int = 15, freshness_days: 
     return None
 
 
+def _clean_job_employment_type(emp_type_raw: str, is_hybrid: bool = False) -> str:
+    s = str(emp_type_raw or '').strip()
+    s_low = s.lower()
+    if 'hyrind' in s_low:
+        return 'Hyrind'
+    if is_hybrid or 'hybrid' in s_low:
+        # If application has both Full Time and Hybrid/Hyrind, pass only Hybrid/Hyrind
+        return 'Hybrid'
+    if s_low in ('remote', 'telecommute', 'wfh'):
+        return 'Full-Time'
+    if 'contract' in s_low or 'c2c' in s_low:
+        return 'Contract'
+    if 'part' in s_low:
+        return 'Part-Time'
+    if 'intern' in s_low:
+        return 'Internship'
+    if 'full' in s_low:
+        return 'Full-Time'
+    return s
+
+
 def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperExecution) -> str:
     """
     Persists a NormalizedJob into DiscoveredJob using Django ORM.
@@ -161,7 +183,7 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
             except (ValueError, TypeError):
                 pass
         if job.employmentType:
-            existing.employment_type = str(job.employmentType)
+            existing.employment_type = _clean_job_employment_type(job.employmentType, existing.is_hybrid or job.isHybrid)
         if p_date:
             existing.date_posted = p_date
         existing.execution = execution
@@ -183,20 +205,27 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         raw_url = 'https://' + raw_url
 
     canonical_job = None
-    # Tier 2: Check by canonical application URL
+    # Tier 2: Check by canonical application URL (handling trailing slash differences)
     if raw_url and len(raw_url) > 10:
-        canonical_job = DiscoveredJob.objects.filter(job_url=raw_url).first()
+        url_stripped = raw_url.rstrip('/')
+        canonical_job = DiscoveredJob.objects.filter(
+            Q(job_url=raw_url) | Q(job_url=url_stripped) | Q(job_url=f"{url_stripped}/")
+        ).first()
 
     # Tier 3: Check by content_hash across different jobs/portals
     if not canonical_job and job.contentHash:
         canonical_job = DiscoveredJob.objects.filter(content_hash=job.contentHash).first()
 
-    # Tier 4: Check by normalized company + exact title
-    if not canonical_job and job.companyNameNorm and job.title:
+    # Tier 4: Check by normalized company or company name + exact title
+    if not canonical_job and job.title and (job.companyNameNorm or job.companyName):
+        comp_norm = job.companyNameNorm or job.companyName.lower().strip()
         canonical_job = DiscoveredJob.objects.filter(
-            company_name_norm__iexact=job.companyNameNorm,
+            Q(company_name_norm__iexact=comp_norm) | Q(company_name__iexact=job.companyName),
             title__iexact=job.title.strip()
         ).first()
+
+    if canonical_job and canonical_job.is_duplicate and canonical_job.canonical_job:
+        canonical_job = canonical_job.canonical_job
 
     is_duplicate = canonical_job is not None
 
@@ -244,7 +273,7 @@ def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperE
         salary_max=sal_max,
         salary_currency='USD',
         salary_period=str(job.salaryPeriod) if job.salaryPeriod else '',
-        employment_type=str(job.employmentType) if job.employmentType else '',
+        employment_type=_clean_job_employment_type(job.employmentType, job.isHybrid),
         experience_level=exp_lvl,
         experience_min_years=exp_min,
         experience_max_years=exp_max,

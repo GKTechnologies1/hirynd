@@ -31,7 +31,7 @@ import {
   formatSalaryAmount,
   handleSalaryKeyDown,
 } from "@/data/usLocations";
-import { formatSalaryDisplay, formatEmploymentType, formatWorkMode } from "@/lib/salaryFormatter";
+import { formatSalaryDisplay, formatEmploymentType, formatWorkMode, formatVisaDetails } from "@/lib/salaryFormatter";
 
 const JobDescriptionCell = ({
   company,
@@ -633,7 +633,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       "State",
       "Country",
       "Salary",
-      "Visa Eligibility",
+      "Visa Details",
       "Status",
       "Job URL",
       "Resume Used",
@@ -657,7 +657,7 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
       escapeCsv(j.state || ""),
       escapeCsv(j.country || "United States"),
       escapeCsv(formatSalaryDisplay(j)),
-      escapeCsv(j.visa_eligibility || "All Work Authorization"),
+      escapeCsv(formatVisaDetails(j.visa_eligibility)),
       escapeCsv(j.candidate_response_status || j.application_status || j.status || ""),
       escapeCsv(j.job_url || ""),
       escapeCsv(j.resume_used || ""),
@@ -1389,14 +1389,18 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     render: (j: any) => formatSalaryDisplay(j)
                   },
                   {
-                    header: "Visa Eligibility",
+                    header: "Visa Details",
                     accessorKey: "visa_eligibility",
                     sortable: true,
                     className: "px-2 py-3 whitespace-nowrap",
                     render: (j: any) => {
-                      const val = j.visa_eligibility || "All Work Authorization";
+                      const val = formatVisaDetails(j.visa_eligibility);
+                      const isH1B = val === "H1B";
                       return (
-                        <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold text-xs">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-md border font-semibold text-xs",
+                          isH1B ? "bg-amber-50 text-amber-800 border-amber-200/60" : "bg-slate-50 text-slate-600 border-slate-200"
+                        )}>
                           {val}
                         </span>
                       );
@@ -1667,8 +1671,8 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
               <p className="font-semibold text-foreground">{formatSalaryDisplay(activeJobDesc?.salary)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Eligibility</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "All Work Authorization"}</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Details</p>
+              <p className="font-semibold text-foreground">{formatVisaDetails(activeJobDesc?.visa_eligibility)}</p>
             </div>
           </div>
 
@@ -1833,11 +1837,11 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Visa Eligibility</Label>
+                <Label className="text-xs font-bold">Visa Details</Label>
                 <Select value={editJobForm.visa_eligibility} onValueChange={(v) => setEditJobForm({ ...editJobForm, visa_eligibility: v })}>
                   <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select visa..." /></SelectTrigger>
                   <SelectContent>
-                    {["OPT", "STEM OPT", "H1B", "H1B Transfer", "USC", "Green Card", "All Work Authorization"].map(ve => (
+                    {["H1B", "No filings history", "OPT", "STEM OPT", "USC", "Green Card"].map(ve => (
                       <SelectItem key={ve} value={ve} className="text-xs">{ve}</SelectItem>
                     ))}
                   </SelectContent>
@@ -1953,8 +1957,8 @@ const CandidateApplicationsPage = ({ candidate }: CandidateApplicationsPageProps
                     <span className="font-semibold text-slate-800">{formatSalaryDisplay(viewingApplication.salary)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Visa Eligibility</span>
-                    <span className="font-semibold text-slate-800">{viewingApplication.visa_eligibility || "All Work Authorization"}</span>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Visa Details</span>
+                    <span className="font-semibold text-slate-800">{formatVisaDetails(viewingApplication.visa_eligibility)}</span>
                   </div>
                 </div>
 

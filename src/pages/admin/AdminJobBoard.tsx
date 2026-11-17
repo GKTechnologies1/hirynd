@@ -24,6 +24,7 @@ import {
   formatSalaryAmount,
   handleSalaryKeyDown,
 } from "@/data/usLocations";
+import { formatVisaDetails } from "@/lib/salaryFormatter";
 import {
   Search, Globe, X, ExternalLink, LayoutGrid, Table, Share2, MapPin,
   Briefcase, DollarSign, Clock, MoreHorizontal, Home, Award, Ban, Heart,
@@ -126,7 +127,7 @@ const JobCardItem = ({
   const expLevel = job.experience_required || job.experience_level || job.level || "-";
   const salary = formatSalaryDisplay(job.salary || job.salary_range || job.pay_range);
   const salary_type = job.salary_period ? String(job.salary_period).replace(/^_/, "").toLowerCase() : (job.salary_type || null);
-  const visaEligibility = job.visa_eligibility || null;
+  const visaEligibility = formatVisaDetails(job.visa_eligibility);
   const applicantsCount = job.applicants_count || "-";
 
   const isExpired = job.application_status === "expired" || job.status === "expired";
@@ -673,7 +674,7 @@ const AdminJobBoard = () => {
     if (filterOptions.employment_types && filterOptions.employment_types.length > 0) {
       return filterOptions.employment_types;
     }
-    return ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"];
+    return ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Hybrid", "Hyrind", "Internship", "W2", "C2C"];
   }, [filterOptions.employment_types]);
 
   const dynamicWorkModes = useMemo(() => {
@@ -1217,7 +1218,7 @@ const AdminJobBoard = () => {
                 {/* 6. Visa Type Multi-Select Dropdown */}
                 <MultiSelectFilterPopover
                   label="Visa Type"
-                  categoryTitle="Visa Eligibility"
+                  categoryTitle="Visa Details"
                   icon={<Sparkles className="h-3 w-3 text-primary" />}
                   options={dynamicVisaEligibilities}
                   selected={filterVisa}
@@ -1531,15 +1532,22 @@ const AdminJobBoard = () => {
                       }
                     },
                     {
-                      header: "Visa Eligibility",
+                      header: "Visa Details",
                       accessorKey: "visa_eligibility",
                       sortable: true,
                       className: "py-4 text-xs font-semibold",
-                      render: (job: any) => job.visa_eligibility ? (
-                        <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200/60 font-semibold">
-                          {job.visa_eligibility}
-                        </span>
-                      ) : <span className="text-muted-foreground">—</span>
+                      render: (job: any) => {
+                        const val = formatVisaDetails(job.visa_eligibility);
+                        const isH1B = val === "H1B";
+                        return (
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-md border font-semibold",
+                            isH1B ? "bg-amber-50 text-amber-800 border-amber-200/60" : "bg-slate-50 text-slate-600 border-slate-200"
+                          )}>
+                            {val}
+                          </span>
+                        );
+                      }
                     },
                     {
                       header: "Job Description",
@@ -1761,8 +1769,8 @@ const AdminJobBoard = () => {
               <p className="font-semibold text-foreground">{activeJobDesc?.salary || "Not Disclosed"}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Eligibility</p>
-              <p className="font-semibold text-foreground">{activeJobDesc?.visa_eligibility || "—"}</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Visa Details</p>
+              <p className="font-semibold text-foreground">{formatVisaDetails(activeJobDesc?.visa_eligibility)}</p>
             </div>
           </div>
 
@@ -1906,13 +1914,15 @@ const AdminJobBoard = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Visa Eligibility</Label>
+                <Label className="text-xs font-semibold">Visa Details</Label>
                 <Select
                   value={jobForm.visa_eligibility}
                   onValueChange={(v) => setJobForm((f) => ({ ...f, visa_eligibility: v }))}
                 >
                   <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="H1B">H1B</SelectItem>
+                    <SelectItem value="No filings history">No filings history</SelectItem>
                     <SelectItem value="OPT">OPT</SelectItem>
                     <SelectItem value="STEM OPT">STEM OPT</SelectItem>
                     <SelectItem value="H1B">H1B</SelectItem>

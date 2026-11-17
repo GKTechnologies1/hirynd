@@ -197,8 +197,20 @@ class ScraperExecutionSerializer(serializers.ModelSerializer):
         return 0
 
 
+def _clean_experience_num(val):
+    if val is None:
+        return None
+    try:
+        f = float(val)
+        return int(f) if f.is_integer() else f
+    except (ValueError, TypeError):
+        return val
+
+
 class DiscoveredJobListSerializer(serializers.ModelSerializer):
     reviewed_by_email = serializers.SerializerMethodField()
+    experience_min_years = serializers.SerializerMethodField()
+    experience_max_years = serializers.SerializerMethodField()
 
     class Meta:
         model = DiscoveredJob
@@ -222,11 +234,19 @@ class DiscoveredJobListSerializer(serializers.ModelSerializer):
     def get_reviewed_by_email(self, obj) -> str:
         return obj.reviewed_by.email if obj.reviewed_by else None
 
+    def get_experience_min_years(self, obj):
+        return _clean_experience_num(obj.experience_min_years)
+
+    def get_experience_max_years(self, obj):
+        return _clean_experience_num(obj.experience_max_years)
+
 
 class DiscoveredJobDetailSerializer(serializers.ModelSerializer):
     reviewed_by_email = serializers.SerializerMethodField()
     canonical_job_title = serializers.SerializerMethodField()
     score_factors = serializers.SerializerMethodField()
+    experience_min_years = serializers.SerializerMethodField()
+    experience_max_years = serializers.SerializerMethodField()
 
     class Meta:
         model = DiscoveredJob
@@ -251,6 +271,12 @@ class DiscoveredJobDetailSerializer(serializers.ModelSerializer):
 
     def get_reviewed_by_email(self, obj) -> str:
         return obj.reviewed_by.email if obj.reviewed_by else None
+
+    def get_experience_min_years(self, obj):
+        return _clean_experience_num(obj.experience_min_years)
+
+    def get_experience_max_years(self, obj):
+        return _clean_experience_num(obj.experience_max_years)
 
     def get_canonical_job_title(self, obj) -> str:
         if obj.canonical_job:

@@ -38,10 +38,10 @@ export const VisaGradeBadge: React.FC<VisaGradeBadgeProps> = ({
     const content = (
       <Badge
         variant="outline"
-        className={`${badgeBase} bg-slate-100 text-slate-600 border-slate-300`}
+        className={`${badgeBase} bg-slate-50 text-slate-500 border-slate-200`}
       >
         <HelpCircle className={isSmall ? "h-2.5 w-2.5" : "h-3 w-3"} />
-        <span>No H1B Filings / Unrated</span>
+        <span>No filings history</span>
       </Badge>
     );
 
@@ -69,7 +69,7 @@ export const VisaGradeBadge: React.FC<VisaGradeBadgeProps> = ({
         className={`${badgeBase} bg-slate-50 text-slate-500 border-slate-200`}
       >
         <Info className={isSmall ? "h-2.5 w-2.5" : "h-3 w-3"} />
-        <span>No H1B Filings (0)</span>
+        <span>No filings history</span>
       </Badge>
     );
 
@@ -97,7 +97,7 @@ export const VisaGradeBadge: React.FC<VisaGradeBadgeProps> = ({
         className={`${badgeBase} bg-slate-50 text-slate-500 border-slate-200`}
       >
         <AlertCircle className={isSmall ? "h-2.5 w-2.5" : "h-3 w-3"} />
-        <span>Unrated</span>
+        <span>No filings history</span>
       </Badge>
     );
 
@@ -109,7 +109,7 @@ export const VisaGradeBadge: React.FC<VisaGradeBadgeProps> = ({
           <TooltipContent className="max-w-xs text-xs">
             <p className="font-semibold text-slate-900">Unrated Opportunity</p>
             <p className="text-slate-600 text-[11px] mt-0.5">
-              Insufficient historical data to assign an authoritative Visa Intelligence rating.
+              Insufficient historical data to assign an authoritative Visa rating.
             </p>
           </TooltipContent>
         </Tooltip>
@@ -117,24 +117,21 @@ export const VisaGradeBadge: React.FC<VisaGradeBadgeProps> = ({
     );
   }
 
-  // 4. Rated Employer: Grades A through F
+  // 4. Rated Employer: Display H1B if filings, else No filings history
   const g = grade.toUpperCase();
-  let colorClass = "bg-slate-100 text-slate-700 border-slate-300";
-  if (g === "A") colorClass = "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold";
-  else if (g === "B") colorClass = "bg-blue-100 text-blue-800 border-blue-300 font-semibold";
-  else if (g === "C") colorClass = "bg-amber-100 text-amber-800 border-amber-300 font-medium";
-  else if (g === "D") colorClass = "bg-orange-100 text-orange-800 border-orange-300";
-  else if (g === "E" || g === "F") colorClass = "bg-red-100 text-red-800 border-red-300";
+  const hasFilings = (filingsCount !== undefined && filingsCount !== null)
+    ? filingsCount > 0
+    : (["A", "B", "C", "D"].includes(g) || (score !== undefined && score !== null && score > 0));
 
-  const scoreDisplay = score !== undefined && score !== null && score > 0 ? ` (${score})` : "";
+  const displayText = hasFilings ? "H1B" : "No filings history";
+  const colorClass = hasFilings
+    ? "bg-amber-50 text-amber-800 border-amber-300 font-semibold"
+    : "bg-slate-50 text-slate-500 border-slate-200";
 
   const content = (
     <Badge variant="outline" className={`${colorClass} ${badgeBase}`}>
       <Award className={isSmall ? "h-2.5 w-2.5" : "h-3 w-3"} />
-      <span>
-        Grade {g}
-        {scoreDisplay}
-      </span>
+      <span>{displayText}</span>
     </Badge>
   );
 
@@ -146,7 +143,7 @@ export const VisaGradeBadge: React.FC<VisaGradeBadgeProps> = ({
         <TooltipTrigger asChild>{content}</TooltipTrigger>
         <TooltipContent className="max-w-xs text-xs">
           <p className="font-semibold text-slate-900">
-            Visa Intelligence Grade {g} {score ? `• Score ${score}/100` : ""}
+            {displayText} {grade ? `• Grade ${g}` : ""} {score ? `• Score ${score}/100` : ""}
           </p>
           <p className="text-slate-600 text-[11px] mt-0.5">
             Derived from verified USCIS H1B filings, approval ratios, PERM Green Card sponsorship, and E-Verify status.

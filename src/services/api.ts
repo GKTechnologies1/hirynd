@@ -700,6 +700,7 @@ export const recruiterJobDiscoveryApi = {
     ordering?: string;
     page?: number;
     page_size?: number;
+    is_duplicate?: boolean | string;
   }) => api.get('/recruiter/job-discovery/jobs/', { params }),
   jobDetail: (id: string) => api.get(`/recruiter/job-discovery/jobs/${id}/`),
   filters: () => api.get('/recruiter/job-discovery/filters/'),

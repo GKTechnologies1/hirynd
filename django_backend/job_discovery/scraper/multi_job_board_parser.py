@@ -4,7 +4,7 @@ from ..core.jscompat import js_number, js_or, js_round, js_string, truthy
 from ..matcher.normalize_company import normalize_company
 from .job_parser import NormalizedJob, get
 from .location_parser import parse_location
-from .parser_utils import make_content_hash, parse_date
+from .parser_utils import make_content_hash, normalize_employment_type, parse_date
 
 
 def parse_multi_job_board_row(raw, source: str) -> NormalizedJob | None:
@@ -44,7 +44,7 @@ def parse_multi_job_board_row(raw, source: str) -> NormalizedJob | None:
         salaryMax=salary_max,
         salaryPeriod=js_or(get(raw, 'salary_interval'), 'yearly') if salary_present else None,
         salaryPresent=salary_present,
-        employmentType=js_or(get(raw, 'job_type'), None),
+        employmentType=normalize_employment_type(get(raw, 'job_type')),
         source=source,
         postingDate=js_or(parse_date(get(raw, 'date_posted')), parse_date(get(raw, 'first_seen_on_board'))),
     )

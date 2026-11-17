@@ -64,6 +64,12 @@ def normalize_employment_type(value):
     cleaned = [_UNDERSCORE_SPACE.sub('-', js_trim(p.lower())) for p in parts]
     cleaned = ['full-time' if p == 'fulltime' else 'part-time' if p == 'parttime' else 'contract' if p == 'contracts' else p
                for p in cleaned]
+    # Filter out remote so employment_type is never 'remote'
+    cleaned = [p for p in cleaned if p and 'remote' not in p and 'telecommute' not in p and 'wfh' not in p]
+    # If application/job has both Full-Time and Hybrid/Hyrind, pass only Hybrid/Hyrind, not Full-Time
+    has_hybrid = any('hybrid' in p or 'hyrind' in p for p in cleaned)
+    if has_hybrid:
+        cleaned = [p for p in cleaned if 'full' not in p]
     cleaned = [p for p in cleaned if p]
 
     uniq = unique(cleaned)

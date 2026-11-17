@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, cn } from "@/lib/utils";
-import { formatSalaryDisplay } from "@/lib/salaryFormatter";
+import { formatSalaryDisplay, formatExperienceBadge, formatEmploymentType } from "@/lib/salaryFormatter";
 import { VisaGradeBadge } from "@/components/visa/VisaGradeBadge";
 import { JobRestrictionBadges } from "@/components/job/JobRestrictionBadges";
 import { DISMISSAL_REASONS } from "@/components/recruiter/CandidateDiscoveryJobsSection";
@@ -25,7 +25,7 @@ import {
   Search, ExternalLink, RefreshCw, Briefcase, Building, MapPin,
   Calendar, Eye, Copy, ChevronLeft, ChevronRight, Award,
   ShieldCheck, Users, Check, Sparkles, UserCheck, AlertTriangle,
-  XCircle, DollarSign, X, Loader2, Compass, RotateCcw
+  XCircle, DollarSign, X, Loader2, Compass, RotateCcw, Clock
 } from "lucide-react";
 
 const safeUrl = (url?: string): string => {
@@ -347,6 +347,7 @@ export const RecruiterJobDiscoveryPage = () => {
         ordering: sortOrder,
         status: applicationStatus,
         discovery_status: discStatus,
+        is_duplicate: false,
       };
 
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
@@ -440,6 +441,30 @@ export const RecruiterJobDiscoveryPage = () => {
     setCurrentPage(1);
   };
 
+  // Memoized displayed jobs: deduplicate and exclude duplicate scraped jobs
+  const displayedJobs = React.useMemo(() => {
+    const nonDuplicates = jobs.filter(
+      (j) => !j.is_duplicate && j.review_status !== "ALREADY_EXISTS"
+    );
+
+    const seen = new Set<string>();
+    const deduped: any[] = [];
+
+    for (const j of nonDuplicates) {
+      const candKey = j.candidate?.id || j.candidate_id || "all";
+      const urlKey = j.job_url ? j.job_url.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "") : "";
+      const titleKey = (j.title || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const compKey = (j.company_name || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const key = `${candKey}::${urlKey || `${compKey}||${titleKey}`}`;
+
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      deduped.push(j);
+    }
+
+    return deduped;
+  }, [jobs]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -493,6 +518,7 @@ export const RecruiterJobDiscoveryPage = () => {
           </p>
         </Card>
       </div>
+
 
       {/* Filter and Candidate Scope Toolbar */}
       <Card className="border-slate-200 shadow-xs">
@@ -761,7 +787,9 @@ export const RecruiterJobDiscoveryPage = () => {
                 <tr>
                   <th className="py-2.5 px-3">Opportunity</th>
                   <th className="py-2.5 px-3">Candidate & Role</th>
-                  <th className="py-2.5 px-3">Visa Intelligence</th>
+                  <th className="py-2.5 px-3">Employment Type</th>
+                  <th className="py-2.5 px-3">Work Mode</th>
+                  <th className="py-2.5 px-3">Visa Details</th>
                   <th className="py-2.5 px-3">Location</th>
                   <th className="py-2.5 px-3">Salary</th>
                   <th className="py-2.5 px-3">Experience</th>
@@ -774,14 +802,14 @@ export const RecruiterJobDiscoveryPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                    <td colSpan={12} className="py-12 text-center text-slate-400">
                       <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
                       Loading candidate matched opportunities...
                     </td>
                   </tr>
                 ) : !hasCandidates ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-500">
+                    <td colSpan={12} className="py-12 text-center text-slate-500">
                       <Users className="h-8 w-8 mx-auto mb-2 text-slate-400" />
                       <p className="font-semibold text-slate-700">No active candidates assigned to your account</p>
                       <p className="text-xs text-slate-500 mt-1">
@@ -789,9 +817,9 @@ export const RecruiterJobDiscoveryPage = () => {
                       </p>
                     </td>
                   </tr>
-                ) : jobs.length === 0 ? (
+                ) : displayedJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                    <td colSpan={12} className="py-12 text-center text-slate-400">
                       <Briefcase className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       {applicationStatus === "REJECTED"
                         ? "No rejected opportunities recorded under the current filters."
@@ -801,7 +829,7 @@ export const RecruiterJobDiscoveryPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  jobs.map((job) => (
+                  displayedJobs.map((job) => (
                     <tr key={job.opportunity_id || job.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* Title, Company & Restrictions */}
                       <td className="py-2.5 px-3 max-w-[260px]">
@@ -841,12 +869,36 @@ export const RecruiterJobDiscoveryPage = () => {
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-slate-50 text-slate-600 font-normal">
                             {job.target_role}
                           </Badge>
-                          {job.rejection_reason && (
-                            <span className="text-[10px] text-rose-600 block truncate max-w-[190px] italic mt-0.5" title={job.rejection_reason}>
-                              Rejected: {job.rejection_reason}
+                          {(job.rejection_reason || job.dismissal_reason) && (
+                            <span className="text-[10px] text-rose-600 block truncate max-w-[190px] italic mt-0.5" title={job.rejection_reason || job.dismissal_reason}>
+                              Rejected: {job.rejection_reason || job.dismissal_reason}
                             </span>
                           )}
                         </div>
+                      </td>
+
+                      {/* Employment Type */}
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200/60 font-semibold text-[11px]">
+                          {formatEmploymentType(job.is_hybrid ? "Hybrid" : (job.employment_type || "Full-Time"))}
+                        </Badge>
+                      </td>
+
+                      {/* Work Mode */}
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        {job.is_remote ? (
+                          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0 px-1.5 font-semibold">
+                            Remote
+                          </Badge>
+                        ) : job.is_hybrid ? (
+                          <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] py-0 px-1.5 font-semibold">
+                            Hybrid
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[10px] py-0 px-1.5 font-semibold">
+                            {job.work_mode || "Onsite"}
+                          </Badge>
+                        )}
                       </td>
 
                       {/* Visa Intelligence */}
@@ -890,13 +942,9 @@ export const RecruiterJobDiscoveryPage = () => {
 
                       {/* Experience */}
                       <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
-                        {job.experience_min_years != null ? (
+                        {formatExperienceBadge(job.experience_min_years, job.experience_max_years, job.experience_level) ? (
                           <Badge variant="outline" className="bg-slate-50 text-slate-700 font-medium text-[11px]">
-                            {job.experience_max_years ? `${job.experience_min_years}–${job.experience_max_years} yrs` : `${job.experience_min_years}+ yrs`}
-                          </Badge>
-                        ) : job.experience_level ? (
-                          <Badge variant="outline" className="bg-slate-50 text-slate-700 font-medium text-[11px]">
-                            {job.experience_level}
+                            {formatExperienceBadge(job.experience_min_years, job.experience_max_years, job.experience_level)}
                           </Badge>
                         ) : (
                           <span className="text-slate-400 text-[11px]">—</span>
@@ -920,7 +968,10 @@ export const RecruiterJobDiscoveryPage = () => {
 
                       {/* Date Posted */}
                       <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap text-[11px]">
-                        {job.date_posted ? formatDate(job.date_posted) : "—"}
+                        <div className="flex items-center gap-1 text-slate-500 font-medium">
+                          <Clock className="h-3 w-3 text-slate-400" />
+                          <span>{job.date_posted ? formatDate(job.date_posted) : "—"}</span>
+                        </div>
                       </td>
 
                       {/* Actions */}
@@ -936,11 +987,11 @@ export const RecruiterJobDiscoveryPage = () => {
                             <Eye className="h-3.5 w-3.5 mr-1 text-slate-500" />
                             View
                           </Button>
-                          {job.status === "APPLIED" ? (
+                          {job.status === "APPLIED" || job.has_applied ? (
                             <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5 px-2">
                               <Check className="h-3.5 w-3.5" /> Applied
                             </span>
-                          ) : job.status === "REJECTED" ? (
+                          ) : (job.status === "REJECTED" || job.discovery_status === "DISMISSED" || job.is_dismissed) ? (
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-semibold text-rose-600 flex items-center gap-0.5 px-2">
                                 <XCircle className="h-3.5 w-3.5" /> Rejected
@@ -1131,7 +1182,7 @@ export const RecruiterJobDiscoveryPage = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <ShieldCheck className="h-4 w-4 text-primary" />
-                      <span className="font-semibold text-slate-900 text-xs">Employer Visa Sponsorship</span>
+                      <span className="font-semibold text-slate-900 text-xs">Visa Details</span>
                     </div>
                     <VisaGradeBadge
                       grade={selectedJob.visa_grade}
@@ -1179,7 +1230,7 @@ export const RecruiterJobDiscoveryPage = () => {
                   <div>
                     <span className="text-slate-500 block text-[10px]">Employment Type</span>
                     <span className="font-semibold text-slate-800 capitalize">
-                      {selectedJob.employment_type || "Full-time"}
+                      {formatEmploymentType(selectedJob.is_hybrid ? (selectedJob.employment_type?.toLowerCase().includes("hyrind") ? "Hyrind" : "Hybrid") : (selectedJob.employment_type || "Full-Time"))}
                     </span>
                   </div>
                   <div>
@@ -1191,9 +1242,7 @@ export const RecruiterJobDiscoveryPage = () => {
                   <div>
                     <span className="text-slate-500 block text-[10px]">Required Experience</span>
                     <span className="font-semibold text-slate-800">
-                      {selectedJob.experience_min_years != null
-                        ? (selectedJob.experience_max_years ? `${selectedJob.experience_min_years}–${selectedJob.experience_max_years} years` : `${selectedJob.experience_min_years}+ years`)
-                        : (selectedJob.experience_level || "Not specified")}
+                      {formatExperienceBadge(selectedJob.experience_min_years, selectedJob.experience_max_years, selectedJob.experience_level, "years") || "Not specified"}
                     </span>
                   </div>
                   <div>
