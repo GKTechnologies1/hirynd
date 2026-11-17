@@ -151,13 +151,19 @@ def my_candidates(request):
     ).values_list('candidate_id', flat=True)
 
     from candidates.serializers import CandidateListSerializer
-    from django.db.models import Count
+    from django.db.models import Subquery, OuterRef, IntegerField, Count
+    from django.db.models.functions import Coalesce
+    from recruiters.models import JobLinkEntry
+    from candidates.models import InterviewLog
+
+    app_sub = JobLinkEntry.objects.filter(candidate=OuterRef('id')).values('candidate').annotate(cnt=Count('id')).values('cnt')
+    int_sub = InterviewLog.objects.filter(candidate=OuterRef('id')).values('candidate').annotate(cnt=Count('id')).values('cnt')
 
     candidates = Candidate.objects.filter(id__in=assigned_ids).select_related(
         'user__profile', 'subscription'
     ).annotate(
-        annotated_total_applications=Count('job_postings', distinct=True),
-        annotated_total_interviews=Count('interview_logs', distinct=True)
+        annotated_total_applications=Coalesce(Subquery(app_sub, output_field=IntegerField()), 0),
+        annotated_total_interviews=Coalesce(Subquery(int_sub, output_field=IntegerField()), 0)
     )
     return Response(CandidateListSerializer(candidates, many=True).data)
 
