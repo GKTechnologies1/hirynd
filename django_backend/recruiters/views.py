@@ -151,7 +151,14 @@ def my_candidates(request):
     ).values_list('candidate_id', flat=True)
 
     from candidates.serializers import CandidateListSerializer
-    candidates = Candidate.objects.filter(id__in=assigned_ids).select_related('user__profile')
+    from django.db.models import Count
+
+    candidates = Candidate.objects.filter(id__in=assigned_ids).select_related(
+        'user__profile', 'subscription'
+    ).annotate(
+        annotated_total_applications=Count('job_postings', distinct=True),
+        annotated_total_interviews=Count('interview_logs', distinct=True)
+    )
     return Response(CandidateListSerializer(candidates, many=True).data)
 
 

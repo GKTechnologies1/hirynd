@@ -52,15 +52,22 @@ def candidate_me(request):
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def candidate_list(request):
+    from django.db.models import Count
+
+    base_qs = Candidate.objects.select_related('user__profile', 'subscription').annotate(
+        annotated_total_applications=Count('job_postings', distinct=True),
+        annotated_total_interviews=Count('interview_logs', distinct=True)
+    )
+
     if request.user.role in ('admin', 'team_lead', 'team_manager'):
-        qs = Candidate.objects.select_related('user__profile').all()
+        qs = base_qs.all()
     elif request.user.role in ('recruiter',):
         assigned_ids = request.user.recruiter_assignments.filter(
             is_active=True
         ).values_list('candidate_id', flat=True)
-        qs = Candidate.objects.filter(id__in=assigned_ids).select_related('user__profile')
+        qs = base_qs.filter(id__in=assigned_ids)
     else:
-        qs = Candidate.objects.filter(user=request.user).select_related('user__profile')
+        qs = base_qs.filter(user=request.user)
 
     status_filter = request.query_params.get('status')
     if status_filter:

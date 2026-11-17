@@ -1,3 +1,4 @@
+import re
 from rest_framework import serializers
 from .models import RecruiterProfile, RecruiterAssignment, DailySubmissionLog, JobLinkEntry, RecruiterBankDetails
 from job_discovery.models import DiscoveredJob
@@ -337,7 +338,6 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        import re
 
         # 1. Normalize employment_type
         emp_raw = str(data.get('employment_type') or '').strip().lower().replace('-', ' ').replace('_', ' ')
@@ -367,21 +367,14 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
         else:
             data['employment_type'] = data['employment_type'].title()
 
-        # 2. Accurate experience_required without arbitrary hardcoded fallbacks
+        # 2. Accurate experience_required without per-row DB queries
         raw_exp = str(data.get('experience_required') or '').strip()
         if not raw_exp or raw_exp.lower() in ('none', 'null', ''):
-            from job_discovery.services.experience_detector import detect_job_experience
-            exp_lvl = None
-            if getattr(instance, 'job_url', None):
-                from job_discovery.models import DiscoveredJob
-                dj = DiscoveredJob.objects.filter(job_url=instance.job_url).first()
-                if dj and dj.experience_level:
-                    exp_lvl = dj.experience_level
-            if not exp_lvl:
-                res = detect_job_experience(getattr(instance, 'job_description', '') or '', title=getattr(instance, 'role_title', '') or '')
-                if res and res.get('level'):
-                    exp_lvl = res['level']
-            data['experience_required'] = exp_lvl or '0–2 Years'
+            role_low = str(getattr(instance, 'role_title', '') or '').lower()
+            if any(k in role_low for k in ('senior', 'sr.', 'sr ', 'lead', 'principal', 'staff', 'architect')):
+                data['experience_required'] = 'Senior Level'
+            else:
+                data['experience_required'] = '0–2 Years'
         elif raw_exp.lower() in ('not specified', 'unspecified'):
             data['experience_required'] = 'Not Specified'
 
@@ -397,41 +390,28 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
         if not data.get('country') or str(data.get('country')).strip().lower() in ('none', 'null', ''):
             data['country'] = 'United States'
 
-        # 4. Accurate Salary Formatting (handle bare numbers like $31 -> $31 / Hourly, or pull from DiscoveredJob)
+        # 4. Accurate Salary Formatting (in-memory, no per-row DB queries)
         sal = str(data.get('salary') or '').strip()
-        dj_match = None
-        if getattr(instance, 'job_url', None):
-            from job_discovery.models import DiscoveredJob
-            dj_match = DiscoveredJob.objects.filter(job_url=instance.job_url).first()
-
-        if dj_match and dj_match.salary_min:
-            period_str = f" / {dj_match.salary_period.title()}" if dj_match.salary_period else ""
-            if dj_match.salary_max and dj_match.salary_max != dj_match.salary_min:
-                data['salary'] = f"${int(dj_match.salary_min):,} – ${int(dj_match.salary_max):,}{period_str}"
-            else:
-                data['salary'] = f"${int(dj_match.salary_min):,}{period_str}"
-        elif sal and sal.lower() not in ('not disclosed', 'none', 'null', ''):
+        if sal and sal.lower() not in ('not disclosed', 'none', 'null', ''):
             if not any(p in sal.lower() for p in ('hour', 'year', 'month', 'week', 'day', '/')):
                 nums = re.findall(r'\d[\d,]*', sal)
                 if nums:
-                    num_val = float(nums[0].replace(',', ''))
-                    if 0 < num_val < 300:
-                        sal = f"{sal} / Hourly"
-                    elif num_val >= 10000:
-                        sal = f"{sal} / Yearly"
+                    try:
+                        num_val = float(nums[0].replace(',', ''))
+                        if 0 < num_val < 300:
+                            sal = f"{sal} / Hourly"
+                        elif num_val >= 10000:
+                            sal = f"{sal} / Yearly"
+                    except (ValueError, IndexError):
+                        pass
             data['salary'] = sal
         else:
             data['salary'] = 'Not Disclosed'
 
-        # 5. Normalize visa_eligibility: If H1B filings, display as H1B. If no filings, display as No filings history.
+        # 5. Normalize visa_eligibility (in-memory, no per-row DB queries)
         raw_visa = str(data.get('visa_eligibility') or '').strip()
         visa_low = raw_visa.lower()
-        if dj_match and (dj_match.h1b_filings_recent or dj_match.h1b_sponsor or dj_match.visa_grade):
-            if (dj_match.h1b_filings_recent and dj_match.h1b_filings_recent > 0) or dj_match.h1b_sponsor or (dj_match.visa_grade in ('A', 'B', 'C', 'D')):
-                data['visa_eligibility'] = 'H1B'
-            else:
-                data['visa_eligibility'] = 'No filings history'
-        elif 'h1b' in visa_low or 'h-1b' in visa_low:
+        if 'h1b' in visa_low or 'h-1b' in visa_low:
             data['visa_eligibility'] = 'H1B'
         elif any(f"grade {g}" in visa_low for g in ('a', 'b', 'c', 'd')):
             data['visa_eligibility'] = 'H1B'
