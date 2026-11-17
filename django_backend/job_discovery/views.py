@@ -44,6 +44,24 @@ def list_eligible_roles(request):
     return Response({'results': roles, 'count': len(roles)})
 
 
+def recover_stale_executions(timeout_minutes: int = 20):
+    """
+    Auto-recovers any execution marked running or pending whose started_at
+    is older than timeout_minutes (e.g. interrupted by gunicorn worker restart or host reboot).
+    """
+    cutoff = timezone.now() - timedelta(minutes=timeout_minutes)
+    stale = ScraperExecution.objects.filter(
+        status__in=['running', 'pending'],
+        started_at__lt=cutoff
+    )
+    if stale.exists():
+        stale.update(
+            status='failed',
+            error_message="Execution timed out or was interrupted by a process restart.",
+            completed_at=timezone.now()
+        )
+
+
 @api_view(['POST'])
 @permission_classes([IsApproved, IsAdmin])
 def run_scraper(request):
@@ -52,6 +70,8 @@ def run_scraper(request):
     Triggers manual scraping run for specified roles and portals in the background.
     Immediately returns execution ID.
     """
+    recover_stale_executions()
+
     # Concurrency guard: check if another execution is actively running
     active_run = ScraperExecution.objects.filter(status='running').first()
     if active_run:
@@ -107,6 +127,7 @@ def list_executions(request):
     GET /api/admin/job-scraper/executions/
     Returns paginated history of scraping runs.
     """
+    recover_stale_executions()
     qs = ScraperExecution.objects.all().select_related('triggered_by').order_by('-started_at')
 
     status_filter = request.GET.get('status')
@@ -135,6 +156,7 @@ def get_execution_detail(request, execution_id):
     GET /api/admin/job-scraper/executions/<execution_id>/
     Returns real-time progress and details of a specific execution.
     """
+    recover_stale_executions()
     try:
         execution = ScraperExecution.objects.select_related('triggered_by').get(id=execution_id)
     except ScraperExecution.DoesNotExist:
@@ -142,6 +164,37 @@ def get_execution_detail(request, execution_id):
 
     serializer = ScraperExecutionSerializer(execution)
     return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsApproved, IsRecruiter])
+def cancel_execution(request, execution_id):
+    """
+    POST /api/admin/job-scraper/executions/<execution_id>/cancel/
+    Allows admin or recruiter to cancel a running or pending scraping execution.
+    """
+    recover_stale_executions()
+    try:
+        execution = ScraperExecution.objects.get(id=execution_id)
+    except ScraperExecution.DoesNotExist:
+        return Response({'error': 'Execution not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if execution.status in ('completed', 'failed'):
+        return Response({
+            'message': f'Execution is already {execution.status}.',
+            'status': execution.status,
+        })
+
+    execution.status = 'failed'
+    execution.error_message = f"Canceled by user {request.user.email or request.user.id}"
+    execution.completed_at = timezone.now()
+    execution.save(update_fields=['status', 'error_message', 'completed_at'])
+
+    return Response({
+        'message': 'Scraper execution successfully canceled.',
+        'execution_id': str(execution.id),
+        'status': execution.status,
+    })
 
 
 # ─── Visa Intelligence & Company Endpoints ────────────────────────────────────
