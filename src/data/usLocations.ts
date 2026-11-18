@@ -138,6 +138,7 @@ export function findStateForCity(cityName?: string): { name: string; code: strin
  */
 export function formatSalaryAmount(val: string): string {
   if (!val) return "";
+  if (val.trim().toLowerCase() === "not disclosed") return "Not Disclosed";
   // Strip everything that is NOT a digit or dot (NO alphabets allowed)
   const clean = val.replace(/[^0-9.]/g, "");
   if (!clean) return "";

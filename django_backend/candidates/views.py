@@ -52,11 +52,17 @@ def candidate_me(request):
 @api_view(['GET'])
 @permission_classes([IsApproved])
 def candidate_list(request):
-    from django.db.models import Count
+    from django.db.models import Subquery, OuterRef, IntegerField, Count
+    from django.db.models.functions import Coalesce
+    from recruiters.models import JobLinkEntry
+    from .models import InterviewLog
+
+    app_sub = JobLinkEntry.objects.filter(candidate=OuterRef('id')).values('candidate').annotate(cnt=Count('id')).values('cnt')
+    int_sub = InterviewLog.objects.filter(candidate=OuterRef('id')).values('candidate').annotate(cnt=Count('id')).values('cnt')
 
     base_qs = Candidate.objects.select_related('user__profile', 'subscription').annotate(
-        annotated_total_applications=Count('job_postings', distinct=True),
-        annotated_total_interviews=Count('interview_logs', distinct=True)
+        annotated_total_applications=Coalesce(Subquery(app_sub, output_field=IntegerField()), 0),
+        annotated_total_interviews=Coalesce(Subquery(int_sub, output_field=IntegerField()), 0)
     )
 
     if request.user.role in ('admin', 'team_lead', 'team_manager'):

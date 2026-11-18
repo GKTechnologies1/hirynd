@@ -139,9 +139,13 @@ def dashboard_stats(request):
     logged_in_user_ids.discard(None)
     logged_in_today = len(logged_in_user_ids)
 
-    # Active Today: distinct users with activity today
+    # Active Today: distinct users with activity today (decoupled to avoid cross-table join scan)
+    pv_user_ids_today = set(
+        AnalyticsPageView.objects.filter(timestamp__gte=today_start, user__isnull=False)
+        .values_list('user_id', flat=True)
+    )
     active_users_today = User.objects.filter(
-        Q(last_activity__gte=today_start) | Q(analytics_page_views__timestamp__gte=today_start)
+        Q(last_activity__gte=today_start) | Q(id__in=pv_user_ids_today)
     ).distinct().count()
 
     # ── Homepage / Main Page Visitor Tracking ──
@@ -198,13 +202,17 @@ def dashboard_stats(request):
     successful_logins = events.filter(event_type='login_success').count()
     failed_logins = events.filter(event_type='login_failed').count()
     
-    # User roles active
+    # User roles active (decoupled to avoid cross-table join scan)
+    pv_user_ids_period = pv_user_ids_today if start_date == today_start else set(
+        AnalyticsPageView.objects.filter(timestamp__gte=start_date, user__isnull=False)
+        .values_list('user_id', flat=True)
+    )
     active_candidates = User.objects.filter(
-        Q(last_activity__gte=start_date) | Q(analytics_page_views__timestamp__gte=start_date),
+        Q(last_activity__gte=start_date) | Q(id__in=pv_user_ids_period),
         role='candidate'
     ).distinct().count()
     active_recruiters = User.objects.filter(
-        Q(last_activity__gte=start_date) | Q(analytics_page_views__timestamp__gte=start_date),
+        Q(last_activity__gte=start_date) | Q(id__in=pv_user_ids_period),
         role__in=['recruiter', 'team_lead', 'team_manager']
     ).distinct().count()
 
