@@ -46,20 +46,35 @@ def list_eligible_roles(request):
     return Response({'results': roles, 'count': len(roles)})
 
 
-def recover_stale_executions(timeout_minutes: int = 20):
+def recover_stale_executions(timeout_minutes: int = 120):
     """
-    Auto-recovers any execution marked running or pending whose started_at
+    Auto-recovers any execution marked running or pending whose last activity (updated_at)
     is older than timeout_minutes (e.g. interrupted by gunicorn worker restart or host reboot).
     Reconciles actual discovered jobs, costs, and API counts so history reflects actual work completed.
+    Never interrupts an actively progressing scrape.
     """
     cutoff = timezone.now() - timedelta(minutes=timeout_minutes)
     stale_list = list(ScraperExecution.objects.filter(
         status__in=['running', 'pending'],
-        started_at__lt=cutoff
+        updated_at__lt=cutoff
     ))
+
+    # Guard: check if an actual scraper process is currently alive on the host
+    scraper_running = False
+    try:
+        import subprocess
+        out = subprocess.check_output(['pgrep', '-f', 'run_scheduled_job_scraper'], text=True)
+        scraper_running = bool(out.strip())
+    except Exception:
+        pass
+
     if stale_list:
         from django.db.models import Sum
         for se in stale_list:
+            if se.trigger_type == 'scheduled' and scraper_running:
+                # The scheduled scraper process is alive on this host; do not mark it failed!
+                continue
+
             job_count = se.jobs.count()
             ins_count = se.jobs.filter(review_status='PENDING_REVIEW').count()
             dup_count = se.jobs.filter(review_status='ALREADY_EXISTS').count()
@@ -865,6 +880,7 @@ def get_execution_roles_breakdown(request, execution_id):
     """
     GET /api/admin/job-scraper/executions/<execution_id>/roles/
     Returns per-role audit table: Role | Requested | Collected | Unique | Duplicates | Scored | Assigned.
+    Optimized: in-memory bulk aggregation avoids 500+ sequential SQL queries.
     """
     try:
         ex = ScraperExecution.objects.get(id=execution_id)
@@ -873,23 +889,25 @@ def get_execution_roles_breakdown(request, execution_id):
 
     config = ex.config or {}
     roles_cfg = config.get('roles', [])
-    jobs_qs = ex.jobs.all()
+
+    from .models import RecruiterJobAssignment
+    jobs_data = list(ex.jobs.values('id', 'target_role', 'title', 'is_duplicate', 'visa_friendly_score'))
+    assigned_ids = set(RecruiterJobAssignment.objects.filter(execution_id=ex.id).values_list('job_id', flat=True))
 
     breakdown = []
     for r in roles_cfg:
-        r_name = r.get('role', '') if isinstance(r, dict) else str(r)
+        r_name = (r.get('role', '') if isinstance(r, dict) else str(r)).strip()
         limit = r.get('limit', 15) if isinstance(r, dict) else 15
         if not r_name:
             continue
 
-        role_jobs = jobs_qs.filter(Q(target_role__iexact=r_name) | Q(title__icontains=r_name))
-        collected = role_jobs.count()
-        unique = role_jobs.filter(is_duplicate=False).count()
-        duplicates = role_jobs.filter(is_duplicate=True).count()
-        scored = role_jobs.filter(visa_friendly_score__gt=0).count()
-
-        from .models import RecruiterJobAssignment
-        assigned = RecruiterJobAssignment.objects.filter(job__in=role_jobs).values('job_id').distinct().count()
+        r_name_low = r_name.lower()
+        matched = [j for j in jobs_data if (j.get('target_role') or '').lower() == r_name_low or r_name_low in (j.get('title') or '').lower()]
+        collected = len(matched)
+        unique = sum(1 for j in matched if not j.get('is_duplicate'))
+        duplicates = collected - unique
+        scored = sum(1 for j in matched if (j.get('visa_friendly_score') or 0) > 0)
+        assigned = sum(1 for j in matched if j['id'] in assigned_ids)
 
         breakdown.append({
             'role': r_name,
