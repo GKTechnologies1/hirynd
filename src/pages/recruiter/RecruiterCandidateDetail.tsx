@@ -982,7 +982,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       city: job.city || "",
       state: job.state || "",
       country: job.country || "United States",
-      salary: job.salary || "$120,000 / yr",
+      salary: job.salary || "Not Disclosed",
       visa_eligibility: job.visa_eligibility || "H1B",
       job_description: job.job_description || job.description || "",
       job_url: job.job_url || "",
@@ -997,8 +997,8 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
       toast({ title: "Role Title and Company Name are required", variant: "destructive" });
       return;
     }
-    if (editJobForm.salary) {
-      const sal = editJobForm.salary.trim();
+    const sal = (editJobForm.salary || "").trim();
+    if (sal && sal.toLowerCase() !== "not disclosed" && sal !== "$") {
       if (!/\d/.test(sal)) {
         toast({ title: "Invalid Salary", description: "Please enter a valid salary amount (e.g. $100,000).", variant: "destructive" });
         return;
@@ -1006,7 +1006,14 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
     }
     if (!editingJob?.id) return;
     const jobId = editingJob.id;
-    const updatedPayload = { ...editJobForm, status: editJobForm.status, application_status: editJobForm.status };
+    const finalSalary = (!sal || sal === "$" || sal.toLowerCase() === "not disclosed") ? "Not Disclosed" : sal;
+    const updatedPayload = {
+      ...editJobForm,
+      salary: finalSalary,
+      status: editJobForm.status,
+      application_status: editJobForm.status,
+      candidate_response_status: editJobForm.status,
+    };
 
     // Optimistic UI update
     setJobPostings(prev => prev.map(j => j.id === jobId ? { ...j, ...updatedPayload } : j));
@@ -4078,13 +4085,24 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Salary / Pay ($)</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold">Salary / Pay ($)</Label>
+                  {editJobForm.salary && editJobForm.salary.toLowerCase() !== "not disclosed" ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditJobForm({ ...editJobForm, salary: "Not Disclosed" })}
+                      className="text-[10px] text-blue-600 hover:underline font-medium"
+                    >
+                      Set as Not Disclosed
+                    </button>
+                  ) : null}
+                </div>
                 <Input
                   inputMode="decimal"
                   value={editJobForm.salary}
                   onKeyDown={handleSalaryKeyDown}
                   onChange={(e) => setEditJobForm({ ...editJobForm, salary: formatSalaryAmount(e.target.value) })}
-                  placeholder="$120,000"
+                  placeholder="$120,000 or Not Disclosed"
                   className="h-9 text-xs"
                 />
               </div>
