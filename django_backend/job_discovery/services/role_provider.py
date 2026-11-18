@@ -1,6 +1,7 @@
+import os
 import re
 import unicodedata
-from typing import List
+from typing import List, Optional
 from candidates.models import RoleSuggestion, RoleConfirmation
 
 
@@ -35,7 +36,7 @@ def normalize_role_title(title: str) -> str:
     return clean_role_display(title)
 
 
-def get_eligible_roles(limit: int = 50) -> List[dict]:
+def get_eligible_roles(limit: Optional[int] = None) -> List[dict]:
     """
     Retrieves distinct active job roles from Candidate Role Suggestions/Confirmations.
     Ensures:
@@ -43,6 +44,7 @@ def get_eligible_roles(limit: int = 50) -> List[dict]:
       2. Multi-role / comma-separated values are handled properly.
       3. The count displayed equals the number of DISTINCT candidates with that confirmed role.
       4. Double counting is completely eliminated.
+      5. Limit is configurable via SCRAPER_MAX_ROLES environment variable (no hardcoded limits).
     Returns list of dicts: [{'role': 'Software Engineer', 'source': 'candidate_confirmed', 'count': 5}, ...]
     """
     role_map = {}  # norm_key -> {'role': display, 'source': 'candidate_confirmed', 'candidate_ids': set()}
@@ -115,5 +117,15 @@ def get_eligible_roles(limit: int = 50) -> List[dict]:
 
     # Sort by count descending, then role name alphabetically
     result.sort(key=lambda x: (-x['count'], x['role']))
-    return result[:limit]
+
+    if limit is None:
+        raw_env = os.getenv('SCRAPER_MAX_ROLES', os.getenv('SCRAPE_MAX_ROLES', '')).strip()
+        if raw_env and raw_env.isdigit():
+            limit = int(raw_env)
+        else:
+            limit = None
+
+    if limit is not None and limit > 0:
+        return result[:limit]
+    return result
 

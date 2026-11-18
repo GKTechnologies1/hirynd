@@ -38,8 +38,10 @@ def list_eligible_roles(request):
     GET /api/admin/job-scraper/roles/
     Returns eligible job roles collected from Candidate confirmed roles,
     job openings, and recruiter submissions.
+    Limit is configurable via query param ?limit= or defaults to SCRAPER_MAX_ROLES in .env.
     """
-    limit = int(request.GET.get('limit', 50))
+    limit_param = request.GET.get('limit')
+    limit = int(limit_param) if (limit_param and limit_param.isdigit()) else None
     roles = get_eligible_roles(limit=limit)
     return Response({'results': roles, 'count': len(roles)})
 
@@ -48,18 +50,34 @@ def recover_stale_executions(timeout_minutes: int = 20):
     """
     Auto-recovers any execution marked running or pending whose started_at
     is older than timeout_minutes (e.g. interrupted by gunicorn worker restart or host reboot).
+    Reconciles actual discovered jobs, costs, and API counts so history reflects actual work completed.
     """
     cutoff = timezone.now() - timedelta(minutes=timeout_minutes)
-    stale = ScraperExecution.objects.filter(
+    stale_list = list(ScraperExecution.objects.filter(
         status__in=['running', 'pending'],
         started_at__lt=cutoff
-    )
-    if stale.exists():
-        stale.update(
-            status='failed',
-            error_message="Execution timed out or was interrupted by a process restart.",
-            completed_at=timezone.now()
-        )
+    ))
+    if stale_list:
+        from django.db.models import Sum
+        for se in stale_list:
+            job_count = se.jobs.count()
+            ins_count = se.jobs.filter(review_status='PENDING_REVIEW').count()
+            dup_count = se.jobs.filter(review_status='ALREADY_EXISTS').count()
+            cost_sum = se.cost_records.aggregate(s=Sum('cost_usd'))['s'] or se.total_cost_usd or 0
+            calls = se.cost_records.count() or se.api_calls_count
+
+            se.status = 'failed'
+            se.error_message = "Execution timed out or was interrupted by a process restart."
+            se.completed_at = timezone.now()
+            if job_count > 0:
+                se.total_jobs_found = job_count
+                se.total_inserted = ins_count
+                se.total_duplicates = dup_count
+            if cost_sum > 0:
+                se.total_cost_usd = cost_sum
+            if calls > 0:
+                se.api_calls_count = calls
+            se.save()
 
 
 @api_view(['POST'])

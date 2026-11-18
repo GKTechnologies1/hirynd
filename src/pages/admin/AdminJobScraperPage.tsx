@@ -42,6 +42,8 @@ interface CompanyVisaItem {
   aliases?: string[];
 }
 
+const DEFAULT_JOBS_PER_ROLE = Number(import.meta.env.VITE_SCRAPER_JOBS_PER_ROLE || 20);
+
 const AVAILABLE_SOURCES = [
   { id: "linkedin", label: "LinkedIn", isPrimary: true },
   { id: "indeed", label: "Indeed", isPrimary: true },
@@ -104,7 +106,7 @@ export const AdminJobScraperPage = () => {
   const fetchDbRoles = useCallback(async () => {
     setLoadingRoles(true);
     try {
-      const res = await jobScraperApi.roles(40);
+      const res = await jobScraperApi.roles();
       setDbRoles(res.data?.results || []);
     } catch (err: any) {
       console.warn("Failed to load DB roles:", err);
@@ -193,7 +195,7 @@ export const AdminJobScraperPage = () => {
     if (existing) {
       setSelectedRoles(prev => prev.filter(r => r.role.toLowerCase() !== roleName.toLowerCase()));
     } else {
-      setSelectedRoles(prev => [...prev, { role: roleName, limit: 20 }]);
+      setSelectedRoles(prev => [...prev, { role: roleName, limit: DEFAULT_JOBS_PER_ROLE }]);
     }
   };
 
@@ -204,7 +206,7 @@ export const AdminJobScraperPage = () => {
       toast({ title: "Role already added", variant: "destructive" });
       return;
     }
-    setSelectedRoles(prev => [...prev, { role: trimmed, limit: 20 }]);
+    setSelectedRoles(prev => [...prev, { role: trimmed, limit: DEFAULT_JOBS_PER_ROLE }]);
     setCustomRoleInput("");
   };
 

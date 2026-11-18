@@ -617,7 +617,7 @@ export const analyticsApi = {
 
 // ─── Job Scraper ───
 export const jobScraperApi = {
-  roles: (limit?: number) => api.get('/admin/job-scraper/roles/', { params: { limit } }),
+  roles: (limit?: number) => api.get('/admin/job-scraper/roles/', { params: limit ? { limit } : {} }),
   companies: (params?: {
     search?: string;
     grade?: string;

@@ -14,14 +14,14 @@ class Command(BaseCommand):
         parser.add_argument(
             '--jobs-per-role',
             type=int,
-            default=20,
-            help='Target number of new unique jobs to capture per role (default 20).',
+            default=None,
+            help='Target number of new unique jobs to capture per role (defaults to SCRAPER_JOBS_PER_ROLE env var).',
         )
         parser.add_argument(
             '--max-roles',
             type=int,
-            default=50,
-            help='Maximum number of eligible active candidate roles to process (default 50).',
+            default=None,
+            help='Maximum number of eligible active candidate roles to process (defaults to SCRAPER_MAX_ROLES env var).',
         )
 
     def handle(self, *args, **options):
