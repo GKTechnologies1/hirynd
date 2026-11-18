@@ -292,12 +292,10 @@ export const CandidateDiscoveryJobsSection = ({
             employment_type: (() => {
               const raw = (job.employment_type || alwaysShowDefaults?.employment_type || "").trim();
               const low = raw.toLowerCase();
-              if (low.includes("hyrind")) return "Hyrind";
-              if (job.is_hybrid || low.includes("hybrid")) return "Hybrid";
-              if (low.includes("contract") || low.includes("c2c")) return "Contract";
+              if (low.includes("contract") || low.includes("c2c") || low.includes("corp") || low.includes("temp")) return "Contract";
               if (low.includes("part")) return "Part-Time";
               if (low.includes("intern")) return "Internship";
-              if (low.includes("full") || low === "remote" || !raw) return "Full-Time";
+              if (low.includes("full") || low === "remote" || low.includes("hybrid") || low.includes("hyrind") || !raw) return "Full-Time";
               return formatEmploymentType(raw);
             })(),
             experience_required: job.experience_level || alwaysShowDefaults?.experience_required || "0–2 Years",
@@ -1223,7 +1221,7 @@ export const CandidateDiscoveryJobsSection = ({
                               <div className="flex items-center gap-1.5 truncate">
                                 <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                 <span className="truncate font-semibold text-foreground/90">
-                                  {formatEmploymentType(job.is_hybrid ? (job.employment_type?.toLowerCase().includes("hyrind") ? "Hyrind" : "Hybrid") : (job.employment_type || "Full-Time"))}
+                                  {formatEmploymentType(job.employment_type || "Full-Time")}
                                 </span>
                               </div>
                             </div>
@@ -1529,7 +1527,7 @@ export const CandidateDiscoveryJobsSection = ({
                             {/* Employment Type */}
                             <td className="py-3.5 px-3 min-w-[120px] whitespace-nowrap align-middle">
                               <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/20 font-semibold text-[11px]">
-                                {formatEmploymentType(job.is_hybrid ? "Hybrid" : (job.employment_type || "Full-Time"))}
+                                {formatEmploymentType(job.employment_type || "Full-Time")}
                               </Badge>
                             </td>
 

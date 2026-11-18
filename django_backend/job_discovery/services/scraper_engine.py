@@ -104,16 +104,13 @@ def build_actor_input(source: str, query: str, limit: int = 15, freshness_days: 
 
 
 def _clean_job_employment_type(emp_type_raw: str, is_hybrid: bool = False) -> str:
+    """
+    Standardizes employment type strictly to: Full-Time, Part-Time, Internship, Contract.
+    Never returns Hyrind, Hybrid, or Remote as an employment type (hybrid/remote belong to work mode).
+    """
     s = str(emp_type_raw or '').strip()
     s_low = s.lower()
-    if 'hyrind' in s_low:
-        return 'Hyrind'
-    if is_hybrid or 'hybrid' in s_low:
-        # If application has both Full Time and Hybrid/Hyrind, pass only Hybrid/Hyrind
-        return 'Hybrid'
-    if s_low in ('remote', 'telecommute', 'wfh'):
-        return 'Full-Time'
-    if 'contract' in s_low or 'c2c' in s_low:
+    if 'contract' in s_low or 'c2c' in s_low or 'corp' in s_low or 'temp' in s_low:
         return 'Contract'
     if 'part' in s_low:
         return 'Part-Time'
@@ -121,7 +118,7 @@ def _clean_job_employment_type(emp_type_raw: str, is_hybrid: bool = False) -> st
         return 'Internship'
     if 'full' in s_low:
         return 'Full-Time'
-    return s
+    return 'Full-Time'
 
 
 def upsert_scraped_job(job: NormalizedJob, target_role: str, execution: ScraperExecution) -> str:

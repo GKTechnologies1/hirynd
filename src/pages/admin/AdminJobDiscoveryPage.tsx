@@ -663,7 +663,7 @@ export const AdminJobDiscoveryPage = () => {
                       {/* Employment Type */}
                       <td className="py-2.5 px-3 whitespace-nowrap">
                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200/60 font-semibold text-[11px]">
-                          {formatEmploymentType(job.is_hybrid ? "Hybrid" : (job.employment_type || "Full-Time"))}
+                          {formatEmploymentType(job.employment_type || "Full-Time")}
                         </Badge>
                       </td>
 
@@ -980,7 +980,7 @@ export const AdminJobDiscoveryPage = () => {
                   <div>
                     <span className="text-slate-500 block text-[10px]">Employment Type</span>
                     <span className="font-semibold text-slate-800 capitalize">
-                      {formatEmploymentType(selectedJob.is_hybrid ? (selectedJob.employment_type?.toLowerCase().includes("hyrind") ? "Hyrind" : "Hybrid") : (selectedJob.employment_type || "Full-Time"))}
+                      {formatEmploymentType(selectedJob.employment_type || "Full-Time")}
                     </span>
                   </div>
                   <div>

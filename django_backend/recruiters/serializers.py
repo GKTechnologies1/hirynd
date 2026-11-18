@@ -339,20 +339,10 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
 
-        # 1. Normalize employment_type
+        # 1. Normalize employment_type (never allow Hybrid, Hyrind, or Remote)
         emp_raw = str(data.get('employment_type') or '').strip().lower().replace('-', ' ').replace('_', ' ')
-        work_raw = str(data.get('work_mode') or '').strip().lower()
 
-        # Never pass 'remote' as employment_type
-        if emp_raw == 'remote':
-            emp_raw = ''
-
-        # If application has both Full-Time and Hybrid/Hyrind, pass only Hybrid/Hyrind, not Full-Time
-        if 'hyrind' in emp_raw:
-            data['employment_type'] = 'Hyrind'
-        elif 'hybrid' in emp_raw or work_raw == 'hybrid':
-            data['employment_type'] = 'Hybrid'
-        elif 'contract' in emp_raw or 'c2c' in emp_raw:
+        if 'contract' in emp_raw or 'c2c' in emp_raw or 'corp' in emp_raw or 'temp' in emp_raw:
             data['employment_type'] = 'Contract'
         elif 'part' in emp_raw:
             data['employment_type'] = 'Part-Time'
@@ -362,10 +352,8 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
             data['employment_type'] = 'Third-Party (C2C)'
         elif 'full' in emp_raw:
             data['employment_type'] = 'Full-Time'
-        elif not emp_raw or emp_raw in ('none', 'null', ''):
-            data['employment_type'] = 'Full-Time'
         else:
-            data['employment_type'] = data['employment_type'].title()
+            data['employment_type'] = 'Full-Time'
 
         # 2. Accurate experience_required without per-row DB queries
         raw_exp = str(data.get('experience_required') or '').strip()

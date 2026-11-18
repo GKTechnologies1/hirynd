@@ -570,11 +570,7 @@ def mark_job_as_applied(request, job_id):
 
     emp_raw = str(job.employment_type or '').strip()
     emp_lower = emp_raw.lower()
-    if 'hyrind' in emp_lower:
-        emp_val = 'Hyrind'
-    elif job.is_hybrid or 'hybrid' in emp_lower:
-        emp_val = 'Hybrid'
-    elif 'contract' in emp_lower or 'c2c' in emp_lower:
+    if 'contract' in emp_lower or 'c2c' in emp_lower or 'corp' in emp_lower or 'temp' in emp_lower:
         emp_val = 'Contract'
     elif 'part' in emp_lower:
         emp_val = 'Part-Time'
@@ -582,10 +578,8 @@ def mark_job_as_applied(request, job_id):
         emp_val = 'Internship'
     elif 'full' in emp_lower:
         emp_val = 'Full-Time'
-    elif emp_lower in ('remote', 'telecommute', 'wfh', ''):
-        emp_val = 'Full-Time'
     else:
-        emp_val = emp_raw.title()
+        emp_val = 'Full-Time'
 
     has_filings = (job.h1b_filings_recent and job.h1b_filings_recent > 0) or job.h1b_sponsor or (job.visa_grade in ('A', 'B', 'C', 'D'))
     visa_val = 'H1B' if has_filings else 'No filings history'

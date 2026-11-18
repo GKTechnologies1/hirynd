@@ -3033,10 +3033,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                                   <SelectContent>
                                     <SelectItem value="__BLANK__" className="text-xs text-muted-foreground">-- None (Blank) --</SelectItem>
                                     <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
+                                    <SelectItem value="Part-Time" className="text-xs">Part-Time</SelectItem>
                                     <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
                                     <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
-                                    <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
-                                    <SelectItem value="Hyrind" className="text-xs">Hyrind</SelectItem>
                                     <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
                                     <SelectItem value="W2" className="text-xs">W2</SelectItem>
                                     <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
@@ -3292,10 +3291,9 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Full-Time" className="text-xs">Full-Time</SelectItem>
+                                <SelectItem value="Part-Time" className="text-xs">Part-Time</SelectItem>
                                 <SelectItem value="Contract" className="text-xs">Contract</SelectItem>
                                 <SelectItem value="Contract-to-Hire" className="text-xs">Contract-to-Hire</SelectItem>
-                                <SelectItem value="Hybrid" className="text-xs">Hybrid</SelectItem>
-                                <SelectItem value="Hyrind" className="text-xs">Hyrind</SelectItem>
                                 <SelectItem value="Internship" className="text-xs">Internship</SelectItem>
                                 <SelectItem value="W2" className="text-xs">W2</SelectItem>
                                 <SelectItem value="C2C" className="text-xs">C2C</SelectItem>
@@ -3999,7 +3997,7 @@ const RecruiterCandidateDetail = ({ candidateId }: RecruiterCandidateDetailProps
                 <Select value={editJobForm.employment_type} onValueChange={(v) => setEditJobForm({ ...editJobForm, employment_type: v })}>
                   <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["Full-Time", "Contract", "Contract-to-Hire", "Hybrid", "Hyrind", "Internship", "W2", "C2C"].map((t) => (
+                    {["Full-Time", "Part-Time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"].map((t) => (
                       <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
                     ))}
                   </SelectContent>
