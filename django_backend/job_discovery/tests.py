@@ -71,6 +71,9 @@ class JobDiscoveryTestSuite(TestCase):
 
     def test_normalize_role_title(self):
         self.assertEqual(normalize_role_title("  Senior   Python Developer  "), "Senior Python Developer")
+        self.assertEqual(normalize_role_title("11. Oracle HCM Developer"), "Oracle HCM Developer")
+        self.assertEqual(normalize_role_title("8. Cloud Architect"), "Cloud Architect")
+        self.assertEqual(normalize_role_title("- Data Engineer"), "Data Engineer")
 
     # ── 2. Persistence & Duplicate Detection Tests ──
 
@@ -211,6 +214,71 @@ class JobDiscoveryTestSuite(TestCase):
         detail_res = self.client.get(f'/api/admin/job-scraper/executions/{exec1.id}/')
         self.assertEqual(detail_res.status_code, status.HTTP_200_OK)
         self.assertEqual(detail_res.data['total_jobs_found'], 25)
+
+    def test_roles_breakdown_target_role_isolation(self):
+        """Verifies that generic roles (e.g. Data Engineer) do not lump jobs from specialized roles (e.g. Senior Data Engineer)."""
+        exec_role = ScraperExecution.objects.create(
+            trigger_type='manual',
+            triggered_by=self.admin_user,
+            status='completed',
+            config={
+                'roles': [
+                    {'role': 'Data Engineer', 'limit': 20},
+                    {'role': 'Senior Data Engineer', 'limit': 20},
+                ],
+                'roles_breakdown': [
+                    {'role': 'Data Engineer', 'target': 20, 'found': 20, 'inserted': 20, 'duplicates': 0, 'updated': 0},
+                    {'role': 'Senior Data Engineer', 'target': 20, 'found': 20, 'inserted': 20, 'duplicates': 0, 'updated': 0},
+                ]
+            },
+            total_jobs_found=40,
+            total_inserted=40,
+            total_duplicates=0,
+            total_roles=2
+        )
+
+        # Create 20 jobs for Data Engineer
+        for i in range(20):
+            DiscoveredJob.objects.create(
+                job_id=f'de_job_{i}',
+                content_hash=f'de_hash_{i}',
+                title='Data Engineer',
+                company_name='Company DE',
+                target_role='Data Engineer',
+                source_portal='linkedin',
+                execution=exec_role,
+                is_duplicate=False
+            )
+
+        # Create 20 jobs for Senior Data Engineer (whose title contains 'Data Engineer')
+        for i in range(20):
+            DiscoveredJob.objects.create(
+                job_id=f'sr_de_job_{i}',
+                content_hash=f'sr_de_hash_{i}',
+                title='Senior Data Engineer',
+                company_name='Company SrDE',
+                target_role='Senior Data Engineer',
+                source_portal='indeed',
+                execution=exec_role,
+                is_duplicate=False
+            )
+
+        self.client.force_authenticate(user=self.admin_user)
+        res = self.client.get(f'/api/admin/job-scraper/executions/{exec_role.id}/roles/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 2)
+
+        de_stat = next(r for r in res.data if r['role'] == 'Data Engineer')
+        sr_de_stat = next(r for r in res.data if r['role'] == 'Senior Data Engineer')
+
+        # Both must report exactly 20 requested, 20 unique, 20 collected
+        self.assertEqual(de_stat['requested'], 20)
+        self.assertEqual(de_stat['unique'], 20)
+        self.assertEqual(de_stat['collected'], 20)
+
+        self.assertEqual(sr_de_stat['requested'], 20)
+        self.assertEqual(sr_de_stat['unique'], 20)
+        self.assertEqual(sr_de_stat['collected'], 20)
 
     # ── 5. Job Discovery Endpoints Tests ──
 

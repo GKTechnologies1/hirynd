@@ -11,12 +11,15 @@ def clean_role_display(title: str) -> str:
         return ""
     normalized = unicodedata.normalize('NFKC', str(title))
     normalized = re.sub(r'[_]+$', '', normalized)
+    normalized = re.sub(r'^\s*[\d]+[\.\)]\s*', '', normalized)
+    normalized = re.sub(r'^\s*[-*•]\s*', '', normalized)
     normalized = re.sub(r'\s+', ' ', normalized).strip()
     words = normalized.split()
     acronyms = {
         'qa': 'QA', 'sqa': 'SQA', 'ui': 'UI', 'ux': 'UX', 'ai': 'AI', 'ml': 'ML',
         'ai/ml': 'AI/ML', 'aws': 'AWS', 'devops': 'DevOps', 'it': 'IT', 'cisco': 'Cisco',
-        'se': 'SE', 'sde': 'SDE', 'sre': 'SRE', 'sdn': 'SDN', 'bi': 'BI', 'etl': 'ETL'
+        'se': 'SE', 'sde': 'SDE', 'sre': 'SRE', 'sdn': 'SDN', 'bi': 'BI', 'etl': 'ETL',
+        'hcm': 'HCM', 'hr': 'HR', 'hris': 'HRIS', 'erp': 'ERP'
     }
     formatted = []
     for w in words:

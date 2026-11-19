@@ -894,6 +894,11 @@ def get_execution_roles_breakdown(request, execution_id):
     jobs_data = list(ex.jobs.values('id', 'target_role', 'title', 'is_duplicate', 'visa_friendly_score'))
     assigned_ids = set(RecruiterJobAssignment.objects.filter(execution_id=ex.id).values_list('job_id', flat=True))
 
+    cfg_breakdown_map = {}
+    for item in config.get('roles_breakdown', []):
+        if isinstance(item, dict) and item.get('role'):
+            cfg_breakdown_map[item['role'].strip().lower()] = item
+
     breakdown = []
     for r in roles_cfg:
         r_name = (r.get('role', '') if isinstance(r, dict) else str(r)).strip()
@@ -902,22 +907,38 @@ def get_execution_roles_breakdown(request, execution_id):
             continue
 
         r_name_low = r_name.lower()
-        matched = [j for j in jobs_data if (j.get('target_role') or '').lower() == r_name_low or r_name_low in (j.get('title') or '').lower()]
+        matched = [
+            j for j in jobs_data
+            if ((j.get('target_role') or '').strip().lower() == r_name_low) or
+               (not j.get('target_role') and (j.get('title') or '').strip().lower() == r_name_low)
+        ]
         collected = len(matched)
         unique = sum(1 for j in matched if not j.get('is_duplicate'))
         duplicates = collected - unique
         scored = sum(1 for j in matched if (j.get('visa_friendly_score') or 0) > 0)
         assigned = sum(1 for j in matched if j['id'] in assigned_ids)
 
+        role_stat = cfg_breakdown_map.get(r_name_low)
+        if role_stat:
+            requested_val = role_stat.get('target', limit)
+            collected_val = role_stat.get('found', collected)
+            unique_val = role_stat.get('inserted', unique)
+            duplicates_val = role_stat.get('duplicates', duplicates)
+        else:
+            requested_val = limit
+            collected_val = collected
+            unique_val = unique
+            duplicates_val = duplicates
+
         breakdown.append({
             'role': r_name,
-            'requested': limit,
-            'collected': collected,
-            'unique': unique,
-            'duplicates': duplicates,
+            'requested': requested_val,
+            'collected': collected_val,
+            'unique': unique_val,
+            'duplicates': duplicates_val,
             'scored': scored,
             'assigned': assigned,
-            'remaining': max(0, unique - assigned),
+            'remaining': max(0, unique_val - assigned),
         })
 
     return Response(breakdown)
