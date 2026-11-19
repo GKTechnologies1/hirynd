@@ -923,11 +923,13 @@ def get_execution_roles_breakdown(request, execution_id):
             requested_val = role_stat.get('target', limit)
             collected_val = role_stat.get('found', collected)
             unique_val = role_stat.get('inserted', unique)
+            updated_val = role_stat.get('updated', 0)
             duplicates_val = role_stat.get('duplicates', duplicates)
         else:
             requested_val = limit
             collected_val = collected
             unique_val = unique
+            updated_val = 0
             duplicates_val = duplicates
 
         breakdown.append({
@@ -935,6 +937,7 @@ def get_execution_roles_breakdown(request, execution_id):
             'requested': requested_val,
             'collected': collected_val,
             'unique': unique_val,
+            'updated': updated_val,
             'duplicates': duplicates_val,
             'scored': scored,
             'assigned': assigned,
