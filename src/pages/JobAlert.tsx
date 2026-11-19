@@ -4,7 +4,7 @@ import Footer from "@/components/layout/Footer";
 import SEO from "@/components/SEO";
 import { recruitersApi } from "@/services/api";
 import { DataTable } from "@/components/ui/DataTable";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -598,7 +598,7 @@ export default function JobAlert() {
     if (filterOptions.employment_types && filterOptions.employment_types.length > 0) {
       return filterOptions.employment_types;
     }
-    return ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Hybrid", "Hyrind", "Internship", "W2", "C2C"];
+    return ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"];
   }, [filterOptions.employment_types]);
 
   const dynamicWorkModes = useMemo(() => {

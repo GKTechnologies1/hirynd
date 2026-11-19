@@ -46,20 +46,35 @@ def list_eligible_roles(request):
     return Response({'results': roles, 'count': len(roles)})
 
 
-def recover_stale_executions(timeout_minutes: int = 20):
+def recover_stale_executions(timeout_minutes: int = 120):
     """
-    Auto-recovers any execution marked running or pending whose started_at
+    Auto-recovers any execution marked running or pending whose last activity (updated_at)
     is older than timeout_minutes (e.g. interrupted by gunicorn worker restart or host reboot).
     Reconciles actual discovered jobs, costs, and API counts so history reflects actual work completed.
+    Never interrupts an actively progressing scrape.
     """
     cutoff = timezone.now() - timedelta(minutes=timeout_minutes)
     stale_list = list(ScraperExecution.objects.filter(
         status__in=['running', 'pending'],
-        started_at__lt=cutoff
+        updated_at__lt=cutoff
     ))
+
+    # Guard: check if an actual scraper process is currently alive on the host
+    scraper_running = False
+    try:
+        import subprocess
+        out = subprocess.check_output(['pgrep', '-f', 'run_scheduled_job_scraper'], text=True)
+        scraper_running = bool(out.strip())
+    except Exception:
+        pass
+
     if stale_list:
         from django.db.models import Sum
         for se in stale_list:
+            if se.trigger_type == 'scheduled' and scraper_running:
+                # The scheduled scraper process is alive on this host; do not mark it failed!
+                continue
+
             job_count = se.jobs.count()
             ins_count = se.jobs.filter(review_status='PENDING_REVIEW').count()
             dup_count = se.jobs.filter(review_status='ALREADY_EXISTS').count()
@@ -727,11 +742,7 @@ def approve_for_job_management(request, job_id):
 
             emp_raw = str(job.employment_type or '').strip()
             emp_lower = emp_raw.lower()
-            if 'hyrind' in emp_lower:
-                emp_val = 'Hyrind'
-            elif job.is_hybrid or 'hybrid' in emp_lower:
-                emp_val = 'Hybrid'
-            elif 'contract' in emp_lower or 'c2c' in emp_lower:
+            if 'contract' in emp_lower or 'c2c' in emp_lower or 'corp' in emp_lower or 'temp' in emp_lower:
                 emp_val = 'Contract'
             elif 'part' in emp_lower:
                 emp_val = 'Part-Time'
@@ -739,10 +750,8 @@ def approve_for_job_management(request, job_id):
                 emp_val = 'Internship'
             elif 'full' in emp_lower:
                 emp_val = 'Full-Time'
-            elif emp_lower in ('remote', 'telecommute', 'wfh', ''):
-                emp_val = 'Full-Time'
             else:
-                emp_val = emp_raw.title()
+                emp_val = 'Full-Time'
 
             has_filings = (job.h1b_filings_recent and job.h1b_filings_recent > 0) or job.h1b_sponsor or (job.visa_grade in ('A', 'B', 'C', 'D'))
             visa_val = 'H1B' if has_filings else 'No filings history'
@@ -871,6 +880,7 @@ def get_execution_roles_breakdown(request, execution_id):
     """
     GET /api/admin/job-scraper/executions/<execution_id>/roles/
     Returns per-role audit table: Role | Requested | Collected | Unique | Duplicates | Scored | Assigned.
+    Optimized: in-memory bulk aggregation avoids 500+ sequential SQL queries.
     """
     try:
         ex = ScraperExecution.objects.get(id=execution_id)
@@ -879,33 +889,59 @@ def get_execution_roles_breakdown(request, execution_id):
 
     config = ex.config or {}
     roles_cfg = config.get('roles', [])
-    jobs_qs = ex.jobs.all()
+
+    from .models import RecruiterJobAssignment
+    jobs_data = list(ex.jobs.values('id', 'target_role', 'title', 'is_duplicate', 'visa_friendly_score'))
+    assigned_ids = set(RecruiterJobAssignment.objects.filter(execution_id=ex.id).values_list('job_id', flat=True))
+
+    cfg_breakdown_map = {}
+    for item in config.get('roles_breakdown', []):
+        if isinstance(item, dict) and item.get('role'):
+            cfg_breakdown_map[item['role'].strip().lower()] = item
 
     breakdown = []
     for r in roles_cfg:
-        r_name = r.get('role', '') if isinstance(r, dict) else str(r)
+        r_name = (r.get('role', '') if isinstance(r, dict) else str(r)).strip()
         limit = r.get('limit', 15) if isinstance(r, dict) else 15
         if not r_name:
             continue
 
-        role_jobs = jobs_qs.filter(Q(target_role__iexact=r_name) | Q(title__icontains=r_name))
-        collected = role_jobs.count()
-        unique = role_jobs.filter(is_duplicate=False).count()
-        duplicates = role_jobs.filter(is_duplicate=True).count()
-        scored = role_jobs.filter(visa_friendly_score__gt=0).count()
+        r_name_low = r_name.lower()
+        matched = [
+            j for j in jobs_data
+            if ((j.get('target_role') or '').strip().lower() == r_name_low) or
+               (not j.get('target_role') and (j.get('title') or '').strip().lower() == r_name_low)
+        ]
+        collected = len(matched)
+        unique = sum(1 for j in matched if not j.get('is_duplicate'))
+        duplicates = collected - unique
+        scored = sum(1 for j in matched if (j.get('visa_friendly_score') or 0) > 0)
+        assigned = sum(1 for j in matched if j['id'] in assigned_ids)
 
-        from .models import RecruiterJobAssignment
-        assigned = RecruiterJobAssignment.objects.filter(job__in=role_jobs).values('job_id').distinct().count()
+        role_stat = cfg_breakdown_map.get(r_name_low)
+        if role_stat:
+            requested_val = role_stat.get('target', limit)
+            collected_val = role_stat.get('found', collected)
+            unique_val = role_stat.get('inserted', unique)
+            updated_val = role_stat.get('updated', 0)
+            duplicates_val = role_stat.get('duplicates', duplicates)
+        else:
+            requested_val = limit
+            collected_val = collected
+            unique_val = unique
+            updated_val = 0
+            duplicates_val = duplicates
 
         breakdown.append({
             'role': r_name,
-            'requested': limit,
-            'collected': collected,
-            'unique': unique,
-            'duplicates': duplicates,
+            'requested': requested_val,
+            'collected': collected_val,
+            'unique': unique_val,
+            'updated': updated_val,
+            'duplicates': duplicates_val,
             'scored': scored,
             'assigned': assigned,
-            'remaining': max(0, unique - assigned),
+            'remaining': max(0, unique_val - assigned),
         })
 
     return Response(breakdown)

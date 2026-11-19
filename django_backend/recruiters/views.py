@@ -320,15 +320,9 @@ def job_applications(request, candidate_id):
                     app_status = 'applied'
 
                 raw_emp = str(jl.get('employment_type', '') or '').strip()
-                raw_mode = str(jl.get('work_mode', '') or '').strip()
                 emp_low = raw_emp.lower()
-                mode_low = raw_mode.lower()
 
-                if 'hyrind' in emp_low:
-                    emp_val = 'Hyrind'
-                elif 'hybrid' in emp_low or mode_low == 'hybrid':
-                    emp_val = 'Hybrid'
-                elif 'contract' in emp_low or 'c2c' in emp_low:
+                if 'contract' in emp_low or 'c2c' in emp_low or 'corp' in emp_low or 'temp' in emp_low:
                     emp_val = 'Contract'
                 elif 'part' in emp_low:
                     emp_val = 'Part-Time'
@@ -336,10 +330,8 @@ def job_applications(request, candidate_id):
                     emp_val = 'Internship'
                 elif 'full' in emp_low:
                     emp_val = 'Full-Time'
-                elif emp_low in ('remote', 'telecommute', 'wfh', ''):
-                    emp_val = 'Full-Time'
                 else:
-                    emp_val = raw_emp.title() or 'Full-Time'
+                    emp_val = 'Full-Time'
 
                 raw_visa = str(jl.get('visa_eligibility', '') or '').strip()
                 visa_low = raw_visa.lower()
@@ -1097,10 +1089,10 @@ def public_job_alert_filter_options(request):
     normalized_emp_types = []
     for et in emp_types:
         val = et.title() if et else et
-        if val not in normalized_emp_types:
+        if val and val.lower() not in ('hybrid', 'hyrind', 'remote') and val not in normalized_emp_types:
             normalized_emp_types.append(val)
     if not normalized_emp_types:
-        normalized_emp_types = ["Full-time", "Part-time", "Contract", "Contract-to-Hire", "Internship", "W2", "C2C"]
+        normalized_emp_types = ["Full-Time", "Part-Time", "Contract", "Internship"]
 
     # Work Modes
     work_modes = ["Remote", "Hybrid", "Onsite"]

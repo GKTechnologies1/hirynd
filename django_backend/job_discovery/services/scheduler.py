@@ -29,7 +29,7 @@ def run_scheduled_job_discovery(force: bool = False, jobs_per_role: int = None, 
 
     # 1. Recover stale runs older than 3 hours with full count and cost reconciliation
     stale_cutoff = now - timedelta(hours=3)
-    stale_runs = list(ScraperExecution.objects.filter(status='running', started_at__lt=stale_cutoff))
+    stale_runs = list(ScraperExecution.objects.filter(status='running', updated_at__lt=stale_cutoff))
     if stale_runs:
         from django.db.models import Sum
         for sr in stale_runs:

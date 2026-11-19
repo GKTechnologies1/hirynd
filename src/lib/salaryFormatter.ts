@@ -124,16 +124,13 @@ export const formatRawSalaryString = (rawSalary: any): string => {
 export const formatEmploymentType = (val?: string): string => {
   if (!val) return "Full-Time";
   const s = val.toLowerCase().replace(/[-_\s]+/g, " ").trim();
-  if (s === "remote") return "Full-Time";
-  // If application has both Full Time and Hybrid/Hyrind, return only Hybrid/Hyrind
-  if (s.includes("hyrind")) return "Hyrind";
-  if (s.includes("hybrid")) return "Hybrid";
-  if (s.includes("contract") || s.includes("c2c") || s.includes("corp")) return "Contract";
+  if (s === "remote" || s === "hybrid" || s === "hyrind") return "Full-Time";
+  if (s.includes("contract") || s.includes("c2c") || s.includes("corp") || s.includes("temp")) return "Contract";
   if (s.includes("part")) return "Part-Time";
   if (s.includes("intern")) return "Internship";
   if (s.includes("third") || s.includes("vendor")) return "Third-Party (C2C)";
   if (s.includes("full")) return "Full-Time";
-  return val.charAt(0).toUpperCase() + val.slice(1);
+  return "Full-Time";
 };
 
 /**

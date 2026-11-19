@@ -53,7 +53,9 @@ _UNDERSCORE_SPACE = jsre(r'[_\s]+')
 
 
 def normalize_employment_type(value):
-    """"Full-time, Contract" | ["FULL_TIME", "CONTRACT"] -> "full-time, contract" (max 50 chars)."""
+    """"Full-time, Contract" | ["FULL_TIME", "CONTRACT"] -> "full-time, contract" (max 50 chars).
+    Only scrapes and standardizes: full-time, part-time, internship, contract.
+    Never outputs hybrid, hyrind, or remote as employment_type."""
     if isinstance(value, (list, tuple)):
         parts = [js_string(v) for v in value]
     elif isinstance(value, str):
@@ -62,18 +64,21 @@ def normalize_employment_type(value):
         parts = []
 
     cleaned = [_UNDERSCORE_SPACE.sub('-', js_trim(p.lower())) for p in parts]
-    cleaned = ['full-time' if p == 'fulltime' else 'part-time' if p == 'parttime' else 'contract' if p == 'contracts' else p
-               for p in cleaned]
-    # Filter out remote so employment_type is never 'remote'
-    cleaned = [p for p in cleaned if p and 'remote' not in p and 'telecommute' not in p and 'wfh' not in p]
-    # If application/job has both Full-Time and Hybrid/Hyrind, pass only Hybrid/Hyrind, not Full-Time
-    has_hybrid = any('hybrid' in p or 'hyrind' in p for p in cleaned)
-    if has_hybrid:
-        cleaned = [p for p in cleaned if 'full' not in p]
-    cleaned = [p for p in cleaned if p]
+    normalized = []
+    for p in cleaned:
+        if not p or any(k in p for k in ('remote', 'telecommute', 'wfh', 'hybrid', 'hyrind')):
+            continue
+        if 'contract' in p or 'c2c' in p or 'corp' in p or 'temp' in p:
+            normalized.append('contract')
+        elif 'part' in p:
+            normalized.append('part-time')
+        elif 'intern' in p:
+            normalized.append('internship')
+        elif 'full' in p or 'perm' in p or 'direct' in p:
+            normalized.append('full-time')
 
-    uniq = unique(cleaned)
-    return ', '.join(uniq)[:50] if uniq else None
+    uniq = unique(normalized)
+    return ', '.join(uniq)[:50] if uniq else 'full-time'
 
 
 def make_content_hash(title: str, company: str, city, state_code) -> str:
