@@ -778,18 +778,29 @@ def public_job_alerts(request):
 
         return Response(DiscoveredJobAlertSerializer(job).data, status=status.HTTP_201_CREATED)
 
-    # 1. Base queryset: Show public approved / manual jobs, hiding internal raw scraped jobs
+    # 1. Base queryset: Show all discovered jobs (including scraped and manual)
     include_hidden = (
         request.query_params.get('include_hidden', '').lower() in ('true', '1') or
         request.query_params.get('is_hidden', '').lower() in ('true', '1')
     )
-    if include_hidden and request.user and request.user.is_authenticated and (getattr(request.user, 'role', '') == 'admin' or getattr(request.user, 'is_staff', False)):
+    status_param = request.query_params.get('status')
+    status_lower = status_param.lower() if status_param else ''
+
+    is_admin = (
+        request.user and
+        request.user.is_authenticated and
+        (getattr(request.user, 'role', '') == 'admin' or getattr(request.user, 'is_staff', False))
+    )
+
+    if include_hidden and is_admin:
         jobs = DiscoveredJob.objects.all()
+    elif status_lower in ('expired', 'closed', 'rejected'):
+        jobs = DiscoveredJob.objects.filter(is_duplicate=False)
+    elif is_admin and (status_lower == 'all' or not status_lower):
+        jobs = DiscoveredJob.objects.filter(is_duplicate=False)
     else:
-        # Strictly scope public listings to manually added or explicitly approved jobs
-        jobs = DiscoveredJob.objects.filter(is_active=True, is_duplicate=False).filter(
-            Q(source_portal='manual') | Q(review_status='APPROVED')
-        )
+        # Show all active, non-duplicate discovered jobs across all job discovery portals
+        jobs = DiscoveredJob.objects.filter(is_active=True, is_duplicate=False).exclude(review_status='REJECTED')
 
     # 2. Status filter
     status_param = request.query_params.get('status')
@@ -1007,9 +1018,7 @@ def public_job_alerts(request):
     from django.core.cache import cache as django_cache
     unfiltered_total = django_cache.get('public_job_alerts_total')
     if unfiltered_total is None:
-        unfiltered_total = DiscoveredJob.objects.filter(is_active=True, is_duplicate=False).filter(
-            Q(source_portal='manual') | Q(review_status='APPROVED')
-        ).count()
+        unfiltered_total = DiscoveredJob.objects.filter(is_active=True, is_duplicate=False).exclude(review_status='REJECTED').count()
         django_cache.set('public_job_alerts_total', unfiltered_total, 300)
 
     try:

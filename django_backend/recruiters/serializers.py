@@ -426,6 +426,7 @@ class PublicDiscoveredJobAlertSerializer(serializers.ModelSerializer):
     salary = serializers.SerializerMethodField()
     salary_range = serializers.SerializerMethodField()
     salary_type = serializers.CharField(source='salary_period', read_only=True)
+    visa_eligibility = serializers.SerializerMethodField()
     application_status = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     log_date = serializers.SerializerMethodField()
@@ -444,6 +445,7 @@ class PublicDiscoveredJobAlertSerializer(serializers.ModelSerializer):
             'date_posted', 'log_date',
             'review_status', 'application_status', 'status',
             'is_active', 'is_public',
+            'visa_eligibility',
             'created_at', 'updated_at',
         ]
 
@@ -473,6 +475,13 @@ class PublicDiscoveredJobAlertSerializer(serializers.ModelSerializer):
 
     def get_salary_range(self, obj):
         return self.get_salary(obj)
+
+    def get_visa_eligibility(self, obj):
+        if obj.visa_grade:
+            return f"Grade {obj.visa_grade}"
+        if obj.h1b_sponsor:
+            return "H1B Sponsor"
+        return "All Work Authorization"
 
     def get_application_status(self, obj):
         if obj.review_status == 'REJECTED':
