@@ -311,6 +311,7 @@ export const ScraperSessionReportModal: React.FC<ScraperSessionReportModalProps>
                       <th className="py-2.5 px-3 text-right">Requested</th>
                       <th className="py-2.5 px-3 text-right">Collected</th>
                       <th className="py-2.5 px-3 text-right">Unique</th>
+                      <th className="py-2.5 px-3 text-right">Updated</th>
                       <th className="py-2.5 px-3 text-right">Duplicates</th>
                       <th className="py-2.5 px-3 text-right">Scored</th>
                       <th className="py-2.5 px-3 text-right">Assigned</th>
@@ -320,7 +321,7 @@ export const ScraperSessionReportModal: React.FC<ScraperSessionReportModalProps>
                   <tbody className="divide-y divide-slate-100">
                     {rolesBreakdown.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-6 text-center text-slate-400">
+                        <td colSpan={9} className="py-6 text-center text-slate-400">
                           No per-role records found for this execution.
                         </td>
                       </tr>
@@ -331,6 +332,7 @@ export const ScraperSessionReportModal: React.FC<ScraperSessionReportModalProps>
                           <td className="py-2 px-3 text-right text-slate-600">{r.requested}</td>
                           <td className="py-2 px-3 text-right font-medium text-blue-700">{r.collected}</td>
                           <td className="py-2 px-3 text-right font-bold text-emerald-700">{r.unique}</td>
+                          <td className="py-2 px-3 text-right font-medium text-sky-700">{r.updated ?? 0}</td>
                           <td className="py-2 px-3 text-right text-amber-600">{r.duplicates}</td>
                           <td className="py-2 px-3 text-right text-purple-700">{r.scored}</td>
                           <td className="py-2 px-3 text-right text-indigo-700 font-medium">{r.assigned}</td>

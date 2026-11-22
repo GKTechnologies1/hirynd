@@ -199,6 +199,24 @@ export const AdminJobScraperPage = () => {
     }
   };
 
+  const handleSelectAllDbRoles = () => {
+    setSelectedRoles(prev => {
+      const existingNames = new Set(prev.map(r => r.role.toLowerCase()));
+      const newItems: RoleConfig[] = [];
+      for (const r of dbRoles) {
+        if (!existingNames.has(r.role.toLowerCase())) {
+          newItems.push({ role: r.role, limit: DEFAULT_JOBS_PER_ROLE });
+        }
+      }
+      return [...prev, ...newItems];
+    });
+  };
+
+  const handleClearAllDbRoles = () => {
+    const dbRoleNames = new Set(dbRoles.map(r => r.role.toLowerCase()));
+    setSelectedRoles(prev => prev.filter(r => !dbRoleNames.has(r.role.toLowerCase())));
+  };
+
   const handleAddCustomRole = () => {
     const trimmed = customRoleInput.trim();
     if (!trimmed) return;
@@ -425,9 +443,30 @@ export const AdminJobScraperPage = () => {
             <CardContent className="space-y-4">
               {/* Active Roles in Database */}
               <div>
-                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">
-                  Confirmed Candidate Roles ({dbRoles.length})
-                </Label>
+                <div className="flex justify-between items-center mb-2">
+                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Confirmed Candidate Roles ({dbRoles.length})
+                  </Label>
+                  {dbRoles.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSelectAllDbRoles}
+                        className="text-xs text-primary hover:underline font-semibold cursor-pointer"
+                      >
+                        Select all
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={handleClearAllDbRoles}
+                        className="text-xs text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-2 rounded-md border border-slate-200 bg-slate-50/50">
                   {loadingRoles ? (
                     <span className="text-xs text-slate-400 p-2">Loading roles from database...</span>
