@@ -48,20 +48,22 @@ def get_actor_for_source(source: str) -> Optional[str]:
     return DEFAULT_ACTORS.get(source)
 
 
-def build_actor_input(source: str, query: str, limit: int = 15, freshness_days: int = 7) -> Optional[Dict[str, Any]]:
+def build_actor_input(source: str, query: str, limit: int = 15, freshness_days: int = 7, sites: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
     """Builds the input JSON for the specific Apify actor."""
     actor_id = get_actor_for_source(source)
     if not actor_id:
         return None
 
     if source in SUPPORTED_SITES:
+        effective_sites = sites if sites else [source]
+        scaled_max_results = min(max(limit * len(effective_sites), limit), 100)
         return {
             'actorId': actor_id,
             'input': {
                 'searchTerm': query,
                 'location': 'United States',
-                'sites': [source],
-                'maxResults': limit,
+                'sites': effective_sites,
+                'maxResults': scaled_max_results,
                 'hoursOld': max(1, freshness_days * 24),
                 'maxAgeDays': freshness_days,
                 'requireTitleKeywords': actor_title_keywords(query),
@@ -404,27 +406,49 @@ def execute_scraping_run(execution_id: UUID) -> None:
             remaining_needed = max(1, role_limit - role_stat['inserted'])
             per_source_limit = max(5, remaining_needed)
 
-            for source in sources:
+            # Group multi-board supported portals into a combined call to avoid separate Apify runs
+            supported_in_sources = [s for s in sources if s in SUPPORTED_SITES]
+            other_sources = [s for s in sources if s not in SUPPORTED_SITES]
+
+            source_passes = []
+            if supported_in_sources:
+                source_passes.append({
+                    'lead_source': supported_in_sources[0],
+                    'display_source': ', '.join(supported_in_sources),
+                    'sites': supported_in_sources,
+                })
+            for s in other_sources:
+                source_passes.append({
+                    'lead_source': s,
+                    'display_source': s,
+                    'sites': [s],
+                })
+
+            for spass in source_passes:
                 if role_stat['inserted'] >= role_limit:
                     logger.info(f"[JobScraper] Reached target {role_limit} new unique jobs for '{role_name}'.")
                     break
 
+                lead_src = spass['lead_source']
+                display_src = spass['display_source']
+                sites_list = spass['sites']
+
                 try:
-                    actor_payload = build_actor_input(source, search_query, limit=per_source_limit)
+                    actor_payload = build_actor_input(lead_src, search_query, limit=per_source_limit, sites=sites_list)
                     if not actor_payload:
-                        logger.warning(f"[JobScraper] No actor configuration for source: {source}")
+                        logger.warning(f"[JobScraper] No actor configuration for source: {display_src}")
                         continue
 
                     if not token:
                         err_msg = "APIFY_API_TOKEN is not configured in the server environment. Please set APIFY_API_TOKEN to run scraper jobs."
                         logger.error(f"[JobScraper] {err_msg}")
-                        errors.append(f"{source}: {err_msg}")
+                        errors.append(f"{display_src}: {err_msg}")
                         continue
 
                     if not token.startswith('apify_api_'):
                         err_msg = f"Invalid APIFY_API_TOKEN configured (starts with '{token[:10]}', expected 'apify_api_...'). Please check environment variables."
                         logger.error(f"[JobScraper] {err_msg}")
-                        errors.append(f"{source}: {err_msg}")
+                        errors.append(f"{display_src}: {err_msg}")
                         continue
 
                     actor_id = actor_payload['actorId']
@@ -442,7 +466,7 @@ def execute_scraping_run(execution_id: UUID) -> None:
                             execution=execution,
                             initiated_by=execution.triggered_by,
                             role_name=role_name,
-                            source_portal=source,
+                            source_portal=display_src[:50],
                             api_calls=1,
                             cost_usd=cost_usd,
                             cost_type=cost_type,
@@ -455,10 +479,10 @@ def execute_scraping_run(execution_id: UUID) -> None:
                     except Exception as cost_err:
                         logger.warning(f"[JobScraper] Failed to save ScraperCostRecord: {cost_err}")
 
-                    logger.info(f"[JobScraper] Source '{source}' for '{role_name}' returned {len(raw_items)} items.")
+                    logger.info(f"[JobScraper] Source '{display_src}' for '{role_name}' returned {len(raw_items)} items.")
 
                     for raw in raw_items:
-                        parsed = parse_job(raw, source)
+                        parsed = parse_job(raw, lead_src)
                         if not parsed:
                             continue
 
@@ -480,10 +504,10 @@ def execute_scraping_run(execution_id: UUID) -> None:
                             role_stat['duplicates'] += 1
 
                         if role_stat['inserted'] >= role_limit:
-                            logger.info(f"[JobScraper] Reached target {role_limit} new unique jobs for '{role_name}' during {source} ingestion.")
+                            logger.info(f"[JobScraper] Reached target {role_limit} new unique jobs for '{role_name}' during {display_src} ingestion.")
                             break
 
-                    # Update execution progress live after each source
+                    # Update execution progress live after each pass
                     execution.total_jobs_found = total_found
                     execution.total_inserted = total_ins
                     execution.total_updated = total_upd
@@ -494,7 +518,7 @@ def execute_scraping_run(execution_id: UUID) -> None:
                     ])
 
                 except Exception as src_err:
-                    err_msg = f"Error scraping {source} for {role_name}: {str(src_err)}"
+                    err_msg = f"Error scraping {display_src} for {role_name}: {str(src_err)}"
                     logger.error(f"[JobScraper] {err_msg}")
                     role_stat['failed'] += 1
                     errors.append(err_msg)
@@ -502,8 +526,12 @@ def execute_scraping_run(execution_id: UUID) -> None:
         # Automatically enrich newly scraped jobs with Visa Intelligence
         try:
             from ..matcher.match_jobs_to_visa import match_jobs_to_visa
-            matched_count = match_jobs_to_visa()
-            logger.info(f"[JobScraper] Visa matching completed: {matched_count} jobs enriched with Visa Intelligence.")
+            new_job_ids = [str(jid) for jid in execution.jobs.filter(visa_matched=False).values_list('id', flat=True)]
+            if new_job_ids:
+                matched_count = match_jobs_to_visa(job_ids=new_job_ids)
+                logger.info(f"[JobScraper] Visa matching completed: {matched_count} jobs enriched with Visa Intelligence.")
+            else:
+                logger.info("[JobScraper] No new unmatched jobs requiring Visa Intelligence matching.")
         except Exception as match_err:
             logger.error(f"[JobScraper] Post-scrape Visa matching error: {str(match_err)}")
 

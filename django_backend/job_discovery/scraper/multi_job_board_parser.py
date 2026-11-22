@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..config.constants import SUPPORTED_SITES
 from ..core.jscompat import js_number, js_or, js_round, js_string, truthy
 from ..matcher.normalize_company import normalize_company
 from .job_parser import NormalizedJob, get
@@ -25,8 +26,23 @@ def parse_multi_job_board_row(raw, source: str) -> NormalizedJob | None:
     salary_max = js_round(js_number(get(raw, 'salary_max'))) if get(raw, 'salary_max') is not None else None
     salary_present = salary_min is not None or salary_max is not None
 
+    site_raw = str(get(raw, 'site') or get(raw, 'source') or source).strip().lower()
+    if 'linkedin' in site_raw:
+        resolved_source = 'linkedin'
+    elif 'indeed' in site_raw:
+        resolved_source = 'indeed'
+    elif 'glassdoor' in site_raw:
+        resolved_source = 'glassdoor'
+    elif 'dice' in site_raw:
+        resolved_source = 'dice'
+    elif site_raw:
+        matched_supported = next((s for s in SUPPORTED_SITES if s in site_raw), None)
+        resolved_source = matched_supported or site_raw.replace(' ', '_').replace('-', '_')
+    else:
+        resolved_source = source
+
     return NormalizedJob(
-        jobId=f'{source}_{js_string(native_id)}',
+        jobId=f'{resolved_source}_{js_string(native_id)}',
         contentHash=make_content_hash(js_string(title), js_string(company), loc.city, loc.stateCode),
         title=js_string(title)[:500],
         companyName=js_string(company)[:300],
@@ -45,6 +61,6 @@ def parse_multi_job_board_row(raw, source: str) -> NormalizedJob | None:
         salaryPeriod=js_or(get(raw, 'salary_interval'), 'yearly') if salary_present else None,
         salaryPresent=salary_present,
         employmentType=normalize_employment_type(get(raw, 'job_type')),
-        source=source,
+        source=resolved_source,
         postingDate=js_or(parse_date(get(raw, 'date_posted')), parse_date(get(raw, 'first_seen_on_board'))),
     )

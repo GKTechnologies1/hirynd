@@ -73,6 +73,10 @@ class Candidate(models.Model):
 
     class Meta:
         db_table = 'candidates'
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='idx_cand_status_created'),
+            models.Index(fields=['status'], name='idx_cand_status'),
+        ]
 
     def __str__(self):
         return f"{self.user.profile.full_name or self.user.email} ({self.status})"
