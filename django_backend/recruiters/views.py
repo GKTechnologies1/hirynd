@@ -274,6 +274,8 @@ def job_applications(request, candidate_id):
             context['exclude_description'] = True
 
         if page > 0 and page_size > 0:
+            page = max(1, page)
+            page_size = min(max(1, page_size), 500)
             total = jobs.count()
             start = (page - 1) * page_size
             sliced = jobs[start:start + page_size]

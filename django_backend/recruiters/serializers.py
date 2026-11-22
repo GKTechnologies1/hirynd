@@ -328,6 +328,11 @@ class MyAssignmentSerializer(serializers.ModelSerializer):
 class JobLinkEntrySerializer(serializers.ModelSerializer):
     log_date = serializers.SerializerMethodField()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.context.get('exclude_description'):
+            self.fields.pop('job_description', None)
+
     class Meta:
         model = JobLinkEntry
         fields = '__all__'

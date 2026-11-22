@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..config.constants import SUPPORTED_SITES
 from ..core.jscompat import js_number, js_or, js_round, js_string, truthy
 from ..matcher.normalize_company import normalize_company
 from .job_parser import NormalizedJob, get
@@ -34,6 +35,9 @@ def parse_multi_job_board_row(raw, source: str) -> NormalizedJob | None:
         resolved_source = 'glassdoor'
     elif 'dice' in site_raw:
         resolved_source = 'dice'
+    elif site_raw:
+        matched_supported = next((s for s in SUPPORTED_SITES if s in site_raw), None)
+        resolved_source = matched_supported or site_raw.replace(' ', '_').replace('-', '_')
     else:
         resolved_source = source
 

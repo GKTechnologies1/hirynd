@@ -56,13 +56,14 @@ def build_actor_input(source: str, query: str, limit: int = 15, freshness_days: 
 
     if source in SUPPORTED_SITES:
         effective_sites = sites if sites else [source]
+        scaled_max_results = min(max(limit * len(effective_sites), limit), 100)
         return {
             'actorId': actor_id,
             'input': {
                 'searchTerm': query,
                 'location': 'United States',
                 'sites': effective_sites,
-                'maxResults': limit,
+                'maxResults': scaled_max_results,
                 'hoursOld': max(1, freshness_days * 24),
                 'maxAgeDays': freshness_days,
                 'requireTitleKeywords': actor_title_keywords(query),
@@ -465,7 +466,7 @@ def execute_scraping_run(execution_id: UUID) -> None:
                             execution=execution,
                             initiated_by=execution.triggered_by,
                             role_name=role_name,
-                            source_portal=display_src,
+                            source_portal=display_src[:50],
                             api_calls=1,
                             cost_usd=cost_usd,
                             cost_type=cost_type,
@@ -525,7 +526,7 @@ def execute_scraping_run(execution_id: UUID) -> None:
         # Automatically enrich newly scraped jobs with Visa Intelligence
         try:
             from ..matcher.match_jobs_to_visa import match_jobs_to_visa
-            new_job_ids = list(execution.jobs.filter(visa_matched=False).values_list('id', flat=True))
+            new_job_ids = [str(jid) for jid in execution.jobs.filter(visa_matched=False).values_list('id', flat=True)]
             if new_job_ids:
                 matched_count = match_jobs_to_visa(job_ids=new_job_ids)
                 logger.info(f"[JobScraper] Visa matching completed: {matched_count} jobs enriched with Visa Intelligence.")
