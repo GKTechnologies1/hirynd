@@ -199,6 +199,27 @@ export const AdminJobScraperPage = () => {
     }
   };
 
+  const handleSelectAllDbRoles = () => {
+    setSelectedRoles(prev => {
+      const existingLimits = new Map(prev.map(r => [r.role.toLowerCase(), r.limit]));
+      const next: RoleConfig[] = [];
+      dbRoles.forEach(r => {
+        const limit = existingLimits.get(r.role.toLowerCase()) || DEFAULT_JOBS_PER_ROLE;
+        next.push({ role: r.role, limit });
+      });
+      prev.forEach(r => {
+        if (!dbRoles.some(d => d.role.toLowerCase() === r.role.toLowerCase())) {
+          next.push(r);
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleClearAllDbRoles = () => {
+    setSelectedRoles([]);
+  };
+
   const handleAddCustomRole = () => {
     const trimmed = customRoleInput.trim();
     if (!trimmed) return;
@@ -425,9 +446,33 @@ export const AdminJobScraperPage = () => {
             <CardContent className="space-y-4">
               {/* Active Roles in Database */}
               <div>
-                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">
-                  Confirmed Candidate Roles ({dbRoles.length})
-                </Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+                    Confirmed Candidate Roles ({dbRoles.length})
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAllDbRoles}
+                      disabled={loadingRoles || dbRoles.length === 0}
+                      className="h-6 px-2.5 text-[11px] font-medium border-primary/40 text-primary hover:bg-primary/10 hover:border-primary transition-colors"
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearAllDbRoles}
+                      disabled={selectedRoles.length === 0}
+                      className="h-6 px-2 text-[11px] font-medium text-slate-500 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-2 rounded-md border border-slate-200 bg-slate-50/50">
                   {loadingRoles ? (
                     <span className="text-xs text-slate-400 p-2">Loading roles from database...</span>
