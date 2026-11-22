@@ -98,8 +98,11 @@ else:
             'PASSWORD': os.getenv('MYSQL_PASSWORD', ''),
             'HOST': os.getenv('MYSQL_HOST', '127.0.0.1'),
             'PORT': os.getenv('MYSQL_PORT', '3306'),
+            'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60')),
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'charset': 'utf8mb4',
+                'connect_timeout': 10,
             },
         }
     }

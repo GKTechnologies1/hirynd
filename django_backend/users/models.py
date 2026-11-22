@@ -91,6 +91,7 @@ class User(AbstractBaseUser, PermissionsMixin):
                 name='user_seq_number_idx',
                 condition=models.Q(seq_number__isnull=False),
             ),
+            models.Index(fields=['approval_status'], name='idx_users_approval_status'),
         ]
 
     @property

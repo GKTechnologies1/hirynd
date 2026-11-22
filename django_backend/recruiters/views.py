@@ -256,6 +256,8 @@ def job_applications(request, candidate_id):
             candidate_id=candidate_id
         ).select_related('submission_log').order_by('-created_at')
 
+        include_description = request.query_params.get('include_description', 'true').lower() != 'false'
+
         # Optional server-side pagination (backward-compatible: old clients get full list)
         try:
             page = int(request.query_params.get('page', 0))
@@ -266,6 +268,11 @@ def job_applications(request, candidate_id):
         except (ValueError, TypeError):
             page_size = 0
 
+        context = {}
+        if not include_description:
+            jobs = jobs.defer('job_description')
+            context['exclude_description'] = True
+
         if page > 0 and page_size > 0:
             total = jobs.count()
             start = (page - 1) * page_size
@@ -274,10 +281,10 @@ def job_applications(request, candidate_id):
                 'total': total,
                 'page': page,
                 'page_size': page_size,
-                'results': JobLinkEntrySerializer(sliced, many=True).data,
+                'results': JobLinkEntrySerializer(sliced, many=True, context=context).data,
             })
 
-        return Response(JobLinkEntrySerializer(jobs, many=True).data)
+        return Response(JobLinkEntrySerializer(jobs, many=True, context=context).data)
 
     # POST: Create new job entries atomically with defensive validation & fallback logic
     try:

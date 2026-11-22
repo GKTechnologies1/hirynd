@@ -339,6 +339,9 @@ class JobLinkEntrySerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
 
+        if self.context.get('exclude_description'):
+            data.pop('job_description', None)
+
         # 1. Normalize employment_type (never allow Hybrid, Hyrind, or Remote)
         emp_raw = str(data.get('employment_type') or '').strip().lower().replace('-', ' ').replace('_', ' ')
 
