@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.utils import timezone
 from ..models import ScraperExecution
 from .role_provider import get_eligible_roles
-from .scraper_engine import execute_scraping_run, trigger_async_scrape
+from .scraper_engine import execute_scraping_run, trigger_async_scrape, is_execution_alive
 
 logger = logging.getLogger('job_discovery')
 
@@ -27,13 +27,18 @@ def run_scheduled_job_discovery(force: bool = False, jobs_per_role: int = None, 
         raw_mr = os.getenv('SCRAPER_MAX_ROLES', os.getenv('SCRAPE_MAX_ROLES', '')).strip()
         max_roles = int(raw_mr) if (raw_mr.isdigit() and int(raw_mr) > 0) else None
 
-    # 1. Recover stale runs older than 3 hours with full count and cost reconciliation
-    stale_cutoff = now - timedelta(hours=3)
-    stale_runs = list(ScraperExecution.objects.filter(status='running', updated_at__lt=stale_cutoff))
-    if stale_runs:
-        from django.db.models import Sum
-        for sr in stale_runs:
-            logger.warning(f"[Scheduler] Marking stale execution {sr.id} as failed.")
+    # 1. Recover stale or dead running executions with full count and cost reconciliation
+    active_candidates = list(ScraperExecution.objects.filter(status__in=['running', 'pending']))
+    from django.db.models import Sum
+    for sr in active_candidates:
+        last_activity = sr.updated_at or sr.started_at or sr.created_at
+        age_seconds = (now - last_activity).total_seconds() if last_activity else 999999
+        alive = is_execution_alive(sr)
+        is_dead = (not alive) and (age_seconds > 120)
+        is_hung = age_seconds > (60 * 60)
+
+        if is_dead or is_hung:
+            logger.warning(f"[Scheduler] Marking abandoned execution {sr.id} as failed (alive={alive}, age={int(age_seconds)}s).")
             job_count = sr.jobs.count()
             ins_count = sr.jobs.filter(review_status='PENDING_REVIEW').count()
             dup_count = sr.jobs.filter(review_status='ALREADY_EXISTS').count()
@@ -41,7 +46,11 @@ def run_scheduled_job_discovery(force: bool = False, jobs_per_role: int = None, 
             calls = sr.cost_records.count() or sr.api_calls_count
 
             sr.status = 'failed'
-            sr.error_message = "Timed out or interrupted by process restart."
+            sr.error_message = (
+                "Execution was interrupted by a process restart or termination."
+                if is_dead else
+                "Timed out after 60 minutes without progress."
+            )
             sr.completed_at = now
             if job_count > 0:
                 sr.total_jobs_found = job_count
@@ -53,11 +62,11 @@ def run_scheduled_job_discovery(force: bool = False, jobs_per_role: int = None, 
                 sr.api_calls_count = calls
             sr.save()
 
-    # 2. Check for an active running execution
-    active_run = ScraperExecution.objects.filter(status='running').first()
-    if active_run and not force:
-        logger.warning(f"[Scheduler] Another scraper execution {active_run.id} is already in progress. Skipping.")
-        return active_run
+    # 2. Check for an active running scheduled execution
+    active_scheduled = ScraperExecution.objects.filter(trigger_type='scheduled', status='running').first()
+    if active_scheduled and is_execution_alive(active_scheduled) and not force:
+        logger.warning(f"[Scheduler] Another scheduled scraper execution {active_scheduled.id} is already in progress. Skipping.")
+        return active_scheduled
 
     # 3. Check if a scheduled run already completed recently (within last 6 hours) unless force=True
     recent_cutoff = now - timedelta(hours=6)

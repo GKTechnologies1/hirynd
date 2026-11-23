@@ -23,7 +23,7 @@ from .serializers import (
     CompanyVisaHistorySerializer,
 )
 from .services.role_provider import get_eligible_roles
-from .services.scraper_engine import trigger_async_scrape
+from .services.scraper_engine import trigger_async_scrape, is_execution_alive, kill_execution_process
 from .services.experience_detector import filter_jobs_by_experience
 
 logger = logging.getLogger('job_discovery')
@@ -46,35 +46,39 @@ def list_eligible_roles(request):
     return Response({'results': roles, 'count': len(roles)})
 
 
-def recover_stale_executions(timeout_minutes: int = 120):
+def recover_stale_executions(timeout_minutes: int = 60):
     """
-    Auto-recovers any execution marked running or pending whose last activity (updated_at)
-    is older than timeout_minutes (e.g. interrupted by gunicorn worker restart or host reboot).
+    Auto-recovers any execution marked running or pending whose worker is no longer alive.
+    If no process or thread is working on the execution, and it hasn't updated in 2 minutes,
+    it is marked failed immediately.
+    If an execution has a process alive but has been stuck without updates for > timeout_minutes (default 60m),
+    it is considered hung and marked failed.
     Reconciles actual discovered jobs, costs, and API counts so history reflects actual work completed.
     Never interrupts an actively progressing scrape.
     """
-    cutoff = timezone.now() - timedelta(minutes=timeout_minutes)
-    stale_list = list(ScraperExecution.objects.filter(
-        status__in=['running', 'pending'],
-        updated_at__lt=cutoff
-    ))
+    now = timezone.now()
+    active_candidates = list(ScraperExecution.objects.filter(status__in=['running', 'pending']))
+    if not active_candidates:
+        return
 
-    # Guard: check if an actual scraper process is currently alive on the host
-    scraper_running = False
-    try:
-        import subprocess
-        out = subprocess.check_output(['pgrep', '-f', 'run_scheduled_job_scraper'], text=True)
-        scraper_running = bool(out.strip())
-    except Exception:
-        pass
+    from django.db.models import Sum
 
-    if stale_list:
-        from django.db.models import Sum
-        for se in stale_list:
-            if se.trigger_type == 'scheduled' and scraper_running:
-                # The scheduled scraper process is alive on this host; do not mark it failed!
-                continue
+    for se in active_candidates:
+        is_alive = is_execution_alive(se)
+        last_activity = se.updated_at or se.started_at or se.created_at
+        age_seconds = (now - last_activity).total_seconds() if last_activity else 999999
 
+        # Case 1: Process/thread is completely dead, and no activity for > 120 seconds
+        is_dead = (not is_alive) and (age_seconds > 120)
+
+        # Case 2: Process exists or unknown, but has been completely silent for longer than timeout_minutes
+        is_hung = (age_seconds > timeout_minutes * 60)
+
+        if is_dead or is_hung:
+            logger.warning(
+                f"[JobScraper] Recovering abandoned execution {se.id} "
+                f"(alive={is_alive}, age={int(age_seconds)}s, dead={is_dead}, hung={is_hung})"
+            )
             job_count = se.jobs.count()
             ins_count = se.jobs.filter(review_status='PENDING_REVIEW').count()
             dup_count = se.jobs.filter(review_status='ALREADY_EXISTS').count()
@@ -82,8 +86,12 @@ def recover_stale_executions(timeout_minutes: int = 120):
             calls = se.cost_records.count() or se.api_calls_count
 
             se.status = 'failed'
-            se.error_message = "Execution timed out or was interrupted by a process restart."
-            se.completed_at = timezone.now()
+            se.error_message = (
+                "Execution was interrupted by a process restart or termination."
+                if is_dead else
+                f"Execution timed out after exceeding {timeout_minutes} minutes without progress."
+            )
+            se.completed_at = now
             if job_count > 0:
                 se.total_jobs_found = job_count
                 se.total_inserted = ins_count
@@ -105,16 +113,18 @@ def run_scraper(request):
     """
     recover_stale_executions()
 
-    # Concurrency guard: check if another execution is actively running
-    active_run = ScraperExecution.objects.filter(status='running').first()
-    if active_run:
-        # If it has been running for less than 15 minutes, prevent duplicate concurrent runs
-        if timezone.now() - active_run.started_at < timedelta(minutes=15):
-            return Response({
-                'error': f'Another scraping run ({active_run.id}) is currently in progress. Please wait for it to complete.',
-                'execution_id': str(active_run.id),
-                'status': active_run.status,
-            }, status=status.HTTP_409_CONFLICT)
+    # Concurrency guard: allow at most 2 concurrent active manual scraping runs.
+    # Background scheduled runs do NOT block manual runs.
+    active_manual_runs = [
+        run for run in ScraperExecution.objects.filter(status='running', trigger_type='manual')
+        if is_execution_alive(run)
+    ]
+    if len(active_manual_runs) >= 2:
+        return Response({
+            'error': f'A manual scraping run ({active_manual_runs[0].id}) is currently in progress. Please wait for it to complete.',
+            'execution_id': str(active_manual_runs[0].id),
+            'status': active_manual_runs[0].status,
+        }, status=status.HTTP_409_CONFLICT)
 
     serializer = ScraperRunRequestSerializer(data=request.data)
     if not serializer.is_valid():
@@ -218,10 +228,28 @@ def cancel_execution(request, execution_id):
             'status': execution.status,
         })
 
+    # Gracefully terminate running background worker process if active
+    kill_execution_process(execution)
+
+    from django.db.models import Sum
+    job_count = execution.jobs.count()
+    ins_count = execution.jobs.filter(review_status='PENDING_REVIEW').count()
+    dup_count = execution.jobs.filter(review_status='ALREADY_EXISTS').count()
+    cost_sum = execution.cost_records.aggregate(s=Sum('cost_usd'))['s'] or execution.total_cost_usd or 0
+    calls = execution.cost_records.count() or execution.api_calls_count
+
     execution.status = 'failed'
     execution.error_message = f"Canceled by user {request.user.email or request.user.id}"
     execution.completed_at = timezone.now()
-    execution.save(update_fields=['status', 'error_message', 'completed_at'])
+    if job_count > 0:
+        execution.total_jobs_found = job_count
+        execution.total_inserted = ins_count
+        execution.total_duplicates = dup_count
+    if cost_sum > 0:
+        execution.total_cost_usd = cost_sum
+    if calls > 0:
+        execution.api_calls_count = calls
+    execution.save()
 
     return Response({
         'message': 'Scraper execution successfully canceled.',
